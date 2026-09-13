@@ -570,3 +570,13 @@ tasks:
   status: complete
   created_at: '2026-09-13T00:18:01.297179+00:00'
   completed_at: '2026-09-13T00:18:51.919069+00:00'
+- id: QA-TERMINAL-JAIL-6
+  title: QA board IDs are reused for unrelated findings
+  criteria:
+  - A tested board-ID guard detects malformed or duplicate task IDs with line-level
+    diagnostics, safely compacts by keeping each ID's last raw row without JSON reserialization,
+    and the canonical tasks.jsonl is compacted to unique IDs so distinct findings
+    cannot share one ID; CI runs the guard.
+  status: complete
+  created_at: '2026-09-13T11:10:44.906144+00:00'
+  completed_at: '2026-09-13T11:22:30.013815+00:00'
