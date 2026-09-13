@@ -580,3 +580,17 @@ tasks:
   status: complete
   created_at: '2026-09-13T11:10:44.906144+00:00'
   completed_at: '2026-09-13T11:22:30.013815+00:00'
+- id: QA-TERMINAL-JAIL-7
+  title: Make seccomp negative control container-portable
+  criteria:
+  - The no-try_apply negative control passes on a bare host with Seccomp=0 and inside
+    a stock Docker container with inherited Seccomp=2, while still requiring NoNewPrivs=0.
+  - 'The positive control remains strict: try_apply reports applied=True, NoNewPrivs=1,
+    and Seccomp=2.'
+  - The change is test-only, documents inherited container-runtime filters accurately,
+    and introduces no production behavior change.
+  - The focused seccomp tests, full pytest suite, and ruff check pass; the focused
+    negative control is verified in stock Python 3.11 and 3.13 Docker containers.
+  status: complete
+  created_at: '2026-09-13T18:11:38.483464+00:00'
+  completed_at: '2026-09-13T18:19:13.150133+00:00'
