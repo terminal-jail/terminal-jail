@@ -273,6 +273,12 @@ class TestNoNewPrivsBeforeFilter:
     gets EPERM from prctl(PR_SET_SECCOMP) and try_apply() degrades to
     running without the filter. These tests run in subprocesses because a
     successful install latches no_new_privs for the process lifetime.
+
+    The negative control documents the seccomp *baseline*: a bare host
+    reports Seccomp=0, while container runtimes (Docker et al.) install
+    their own filter so /proc/self/status already reports Seccomp=2
+    before terminal-jail does anything. Only these kernel-valid baselines
+    are accepted; the positive control below remains strict.
     """
 
     PLUGIN_DIR = os.path.abspath(
@@ -285,7 +291,7 @@ class TestNoNewPrivsBeforeFilter:
         ok_expr = (
             "result.applied and nn == '1' and sc == '2'"
             if apply
-            else "nn == '0' and sc == '0'"
+            else "nn == '0' and sc in ('0', '2')"
         )
         applied_repr = "result.applied" if apply else "None"
         return (
@@ -315,11 +321,15 @@ class TestNoNewPrivsBeforeFilter:
         )
         assert "applied=True NoNewPrivs=1 Seccomp=2" in result.stdout
 
-    def test_negative_control_no_filter_without_try_apply(self) -> None:
-        """Without try_apply() the process must show Seccomp: 0 / NoNewPrivs: 0.
+    def test_negative_control_no_new_privs_without_try_apply(self) -> None:
+        """Without try_apply() NoNewPrivs stays 0; Seccomp is the env baseline.
 
-        Proves the positive test is not vacuously passing on a host where
-        /proc/self/status always reports 2/1.
+        Proves the positive test's NoNewPrivs=1 comes from terminal-jail's
+        own PR_SET_NO_NEW_PRIVS and is not vacuously passing. The seccomp
+        baseline is the environment's, not ours: Seccomp=0 on a bare host,
+        Seccomp=2 when a container runtime (Docker et al.) already
+        installed its own inherited filter. This test does NOT assert
+        that terminal-jail applied a filter, so either baseline passes.
         """
         result = subprocess.run(
             [sys.executable, "-c", self._status_probe(apply=False)],
@@ -331,7 +341,14 @@ class TestNoNewPrivsBeforeFilter:
             f"negative control failed rc={result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
-        assert "applied=None NoNewPrivs=0 Seccomp=0" in result.stdout
+        # NoNewPrivs must be 0 pre-try_apply; Seccomp is the inherited
+        # baseline (0 bare host / 2 container runtime). Anything else fails.
+        assert "applied=None NoNewPrivs=0 Seccomp=0" in result.stdout or (
+            "applied=None NoNewPrivs=0 Seccomp=2" in result.stdout
+        ), (
+            f"unexpected seccomp baseline\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
 
 # ── Standalone CLI integration tests ──────────────────────────────────────────
