@@ -611,3 +611,28 @@ tasks:
   status: complete
   created_at: '2026-09-15T02:34:30.515556+00:00'
   completed_at: '2026-09-15T02:35:12.710097+00:00'
+- id: TJ-DF-015
+  title: "P0: --user jail has NO filesystem isolation (unmapped userns) \u2014 implement\
+    \ real uid mapping with loud degraded fallback"
+  criteria:
+  - The standalone wrapper and the engine auto-sandbox prefix both use a mapping-less
+    unshare --user; after the fix, a mapped launch (--map-users=<nobody>:<subuid>:1
+    with -S/-G) is attempted first and the wrapper exports TERMINAL_JAIL_FS_ISOLATION=mapped
+    when it succeeds
+  - 'Where the host forbids the uid mapping (this host: AppArmor unprivileged_userns
+    profile denies setuid), --user still exits 0 but prints a loud warning that filesystem
+    isolation is NOT active and names the cause; rc semantics for bare mode are unchanged
+    (no silent auto-fallback)'
+  - scripts/fs-isolation-probe.py reports the filesystem-isolation layer honestly
+    (FULL/DEGRADED + cause) and always exits 0; on this host it prints DEGRADED with
+    the uid-mapping cause
+  - 'Docs no longer claim uid/filesystem isolation: README, docs/quickstart.md, specs/cli.md
+    and the in-repo skills/terminal-jail-usage/SKILL.md state that --user = PID lifecycle
+    containment + env scrub, and that filesystem isolation requires a working uid
+    mapping'
+  - 'The mapped recipe is proven to actually isolate where the host permits it: the
+    same flags run under sudo yield uid=65534 and EACCES on a caller-owned 600 file;
+    the plugin test suite stays green (no new failures vs 334 passed/13 skipped)'
+  status: complete
+  created_at: '2026-09-15T11:20:06.084479+00:00'
+  completed_at: '2026-09-15T12:05:00.032846+00:00'
