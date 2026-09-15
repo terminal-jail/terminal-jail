@@ -76,7 +76,7 @@ terminal-jail [--user] [--seccomp] [--interruptor | --no-interruptor] <command> 
 |---|---|---:|
 | `--help`, `-h` | Print the usage text to stdout and do not launch `unshare`. | 0 |
 | `--version`, `-V` | Print one machine-readable line: `terminal-jail <VERSION>`. The version is baked into the installed script by the release process. | 0 |
-| `--user` | Add user namespace isolation: launch with `unshare --user ...`; the payload runs as nobody (UID 65534). Incompatible with `--mount-proc`, so `/proc` shows host PIDs. | Payload |
+| `--user` | Add user namespace isolation: launch with `unshare --user ...` for PID-namespace lifecycle containment + identity env scrub. Filesystem isolation requires a uid mapping (`--map-users`/`--map-groups` with `-S`/`-G`); it is active ONLY when the exact-flags preflight passes (`TERMINAL_JAIL_FS_ISOLATION=mapped`), otherwise the launch degrades to the mapping-less namespace with a loud `no filesystem isolation` warning (`=degraded`). Incompatible with `--mount-proc`, so the host PID view is exposed. Classify hosts with `scripts/fs-isolation-probe.py`. | Payload |
 | `--seccomp` | Apply a seccomp BPF filter inside the jail (denies mount, pivot_root, kexec_load, and other dangerous syscalls) via `standalone/seccomp-loader.py`. Equivalent to `TERMINAL_JAIL_SECCOMP=1`; the env var controls the default (default off). | Payload |
 | `--interruptor` | Enable the Bash command firewall (default). The command is evaluated by the interruptor engine (JSON bridge to `plugin/terminal_jail/interruptor_bridge.py`) before execution: block → formatted block box on stderr + exit `126`; modify → the sandboxed rewrite is executed; allow → pass through. | 126 on block; payload otherwise |
 | `--no-interruptor` | Disable the Bash command firewall for this invocation. `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` has the same effect. | Payload |
@@ -115,8 +115,13 @@ Run COMMAND in a new Linux PID namespace. Arguments are passed without
 shell re-parsing.
 
 Options:
-  --user         Add user namespace isolation (process runs as nobody=65534).
-                 Incompatible with --mount-proc; /proc shows host PIDs.
+  --user         Add user namespace isolation: PID namespace lifecycle
+                 containment (namespace-exit kills children) + identity env
+                 scrub. The host PID view is exposed (no private /proc
+                 mount). Filesystem isolation is active ONLY when a uid
+                 mapping can be created (TERMINAL_JAIL_FS_ISOLATION=mapped);
+                 otherwise it degrades loudly to the mapping-less namespace
+                 (see README and scripts/fs-isolation-probe.py).
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
@@ -162,7 +167,7 @@ Requirements:
 
 The four extended options change the launch shape as follows:
 
-- `--user`: the `--mount-proc` flag is replaced by `--user` (`unshare --user --pid --fork --kill-child=SIGKILL`). The payload runs as nobody (65534); because user namespaces cannot mount `/proc` unprivileged, `/proc` shows host PIDs — this is documented behavior, not a regression.
+- `--user`: the `--mount-proc` flag is replaced by `--user`. Default launch: `unshare --user --map-users=65534:<subuid_start>:1 --map-groups=65534:<subgid_start>:1 -S 65534 -G 65534 --pid --fork --kill-child=SIGKILL` (subuid/subgid start read from `/etc/subuid`|`/etc/subgid` for the calling user, fallback `100000`) — this uid mapping is what makes filesystem isolation REAL. The exact mapped flags are preflighted first (`unshare <mapped flags> true`); on failure the launch degrades to the legacy mapping-less `unshare --user --pid --fork --kill-child=SIGKILL` with a loud `no filesystem isolation` warning on stderr (e.g. hosts whose AppArmor profile denies setuid/setgid inside unprivileged user namespaces), and `TERMINAL_JAIL_FS_ISOLATION` is exported as `mapped` or `degraded` accordingly (`TERMINAL_JAIL_UID_MAP=0|off|false` forces the legacy mode). Because user namespaces cannot mount `/proc` unprivileged, the host PID view remains exposed — this is documented behavior, not a regression. Hosts are classified by `scripts/fs-isolation-probe.py`.
 - `--seccomp`: the launch becomes `unshare <flags> bash -c 'exec python3 "$@"' terminal-jail <seccomp-loader.py> <command> [args...]`. The loader applies the BPF filter inside the PID namespace, then `exec`s the payload. `TERMINAL_JAIL_SECCOMP` (values `1`/`true`/`yes`/`on`) enables the same path without the flag. The loader path is resolved relative to the wrapper (`standalone/seccomp-loader.py`); a missing loader is a preflight error (exit `2`).
 - Interruptor evaluation (`--interruptor`, default on): before preflight/launch, the reconstructed command string is piped to `plugin/terminal_jail/interruptor_bridge.py` (located next to the wrapper, or via the Python module path). The bridge returns JSON: `{"action":"block",...}` → the wrapper prints a formatted block box to stderr and exits `126` (in `warn` mode it prints `[terminal-jail] WARN: ...` to stderr and allows execution); `{"action":"modify","modified":"<unshare-prefixed rewrite>"}` → the rewrite already contains its own `unshare` prefix and is executed as-is via `bash -c` (no second wrapping — double `unshare` fails with EPERM); `{"action":"allow"}` → normal launch. If the bridge is unavailable the wrapper fails open with a warning to stderr. `--no-interruptor` and `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` skip evaluation entirely.
 - When the interruptor rewrites a command (`modify`), `--seccomp` is not applied (the rewrite's own namespace wrapper governs).

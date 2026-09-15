@@ -19,10 +19,15 @@ from .parser import Segment, SegmentType
 from .rules import Rule, RuleLoader, RuleSet
 from .sandbox import BUILTIN_SANDBOX
 from .types import Action, InterceptResult
+from .userns import unshare_prefix
 
 # The unshare namespace prefix used by both the built-in auto-sandbox
-# layer and user-defined modify rules (identical wrap semantics).
-_UNSHARE_PREFIX = "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
+# layer and user-defined modify rules (identical wrap semantics). Built
+# once per process by userns.unshare_prefix(): a MAPPED user namespace
+# (real filesystem isolation) when the host permits it, the legacy
+# mapping-less flags otherwise — see plugin/terminal_jail/interruptor/
+# userns.py and scripts/fs-isolation-probe.py (TJ-DF-015).
+_UNSHARE_PREFIX = unshare_prefix()
 
 
 class Decider:

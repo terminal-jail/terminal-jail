@@ -40,7 +40,7 @@ directives) — NOT a PID namespace boundary as shipped.
 ./install.sh                                     # from a checkout — the supported path
 TJ=~/.local/bin/terminal-jail
 $TJ --version                                    # terminal-jail 1.1.0
-$TJ --user echo hi                               # runs as nobody(65534); rc=0
+$TJ --user echo hi                               # contained + env-scrubbed; rc=0
 $TJ --user bash -c 'exit 7'; echo $?             # exit codes pass through → 7
 echo hi | $TJ --user cat                         # stdin passes through
 $TJ --user fdisk /dev/sda                        # COMMAND BLOCKED box, rc=126
@@ -50,8 +50,9 @@ $TJ --no-interruptor --user fdisk /dev/sda       # per-invocation firewall off
 ```
 
 **Always use `--user` on hosts that deny unprivileged PID namespaces**
-(plain `unshare --pid` → EPERM — this host, documented). `--user` trades
-/proc isolation for UID isolation (host PIDs visible). NOTE: `--user`
+(plain `unshare --pid` → EPERM — this host, documented). `--user` gives
+PID-namespace lifecycle containment + env scrub on every host (host PIDs
+visible in /proc). NOTE: `--user`
 scrubs identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent —
 TJ-DF-014 fixed, verified live 2026-08-19).
 
@@ -108,16 +109,27 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 3. **`--user` scrubs `$USER`/`$HOME`** (TJ-DF-014 fixed): process runs
    with USER=nobody, LOGNAME=nobody, HOME=/nonexistent — no caller
    identity via env.
-   **⚠️ BUT `--user` does NOT isolate the filesystem (TJ-DF-015, P0,
-   found 2026-09-15):** `unshare --user` runs with NO uid mapping, so
-   despite `id`/`/proc/self/status` showing 65534 (unmapped-display
-   overflow), the process keeps the caller's underlying kuid and file
-   permissions evaluate as the OWNER of the caller's files. Verified:
-   a jailed process read a mode-600 file under the caller's home and
-   created files there as owner; a REAL `sudo -u nobody` on the same
-   file is denied (errno 13). Treat `--user` as: PID lifecycle
-   containment (`--kill-child`) + env scrub + firewall — nothing more —
-   until a real uid mapping lands (board TJ-DF-015).
+   **⚠️ `--user` filesystem isolation is CONDITIONAL (TJ-DF-015, fixed
+   2026-09-15):** the CLI now builds a uid-MAPPED namespace
+   (`--map-users=65534:<subuid>:1 --map-groups=... -S 65534 -G 65534`,
+   subuid/subgid from /etc/subuid|/etc/subgid) whenever the exact-flags
+   preflight passes — that mapping makes file permissions REAL (a jailed
+   process cannot read caller-owned mode-600 files or write the caller's
+   home), exported as `TERMINAL_JAIL_FS_ISOLATION=mapped`. When the host
+   denies the mapping (this one: AppArmor `unprivileged_userns` denies
+   setuid/setgid/setgroups inside unprivileged user namespaces), it falls
+   back to the legacy MAPPING-LESS namespace (`=degraded`) and prints a
+   loud `no filesystem isolation` warning: `id` shows 65534 (unmapped-
+   display overflow) but the process keeps the caller's underlying kuid
+   and file permissions evaluate as the OWNER of the caller's files
+   (verified: a jailed process read a mode-600 file under the caller's
+   home and created files there as owner; a REAL `sudo -u nobody` on the
+   same file is denied, errno 13). Escape hatch:
+   `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode.
+   Classify any host before trusting `--user` for filesystem isolation:
+   `python3 scripts/fs-isolation-probe.py` (FULL/DEGRADED + cause, rc=0).
+   Bare mode is unchanged: no automatic `--user` fallback ever
+   (TJ-GAP-034).
 4. **seccomp works now** (TJ-DF-002/003 fixed, verified): filter installs
    unprivileged; denies via `SECCOMP_RET_ERRNO|EPERM` (NOT SIGSYS — a
    denied syscall returns EPERM, it doesn't kill). Verify with

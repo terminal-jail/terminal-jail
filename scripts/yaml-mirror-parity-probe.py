@@ -36,10 +36,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "plugin"))
 
-from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST  # noqa: E402
-from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST  # noqa: E402
-from terminal_jail.interruptor.rules import RuleLoader  # noqa: E402
-from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX  # noqa: E402
+from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
+from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
+from terminal_jail.interruptor.rules import RuleLoader
+from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
 
 RULES_DIR = REPO_ROOT / "plugin" / "terminal_jail" / "rules"
 

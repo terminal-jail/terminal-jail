@@ -57,8 +57,11 @@ Verify:
 > **Host limitation:** the `echo "in jail"` example requires an unprivileged
 > PID namespace (`unshare --pid`). On hosts that deny it (e.g. this one —
 > `unshare: unshare failed: Operation not permitted`, EPERM), use the `--user`
-> fallback instead: `~/.local/bin/terminal-jail --user echo "in jail"` (runs
-> as nobody=65534; `/proc` shows host PIDs). See §3c and FAQ §4.
+> fallback instead: `~/.local/bin/terminal-jail --user echo "in jail"`
+> (PID-namespace lifecycle containment + identity env scrub; the host PID
+> view stays exposed). Filesystem isolation via `--user` is active ONLY where
+> a uid mapping can be created — classify your host with
+> `python3 scripts/fs-isolation-probe.py`. See §3c and FAQ §4.
 
 If `~/.local/bin` is not on your PATH, run the export the installer printed,
 or use the full path above.
@@ -74,11 +77,16 @@ terminal-jail --no-interruptor echo "bypass"                   # same, per-invoc
 ### 3c. Privilege + syscall hardening
 
 ```bash
-terminal-jail --user echo "runs as nobody (65534)"   # user namespace
+terminal-jail --user echo "contained + env-scrubbed"   # user namespace
 terminal-jail --user --seccomp echo "seccomp BPF active"   # denies mount/pivot_root/...
 # NOTE: on hosts denying unprivileged PID namespaces (unshare: Operation not
 # permitted), the bare `--seccomp` form fails — use the --user variant above
 # (see FAQ §4) or deploy the systemd drop-in.
+# `--user` gives PID-namespace containment + env scrub on EVERY host;
+# FILESYSTEM isolation additionally requires a uid mapping. When the host
+# denies one (e.g. Ubuntu AppArmor 'unprivileged_userns') the CLI prints
+# `no filesystem isolation` on stderr and continues. Classify your host:
+python3 scripts/fs-isolation-probe.py    # FULL / DEGRADED + cause, exit 0
 ```
 
 ### 3d. Hermes plugin
@@ -223,7 +231,20 @@ importable). If the bridge is genuinely missing, enforce mode FAILS CLOSED
 
 **Why does `--user` show host PIDs in `/proc`?**
 User namespaces cannot mount a namespace-local `/proc` unprivileged. This is
-documented behavior — `--user` trades `/proc` isolation for UID isolation.
+documented behavior — `--user` trades `/proc` isolation for user-namespace
+containment.
+
+**Does `--user` isolate the filesystem?**
+Only when the host allows a **uid mapping** (checked by preflight; marker
+`TERMINAL_JAIL_FS_ISOLATION=mapped`). A mapping-less `--user` namespace is
+an identity display only: `id` shows 65534, but file permissions still
+evaluate as the calling user, so mode-600 files stay readable and home files
+writable. When the mapping cannot be created (e.g. Ubuntu AppArmor profile
+`unprivileged_userns` denies setuid/setgid inside unprivileged user
+namespaces) the CLI prints a loud `no filesystem isolation` warning and
+continues with PID-namespace containment + env scrub. Classify your host
+and see the remediation options:
+`python3 scripts/fs-isolation-probe.py`.
 
 **Does the plugin block commands?**
 No. `pre_tool_call` can block/allow at the Hermes level, but the plugin is

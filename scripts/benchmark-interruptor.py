@@ -29,10 +29,10 @@ _project_root = _script_dir.parent
 _plugin_dir = _project_root / "plugin"
 sys.path.insert(0, str(_plugin_dir))
 
-from terminal_jail.interruptor import intercept  # noqa: E402
-from terminal_jail.interruptor.config import Config  # noqa: E402
-from terminal_jail.interruptor.decider import Decider  # noqa: E402
-from terminal_jail.interruptor.parser import parse_command  # noqa: E402
+from terminal_jail.interruptor import intercept
+from terminal_jail.interruptor.config import Config
+from terminal_jail.interruptor.decider import Decider
+from terminal_jail.interruptor.parser import parse_command
 
 
 def _generate_n_rules(n: int, prefix: str) -> list:

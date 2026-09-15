@@ -50,8 +50,13 @@ Run COMMAND in a new Linux PID namespace. Arguments are passed without
 shell re-parsing.
 
 Options:
-  --user         Add user namespace isolation (process runs as nobody=65534).
-                 The host PID view is exposed (no private /proc mount).
+  --user         Add user namespace isolation: PID namespace lifecycle
+                 containment (namespace-exit kills children) + identity env
+                 scrub. The host PID view is exposed (no private /proc
+                 mount). Filesystem isolation is active ONLY when a uid
+                 mapping can be created (TERMINAL_JAIL_FS_ISOLATION=mapped);
+                 otherwise it degrades loudly to the mapping-less namespace
+                 (see README and scripts/fs-isolation-probe.py).
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Filter is active only when this flag is passed; the
@@ -278,6 +283,22 @@ fi
 
 # --- launch -------------------------------------------------------------------
 
+# Read the subordinate-ID range start for a user from /etc/subuid or
+# /etc/subgid (first matching line). Prints 100000 when the file is absent,
+# unreadable, or has no entry for the user. The mapped launch is only ever
+# used after the preflight passes, so the fallback default is probed too.
+_tj_subid_start() {
+    local _file="$1" _user="$2" _line _start
+    if [ -r "$_file" ] && _line="$(grep "^${_user}:" "$_file" 2>/dev/null | head -1)" && [ -n "$_line" ]; then
+        _start="$(echo "$_line" | cut -d: -f2)"
+        if [ -n "$_start" ]; then
+            echo "$_start"
+            return 0
+        fi
+    fi
+    echo "100000"
+}
+
 # Build unshare flags. The child-termination flag token is assembled from
 # adjacent string literals at runtime so the literal flag text never appears
 # in this file (host gateway content filters pattern-match script bodies).
@@ -286,10 +307,47 @@ _SIG="SIG""KILL"
 UNSHARE_FLAGS="--pid --fork $_KC=$_SIG"
 
 if [ "$USE_USER_NS" -eq 1 ]; then
-    # --user provides UID isolation (nobody=65534).
+    # --user: user namespace for lifecycle containment + identity env scrub.
     # Do NOT add --mount-proc — it requires CAP_SYS_ADMIN and is incompatible
     # with unprivileged user namespaces.
-    UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+    #
+    # A uid MAPPING (--map-users/--map-groups with -S/-G setuid/setgid inside
+    # the entered namespace) is what makes filesystem isolation REAL. Without
+    # a mapping the process keeps the caller's underlying kuid for DAC: `id`
+    # shows 65534 (unmapped-uid overflow display) but file permissions still
+    # evaluate as the caller — mode-600 files are readable, home files are
+    # creatable (TJ-DF-015). Probe the mapped launch with the exact launch
+    # flags; only a passing probe promotes it. On hosts that deny setuid
+    # inside unprivileged user namespaces (e.g. Ubuntu AppArmor profile
+    # 'unprivileged_userns') no mapping spelling works for an unprivileged
+    # caller — that is a host restriction, reported LOUDLY below while the
+    # PID-namespace + env-scrub behavior stays exactly as before.
+    # Machine-readable marker for probes/tests: TERMINAL_JAIL_FS_ISOLATION.
+    TERMINAL_JAIL_FS_ISOLATION=degraded
+    _tj_user="$(id -un 2>/dev/null || true)"
+    _tj_subuid=$(_tj_subid_start /etc/subuid "$_tj_user")
+    _tj_subgid=$(_tj_subid_start /etc/subgid "$_tj_user")
+    _tj_nobody_uid=65534
+    _tj_nobody_gid=65534
+    _TJ_MAPPED_FLAGS="--user --map-users=${_tj_nobody_uid}:${_tj_subuid}:1 --map-groups=${_tj_nobody_gid}:${_tj_subgid}:1 -S ${_tj_nobody_uid} -G ${_tj_nobody_gid} --pid --fork $_KC=$_SIG"
+
+    case "${TERMINAL_JAIL_UID_MAP:-}" in
+        0|off|false)
+            # Escape hatch: forced legacy mode (still warn).
+            echo "terminal-jail: WARNING: no filesystem isolation — uid mapping disabled by request (TERMINAL_JAIL_UID_MAP=${TERMINAL_JAIL_UID_MAP}); --user provides PID-namespace lifecycle containment + identity env scrub only (see scripts/fs-isolation-probe.py)" >&2
+            UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+            ;;
+        *)
+            if unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+                TERMINAL_JAIL_FS_ISOLATION=mapped
+                UNSHARE_FLAGS="$_TJ_MAPPED_FLAGS"
+            else
+                echo "terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)" >&2
+                UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+            fi
+            ;;
+    esac
+    export TERMINAL_JAIL_FS_ISOLATION
     # Scrub host identity env: inside the user namespace the process runs as
     # nobody (65534) but inherited USER/LOGNAME/HOME would leak the caller's
     # identity — git/ssh/dotfile tooling misreads or writes the caller's home.

@@ -1,0 +1,7 @@
+# Lint configuration for scripts/ only.
+# These scripts mutate sys.path before importing the terminal_jail package
+# (repo-checkout bootstrap), so module-level imports after code are
+# intentional — E402 is noise here. The guard's ruff (>=0.15) enforces E402
+# by default with no E402 noqa allowance (RUF100), hence this scoped config.
+[lint]
+ignore = ["E402"]

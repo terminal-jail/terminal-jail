@@ -22,11 +22,15 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 # → unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo "I'"'"'m in a PID namespace"'
 # On hosts that deny unprivileged PID namespaces (unshare: Operation not
 # permitted, EPERM), bare mode exits 2 with a message naming the fallback
-# (see Graceful Degradation); use the --user fallback instead (runs as
-# nobody=65534, /proc shows host PIDs):
+# (see Graceful Degradation); use the --user fallback instead (PID-namespace
+# lifecycle containment + identity env scrub):
 ./standalone/terminal-jail --user echo "I'm in a PID namespace"
 # --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody,
-# HOME=/nonexistent) so jailed tools can't read/write the caller's home.
+# HOME=/nonexistent). Filesystem isolation requires a uid MAPPING
+# (--map-users/--map-groups + -S/-G); it is active ONLY when the host permits
+# it — otherwise the wrapper warns loudly on stderr:
+#   "no filesystem isolation — could not create a uid mapping ...".
+# Check your host: python3 scripts/fs-isolation-probe.py
 ```
 
 The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, every descendant is immediately killed — even processes that double-fork or change session leaders.
@@ -143,7 +147,10 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on t
 > namespace (`unshare --pid`). On hosts that deny it (e.g. this one —
 > `unshare: unshare failed: Operation not permitted`, EPERM), use the `--user`
 > fallback instead: `./standalone/terminal-jail --user echo "I'm in a PID
-> namespace"` (runs as nobody=65534; `/proc` shows host PIDs). See
+> namespace"` (PID-namespace lifecycle containment + identity env scrub; the
+> host PID view stays exposed). Filesystem isolation via `--user` is active
+> ONLY where a uid mapping can be created — classify your host with
+> `python3 scripts/fs-isolation-probe.py`. See
 > [Host Limitations](#host-limitations).
 
 ### Plugin (Hermes)
@@ -243,7 +250,7 @@ Every layer degrades independently:
 
 - **systemd drop-in**: optional — gateway runs without it. Provides process-visibility/privilege/cgroup hardening only; it is NOT a PID namespace boundary (the stronger directives are staged).
 - **Plugin**: observes and logs. Returns command unchanged if disabled. Does not block execution.
-- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation.
+- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation. `--user` itself has two tiers, chosen by an exact-flags preflight: when the host permits a **uid mapping** the launch is `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1 -S 65534 -G 65534 ...` (real filesystem isolation, `TERMINAL_JAIL_FS_ISOLATION=mapped`); otherwise it falls back to the legacy mapping-less namespace (`=degraded`) and prints a loud `no filesystem isolation` warning — the PID-namespace containment, env scrub, and exit codes stay exactly the same. `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode. `scripts/fs-isolation-probe.py` classifies any host (FULL/DEGRADED + cause, always exit 0).
 - **E2E battery (PID-NS layer)**: every run is labeled **FULL** or **DEGRADED** by `scripts/pidns-capability-probe.py` (classifies any host by probing bare mode: `FULL` when the namespace works, `DEGRADED` when the host refuses creation, `UNKNOWN` otherwise — the probe always exits 0). When the host is DEGRADED, bare-mode tests **skip** with a `HOST-DEGRADED-PIDNS` marker instead of silently passing, so the battery never reports "ALL GREEN" without actually verifying PID-namespace containment; on FULL hosts the containment test asserts the jailed command lands in a new PID namespace inode.
 
 ## Requirements
@@ -256,6 +263,8 @@ Every layer degrades independently:
 ## Host Limitations
 
 `unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI's bare mode (which appends --mount-proc internally) will fail on some commands. This is a host kernel policy limitation, not a code defect. The systemd layer provides process-visibility and privilege hardening (`ProtectProc=invisible`, `NoNewPrivileges=true`) independently of `unshare`, but it does not create a PID namespace (the shipped drop-in's `PrivateUsers`/`RestrictNamespaces` directives are commented out pending verification).
+
+The same applies to `--user`'s filesystem isolation tier: creating a uid mapping requires setuid/setgid inside the unprivileged user namespace, and stock Ubuntu ships an AppArmor profile (`unprivileged_userns`) that denies exactly those capabilities (`apparmor="DENIED" ... capname="setuid"` in `dmesg`; see also `sysctl kernel.apparmor_restrict_unprivileged_userns`). On such hosts the CLI falls back to the mapping-less namespace and prints a loud `no filesystem isolation` warning — a host restriction, not a code defect. Classify any host with `python3 scripts/fs-isolation-probe.py` (prints FULL or DEGRADED plus the diagnosed cause, always exits 0).
 
 ## Repository layout
 

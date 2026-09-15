@@ -66,6 +66,10 @@ rules:
       # Or regex:
       # regex: 'curl\s+.*\|\s*(?:bash|sh|dash|zsh)'
     # For modify action:
+    # NOTE: the engine builds this prefix via terminal_jail/interruptor/
+    # userns.py — a uid-MAPPED namespace when the host permits it (real
+    # filesystem isolation), the legacy mapping-less flags shown here
+    # otherwise (TJ-DF-015; classify hosts with scripts/fs-isolation-probe.py).
     modify:
       prepend: "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
       # or: rewrite: "safe-alternative {args}"
@@ -197,6 +201,12 @@ The interruptor operates in one of three modes, configured via env var
 [terminal-jail] Modified: pytest → unshare --user --pid --fork --kill-child=SIGKILL pytest
 ```
 
+The auto-sandbox prefix carries a uid mapping where the host permits one
+(`--map-users/--map-groups` + `-S`/`-G` — real filesystem isolation); on
+hosts that deny mappings (e.g. AppArmor `unprivileged_userns`) it is the
+mapping-less flags shown above, without filesystem isolation
+(`scripts/fs-isolation-probe.py`).
+
 ### 7.3 Allowed Commands
 
 No output (transparent passthrough).
@@ -298,6 +308,8 @@ case "$action" in
         exec bash -c "$command"
         ;;
     allow|warn|log)
+        # Prefix built by interruptor/userns.py: uid-mapped when the host
+        # permits it, legacy mapping-less flags otherwise (TJ-DF-015).
         exec unshare --user --pid --fork --kill-child=SIGKILL bash -c "$command"
         ;;
 esac
