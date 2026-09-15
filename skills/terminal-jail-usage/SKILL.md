@@ -106,8 +106,18 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
    would-have-blocked reason on stderr. Use it for downgraded-rule
    visibility; `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` env works too.
 3. **`--user` scrubs `$USER`/`$HOME`** (TJ-DF-014 fixed): process runs
-   as nobody with USER=nobody, LOGNAME=nobody, HOME=/nonexistent — don't
-   expect caller identity inside the jail (by design).
+   with USER=nobody, LOGNAME=nobody, HOME=/nonexistent — no caller
+   identity via env.
+   **⚠️ BUT `--user` does NOT isolate the filesystem (TJ-DF-015, P0,
+   found 2026-09-15):** `unshare --user` runs with NO uid mapping, so
+   despite `id`/`/proc/self/status` showing 65534 (unmapped-display
+   overflow), the process keeps the caller's underlying kuid and file
+   permissions evaluate as the OWNER of the caller's files. Verified:
+   a jailed process read a mode-600 file under the caller's home and
+   created files there as owner; a REAL `sudo -u nobody` on the same
+   file is denied (errno 13). Treat `--user` as: PID lifecycle
+   containment (`--kill-child`) + env scrub + firewall — nothing more —
+   until a real uid mapping lands (board TJ-DF-015).
 4. **seccomp works now** (TJ-DF-002/003 fixed, verified): filter installs
    unprivileged; denies via `SECCOMP_RET_ERRNO|EPERM` (NOT SIGSYS — a
    denied syscall returns EPERM, it doesn't kill). Verify with
