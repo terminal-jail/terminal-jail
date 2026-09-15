@@ -46,22 +46,53 @@ Release-mode downloads (wrapper + SHA-256 from a published release) are
 installer refuses rather than hitting the dead default release URL — release
 assets are not published yet.
 
-Verify:
+**Step 1 — classify the host** (the probe always exits 0):
 
 ```bash
 ~/.local/bin/terminal-jail --version   # → terminal-jail 1.1.0
+python3 scripts/pidns-capability-probe.py
+# FULL     → the host can create unprivileged PID namespaces — bare mode works
+# DEGRADED → it cannot (bare mode exits 2, fail-closed) — use --user
+# UNKNOWN  → read the probe's message before trusting either branch
+```
+
+**Step 2 — run the branch your host reported.** Containment is proven only by
+the jailed process landing in a **different PID-namespace inode** than the
+host; `rc=0` on its own proves nothing about isolation.
+
+`FULL` — bare mode is contained; prove the PID namespace:
+
+```bash
+readlink /proc/self/ns/pid                         # host: pid:[4026531836]
 ~/.local/bin/terminal-jail echo "in jail"          # runs in a PID namespace
+~/.local/bin/terminal-jail sh -c 'readlink /proc/self/ns/pid'
+# → a DIFFERENT inode than the host line above = PID-namespace containment
 ~/.local/bin/terminal-jail rm -rf /                # → COMMAND BLOCKED, exit 126
 ```
 
-> **Host limitation:** the `echo "in jail"` example requires an unprivileged
-> PID namespace (`unshare --pid`). On hosts that deny it (e.g. this one —
-> `unshare: unshare failed: Operation not permitted`, EPERM), use the `--user`
-> fallback instead: `~/.local/bin/terminal-jail --user echo "in jail"`
-> (PID-namespace lifecycle containment + identity env scrub; the host PID
-> view stays exposed). Filesystem isolation via `--user` is active ONLY where
-> a uid mapping can be created — classify your host with
-> `python3 scripts/fs-isolation-probe.py`. See §3c and FAQ §4.
+`DEGRADED` — bare mode refuses and does **not** fall back (fail-closed by
+design, TJ-GAP-034); `--user` is the supported path:
+
+```bash
+~/.local/bin/terminal-jail echo "in jail"
+# terminal-jail: namespace creation failed (unshare exit 1); command not run
+#   — on unprivileged hosts try --user                             (exit 2)
+~/.local/bin/terminal-jail --user sh -c 'readlink /proc/self/ns/pid'
+# host: pid:[4026531836] → jail: pid:[4026538825]  (different inode)
+~/.local/bin/terminal-jail --user sh -c 'echo "$USER $LOGNAME $HOME"'
+# → nobody nobody /nonexistent                      (identity env scrubbed)
+~/.local/bin/terminal-jail rm -rf /                # → COMMAND BLOCKED, exit 126
+```
+
+The jailed inode value changes per invocation — the check is the inequality,
+not a literal. On a `DEGRADED` host `--user` gives **PID-namespace containment
++ identity env scrub** on every run, but the host PID view stays exposed (no
+private `/proc` mount — PID 1 is still the host's `systemd`) and there is **no
+filesystem isolation** unless a uid mapping can be created; when the mapping is
+denied the CLI prints `no filesystem isolation` on stderr and continues. That
+second layer is classified by a different probe —
+`python3 scripts/fs-isolation-probe.py` (`FULL` | `DEGRADED` + cause, exit 0) —
+do not conflate the two. See §3c and FAQ §4.
 
 If `~/.local/bin` is not on your PATH, run the export the installer printed,
 or use the full path above.

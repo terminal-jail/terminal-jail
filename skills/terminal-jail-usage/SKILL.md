@@ -6,8 +6,9 @@ description: >-
   before integrating with or extending terminal-jail. Written from the
   2026-08-10 dogfood run, refreshed 2026-08-19 (all TJ-DF-001..010 fixes
   verified live; new findings TJ-DF-011..014), refreshed 2026-08-22
-  (TJ-DF-011/012/014 closed — pitfalls below updated to fixed reality).
-version: 1.1.0
+  (TJ-DF-011/012/014 closed — pitfalls below updated to fixed reality),
+  refreshed 2026-09-15 (TJ-DF-017 — verify flow branches on FULL/DEGRADED).
+version: 1.2.0
 category: software-development
 ---
 
@@ -34,13 +35,16 @@ directives) — NOT a PID namespace boundary as shipped.
 | Deploy shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway (setpriv + seccomp + interruptor). Host-specific. |
 | systemd drop-in | `systemd/90-terminal-jail-hardening.conf` | 4 active directives; full profile commented out. |
 
-## Quick start (real commands, verified on Ubuntu 26.04 / kernel 7.0.0-29)
+## Quick start (real commands, verified on Ubuntu 26.04 / kernel 7.0.0-30)
 
 ```bash
 ./install.sh                                     # from a checkout — the supported path
 TJ=~/.local/bin/terminal-jail
 $TJ --version                                    # terminal-jail 1.1.0
-$TJ --user echo hi                               # contained + env-scrubbed; rc=0
+python3 scripts/pidns-capability-probe.py        # FULL | DEGRADED | UNKNOWN, exit 0
+readlink /proc/self/ns/pid                       # host pid-ns inode (here 4026531836)
+$TJ --user sh -c 'readlink /proc/self/ns/pid'    # DIFFERENT inode → containment
+$TJ --user echo hi                               # exec + rc=0 only — NOT containment proof
 $TJ --user bash -c 'exit 7'; echo $?             # exit codes pass through → 7
 echo hi | $TJ --user cat                         # stdin passes through
 $TJ --user fdisk /dev/sda                        # COMMAND BLOCKED box, rc=126
@@ -49,10 +53,21 @@ TERMINAL_JAIL_INTERRUPTOR_MODE=disabled $TJ --user fdisk /dev/sda
 $TJ --no-interruptor --user fdisk /dev/sda       # per-invocation firewall off
 ```
 
+**Branch on the probe — `rc=0` is never evidence of containment; a different
+pid-ns inode is.** `FULL` → bare mode (`$TJ echo hi`) creates the namespace;
+prove it by comparing the jailed `readlink /proc/self/ns/pid` with the host's
+(they must differ). `DEGRADED` (this host) → bare mode exits 2, fail-closed,
+with **no automatic `--user` fallback** (TJ-GAP-034), so `--user` is the
+supported path.
+
 **Always use `--user` on hosts that deny unprivileged PID namespaces**
-(plain `unshare --pid` → EPERM — this host, documented). `--user` gives
-PID-namespace lifecycle containment + env scrub on every host (host PIDs
-visible in /proc). NOTE: `--user`
+(plain `unshare --pid` → EPERM — this host, documented). On such a host
+`--user` gives PID-namespace lifecycle containment + env scrub on every host
+(host PIDs visible in /proc — PID 1 is still the host's `systemd`), and NO
+filesystem isolation unless a uid mapping can be created: the CLI prints
+`no filesystem isolation` on stderr and continues. That separate layer is
+classified by `python3 scripts/fs-isolation-probe.py` (`FULL`/`DEGRADED`,
+exit 0) — do not conflate the two probes. NOTE: `--user`
 scrubs identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent —
 TJ-DF-014 fixed, verified live 2026-08-19).
 
