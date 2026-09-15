@@ -671,5 +671,6 @@ tasks:
   - 'live control: the same command in enforce mode exits 126 with the COMMAND BLOCKED
     box and rule builtin-curl-pipe-shell'
   - "no repository code change is claimed \u2014 board-only premise closure"
-  status: in_progress
+  status: complete
   created_at: '2026-09-15T18:15:34.095339+00:00'
+  completed_at: '2026-09-15T18:20:18.888320+00:00'
