@@ -198,6 +198,29 @@ Ubuntu package revisions vary over an LTS lifetime; verify the installed manager
 
 On either release, `PrivateUsers`, `ProtectProc`, mount namespacing, and cgroup resource controls may be constrained by an unusual host/container environment. Verify on the actual target, not only in a development container. In particular, a containerized systemd manager may not be able to create the required namespaces or enforce cgroup limits delegated by its parent.
 
+## Per-host verification
+
+The compatibility matrix is necessary but not sufficient: a manager may accept a directive and still not enforce it in a given scope or container environment. `scripts/systemd-directive-probe.py` verifies each directive above on the actual host by launching throwaway transient units (`systemd-run --wait --collect` with a unique `tj-probe-*` unit name per run) and letting each payload observe its own sandbox state. It never touches any persistent unit, never writes under `/etc`, never installs a drop-in, and never calls `systemctl daemon-reload`; the only payload-side filesystem write is a probe file inside a temporary directory that is removed afterwards.
+
+Invocation:
+
+```bash
+python3 scripts/systemd-directive-probe.py            # human-readable verdicts
+python3 scripts/systemd-directive-probe.py --json     # machine-readable records
+python3 scripts/systemd-directive-probe.py --scope system   # via sudo -n systemd-run
+```
+
+The probe is a classifier, not a gate: it always exits 0. Per directive it reports one of:
+
+- `ENFORCED` — the manager accepted the directive AND the payload observed the effect (for example `NoNewPrivs: 1`, `pids.max = 256`, `/` mounted read-only under `ProtectSystem=strict`).
+- `NOT_ENFORCED` — the unit ran but the effect was not observed; the evidence field records what was seen instead.
+- `UNSUPPORTED` — the manager rejected the directive at load (`Unknown assignment` / `Unknown lvalue` / `Failed to load`).
+- `UNKNOWN` — systemd-run missing, timeout, or uninterpretable evidence.
+
+`CloseOnExec=true` is included as a negative control and must classify `UNSUPPORTED` on a correct manager (see the deliberate correction above).
+
+**Scope finding (verified live on karaHermes-mde-7840hs, 2026-09-15):** the user manager (`systemd-run --user`) under-enforces mount-namespace directives. `ProtectHome=true`, `ProtectSystem=strict`, `ProtectProc=invisible` (hidepid), and `ProtectControlGroups=true` are accepted but leave the home directory visible, `/` writable, `/proc` unfiltered, and the cgroup hierarchy writable in the user scope, while the system scope enforces all four. A user-scope empty `CapabilityBoundingSet=` even kills the unit (exit status 218/CAPABILITIES) without producing evidence. Directives whose evidence depends on mount namespaces or capabilities must therefore be verified and deployed with the same manager scope that will run the gateway service. This does not change the boundary statement above: even a fully enforced profile is hardening, not a PID namespace isolation boundary — use the standalone CLI (`standalone/terminal-jail`) for that.
+
 ## Pre-deployment review and dry run
 
 Perform these checks before copying the drop-in into `/etc`. They validate syntax and inspect the effective unit without restarting production traffic.

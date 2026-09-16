@@ -45,6 +45,27 @@ to `/usr/local/lib/terminal-jail` (override with `TERMINAL_JAIL_HOME` / `TERMINA
 
 ### Step 4 — Deploy systemd hardening (Phase 5)
 
+First, verify what THIS host's systemd actually accepts and enforces (TJ-GAP-052).
+The probe launches throwaway transient units only — it never touches the gateway
+unit, never writes under `/etc`, and never reloads the manager:
+
+```bash
+python3 /home/kara/terminal-jail/scripts/systemd-directive-probe.py --json
+```
+
+Read the verdicts before copying anything: `ENFORCED` = accepted and observed
+enforced; `NOT_ENFORCED` = accepted but the effect was not observed (expected in
+the USER scope for ProtectHome/ProtectSystem/ProtectProc/ProtectControlGroups —
+the user manager under-enforces mount-namespace directives; the system scope
+enforces them); `UNSUPPORTED` = rejected at load (the `CloseOnExec=true`
+negative control must classify UNSUPPORTED); `UNKNOWN` = probe could not tell.
+See the "Per-host verification" section of `specs/systemd.md` for the verdict
+model. Only proceed when the directives you are about to activate are ENFORCED
+under the manager scope that will run the gateway service (the system scope,
+since the gateway runs as a system service).
+
+Then copy the drop-in:
+
 ```bash
 sudo mkdir -p /etc/systemd/system/hermes-gateway.service.d
 sudo cp /home/kara/terminal-jail/systemd/90-terminal-jail-hardening.conf \
