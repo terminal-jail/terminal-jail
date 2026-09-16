@@ -674,3 +674,22 @@ tasks:
   status: complete
   created_at: '2026-09-15T18:15:34.095339+00:00'
   completed_at: '2026-09-15T18:20:18.888320+00:00'
+- id: TJ-GAP-052
+  title: Per-host systemd directive verification harness
+  criteria:
+  - python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged
+    directive and exits 0
+  - On this host the probe classifies the invalid CloseOnExec=true control as unsupported
+    and reports at least 4 staged directives as ENFORCED with non-empty evidence
+  - Plain-text mode python3 scripts/systemd-directive-probe.py exits 0 and prints
+    a per-directive verdict line plus a summary line
+  - The script never references hermes-gateway.service nor systemctl restart or stop,
+    and writes nothing under /etc
+  - plugin/test_systemd_directive_probe.py passes offline with an injected fake systemd-run
+    shim
+  - 'Full suite has 0 failures: .venv/bin/python -m pytest -q'
+  - specs/systemd.md and docs/deploy-to-karahermes.md both reference scripts/systemd-directive-probe.py
+  - uvx ruff check plugin/ scripts/systemd-directive-probe.py reports no errors
+  status: complete
+  created_at: '2026-09-16T00:35:02.337173+00:00'
+  completed_at: '2026-09-16T01:18:15.796451+00:00'
