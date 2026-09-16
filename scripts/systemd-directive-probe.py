@@ -642,7 +642,7 @@ def main(argv: list[str] | None = None) -> int:
         prefix = " ".join(_scope_argv(record["scope"]))
         location = f" ({prefix} {record['scope']})" if prefix else f" ({record['scope']})"
         print(
-            f"{record['verdict']:<13} {record['directive']}={record['value']}"
+            f"{record['verdict']:<13} {record['value']}"
             f"{location}: {record['evidence']}"
         )
     print(
