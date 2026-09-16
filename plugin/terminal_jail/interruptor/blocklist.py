@@ -22,6 +22,9 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             # is NOT the first operand (kill 123 -1, kill -9 -1,
             # kill -1 -1) or when preceded by `--` (kill -- -1);
             # `-1` in first-operand position is a SIGNAL (kill -1 123
+            # is SIGUSR1 to pid 123 — legit). TJ-GAP-053: quote chars
+            # added to the terminator class so quoted/embedded forms
+            # (node -e 'execSync("kill -9 -1")', kill -9 "-1") match too.
             # = SIGHUP, benign). The pattern requires at least one
             # operand before the pid `-1` (signal spec and/or pid),
             # excludes `-1` as the argument of -s/-n/-l (not a pid),
@@ -30,7 +33,7 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             # `(?<!\S)` is the token-start boundary (plain \b can never
             # sit between a space and a dash); re.IGNORECASE covers
             # -TERM/-SIGKILL.
-            "pattern": r"(?<![A-Za-z0-9])kill\s+(?:-s\s+\S+\s+|-n\s+\S+\s+|--\s+|-(?!l)\S+\s+|\d+\s+)+(?<!-s\s)(?<!-n\s)(?<!\S)-1(?:\s|;|\||&|\)|`|$)",
+            "pattern": r"(?<![A-Za-z0-9])kill\s+(?:-s\s+\S+\s+|-n\s+\S+\s+|--\s+|-(?!l)\S+\s+|\d+\s+)+(?<!-s\s)(?<!-n\s)(?<!\S)-1(?:\s|;|\||&|\)|`|$|[\"'])",
         },
     ),
     Rule(
@@ -46,7 +49,7 @@ BUILTIN_BLOCKLIST: list[Rule] = [
     ),
     Rule(
         rule_id="builtin-fork-bomb",
-        description="Fork bomb pattern",
+        description="Fork bomb pattern (any function name, not just ':')",
         priority=1000,
         action="block",
         block_message="Fork bomb pattern detected and blocked.",
@@ -56,7 +59,13 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             # wrapper-quoted argv form ``':' '(){' ':' '|:' '&' '};:'``
             # (which produces ``: (){ : |: & };:`` after the bridge
             # strips the per-token quote pairs) is still caught.
-            "pattern": r":\s*\(\)\s*\{.*?:\s*\|\s*:\s*&\s*\}",
+            # TJ-GAP-053: named-func variants (bomb(){ bomb|bomb & };bomb)
+            # passed the classic pattern — generalized via backreference.
+            # Guards are LOOKAROUNDS, not \b: ':' is non-word so \b never
+            # matches before it (regression: classic form must stay caught);
+            # lookarounds exclude word-char neighbors on both sides, which
+            # still defeats substring tricks (bomb(){ bombard|bomb & };bomb).
+            "pattern": r"([A-Za-z_]\w*|:)\s*\(\s*\)\s*\{[^}]*(?<![\w:])\1\s*\|\s*\1(?![\w:])[^}]*&[^}]*\}\s*;\s*\1(?![\w:])",
         },
     ),
     Rule(
@@ -168,13 +177,16 @@ BUILTIN_BLOCKLIST: list[Rule] = [
     ),
     Rule(
         rule_id="builtin-sudo",
-        description="Privilege escalation via sudo",
+        description="Privilege escalation via sudo/doas/su/pkexec",
         priority=1000,
         action="block",
-        block_message="Privilege escalation (sudo) is blocked in the sandbox.",
+        block_message="Privilege escalation (sudo/doas/su/pkexec) is blocked in the sandbox.",
         match={
             "type": "pattern",
-            "pattern": r"\bsudo\s",
+            # TJ-GAP-053: sudo was the only covered escalator; doas/su/pkexec
+            # passed (probe 2026-09-16). \bsu\s requires whitespace so sudo/
+            # support/setuptools substrings never match.
+            "pattern": r"\b(?:sudo|doas|pkexec|su)\s",
         },
     ),
     Rule(
@@ -196,6 +208,116 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             # ("heuristic detection") was parser-only; this makes it a
             # real block rule. Battery-proven gap 2026-08-22 (kara-lair).
             "pattern": r"\b(os\.system|os\.popen|shutil\.rmtree|subprocess\.(?:call|run|Popen|check_call|check_output))\s*\(|\b(eval|exec|__import__)\s*\(",
+        },
+    ),
+    # ── TJ-GAP-053 wave (probe 2026-09-16: 25 real-world escape techniques) ──
+    Rule(
+        rule_id="builtin-indirect-shell",
+        description="Encoded/piped shell execution (base64 -d | sh, printf-decode | bash)",
+        priority=1000,
+        action="block",
+        block_message="Decode-then-execute pipelines (base64/printf | sh) are blocked — the firewall cannot inspect what runs.",
+        match={
+            "type": "pattern",
+            "pattern": r"\bbase64\s+[^|;]*\|\s*(bash|sh|dash|zsh|ksh)\b|\b(printf|echo)\b[^|;]*\\x[0-9a-f]{2}[^|;]*\|\s*(bash|sh|dash|zsh|ksh)\b",
+        },
+    ),
+    Rule(
+        rule_id="builtin-vm-delete",
+        description="Bulk unlink via find -delete",
+        priority=1000,
+        action="block",
+        block_message="find -delete / -exec bulk or arbitrary-command execution is blocked.",
+        match={
+            "type": "pattern",
+            # Any find (absolute or relative) arming -delete/-exec/-ok:
+            # -delete is rm-class destruction, -exec/-ok is arbitrary
+            # command execution per matched file. Plain finds stay allowed.
+            "pattern": r"\bfind\s[^|;&]*\s-(?:delete|exec|execdir|ok)\b",
+        },
+    ),
+    Rule(
+        rule_id="builtin-device-write",
+        description="Raw device writes outside dd (shred, wipefs, cat/urandom redirects)",
+        priority=1000,
+        action="block",
+        block_message="Raw block-device writes (shred/wipefs/cat > /dev/sd*) are blocked.",
+        match={
+            "type": "pattern",
+            "pattern": r"\b(?:shred|wipefs|blkdiscard)\b[^|;&]*\s/dev/|>\s*/dev/(?:sd[a-z]|nvme\d|hd[a-z]|vd[a-z]|mmcblk\d)",
+        },
+    ),
+    Rule(
+        rule_id="builtin-ns-escape",
+        description="Namespace/jail escape tooling (nsenter into a foreign PID, chroot, setpriv to uid 0)",
+        priority=1000,
+        action="block",
+        block_message="Namespace escape tooling (nsenter -t <pid>, chroot, setpriv/setuid to 0) is blocked.",
+        match={
+            "type": "pattern",
+            "pattern": r"\bnsenter\s[^|;&]*-t\s|\bchroot\s|\bsetpriv\s[^|;&]*--(?:reuid|setuid|clear-groups)\b|\bunshare\s[^|;&]*-r\b",
+        },
+    ),
+    Rule(
+        rule_id="builtin-persistence",
+        description="Persistence install (crontab write, rc.local, systemd unit drop)",
+        priority=1000,
+        action="block",
+        block_message="Persistence writes (crontab -, /etc/cron*, rc.local, systemd units) are blocked.",
+        match={
+            "type": "pattern",
+            "pattern": r"\bcrontab\s+(?:-(?:\s|$)|-l?\s*<|-[a-z]*\s*/etc/)|/etc/cron\.(?:d|daily|hourly)/|/etc/rc\.local\b|/etc/systemd/system/[^|;&]*\.(?:service|timer)\b",
+        },
+    ),
+    Rule(
+        rule_id="builtin-script-killall",
+        description="killall/pkill with SIGKILL (mass-kill by process name)",
+        priority=1000,
+        action="block",
+        block_message="killall/pkill -9 is blocked (mass kill by name). Non-KILL killall/pkill is allowed for legit restarts.",
+        match={
+            "type": "pattern",
+            "pattern": r"\b(?:killall|pkill)\s+(?:-[a-zA-Z]*9[a-zA-Z]*\s|--signal\s*(?:SIGKILL|9)\s|--kill\s)",
+        },
+    ),
+    Rule(
+        rule_id="builtin-interpreter-escape",
+        description="Interpreter APIs that destroy state (perl/ruby/node/python: unlink, rm_rf, rmSync, fork loops, execSync of kills)",
+        priority=1000,
+        action="block",
+        block_message="Interpreter destruction APIs (unlink/rm_rf/rmSync/execSync-masskill/os-fork-loop) are blocked — same design as the code-injection rule.",
+        match={
+            "type": "pattern",
+            # Covered forms: perl unlink/rmtree, ruby FileUtils.rm_rf,
+            # node fs.rmSync + child_process.execSync("kill -9 -1"),
+            # python os.fork() loops (fork-bomb via API).
+            # child_process.exec/execSync arming requires a kill shape in
+            # the SAME command string (probe 2026-09-16: node-exec-kill).
+            "pattern": r"\bperl\b[^|;&]*\bunlink\b|\bperl\b[^|;&]*\brmtree\b|FileUtils\.rm_rf\(|\brmSync\s*\(|child_process\.(?:exec|execSync)\s*\([^)]*(?:kill|rm)\b|os\.fork\s*\(\s*\)\s*(?:while|for)|while\s+[^;\n]*:\s*os\.fork\s*\(",
+        },
+    ),
+    Rule(
+        rule_id="builtin-self-rewrite",
+        description="Self-modification vectors (rm on the rules/config itself, mv-over",
+        priority=1000,
+        action="block",
+        block_message="Rewriting terminal-jail's own rules/config is blocked.",
+        match={
+            "type": "pattern",
+            "pattern": r"\brm\s+[^|;&]*terminal-jail/(?:rules|00-builtins)|\bmv\s+[^|;&]*\s[^|;&]*terminal-jail/rules|\bcat\s+[^|;&]*>\s*/etc/terminal-jail/|>\s*~/.config/terminal-jail/rules",
+        },
+    ),
+    Rule(
+        rule_id="builtin-var-indirection",
+        description="Variable-indirection shell destruction (D=/; rm -rf $D and friends)",
+        priority=1000,
+        action="block",
+        block_message="Variable-indirection destructive forms (var=/ then rm -rf $var) are blocked.",
+        match={
+            "type": "pattern",
+            # Root assigned to a var, then an rm of that var — the var must
+            # be a bare `/` or `/*` assignment to qualify as root-scoped.
+            "pattern": r"\b[A-Za-z_]\w*=/\s*;\s*rm\s+(?=[^|;&]*-[a-zA-Z]*r)|\b[A-Za-z_]\w*=/\*\s*;\s*rm\s+(?=[^|;&]*-[a-zA-Z]*r)",
         },
     ),
 ]

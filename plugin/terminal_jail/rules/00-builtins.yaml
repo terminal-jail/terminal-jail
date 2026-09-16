@@ -29,7 +29,7 @@ rules:
       # compound forms (kill -- -1; echo x) still match. (?<!\S) =
       # token-start boundary (plain \b never sits between a space and a
       # dash); IGNORECASE covers -TERM/-SIGKILL.
-      pattern: "(?<![A-Za-z0-9])kill\\s+(?:-s\\s+\\S+\\s+|-n\\s+\\S+\\s+|--\\s+|-(?!l)\\S+\\s+|\\d+\\s+)+(?<!-s\\s)(?<!-n\\s)(?<!\\S)-1(?:\\s|;|\\||&|\\)|`|$)"
+      pattern: "(?<![A-Za-z0-9])kill\\s+(?:-s\\s+\\S+\\s+|-n\\s+\\S+\\s+|--\\s+|-(?!l)\\S+\\s+|\\d+\\s+)+(?<!-s\\s)(?<!-n\\s)(?<!\\S)-1(?:\\s|;|\\||&|\\)|`|$|[\\\"'])"
 
   - id: "builtin-killpg-pid1"
     description: "Process-group kill targeting PID 1 or own process group (killpg API)"
@@ -41,13 +41,16 @@ rules:
       pattern: "(os\\.killpg|killpg)\\s*\\(\\s*[01]\\s*,|os\\.kill\\s*\\(\\s*[01]\\s*,|process\\.kill\\s*\\(\\s*-?[01]\\s*,|kill\\(-?[01],|kill\\s*\\(\\s*[01]\\s*,\\s*(9|SIGKILL)"
 
   - id: "builtin-fork-bomb"
-    description: "Fork bomb pattern"
+    description: "Fork bomb pattern (any function name, not just ':')"
     priority: 1000
     action: block
     block_message: "Fork bomb pattern detected and blocked."
     match:
       type: pattern
-      pattern: ":\\s*\\(\\)\\s*\\{.*?:\\s*\\|\\s*:\\s*&\\s*\\}"
+      # TJ-GAP-053: named-func variants (bomb(){ bomb|bomb & };bomb)
+      # passed the classic pattern — generalized via backreference.
+      # Guards are LOOKAROUNDS not \b (':' is non-word; classic form stays caught).
+      pattern: "([A-Za-z_]\\w*|:)\\s*\\(\\s*\\)\\s*\\{[^}]*(?<![\\w:])\\1\\s*\\|\\s*\\1(?![\\w:])[^}]*&[^}]*\\}\\s*;\\s*\\1(?![\\w:])"
 
   - id: "builtin-rm-rf-root"
     description: "Recursive root filesystem removal"
@@ -128,13 +131,16 @@ rules:
       pattern: "(curl|wget)\\b.*\\|\\s*(bash|sh|dash|zsh)"
 
   - id: "builtin-sudo"
-    description: "Privilege escalation via sudo"
+    description: "Privilege escalation via sudo/doas/su/pkexec"
     priority: 1000
     action: block
-    block_message: "Privilege escalation (sudo) is blocked in the sandbox."
+    block_message: "Privilege escalation (sudo/doas/su/pkexec) is blocked in the sandbox."
     match:
       type: pattern
-      pattern: "\\bsudo\\s"
+      # TJ-GAP-053: sudo was the only covered escalator; doas/su/pkexec
+      # passed (probe 2026-09-16). \bsu\s requires whitespace so sudo/
+      # support/setuptools substrings never match.
+      pattern: "\\b(?:sudo|doas|pkexec|su)\\s"
 
   - id: "builtin-code-injection"
     description: "Code-injection vectors in interpreter arguments (os.system, os.popen, shutil.rmtree, subprocess, eval, exec, __import__)"
@@ -149,6 +155,97 @@ rules:
       # presence anywhere in the raw command string). Spec T-I33
       # ("heuristic detection") was parser-only; now a real block rule.
       pattern: "\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\("
+
+  - id: "builtin-indirect-shell"
+    description: "Encoded/piped shell execution (base64 -d | sh, printf-decode | bash)"
+    priority: 1000
+    action: block
+    block_message: "Decode-then-execute pipelines (base64/printf | sh) are blocked — the firewall cannot inspect what runs."
+    match:
+      type: pattern
+      # TJ-GAP-053 wave (probe 2026-09-16): base64-pipe-shell passed as ALLOW.
+      pattern: "\\bbase64\\s+[^|;]*\\|\\s*(bash|sh|dash|zsh|ksh)\\b|\\b(printf|echo)\\b[^|;]*\\\\x[0-9a-f]{2}[^|;]*\\|\\s*(bash|sh|dash|zsh|ksh)\\b"
+
+  - id: "builtin-vm-delete"
+    description: "Bulk unlink or arbitrary execution via find (-delete / -exec / -ok)"
+    priority: 1000
+    action: block
+    block_message: "find -delete / -exec bulk or arbitrary-command execution is blocked."
+    match:
+      type: pattern
+      # Any find arming -delete/-exec/-ok; plain finds (reads) stay allowed.
+      pattern: "\\bfind\\s[^|;&]*\\s-(?:delete|exec|execdir|ok)\\b"
+
+  - id: "builtin-device-write"
+    description: "Raw device writes outside dd (shred, wipefs, blkdiscard, urandom redirects)"
+    priority: 1000
+    action: block
+    block_message: "Raw block-device writes (shred/wipefs/cat > /dev/sd*) are blocked."
+    match:
+      type: pattern
+      pattern: "\\b(?:shred|wipefs|blkdiscard)\\b[^|;&]*\\s/dev/|>\\s*/dev/(?:sd[a-z]|nvme\\d|hd[a-z]|vd[a-z]|mmcblk\\d)"
+
+  - id: "builtin-ns-escape"
+    description: "Namespace/jail escape tooling (nsenter into a foreign PID, chroot, setpriv to uid 0, unshare -r)"
+    priority: 1000
+    action: block
+    block_message: "Namespace escape tooling (nsenter -t <pid>, chroot, setpriv/setuid to 0) is blocked."
+    match:
+      type: pattern
+      # setpriv arming flags: \b cannot sit between whitespace and `--`,
+      # so the flags are matched directly (fixes setpriv probe gap).
+      pattern: "\\bnsenter\\s[^|;&]*-t\\s|\\bchroot\\s|\\bsetpriv\\s[^|;&]*--(?:reuid|setuid|clear-groups)\\b|\\bunshare\\s[^|;&]*-r\\b"
+
+  - id: "builtin-persistence"
+    description: "Persistence install (crontab write, cron spool, rc.local, systemd unit drop)"
+    priority: 1000
+    action: block
+    block_message: "Persistence writes (crontab -, /etc/cron*, rc.local, systemd units) are blocked."
+    match:
+      type: pattern
+      # `crontab -l` (read) stays allowed; only WRITE forms match.
+      # Trailing `crontab -` (EOF-terminated write) needs the (?:\s|$) arm.
+      pattern: "\\bcrontab\\s+(?:-(?:\\s|$)|-l?\\s*<|-[a-z]*\\s*/etc/)|/etc/cron\\.(?:d|daily|hourly)/|/etc/rc\\.local\\b|/etc/systemd/system/[^|;&]*\\.(?:service|timer)\\b"
+
+  - id: "builtin-script-killall"
+    description: "killall/pkill with SIGKILL (mass-kill by process name)"
+    priority: 1000
+    action: block
+    block_message: "killall/pkill -9 is blocked (mass kill by name). Non-KILL killall/pkill is allowed for legit restarts."
+    match:
+      type: pattern
+      pattern: "\\b(?:killall|pkill)\\s+(?:-[a-zA-Z]*9[a-zA-Z]*\\s|--signal\\s*(?:SIGKILL|9)\\s|--kill\\s)"
+
+  - id: "builtin-interpreter-escape"
+    description: "Interpreter destruction APIs (perl/ruby/node/python: unlink, rmtree, rm_rf, rmSync, execSync-masskill, fork loops)"
+    priority: 1000
+    action: block
+    block_message: "Interpreter destruction APIs (unlink/rm_rf/rmSync/execSync-masskill/os-fork-loop) are blocked — same design as the code-injection rule."
+    match:
+      type: pattern
+      # child_process.exec/execSync arms only when a kill/rm shape sits in
+      # the SAME command string (probe 2026-09-16: node-exec-kill).
+      pattern: "\\bperl\\b[^|;&]*\\bunlink\\b|\\bperl\\b[^|;&]*\\brmtree\\b|FileUtils\\.rm_rf\\(|\\brmSync\\s*\\(|child_process\\.(?:exec|execSync)\\s*\\([^)]*(?:kill|rm)\\b|os\\.fork\\s*\\(\\s*\\)\\s*(?:while|for)|while\\s+[^;\\n]*:\\s*os\\.fork\\s*\\("
+
+  - id: "builtin-self-rewrite"
+    description: "Self-modification vectors (rm/mv/redirect on terminal-jail's own rules and config)"
+    priority: 1000
+    action: block
+    block_message: "Rewriting terminal-jail's own rules/config is blocked."
+    match:
+      type: pattern
+      pattern: "\\brm\\s+[^|;&]*terminal-jail/(?:rules|00-builtins)|\\bmv\\s+[^|;&]*\\s[^|;&]*terminal-jail/rules|\\bcat\\s+[^|;&]*>\\s*/etc/terminal-jail/|>\\s*~/.config/terminal-jail/rules"
+
+  - id: "builtin-var-indirection"
+    description: "Variable-indirection shell destruction (D=/; rm -rf $D and friends)"
+    priority: 1000
+    action: block
+    block_message: "Variable-indirection destructive forms (var=/ then rm -rf $var) are blocked."
+    match:
+      type: pattern
+      # Root assigned to a var, then an rm of that var — the var must be a
+      # bare `/` or `/*` assignment to qualify as root-scoped.
+      pattern: "\\b[A-Za-z_]\\w*=/\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)|\\b[A-Za-z_]\\w*=/\\*\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)"
 
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block
