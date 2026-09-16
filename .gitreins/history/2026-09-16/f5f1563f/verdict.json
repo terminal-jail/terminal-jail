@@ -1,0 +1,98 @@
+{
+  "task_id": "TJ-GAP-057",
+  "task_title": "CI RED: pin ruff to one version and make lint deterministic",
+  "task_criteria": [
+    "The repo names exactly one ruff version: .github/workflows/ci.yml installs a pinned ruff==0.16.8 (no bare 'pip install ruff') and pyproject.toml [dependency-groups] dev pins the same version",
+    "pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit [tool.ruff.lint].select) so a future ruff release can no longer change the default rule set and red the gate without a commit",
+    "plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8: 'ruff check plugin/' and 'uvx ruff check plugin/' both exit 0",
+    "The full test suite still passes on the changed tree"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9fb04a67c708f695c51c7255eb94b0e748136631",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m2:32PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3415051 bytes (3.42 MB) in 385ms\u001b[0m\n\u001b[90m2:32PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m2:32PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3415051 bytes (3.42 MB) in 385ms\u001b[0m\n\u001b[90m2:32PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 415 items\n\nplugin/test_board_id_guard.py ........................                   [  5%]\nplugin/test_escape_waves.py ..........................................   [ 15%]\nplugin/test_install.py .....................                             [ 20%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 49%]\n..........................................................               [ 63%]\nplugin/test_interruptor_integration.py .............s.....               [ 67%]\nplugin/test_metrics_export.py .....................                      [ 72%]\nplugin/test_packaging.py ........                                        [ 74%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_seccomp.py .........................................sss      [ 89%]\nplugin/test_standalone_cli.py ........sssssss..ss                        [ 93%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py ..............s                                    [100%]\n\n======================= 401 passed, 14 skipped in 14.84s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The repo names exactly one ruff version: .github/workflows/ci.yml installs a pinned ruff==0.16.8 (no bare 'pip install ruff') and pyproject.toml [dependency-groups] dev pins the same version: .github/workflows/ci.yml:51 `run: pip install 'ruff==0.16.8'` (pinned, no bare install); pyproject.toml:34 `dev = [\"pytest>=8\", \"ruff==0.16.8\"]`. grep for 'ruff' across .github/, pyproject.toml, uv.lock shows only these version declarations \u2014 no other ruff version is named in CI or packaging config.\n  \u2713 pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit [tool.ruff.lint].select) so a future ruff release can no longer change the default rule set and red the gate without a commit: pyproject.toml:51-56: `[tool.ruff]` with `target-version = \"py311\"` and `line-length = 88`, plus `[tool.ruff.lint]` with explicit `select = [\"E4\", \"E7\", \"E9\", \"F\", \"I\"]`. The rule set is now pinned in-repo rather than inherited from ruff defaults.\n  \u2713 plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8: 'ruff check plugin/' and 'uvx ruff check plugin/' both exit 0: `ruff --version` -> ruff 0.15.22; `ruff check plugin/` -> 'All checks passed!' EXIT=0. `uvx ruff --version` -> ruff 0.16.8; `uvx ruff check plugin/` -> 'All checks passed!' EXIT=0. Targeted `--select I001` under both versions also EXIT=0. plugin/test_escape_waves.py:16-17 imports are correctly sorted (`import pytest` then `from terminal_jail.interruptor import ...`).\n  \u2713 The full test suite still passes on the changed tree: Ran the configured test command from .gitreins/config.yaml (`pytest -x --tb=short`): PYTEST_EXIT=0, output tail '401 passed, 14 skipped in 17.38s' (415 collected, 0 failures).\nAll four criteria verified: ruff pinned to 0.16.8 in both ci.yml and pyproject.toml dev group, explicit [tool.ruff]/[tool.ruff.lint] config present, plugin/ lints clean under both ruff 0.15.22 and 0.16.8, and the full suite passes (401 passed, 14 skipped, exit 0).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The repo names exactly one ruff version: .github/workflows/ci.yml installs a pinned ruff==0.16.8 (no bare 'pip install ruff') and pyproject.toml [dependency-groups] dev pins the same version: .github/workflows/ci.yml:51 `run: pip install 'ruff==0.16.8'` (pinned, no bare install); pyproject.toml:34 `dev = [\"pytest>=8\", \"ruff==0.16.8\"]`. grep for 'ruff' across .github/, pyproject.toml, uv.lock shows only these version declarations \u2014 no other ruff version is named in CI or packaging config.\n  \u2713 pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit [tool.ruff.lint].select) so a future ruff release can no longer change the default rule set and red the gate without a commit: pyproject.toml:51-56: `[tool.ruff]` with `target-version = \"py311\"` and `line-length = 88`, plus `[tool.ruff.lint]` with explicit `select = [\"E4\", \"E7\", \"E9\", \"F\", \"I\"]`. The rule set is now pinned in-repo rather than inherited from ruff defaults.\n  \u2713 plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8: 'ruff check plugin/' and 'uvx ruff check plugin/' both exit 0: `ruff --version` -> ruff 0.15.22; `ruff check plugin/` -> 'All checks passed!' EXIT=0. `uvx ruff --version` -> ruff 0.16.8; `uvx ruff check plugin/` -> 'All checks passed!' EXIT=0. Targeted `--select I001` under both versions also EXIT=0. plugin/test_escape_waves.py:16-17 imports are correctly sorted (`import pytest` then `from terminal_jail.interruptor import ...`).\n  \u2713 The full test suite still passes on the changed tree: Ran the configured test command from .gitreins/config.yaml (`pytest -x --tb=short`): PYTEST_EXIT=0, output tail '401 passed, 14 skipped in 17.38s' (415 collected, 0 failures).\nAll four criteria verified: ruff pinned to 0.16.8 in both ci.yml and pyproject.toml dev group, explicit [tool.ruff]/[tool.ruff.lint] config present, plugin/ lints clean under both ruff 0.15.22 and 0.16.8, and the full suite passes (401 passed, 14 skipped, exit 0).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The repo names exactly one ruff version: .github/workflows/ci.yml installs a pinned ruff==0.16.8 (no bare 'pip install ruff') and pyproject.toml [dependency-groups] dev pins the same version",
+                "status": "PASS",
+                "detail": ".github/workflows/ci.yml:51 `run: pip install 'ruff==0.16.8'` (pinned, no bare install); pyproject.toml:34 `dev = [\"pytest>=8\", \"ruff==0.16.8\"]`. grep for 'ruff' across .github/, pyproject.toml, uv.lock shows only these version declarations \u2014 no other ruff version is named in CI or packaging config."
+              },
+              {
+                "criterion": "pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit [tool.ruff.lint].select) so a future ruff release can no longer change the default rule set and red the gate without a commit",
+                "status": "PASS",
+                "detail": "pyproject.toml:51-56: `[tool.ruff]` with `target-version = \"py311\"` and `line-length = 88`, plus `[tool.ruff.lint]` with explicit `select = [\"E4\", \"E7\", \"E9\", \"F\", \"I\"]`. The rule set is now pinned in-repo rather than inherited from ruff defaults."
+              },
+              {
+                "criterion": "plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8: 'ruff check plugin/' and 'uvx ruff check plugin/' both exit 0",
+                "status": "PASS",
+                "detail": "`ruff --version` -> ruff 0.15.22; `ruff check plugin/` -> 'All checks passed!' EXIT=0. `uvx ruff --version` -> ruff 0.16.8; `uvx ruff check plugin/` -> 'All checks passed!' EXIT=0. Targeted `--select I001` under both versions also EXIT=0. plugin/test_escape_waves.py:16-17 imports are correctly sorted (`import pytest` then `from terminal_jail.interruptor import ...`)."
+              },
+              {
+                "criterion": "The full test suite still passes on the changed tree",
+                "status": "PASS",
+                "detail": "Ran the configured test command from .gitreins/config.yaml (`pytest -x --tb=short`): PYTEST_EXIT=0, output tail '401 passed, 14 skipped in 17.38s' (415 collected, 0 failures)."
+              }
+            ],
+            "summary": "All four criteria verified: ruff pinned to 0.16.8 in both ci.yml and pyproject.toml dev group, explicit [tool.ruff]/[tool.ruff.lint] config present, plugin/ lints clean under both ruff 0.15.22 and 0.16.8, and the full suite passes (401 passed, 14 skipped, exit 0)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-057\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m2:32PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3415051 bytes (3.42 MB) in 385ms\u001b[0m\n\u001b[90m2:32PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The repo names exactly one ruff version: .github/workflows/ci.yml installs a pinned ruff==0.16.8 (no bare 'pip install ruff') and pyproject.toml [dependency-groups] dev pins the same version: .github/workflows/ci.yml:51 `run: pip install 'ruff==0.16.8'` (pinned, no bare install); pyproject.toml:34 `dev = [\"pytest>=8\", \"ruff==0.16.8\"]`. grep for 'ruff' across .github/, pyproject.toml, uv.lock shows only these version declarations \u2014 no other ruff version is named in CI or packaging config.\n  \u2713 pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit [tool.ruff.lint].select) so a future ruff release can no longer change the default rule set and red the gate without a commit: pyproject.toml:51-56: `[tool.ruff]` with `target-version = \"py311\"` and `line-length = 88`, plus `[tool.ruff.lint]` with explicit `select = [\"E4\", \"E7\", \"E9\", \"F\", \"I\"]`. The rule set is now pinned in-repo rather than inherited from ruff defaults.\n  \u2713 plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8: 'ruff check plugin/' and 'uvx ruff check plugin/' both exit 0: `ruff --version` -> ruff 0.15.22; `ruff check plugin/` -> 'All checks passed!' EXIT=0. `uvx ruff --version` -> ruff 0.16.8; `uvx ruff check plugin/` -> 'All checks passed!' EXIT=0. Targeted `--select I001` under both versions also EXIT=0. plugin/test_escape_waves.py:16-17 imports are correctly sorted (`import pytest` then `from terminal_jail.interruptor import ...`).\n  \u2713 The full test suite still passes on the changed tree: Ran the configured test command from .gitreins/config.yaml (`pytest -x --tb=short`): PYTEST_EXIT=0, output tail '401 passed, 14 skipped in 17.38s' (415 collected, 0 failures).\nAll four criteria verified: ruff pinned to 0.16.8 in both ci.yml and pyproject.toml dev group, explicit [tool.ruff]/[tool.ruff.lint] config present, plugin/ lints clean under both ruff 0.15.22 and 0.16.8, and the full suite passes (401 passed, 14 skipped, exit 0).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-16T19:34:03.767956"
+}

@@ -693,3 +693,18 @@ tasks:
   status: complete
   created_at: '2026-09-16T00:35:02.337173+00:00'
   completed_at: '2026-09-16T01:18:15.796451+00:00'
+- id: TJ-GAP-057
+  title: 'CI RED: pin ruff to one version and make lint deterministic'
+  criteria:
+  - 'The repo names exactly one ruff version: .github/workflows/ci.yml installs a
+    pinned ruff==0.16.8 (no bare ''pip install ruff'') and pyproject.toml [dependency-groups]
+    dev pins the same version'
+  - pyproject.toml declares an explicit [tool.ruff] config (target-version + explicit
+    [tool.ruff.lint].select) so a future ruff release can no longer change the default
+    rule set and red the gate without a commit
+  - 'plugin/test_escape_waves.py satisfies I001 under BOTH ruff 0.15.22 and ruff 0.16.8:
+    ''ruff check plugin/'' and ''uvx ruff check plugin/'' both exit 0'
+  - The full test suite still passes on the changed tree
+  status: complete
+  created_at: '2026-09-16T19:25:29.050199+00:00'
+  completed_at: '2026-09-16T19:32:53.131922+00:00'
