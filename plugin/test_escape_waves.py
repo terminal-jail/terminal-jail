@@ -12,7 +12,6 @@ relative-path finds) are pinned in TestEscapeWaveAllows so no future
 "hardening" accidentally over-blocks legit operations.
 """
 import pytest
-
 from terminal_jail.interruptor import Action, intercept
 
 # (technique name, command, expected rule_id)

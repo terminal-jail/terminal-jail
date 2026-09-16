@@ -48,7 +48,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install ruff
-        run: pip install ruff
+        run: pip install 'ruff==0.16.8'
 
       - name: Run ruff
         run: ruff check plugin/ --output-format=github
