@@ -47,7 +47,15 @@ def main() -> None:
         _emit_fail_open("invalid JSON on stdin")
         return
 
-    command = payload.get("command", "")
+    if not isinstance(payload, dict):
+        _emit_fail_open(f"payload must be a JSON object, got {type(payload).__name__}")
+        return
+
+    if "command" not in payload:
+        _emit_fail_open("missing 'command' key")
+        return
+
+    command = payload["command"]
     if not isinstance(command, str):
         _emit_fail_open("command field must be a string")
         return

@@ -14,6 +14,7 @@ host with bash installed. Tests that require unshare are gated on availability.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -565,6 +566,147 @@ def test_cli_enforce_mode_blocks_quoted_rm_rf_root(cli_path: Path) -> None:
         assert result.returncode in (2, 126), (
             f"unexpected rc={result.returncode}, stderr={stderr!r}"
         )
+
+
+# ── DF-TERMINAL-JAIL-6: bridge JSON schema contract (subprocess) ─────────────
+
+
+def _run_bridge_raw(stdin_line: str) -> tuple[dict, "subprocess.CompletedProcess[bytes]"]:
+    """Feed one raw line to the bridge subprocess; return (response, proc).
+
+    Asserts the invariants every schema error must keep: exactly one
+    valid JSON object on stdout, exit code 0, and no Python traceback on
+    stderr.
+    """
+    bridge_path = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
+    proc = subprocess.run(
+        ["python3", str(bridge_path)],
+        input=(stdin_line + "\n").encode(),
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=10,
+        cwd=str(PROJECT_ROOT),
+    )
+    stderr = proc.stderr.decode("utf-8", errors="replace")
+    assert proc.returncode == 0, (
+        f"bridge must exit 0 (fail-open contract), got rc={proc.returncode}: {stderr!r}"
+    )
+    assert "Traceback" not in stderr, f"no stderr traceback expected: {stderr!r}"
+    stdout_lines = proc.stdout.decode("utf-8").strip().splitlines()
+    assert len(stdout_lines) == 1, (
+        f"bridge must answer exactly one JSON line, got {len(stdout_lines)}: "
+        f"{proc.stdout!r}"
+    )
+    return json.loads(stdout_lines[0]), proc
+
+
+@pytest.mark.standalone_cli
+@pytest.mark.parametrize(
+    "raw_line, reason_must_contain",
+    [
+        (("{}",), "missing 'command' key"),
+        (('{"nope": "x"}',), "missing 'command' key"),
+        (('{"Command": "echo hello"}',), "missing 'command' key"),
+        (('{"cmd": "echo hello"}',), "missing 'command' key"),
+        (("null",), "must be a JSON object"),
+        (("[]",), "must be a JSON object"),
+        (('"echo hello"',), "must be a JSON object"),
+        (("42",), "must be a JSON object"),
+        (("3.14",), "must be a JSON object"),
+        (("true",), "must be a JSON object"),
+        (('{"command": 123}',), "command field must be a string"),
+        (('{"command": ["echo"]}',), "command field must be a string"),
+        (('{"command": null}',), "command field must be a string"),
+        (('{"command": {"cmd": "echo"}}',), "command field must be a string"),
+    ],
+)
+def test_bridge_schema_errors_reported_fail_open(
+    raw_line: tuple[str], reason_must_contain: str
+) -> None:
+    """Schema-invalid stdin reports the fail-open bridge-error envelope.
+
+    Regression for DF-TERMINAL-JAIL-6: `{}` and misnamed keys were
+    silently treated as an empty valid command (action=allow, empty
+    reason); non-object JSON (`null`, arrays, numbers, booleans, quoted
+    strings) crashed with an AttributeError traceback on stderr. All of
+    these must now report the documented `[bridge-error]` envelope with
+    exit 0 — still fail-OPEN (the caller decides whether to treat a
+    bridge-error as a denial), never a traceback and never a silent
+    empty-command allow.
+    """
+    response, _proc = _run_bridge_raw(*raw_line)
+    assert response.get("action") == "allow", (
+        f"schema errors stay fail-open, got {response!r} for {raw_line!r}"
+    )
+    reason = response.get("reason", "")
+    assert reason.startswith("[bridge-error]"), (
+        f"reason must start with [bridge-error], got {reason!r} for {raw_line!r}"
+    )
+    assert reason_must_contain in reason, (
+        f"reason {reason!r} should mention {reason_must_contain!r} for {raw_line!r}"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_bridge_valid_controls_unaffected_by_schema_checks() -> None:
+    """Valid payloads keep their exact behavior after the schema gate."""
+    # Explicit empty string command: still a VALID command (empty), not
+    # a schema error — allow with no bridge-error marker.
+    response, _ = _run_bridge_raw('{"command": ""}')
+    assert response["action"] == "allow"
+    assert response["command"] == ""
+    assert "[bridge-error]" not in response["reason"]
+
+    # Harmless valid command: normal allow, command echoed back.
+    response, _ = _run_bridge_raw('{"command": "echo hello"}')
+    assert response["action"] == "allow"
+    assert response["command"] == "echo hello"
+    assert "[bridge-error]" not in response["reason"]
+
+    # Block path still intact through the same schema gate.
+    response, _ = _run_bridge_raw('{"command": "rm -rf /"}')
+    assert response["action"] == "block"
+    assert response["rule_id"] == "builtin-rm-rf-root"
+
+
+@pytest.mark.standalone_cli
+def test_bridge_covers_missing_keys_non_objects_non_strings_and_valid() -> None:
+    """Acceptance coverage guard: every schema class is exercised.
+
+    Guards the regression suite itself against silently shrinking — the
+    set of invalid lines must keep covering (a) missing/misnamed keys on
+    otherwise-valid JSON objects, (b) non-object JSON values, and
+    (c) non-string `command` fields — while the valid class keeps its
+    controls.
+    """
+    invalid_lines = [
+        "{}",
+        '{"nope": "x"}',
+        '{"Command": "echo hello"}',
+        "null",
+        "[1, 2]",
+        '"echo hello"',
+        "42",
+        "true",
+        '{"command": 123}',
+        '{"command": ["echo"]}',
+        '{"command": null}',
+    ]
+    responses = []
+    for line in invalid_lines:
+        response, _ = _run_bridge_raw(line)
+        assert response["action"] == "allow"
+        assert response["reason"].startswith("[bridge-error]")
+        responses.append(response)
+    # All 11 invalid classes answered and none leaked a traceback above.
+    assert len(responses) == len(invalid_lines)
+
+    valid_responses = [
+        _run_bridge_raw('{"command": ""}')[0],
+        _run_bridge_raw('{"command": "echo hello"}')[0],
+    ]
+    assert all("[bridge-error]" not in r["reason"] for r in valid_responses)
 
 
 @pytest.mark.standalone_cli

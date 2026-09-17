@@ -242,13 +242,19 @@ commands matching the 30 built-in rules are blocked — the interruptor is a
 pattern firewall, not a policy sandbox (see `specs/interruptor.md`).
 
 **What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
-It fails **open**: the bridge answers
+It fails **open**: the bridge expects one JSON object with a string `command` key
+(`{"command": "..."}`). Bad JSON, empty stdin, a payload that is not a JSON
+object (`null`, array, number, boolean, quoted string), a missing or misnamed
+`command` key (`{}`, `{"Command": ...}`), or a non-string `command` value all
+make it answer
 `{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] invalid JSON on stdin — fail-open: allowing command"}`
-and exits 0, so the command proceeds unguarded. A *missing* bridge is
-different — enforce mode fails **closed** (exit 126, `COMMAND BLOCKED`).
-Validate the payload yourself and treat any `reason` starting with
-`[bridge-error]` as a denial if you need malformed input to block (README
-"Malformed input fails OPEN").
+and exit 0, so the command proceeds unguarded — the error is **reported** in
+`reason` (which schema problem it was), not enforced as a block. A *missing*
+bridge is different — enforce mode fails **closed** (exit 126,
+`COMMAND BLOCKED`). Validate the payload yourself and treat any `reason`
+starting with `[bridge-error]` as a denial if you need malformed input to block
+(README "Malformed input fails OPEN"). An explicit empty command
+(`{"command": ""}`) is valid input, not a schema error.
 
 **The interruptor bridge is not available (warning or block on stderr)?**
 The CLI resolves `plugin/terminal_jail/interruptor_bridge.py` in this order:
