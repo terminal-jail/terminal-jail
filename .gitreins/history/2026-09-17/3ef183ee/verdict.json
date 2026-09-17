@@ -1,0 +1,122 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-8",
+  "task_title": "install.sh must scope the shipped-rules install to the selected install prefix",
+  "task_criteria": [
+    "install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when set, else HOME/.config/terminal-jail/rules.d only when the install dir is the default HOME/.local/bin, else the install prefix config dir",
+    "a scratch install with a customized HOME config file leaves that file byte-identical and creates no backup beside it",
+    "an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install",
+    "the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml",
+    "backup-on-difference semantics for a customized target file are preserved",
+    "a single warning line names the resolved prefix-scoped rules dir and the engine real search paths",
+    "specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR and the scope rule",
+    "plugin test suite green and uvx ruff check reports no findings"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b41a08158cf441b93ad9ffa55d43d490f524a7ca",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m8:58PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3442185 bytes (3.44 MB) in 295ms\u001b[0m\n\u001b[90m8:58PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m8:58PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3442185 bytes (3.44 MB) in 295ms\u001b[0m\n\u001b[90m8:58PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 418 items\n\nplugin/test_board_id_guard.py ........................                   [  5%]\nplugin/test_escape_waves.py ..........................................   [ 15%]\nplugin/test_install.py ........................                          [ 21%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 49%]\n..........................................................               [ 63%]\nplugin/test_interruptor_integration.py .............s.....               [ 67%]\nplugin/test_metrics_export.py .....................                      [ 72%]\nplugin/test_packaging.py ........                                        [ 74%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_seccomp.py .........................................sss      [ 89%]\nplugin/test_standalone_cli.py ........sssssss..ss                        [ 93%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py ..............s                                    [100%]\n\n======================= 404 passed, 14 skipped in 14.18s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when set, else HOME/.config/terminal-jail/rules.d only when the install dir is the default HOME/.local/bin, else the install prefix config dir: install.sh:178-187 implements exactly this three-way resolution: `if [ -n \"$TERMINAL_JAIL_RULES_DIR\" ]` -> used verbatim (rules_scope=explicit); `elif [ \"$TERMINAL_JAIL_INSTALL_DIR\" = \"$HOME/.local/bin\" ]` -> $HOME/.config/terminal-jail/rules.d; `else rules_prefix=\"$(CDPATH= cd -- \"${TERMINAL_JAIL_INSTALL_DIR}/..\" && pwd ...)\"` -> ${rules_prefix}/config/terminal-jail/rules.d (parent resolved identically to LIB_DIR at line 150).\n  \u2713 a scratch install with a customized HOME config file leaves that file byte-identical and creates no backup beside it: Ran `HOME=/tmp/tj8/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8/bin sh install.sh` with a seeded customized HOME/.config/terminal-jail/rules.d/00-builtins.yaml. `md5sum -c` -> 'OK' (byte-identical); live dir listing contained only 00-builtins.yaml (no .bak-*); rules landed at /tmp/tj8/config/terminal-jail/rules.d/00-builtins.yaml. Covered by plugin/test_install.py:535 test_prefix_install_does_not_touch_home_rules.\n  \u2713 an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install: Ran `HOME=/tmp/tj8b/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8b/bin TERMINAL_JAIL_RULES_DIR=/tmp/tj8b/custom-rules sh install.sh` -> output 'installed default rules to /tmp/tj8b/custom-rules/00-builtins.yaml' (16638 bytes present); no 'non-default install prefix' warning; HOME/.config does not exist. Covered by plugin/test_install.py:592 test_explicit_rules_dir_wins_over_install_scope.\n  \u2713 the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml: Ran `HOME=/tmp/tj8c/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8c/home/.local/bin sh install.sh` -> 'installed default rules to /tmp/tj8c/home/.config/terminal-jail/rules.d/00-builtins.yaml' (16638 bytes). Covered by plugin/test_install.py:631 test_default_install_dir_keeps_live_rules_target.\n  \u2713 backup-on-difference semantics for a customized target file are preserved: Default-dir install over a customized live file printed 'WARNING \u2014 existing user rules differed; backed up to .../00-builtins.yaml.bak-20260917T015949Z before installing defaults'; the .bak file contained the original '# customized by user\\nrules: []\\n'. Also verified in prefix scope (/tmp/tj8e/config/terminal-jail/rules.d/00-builtins.yaml.bak-20260917T015951Z). Logic at install.sh:196-201 (cmp -s guard + cp backup).\n  \u2713 a single warning line names the resolved prefix-scoped rules dir and the engine real search paths: Prefix install emitted exactly one WARNING line: 'terminal-jail installer: WARNING \u2014 non-default install prefix; installing default rules to /tmp/tj8/config/terminal-jail/rules.d. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory.' (install.sh:188-190). Names the resolved prefix dir and both engine search paths.\n  \u2713 specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR and the scope rule: specs/cli.md:297 (table row for TERMINAL_JAIL_RULES_DIR) and :300 (explicit 'Scope rule (DF-TERMINAL-JAIL-8)' paragraph); README.md:240-246 ('Rules follow the install scope' + TERMINAL_JAIL_RULES_DIR 'always wins'); docs/quickstart.md:296-299 (default vs prefix target + TERMINAL_JAIL_RULES_DIR override). All three document the variable and the scope rule.\n  \u2713 plugin test suite green and uvx ruff check reports no findings: `.venv/bin/pytest -q` -> '404 passed, 14 skipped in 9.27s' (exit 0); plugin/test_install.py alone -> '24 passed'. `uvx ruff check` -> 'All checks passed!' (exit 0). LSP diagnostics: 0 findings. Additionally confirmed the new regression tests genuinely fail against the pre-fix install.sh (2 failed: test_prefix_install_does_not_touch_home_rules, test_explicit_rules_dir_wins_over_install_scope) and pass against the fixed version.\nAll 8 criteria pass: install.sh implements the three-way prefix-scoped rules resolution with preserved backup semantics and a single honest warning, docs are updated, and the full plugin suite (404 passed) plus ruff are green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when set, else HOME/.config/terminal-jail/rules.d only when the install dir is the default HOME/.local/bin, else the install prefix config dir: install.sh:178-187 implements exactly this three-way resolution: `if [ -n \"$TERMINAL_JAIL_RULES_DIR\" ]` -> used verbatim (rules_scope=explicit); `elif [ \"$TERMINAL_JAIL_INSTALL_DIR\" = \"$HOME/.local/bin\" ]` -> $HOME/.config/terminal-jail/rules.d; `else rules_prefix=\"$(CDPATH= cd -- \"${TERMINAL_JAIL_INSTALL_DIR}/..\" && pwd ...)\"` -> ${rules_prefix}/config/terminal-jail/rules.d (parent resolved identically to LIB_DIR at line 150).\n  \u2713 a scratch install with a customized HOME config file leaves that file byte-identical and creates no backup beside it: Ran `HOME=/tmp/tj8/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8/bin sh install.sh` with a seeded customized HOME/.config/terminal-jail/rules.d/00-builtins.yaml. `md5sum -c` -> 'OK' (byte-identical); live dir listing contained only 00-builtins.yaml (no .bak-*); rules landed at /tmp/tj8/config/terminal-jail/rules.d/00-builtins.yaml. Covered by plugin/test_install.py:535 test_prefix_install_does_not_touch_home_rules.\n  \u2713 an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install: Ran `HOME=/tmp/tj8b/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8b/bin TERMINAL_JAIL_RULES_DIR=/tmp/tj8b/custom-rules sh install.sh` -> output 'installed default rules to /tmp/tj8b/custom-rules/00-builtins.yaml' (16638 bytes present); no 'non-default install prefix' warning; HOME/.config does not exist. Covered by plugin/test_install.py:592 test_explicit_rules_dir_wins_over_install_scope.\n  \u2713 the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml: Ran `HOME=/tmp/tj8c/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8c/home/.local/bin sh install.sh` -> 'installed default rules to /tmp/tj8c/home/.config/terminal-jail/rules.d/00-builtins.yaml' (16638 bytes). Covered by plugin/test_install.py:631 test_default_install_dir_keeps_live_rules_target.\n  \u2713 backup-on-difference semantics for a customized target file are preserved: Default-dir install over a customized live file printed 'WARNING \u2014 existing user rules differed; backed up to .../00-builtins.yaml.bak-20260917T015949Z before installing defaults'; the .bak file contained the original '# customized by user\\nrules: []\\n'. Also verified in prefix s\n\u2026 [255 chars omitted] \u2026\nall emitted exactly one WARNING line: 'terminal-jail installer: WARNING \u2014 non-default install prefix; installing default rules to /tmp/tj8/config/terminal-jail/rules.d. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory.' (install.sh:188-190). Names the resolved prefix dir and both engine search paths.\n  \u2713 specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR and the scope rule: specs/cli.md:297 (table row for TERMINAL_JAIL_RULES_DIR) and :300 (explicit 'Scope rule (DF-TERMINAL-JAIL-8)' paragraph); README.md:240-246 ('Rules follow the install scope' + TERMINAL_JAIL_RULES_DIR 'always wins'); docs/quickstart.md:296-299 (default vs prefix target + TERMINAL_JAIL_RULES_DIR override). All three document the variable and the scope rule.\n  \u2713 plugin test suite green and uvx ruff check reports no findings: `.venv/bin/pytest -q` -> '404 passed, 14 skipped in 9.27s' (exit 0); plugin/test_install.py alone -> '24 passed'. `uvx ruff check` -> 'All checks passed!' (exit 0). LSP diagnostics: 0 findings. Additionally confirmed the new regression tests genuinely fail against the pre-fix install.sh (2 failed: test_prefix_install_does_not_touch_home_rules, test_explicit_rules_dir_wins_over_install_scope) and pass against the fixed version.\nAll 8 criteria pass: install.sh implements the three-way prefix-scoped rules resolution with preserved backup semantics and a single honest warning, docs are updated, and the full plugin suite (404 passed) plus ruff are green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when set, else HOME/.config/terminal-jail/rules.d only when the install dir is the default HOME/.local/bin, else the install prefix config dir",
+                "status": "PASS",
+                "detail": "install.sh:178-187 implements exactly this three-way resolution: `if [ -n \"$TERMINAL_JAIL_RULES_DIR\" ]` -> used verbatim (rules_scope=explicit); `elif [ \"$TERMINAL_JAIL_INSTALL_DIR\" = \"$HOME/.local/bin\" ]` -> $HOME/.config/terminal-jail/rules.d; `else rules_prefix=\"$(CDPATH= cd -- \"${TERMINAL_JAIL_INSTALL_DIR}/..\" && pwd ...)\"` -> ${rules_prefix}/config/terminal-jail/rules.d (parent resolved identically to LIB_DIR at line 150)."
+              },
+              {
+                "criterion": "a scratch install with a customized HOME config file leaves that file byte-identical and creates no backup beside it",
+                "status": "PASS",
+                "detail": "Ran `HOME=/tmp/tj8/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8/bin sh install.sh` with a seeded customized HOME/.config/terminal-jail/rules.d/00-builtins.yaml. `md5sum -c` -> 'OK' (byte-identical); live dir listing contained only 00-builtins.yaml (no .bak-*); rules landed at /tmp/tj8/config/terminal-jail/rules.d/00-builtins.yaml. Covered by plugin/test_install.py:535 test_prefix_install_does_not_touch_home_rules."
+              },
+              {
+                "criterion": "an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install",
+                "status": "PASS",
+                "detail": "Ran `HOME=/tmp/tj8b/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8b/bin TERMINAL_JAIL_RULES_DIR=/tmp/tj8b/custom-rules sh install.sh` -> output 'installed default rules to /tmp/tj8b/custom-rules/00-builtins.yaml' (16638 bytes present); no 'non-default install prefix' warning; HOME/.config does not exist. Covered by plugin/test_install.py:592 test_explicit_rules_dir_wins_over_install_scope."
+              },
+              {
+                "criterion": "the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml",
+                "status": "PASS",
+                "detail": "Ran `HOME=/tmp/tj8c/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8c/home/.local/bin sh install.sh` -> 'installed default rules to /tmp/tj8c/home/.config/terminal-jail/rules.d/00-builtins.yaml' (16638 bytes). Covered by plugin/test_install.py:631 test_default_install_dir_keeps_live_rules_target."
+              },
+              {
+                "criterion": "backup-on-difference semantics for a customized target file are preserved",
+                "status": "PASS",
+                "detail": "Default-dir install over a customized live file printed 'WARNING \u2014 existing user rules differed; backed up to .../00-builtins.yaml.bak-20260917T015949Z before installing defaults'; the .bak file contained the original '# customized by user\\nrules: []\\n'. Also verified in prefix scope (/tmp/tj8e/config/terminal-jail/rules.d/00-builtins.yaml.bak-20260917T015951Z). Logic at install.sh:196-201 (cmp -s guard + cp backup)."
+              },
+              {
+                "criterion": "a single warning line names the resolved prefix-scoped rules dir and the engine real search paths",
+                "status": "PASS",
+                "detail": "Prefix install emitted exactly one WARNING line: 'terminal-jail installer: WARNING \u2014 non-default install prefix; installing default rules to /tmp/tj8/config/terminal-jail/rules.d. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory.' (install.sh:188-190). Names the resolved prefix dir and both engine search paths."
+              },
+              {
+                "criterion": "specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR and the scope rule",
+                "status": "PASS",
+                "detail": "specs/cli.md:297 (table row for TERMINAL_JAIL_RULES_DIR) and :300 (explicit 'Scope rule (DF-TERMINAL-JAIL-8)' paragraph); README.md:240-246 ('Rules follow the install scope' + TERMINAL_JAIL_RULES_DIR 'always wins'); docs/quickstart.md:296-299 (default vs prefix target + TERMINAL_JAIL_RULES_DIR override). All three document the variable and the scope rule."
+              },
+              {
+                "criterion": "plugin test suite green and uvx ruff check reports no findings",
+                "status": "PASS",
+                "detail": "`.venv/bin/pytest -q` -> '404 passed, 14 skipped in 9.27s' (exit 0); plugin/test_install.py alone -> '24 passed'. `uvx ruff check` -> 'All checks passed!' (exit 0). LSP diagnostics: 0 findings. Additionally confirmed the new regression tests genuinely fail against the pre-fix install.sh (2 failed: test_prefix_install_does_not_touch_home_rules, test_explicit_rules_dir_wins_over_install_scope) and pass against the fixed version."
+              }
+            ],
+            "summary": "All 8 criteria pass: install.sh implements the three-way prefix-scoped rules resolution with preserved backup semantics and a single honest warning, docs are updated, and the full plugin suite (404 passed) plus ruff are green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-8\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m8:58PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3442185 bytes (3.44 MB) in 295ms\u001b[0m\n\u001b[90m8:58PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when set, else HOME/.config/terminal-jail/rules.d only when the install dir is the default HOME/.local/bin, else the install prefix config dir: install.sh:178-187 implements exactly this three-way resolution: `if [ -n \"$TERMINAL_JAIL_RULES_DIR\" ]` -> used verbatim (rules_scope=explicit); `elif [ \"$TERMINAL_JAIL_INSTALL_DIR\" = \"$HOME/.local/bin\" ]` -> $HOME/.config/terminal-jail/rules.d; `else rules_prefix=\"$(CDPATH= cd -- \"${TERMINAL_JAIL_INSTALL_DIR}/..\" && pwd ...)\"` -> ${rules_prefix}/config/terminal-jail/rules.d (parent resolved identically to LIB_DIR at line 150).\n  \u2713 a scratch install with a customized HOME config file leaves that file byte-identical and creates no backup beside it: Ran `HOME=/tmp/tj8/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8/bin sh install.sh` with a seeded customized HOME/.config/terminal-jail/rules.d/00-builtins.yaml. `md5sum -c` -> 'OK' (byte-identical); live dir listing contained only 00-builtins.yaml (no .bak-*); rules landed at /tmp/tj8/config/terminal-jail/rules.d/00-builtins.yaml. Covered by plugin/test_install.py:535 test_prefix_install_does_not_touch_home_rules.\n  \u2713 an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install: Ran `HOME=/tmp/tj8b/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8b/bin TERMINAL_JAIL_RULES_DIR=/tmp/tj8b/custom-rules sh install.sh` -> output 'installed default rules to /tmp/tj8b/custom-rules/00-builtins.yaml' (16638 bytes present); no 'non-default install prefix' warning; HOME/.config does not exist. Covered by plugin/test_install.py:592 test_explicit_rules_dir_wins_over_install_scope.\n  \u2713 the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml: Ran `HOME=/tmp/tj8c/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj8c/home/.local/bin sh install.sh` -> 'installed default rules to /tmp/tj8c/home/.config/terminal-jail/rules.d/00-builtins.yaml' (16638 bytes). Covered by plugin/test_install.py:631 test_default_install_dir_keeps_live_rules_target.\n  \u2713 backup-on-difference semantics for a customized target file are preserved: Default-dir install over a customized live file printed 'WARNING \u2014 existing user rules differed; backed up to .../00-builtins.yaml.bak-20260917T015949Z before installing defaults'; the .bak file contained the original '# customized by user\\nrules: []\\n'. Also verified in prefix scope (/tmp/tj8e/config/terminal-jail/rules.d/00-builtins.yaml.bak-20260917T015951Z). Logic at install.sh:196-201 (cmp -s guard + cp backup).\n  \u2713 a single warning line names the resolved prefix-scoped rules dir and the engine real search paths: Prefix install emitted exactly one WARNING line: 'terminal-jail installer: WARNING \u2014 non-default install prefix; installing default rules to /tmp/tj8/config/terminal-jail/rules.d. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory.' (install.sh:188-190). Names the resolved prefix dir and both engine search paths.\n  \u2713 specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR and the scope rule: specs/cli.md:297 (table row for TERMINAL_JAIL_RULES_DIR) and :300 (explicit 'Scope rule (DF-TERMINAL-JAIL-8)' paragraph); README.md:240-246 ('Rules follow the install scope' + TERMINAL_JAIL_RULES_DIR 'always wins'); docs/quickstart.md:296-299 (default vs prefix target + TERMINAL_JAIL_RULES_DIR override). All three document the variable and the scope rule.\n  \u2713 plugin test suite green and uvx ruff check reports no findings: `.venv/bin/pytest -q` -> '404 passed, 14 skipped in 9.27s' (exit 0); plugin/test_install.py alone -> '24 passed'. `uvx ruff check` -> 'All checks passed!' (exit 0). LSP diagnostics: 0 findings. Additionally confirmed the new regression tests genuinely fail against the pre-fix install.sh (2 failed: test_prefix_install_does_not_touch_home_rules, test_explicit_rules_dir_wins_over_install_scope) and pass against the fixed version.\nAll 8 criteria pass: install.sh implements the three-way prefix-scoped rules resolution with preserved backup semantics and a single honest warning, docs are updated, and the full plugin suite (404 passed) plus ruff are green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-17T02:00:23.348538"
+}

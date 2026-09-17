@@ -708,3 +708,22 @@ tasks:
   status: complete
   created_at: '2026-09-16T19:25:29.050199+00:00'
   completed_at: '2026-09-16T19:32:53.131922+00:00'
+- id: DF-TERMINAL-JAIL-8
+  title: install.sh must scope the shipped-rules install to the selected install prefix
+  criteria:
+  - 'install.sh resolves the rules target as: explicit TERMINAL_JAIL_RULES_DIR when
+    set, else HOME/.config/terminal-jail/rules.d only when the install dir is the
+    default HOME/.local/bin, else the install prefix config dir'
+  - a scratch install with a customized HOME config file leaves that file byte-identical
+    and creates no backup beside it
+  - an explicit TERMINAL_JAIL_RULES_DIR is honored for a scratch install
+  - the default install dir still writes HOME/.config/terminal-jail/rules.d/00-builtins.yaml
+  - backup-on-difference semantics for a customized target file are preserved
+  - a single warning line names the resolved prefix-scoped rules dir and the engine
+    real search paths
+  - specs/cli.md, README.md and docs/quickstart.md document TERMINAL_JAIL_RULES_DIR
+    and the scope rule
+  - plugin test suite green and uvx ruff check reports no findings
+  status: complete
+  created_at: '2026-09-17T01:48:25.583131+00:00'
+  completed_at: '2026-09-17T01:58:49.976935+00:00'
