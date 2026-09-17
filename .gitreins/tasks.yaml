@@ -727,3 +727,17 @@ tasks:
   status: complete
   created_at: '2026-09-17T01:48:25.583131+00:00'
   completed_at: '2026-09-17T01:58:49.976935+00:00'
+- id: DF-TERMINAL-JAIL-6
+  title: Validate bridge JSON schema before evaluation
+  criteria:
+  - Missing or misnamed command key returns the existing bridge-error JSON envelope
+    with exit 0 rather than an empty reason.
+  - Non-object JSON values return a bridge-error JSON response with no traceback;
+    non-string commands retain their error behavior.
+  - Explicit empty string remains a valid command and harmless valid commands preserve
+    their behavior.
+  - Subprocess regression tests cover missing keys, non-object values, non-string
+    commands and valid controls; README and quickstart describe schema errors accurately.
+  status: complete
+  created_at: '2026-09-17T02:47:34.914844+00:00'
+  completed_at: '2026-09-17T02:55:29.619403+00:00'
