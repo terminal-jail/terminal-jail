@@ -1,3 +1,4 @@
 2026-09-01 | PROMISING-BUT-ROUGH | 1s t2fs | friction 7 | 5 findings
 2026-09-15 | PROMISING-BUT-ROUGH | t2fs <1min local, bunker install 0s smoke ok | friction 4 | 4 findings (TJ-DF-015 P0 unmapped-ns uid illusion; 016 P1 silent warn on EPERM; 017 P2 dead verify example; 018 P3 upstream bunker skill drift) | prior 14 findings re-verified FIXED
 2026-09-16 | PROMISING-BUT-ROUGH | 30s t2fs | friction 12 | 5 findings
+2026-09-17 | PROMISING-BUT-ROUGH | t2fs <5s | friction 5 | 4 findings (DF-11 P1 auto-sandbox dead on DEGRADED hosts — preflight precedes prefixed-exec; DF-12 P1 default-allow undocumented + no allow provenance; DF-13 P2 allow-cat-safe lookahead no-op on /etc|/boot|/proc|/sys; DF-14 P2 SKIPPED-install-bunker: las-bunker-03 spawn deadline×2, no rootless docker, half-spawn users cleaned) | re-verified fixed live: DF-6, DF-8, TJ-DF-015, TJ-DF-016 | suite 420p/14s 15.14s | artifacts: 2026-09-17-integration.md + diagnostics §5 + SKILL.md v1.3.0

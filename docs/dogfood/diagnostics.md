@@ -90,7 +90,17 @@ during the dogfood run. This is explanation, not raw logs.*
 | skills/terminal-jail-usage/SKILL.md lists TJ-DF-001..008 as open; diagnostics §1 said "user rules: NOT IMPLEMENTED" | knowledge artifacts weren't refreshed when fixes landed (TJ-DF-013) | refresh skill + diagnostics when a gap closes; skill should point at the board for current state |
 | Hermes gateway hardline blocked probe commands containing literal `mkfs`/`dd of=/dev/...` strings even as bridge data | host-gateway content guard, not a terminal-jail defect; TJ-GAP-035 fix for the wrapper itself verified working | build dangerous-command strings at runtime in scratch probe files |
 
-## 5. The right way to extend this system
+## 5. Errors hit during the 2026-09-17 dogfood run
+
+| Error / observation | Meaning | Right way |
+|---|---|---|
+| `terminal-jail bash script.sh` → "Modified: … sandboxed" then rc=2 "namespace creation failed" | The bridge chose the legacy user-ns prefix (flags that DO work via `--user`) but the wrapper's bare-mode preflight (standalone/terminal-jail:366) exits 2 BEFORE the already-prefixed branch at :386 — ordering bug, not a namespace failure. All 8 auto-sandbox classes dead on DEGRADED hosts | skip/re-branch the bare preflight when the incoming command already carries a bridge prefix; add a DEGRADED-host end-to-end modify regression (DF-TERMINAL-JAIL-11, P1) |
+| `cat /etc/passwd` → allow with rule_id null, reason empty; `ls`, `pwd`, `git status` → also rule_id null | Two things at once: (1) the firewall is deny-list-over-default-allow and NO doc states that; (2) allowlist matches and no-match are indistinguishable in the verdict — an audit consumer can't tell an explicit allow from an unexamined one | emit rule_id on allowlist hits + one prominent paragraph in README/quickstart/specs: "unmatched = ALLOWED" (DF-TERMINAL-JAIL-12, P1) |
+| `allow-cat-safe` never matches sensitive paths despite its "non-sensitive paths" description | The lookahead `(?!.*/(etc|boot|proc|sys))` contains `.*` which matches empty — ANY path under those prefixes fails it, so the rule silently no-ops exactly where its description claims it discriminates; `cat /etc/passwd` rides default-allow instead | anchor the lookahead to the token boundary: `^cat\s+(?!/(etc|boot|proc|sys)(/|\s|$))`; regression-assert the matched rule for `cat /etc/passwd` is NOT allow-cat-safe (DF-TERMINAL-JAIL-13, P2) |
+| `bunker spawn --server bunker-las-03` → deadline_exceeded ×2; half-spawned users get no docker.sock | bunkerd's fresh-agent rootless-docker install never completes → the ephemeral fresh-machine install leg cannot run (regression vs 09-15 PASS). Half-spawned users must be cleaned by hand (loginctl terminate-user + userdel -r) | infra fix on las-bunker-03 first; until then the honest record is the SKIPPED-install-bunker row (DF-TERMINAL-JAIL-14) with the spawn errors + cleanup notes |
+| Hermes gateway hardline again blocked literal dangerous tokens in a bridge-probe shell command | host-gateway content guard scanning probe DATA (3rd dogfood run hitting this) | build payload strings at runtime in a scratch python script (worked first try this time — make it the default reflex, see skills pitfall 8) |
+
+## 6. The right way to extend this system
 
 1. **Add a rule**: edit the engine's `blocklist.py`/`sandbox.py`/`allowlist.py`
    (builtins), or ship a user YAML rule to `~/.config/terminal-jail/rules.d/`

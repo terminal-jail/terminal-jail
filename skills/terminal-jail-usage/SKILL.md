@@ -7,8 +7,10 @@ description: >-
   2026-08-10 dogfood run, refreshed 2026-08-19 (all TJ-DF-001..010 fixes
   verified live; new findings TJ-DF-011..014), refreshed 2026-08-22
   (TJ-DF-011/012/014 closed — pitfalls below updated to fixed reality),
-  refreshed 2026-09-15 (TJ-DF-017 — verify flow branches on FULL/DEGRADED).
-version: 1.2.0
+  refreshed 2026-09-15 (TJ-DF-017 — verify flow branches on FULL/DEGRADED),
+  refreshed 2026-09-17 (auto-sandbox dead on DEGRADED hosts; default-allow
+  posture + allow provenance gaps — DF-TERMINAL-JAIL-11..13).
+version: 1.3.0
 category: software-development
 ---
 
@@ -157,13 +159,26 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 6. **install.sh local-checkout detection**: must be invoked as
    `./install.sh` (or `install.sh`); `bash /abs/path/install.sh` refuses
    (release mode is opt-in). Intentional, just don't be surprised.
-7. **Auto-sandbox (modify)**: pytest/make/go test/pip/script runs get
-   wrapped in a nested `unshare --user --pid` — the CLI prints
-   `[terminal-jail] Modified: ... → sandboxed` and runs the wrapped
-   command; the nested namespace works on this host (PID 1 inside).
+7. **Auto-sandbox (modify) is DEAD on DEGRADED hosts (2026-09-17,
+   DF-TERMINAL-JAIL-11)**: `terminal-jail bash script.sh` (or any
+   make/pytest/go-test/pip/script command) prints
+   `[terminal-jail] Modified: … → sandboxed` then exits 2 with a namespace
+   error — the wrapper's bare-mode preflight fires before the
+   bridge-prefixed command can run, even though the same flags succeed via
+   `--user`. Until DF-11 lands, run everyday commands with explicit
+   `--user` instead of relying on auto-sandbox.
 
 ## Right-way patterns
 
+- **The firewall is deny-list over default-allow (undocumented in prose as
+  of 2026-09-17, DF-TERMINAL-JAIL-12)**: unmatched commands are ALLOWED,
+  and allow verdicts carry `rule_id: null` — you cannot distinguish an
+  allowlist hit from an unexamined command. Design harnesses accordingly
+  (pre-filter sensitive reads yourself; don't over-credit an "allow").
+- **`allow-cat-safe` does not actually exclude /etc|/boot|/proc|/sys**
+  (DF-TERMINAL-JAIL-13): its negative lookahead can never match those
+  paths, so `cat /etc/passwd` is allowed by the default-allow posture, not
+  by any rule decision.
 - **Blocking test battery**: engine (`intercept`) → bridge (stdin JSON) →
   CLI (only for block box/exit codes). Never run the dangerous commands
   themselves — the bridge is the safe oracle.
@@ -187,6 +202,9 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   2026-08-19 (TJ-DF-011..014 — 011/012 security, 013 docs, 014 hygiene;
   all complete). Refreshed 2026-08-22 (TJ-GAP-040) — pitfalls reflect
   fixed reality; verify against the board before trusting lists.
+  2026-09-15/16/17 runs: DF-TERMINAL-JAIL-1..14 — 1..6 + 8 complete and
+  re-verified live at HEAD; 7/9/10 + 11/12/13 open; 14 = SKIPPED-install-bunker
+  (bunker spawn broken on las-bunker-03, infra owner).
   E2E-001 is the recurring full-battery tick; NEVER-DONE the audit tick.
 - Commits must carry `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>`
   and pass `gitreins guard` (see AGENTS.md).
