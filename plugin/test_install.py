@@ -444,12 +444,20 @@ def test_local_install_ships_default_rules_to_user_rules_dir(
     install_script: Path, tmp_path: Path
 ) -> None:
     """TJ-GAP-033: local-mode install must ship the default rules file to the
-    user rules dir (~/.config/terminal-jail/rules.d/) so the engine actually
-    loads it (the plugin-tree copy is not read by RuleLoader)."""
+    selected rules target so the engine actually loads it (the plugin-tree
+    copy is not read by RuleLoader).
+
+    DF-TERMINAL-JAIL-8: this test previously asserted the rules landed under
+    HOME/.config even for a scratch TERMINAL_JAIL_INSTALL_DIR — an
+    out-of-scope write. It now opts in explicitly via TERMINAL_JAIL_RULES_DIR
+    (the explicit scope always wins); the derived prefix-scope behavior is
+    covered by test_prefix_install_does_not_touch_home_rules.
+    """
     install_dir = tmp_path / "bin"
     install_dir.mkdir()
     home = tmp_path / "home"
     home.mkdir()
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
 
     result = subprocess.run(
         ["sh", "install.sh"],
@@ -462,12 +470,13 @@ def test_local_install_ships_default_rules_to_user_rules_dir(
             **os.environ,
             "HOME": str(home),
             "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_RULES_DIR": str(rules_dir),
         },
     )
 
     assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
-    shipped = home / ".config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
-    assert shipped.exists(), f"default rules not installed to user rules dir: {shipped}"
+    shipped = rules_dir / "00-builtins.yaml"
+    assert shipped.exists(), f"default rules not installed to rules dir: {shipped}"
     assert "installed default rules" in result.stdout.decode("utf-8", "replace")
 
 
@@ -478,7 +487,11 @@ def test_local_install_backs_up_customized_user_rules(
     """DF-TERMINAL-JAIL-3: the user rules file is deliberate user-editable
     config (same-id override), so a re-install over a customized copy must
     preserve the old content in a sibling .bak-<utc> file and say so —
-    never silently clobber it."""
+    never silently clobber it.
+
+    DF-TERMINAL-JAIL-8: the test now seeds the dir the resolution targets via
+    an explicit TERMINAL_JAIL_RULES_DIR; the backup semantics are unchanged.
+    """
     install_dir = tmp_path / "bin"
     install_dir.mkdir()
     home = tmp_path / "home"
@@ -501,6 +514,7 @@ def test_local_install_backs_up_customized_user_rules(
             **os.environ,
             "HOME": str(home),
             "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_RULES_DIR": str(rules_dir),
         },
     )
 
@@ -515,6 +529,137 @@ def test_local_install_backs_up_customized_user_rules(
     assert backups[0].read_text(encoding="utf-8") == customized
     # (e) the installer names the backup path.
     assert str(backups[0]) in output, output
+
+
+@pytest.mark.standalone_cli
+def test_prefix_install_does_not_touch_home_rules(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """DF-TERMINAL-JAIL-8 (the regression): a scratch/custom-prefix install
+    (TERMINAL_JAIL_INSTALL_DIR outside $HOME/.local/bin) must never write the
+    live user config — the seeded HOME/.config/terminal-jail/rules.d/
+    00-builtins.yaml stays byte-identical, no .bak-* appears beside it, and
+    the default rules land under <prefix>/config/terminal-jail/rules.d."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    home_rules_dir = home / ".config" / "terminal-jail" / "rules.d"
+    home_rules_dir.mkdir(parents=True)
+    home_rules = home_rules_dir / "00-builtins.yaml"
+    customized = "# user edit (DF-TERMINAL-JAIL-8)\nrules: []\n"
+    home_rules.write_text(customized, encoding="utf-8")
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    output = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    # (a) the live HOME rules file is byte-identical to the seeded content.
+    assert home_rules.read_text(encoding="utf-8") == customized
+    # (b) no backup appeared in the live dir (nothing was overwritten there).
+    backups = list(home_rules_dir.glob("00-builtins.yaml.bak-*"))
+    assert backups == [], f"unexpected backups in live dir: {[b.name for b in backups]}"
+    # (c) the prefix-scoped config dir got the shipped default rules.
+    prefix_rules = (
+        tmp_path / "config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
+    )
+    assert prefix_rules.exists(), f"default rules not installed to prefix: {prefix_rules}"
+    assert "builtin-rm-rf-root" in prefix_rules.read_text(encoding="utf-8")
+    # (d) the installer names the prefix target and warns honestly that the
+    # engine will not read it.
+    assert str(prefix_rules) in output, output
+    assert (
+        "non-default install prefix" in output
+    ), "prefix-scope WARNING line missing"
+    assert "/etc/terminal-jail/rules.d" in output
+
+
+@pytest.mark.standalone_cli
+def test_explicit_rules_dir_wins_over_install_scope(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """DF-TERMINAL-JAIL-8: an explicit TERMINAL_JAIL_RULES_DIR is used
+    verbatim for a scratch install (any path allowed), and nothing is written
+    under HOME/.config/terminal-jail."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+    custom_rules_dir = tmp_path / "custom-rules"
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_RULES_DIR": str(custom_rules_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    output = result.stdout.decode("utf-8", "replace")
+
+    explicit_rules = custom_rules_dir / "00-builtins.yaml"
+    assert explicit_rules.exists(), f"rules not installed to explicit dir: {explicit_rules}"
+    assert str(explicit_rules) in output
+    # No prefix-scope warning for an explicit choice, and no HOME config write.
+    assert "non-default install prefix" not in output
+    assert not (home / ".config" / "terminal-jail").exists()
+
+
+@pytest.mark.standalone_cli
+def test_default_install_dir_keeps_live_rules_target(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """DF-TERMINAL-JAIL-8: the default install dir ($HOME/.local/bin) keeps
+    today's live behavior — rules land in
+    $HOME/.config/terminal-jail/rules.d/00-builtins.yaml, with no prefix
+    warning."""
+    install_dir = tmp_path / "home" / ".local" / "bin"
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    output = result.stdout.decode("utf-8", "replace")
+
+    live_rules = home / ".config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
+    assert live_rules.exists(), f"default rules not installed to live dir: {live_rules}"
+    assert str(live_rules) in output
+    assert "non-default install prefix" not in output
 
 
 @pytest.mark.standalone_cli

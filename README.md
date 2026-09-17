@@ -237,6 +237,14 @@ The installer detects the repository checkout and installs the local
 with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root, and it prints the
 exact PATH export to run if `~/.local/bin` is not on your PATH.
 
+Rules follow the install scope: the default install ships the default rules
+file to `~/.config/terminal-jail/rules.d/00-builtins.yaml`, while a custom
+`TERMINAL_JAIL_INSTALL_DIR` prefix receives it under
+`<prefix>/config/terminal-jail/rules.d/` instead (the engine only reads
+`/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`, so the
+installer prints a warning for prefix installs). Set `TERMINAL_JAIL_RULES_DIR`
+to target the live rules directory explicitly — it always wins.
+
 Release-mode installs (downloading the wrapper from a published release plus
 its SHA-256 checksum, verified and atomically installed) are supported by
 `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`,

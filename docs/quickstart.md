@@ -293,7 +293,11 @@ The file itself contains the full rollback procedure.
 30 built-in rules in the engine (12 blocklist + 8 auto-sandbox + 10 allow); user rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). `./install.sh` ships the default rules file to
-`~/.config/terminal-jail/rules.d/00-builtins.yaml`. See `specs/interruptor.md`.
+`~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
+`TERMINAL_JAIL_INSTALL_DIR` prefix it lands under `<prefix>/config/terminal-jail/rules.d/`
+instead (the engine won't read it there — the installer prints a WARNING). Set
+`TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins.
+See `specs/interruptor.md`.
 
 ## 5. Next steps
 

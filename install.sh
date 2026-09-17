@@ -12,6 +12,13 @@ set -eu
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
+# Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
+# (default) = derive from the install scope: the live user rules dir
+# ($HOME/.config/terminal-jail/rules.d) for the default install
+# ($HOME/.local/bin), or <install prefix>/config/terminal-jail/rules.d for any
+# other TERMINAL_JAIL_INSTALL_DIR. A non-empty value is used verbatim and
+# always wins, even outside the selected prefix.
+TERMINAL_JAIL_RULES_DIR="${TERMINAL_JAIL_RULES_DIR:-}"
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 
 # --- source vs release mode --------------------------------------------------
@@ -158,7 +165,29 @@ if [ -n "$LOCAL_WRAPPER" ]; then
     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
     # override path for root-managed deployments).
     if [ -f "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" ]; then
-        user_rules_dir="$HOME/.config/terminal-jail/rules.d"
+        # DF-TERMINAL-JAIL-8: three-way rules-target resolution — the installer
+        # must never write user config outside the scope the caller selected.
+        #   explicit: TERMINAL_JAIL_RULES_DIR set -> used verbatim (caller
+        #             opted in; any path allowed, even outside the prefix)
+        #   live:     default install dir ($HOME/.local/bin) -> the live user
+        #             rules dir $HOME/.config/terminal-jail/rules.d (unchanged
+        #             behavior; the engine does NOT honor XDG_CONFIG_HOME)
+        #   prefix:   anything else -> <install prefix>/config/terminal-jail/
+        #             rules.d, with the parent resolved like LIB_DIR above
+        rules_scope="live"
+        if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
+            user_rules_dir="$TERMINAL_JAIL_RULES_DIR"
+            rules_scope="explicit"
+        elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
+            user_rules_dir="$HOME/.config/terminal-jail/rules.d"
+        else
+            rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
+            user_rules_dir="${rules_prefix}/config/terminal-jail/rules.d"
+            rules_scope="prefix"
+        fi
+        if [ "$rules_scope" = "prefix" ]; then
+            echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory."
+        fi
         shipped_rules="$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml"
         installed_rules="${user_rules_dir}/00-builtins.yaml"
         mkdir -p "$user_rules_dir"

@@ -294,7 +294,10 @@ Release documentation must replace `<project-host>` with the canonical HTTPS hos
 |---|---|---|
 | `TERMINAL_JAIL_VERSION` | Current stable release version | Optional pinned release version. `latest` is allowed only if project policy explicitly supports it. |
 | `TERMINAL_JAIL_INSTALL_DIR` | `$HOME/.local/bin` | Installation directory. |
+| `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
 | `TERMINAL_JAIL_BASE_URL` | Canonical release base URL | Release endpoint used to download the Bash wrapper and its checksum. |
+
+Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
 
 The script must reject an empty/unset `HOME` with a diagnostic; it must not fall back to `/` or a system location.
 
