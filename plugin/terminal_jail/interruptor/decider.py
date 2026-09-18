@@ -132,6 +132,11 @@ class Decider:
         any_modified = False
         any_warn_reason = ""
         warn_rule_id: str | None = None
+        # DF-TERMINAL-JAIL-12: the FIRST allow rule that matched a segment
+        # (segment order) is carried onto the aggregate ALLOW result, so an
+        # allow verdict names its provenance instead of looking identical to
+        # a default-allow (no rule matched at all).
+        allow_rule_id: str | None = None
 
         for segment in segments:
             result = self._evaluate_segment(segment)
@@ -150,6 +155,13 @@ class Decider:
                 if result.reason and not any_warn_reason:
                     any_warn_reason = result.reason
                     warn_rule_id = result.rule_id
+                # DF-TERMINAL-JAIL-12: a plain allowlist match (no warn
+                # reason) also carries its rule id here. Determinism: the
+                # first matched allow rule in segment order wins; a warn
+                # reason + its own rule_id still takes precedence at the
+                # return below.
+                elif result.rule_id and allow_rule_id is None:
+                    allow_rule_id = result.rule_id
             else:
                 # WARN / LOG — allow through
                 modified_segments.append(segment.raw)
@@ -174,7 +186,15 @@ class Decider:
                 reason=any_warn_reason,
             )
 
-        return InterceptResult(action=Action.ALLOW, command=original)
+        # DF-TERMINAL-JAIL-12: the aggregate allow carries the first matched
+        # allow rule's id (segment order). rule_id stays None when NO rule
+        # matched — that is default-allow (the blocklist is a deny-list), not
+        # an approved decision.
+        return InterceptResult(
+            action=Action.ALLOW,
+            command=original,
+            rule_id=allow_rule_id,
+        )
 
     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
         """Evaluate a single command segment against all rule layers."""

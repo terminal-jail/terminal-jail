@@ -49,6 +49,27 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 
 The Interruptor is a bash command firewall that sits between the LLM and shell execution. It intercepts every command, parses it, evaluates it against a rule set, and decides: **allow**, **block**, or **modify** (auto-sandbox).
 
+**Default-allow posture (DF-TERMINAL-JAIL-12).** The interruptor is a **deny-list** pattern
+firewall: the critical blocklist rules name the destructive shapes it refuses, and **every
+command that matches no rule at all is ALLOWED by default** — the engine never requires a rule to
+approve a command, and reaching the always-allow list is not a precondition for execution. An
+allow verdict carries provenance: `rule_id` names the rule that allowed it.
+
+```bash
+echo '{"command": "ls"}' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action":"allow","command":"ls","rule_id":"allow-ls","reason":""}   (matched allow-ls)
+```
+
+**`"rule_id": null` together with `"action": "allow"` means NO rule matched** — for example
+`psql -c 'SELECT 1'`, or `cat /etc/passwd` (whose negative lookahead deliberately excludes
+`/etc`, `/boot`, `/proc`, `/sys`, so `allow-cat-safe` declines it). That is *default-allow*, not an
+approved decision, and it is the common case; `rule_id` is the field that distinguishes the two.
+For **deny-by-default**, add your own rules under `~/.config/terminal-jail/rules.d/`: a catch-all
+user `block` rule with a new id (e.g. pattern `.*`) evaluates in the last layer and therefore
+denies exactly the commands that would otherwise have ridden default-allow. The built-in allow
+rules (`pwd`, `echo`, `ls`, safe `cat`, `grep`, safe `find`, `git status|log|diff`, …) still match
+ahead of it, so tighten those too if your policy is strict.
+
 ### Quick Start
 
 ```bash

@@ -105,6 +105,12 @@ TERMINAL_JAIL_INTERRUPTOR_MODE=disabled terminal-jail rm -rf / # bypasses firewa
 terminal-jail --no-interruptor echo "bypass"                   # same, per-invocation
 ```
 
+**Default-allow posture.** The firewall is a deny-list: a command that matches no rule is
+**allowed**, and `"rule_id": null` on an allow verdict means no rule matched at all — default-allow,
+not an approved decision (a matched allow rule names itself, e.g. `"rule_id":"allow-ls"` for `ls`).
+For deny-by-default, add your own rules under `~/.config/terminal-jail/rules.d/`: a catch-all
+`block` rule with a new id denies everything the built-in allow rules do not already match.
+
 ### 3c. Privilege + syscall hardening
 
 ```bash

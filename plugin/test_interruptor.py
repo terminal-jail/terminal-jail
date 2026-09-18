@@ -6,6 +6,8 @@ and the top-level intercept() entry point.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from terminal_jail.interruptor import Action, intercept
 from terminal_jail.interruptor.config import Config
@@ -697,6 +699,165 @@ rules:
             f"(rule={result.rule_id!r})"
         )
         assert result.rule_id == "builtin-curl-pipe-shell"
+
+
+# =============================================================================
+# Allow-verdict provenance + default-allow posture (DF-TERMINAL-JAIL-12)
+# =============================================================================
+
+RULES_MIRROR_DIR = Path(__file__).resolve().parent / "terminal_jail" / "rules"
+
+
+class TestAllowProvenance:
+    """DF-TERMINAL-JAIL-12: an allow verdict names the rule that allowed it.
+
+    ``evaluate()`` used to discard the per-segment rule id and return a bare
+    ``InterceptResult(action=ALLOW, command=original)``, so a command matched
+    by an allow rule and a command that matched NO rule at all (default-allow
+    — the engine is a deny-list) were indistinguishable on the wire. Both
+    reach the wrapper as ``{"action":"allow","rule_id":...}``.
+    """
+
+    @pytest.mark.parametrize(
+        "command,rule_id",
+        [
+            ("pwd", "allow-pwd"),
+            ("git status", "allow-git-read"),
+            ("cat /tmp/x", "allow-cat-safe"),
+            ("echo hi", "allow-echo"),
+            # Bare `ls` matched NOTHING before this fix: allow-ls was `ls\s`
+            # (a trailing whitespace was required), so `ls` rode
+            # default-allow while `ls -la` matched. It is now `^ls\b`.
+            ("ls", "allow-ls"),
+            ("ls -la", "allow-ls"),
+        ],
+    )
+    def test_allow_verdict_carries_rule_provenance(
+        self, command: str, rule_id: str
+    ) -> None:
+        """A matched allow rule must be named in rule_id (with no reason)."""
+        result = intercept(command)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW for {command!r}, got {result.action}"
+        )
+        assert result.rule_id == rule_id, (
+            f"Expected rule {rule_id!r} for {command!r}, got {result.rule_id!r}"
+            " — the aggregate allow dropped the matched rule's id"
+        )
+        assert result.reason == "", (
+            f"Expected no reason for a plain allow, got {result.reason!r}"
+        )
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            # Matches no block/allow/sandbox rule → default-allow.
+            "psql -c x",
+            "psql -c 'SELECT 1'",
+            "cat /etc/passwd",
+        ],
+    )
+    def test_unmatched_commands_stay_default_allow(self, command: str) -> None:
+        """No matching rule → ALLOW with rule_id None (default-allow)."""
+        result = intercept(command)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW for {command!r}, got {result.action}"
+        )
+        assert result.rule_id is None, (
+            f"Expected rule_id None (no rule matched) for {command!r}, got "
+            f"{result.rule_id!r} — default-allow must not claim provenance"
+        )
+
+    def test_cat_etc_passwd_is_not_attributed_to_allow_cat_safe(self) -> None:
+        """Negative: allow-cat-safe's lookahead declines /etc (explicit non-match).
+
+        A non-match is not a decision: the rule explicitly excludes
+        /etc|/boot|/proc|/sys, so `cat /etc/passwd` rides default-allow and
+        must never be reported as allowed BY allow-cat-safe.
+        """
+        result = intercept("cat /etc/passwd")
+        assert result.action == Action.ALLOW
+        assert result.rule_id != "allow-cat-safe", (
+            "`cat /etc/passwd` was attributed to allow-cat-safe, but that "
+            "rule's negative lookahead deliberately excludes /etc"
+        )
+        assert result.rule_id is None
+
+    def test_ls_word_boundary_does_not_match_other_commands(self) -> None:
+        """`^ls\\b` must not attribute lsof/lsblk to allow-ls."""
+        for command in ("lsof", "lsblk"):
+            result = intercept(command)
+            assert result.action == Action.ALLOW
+            assert result.rule_id is None, (
+                f"{command!r} must not match allow-ls (the `\\b` after `ls` "
+                f"requires a non-word character), got {result.rule_id!r}"
+            )
+
+    def test_first_matched_allow_rule_wins(self) -> None:
+        """Determinism: the first allow rule in segment order names the verdict."""
+        result = intercept("pwd && echo hi")
+        assert result.action == Action.ALLOW
+        assert result.rule_id == "allow-pwd", (
+            f"Expected the first segment's allow rule, got {result.rule_id!r}"
+        )
+
+    def test_shipped_yaml_mirror_allows_bare_ls(self) -> None:
+        """The YAML mirror is the live engine on an installed host.
+
+        install.sh copies ``plugin/terminal_jail/rules/00-builtins.yaml`` into
+        ``~/.config/terminal-jail/rules.d/``, which the engine loads as USER
+        rules — a same-id override REPLACES the builtin in its layer. So the
+        mirror's allow-ls pattern must itself match bare ``ls``. The user rules
+        dir is pinned to the shipped rules dir so the host's own copy cannot
+        decide the outcome.
+        """
+        config = Config(
+            system_rules_dir=str(RULES_MIRROR_DIR),
+            user_rules_dir=str(RULES_MIRROR_DIR),
+        )
+        result = intercept("ls", config=config)
+        assert result.action == Action.ALLOW
+        assert result.rule_id == "allow-ls", (
+            f"shipped YAML mirror did not allow bare `ls`: {result.rule_id!r}"
+        )
+
+    def test_warn_override_still_wins_over_plain_allow_id(self, tmp_path) -> None:
+        """TJ-DF-012 regression: a warn reason + its rule_id beats a plain allow id.
+
+        ``echo hi`` is a plain allow (allow-echo) and the second segment is a
+        same-ID warn override of builtin-rm-rf-root. The aggregate verdict
+        must keep the WARN rule's id and reason — the new allow-provenance
+        capture must not shadow it.
+        """
+        yaml_text = r"""
+rules:
+  - id: builtin-rm-rf-root
+    description: User override — warn on rm -rf /
+    priority: 100
+    action: warn
+    block_message: Recursive root directory removal (rm -rf /) is blocked.
+    match:
+      type: pattern
+      pattern: 'rm\s+-rf\s+/'
+"""
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("echo hi && rm -rf /", config=config)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW (warn override runs the command), got {result.action}"
+        )
+        assert result.rule_id == "builtin-rm-rf-root", (
+            f"Expected the warn rule's id to win over the plain allow id, got "
+            f"{result.rule_id!r}"
+        )
+        assert result.reason and "would have blocked" in result.reason, (
+            f"Expected a would-have-blocked reason, got {result.reason!r}"
+        )
+
+    def test_block_verdicts_unchanged(self) -> None:
+        """No regression on the block path: its rule_id is unaffected."""
+        result = intercept("rm -rf /")
+        assert result.action == Action.BLOCK
+        assert result.rule_id == "builtin-rm-rf-root"
 
 
 # =============================================================================

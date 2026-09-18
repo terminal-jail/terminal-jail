@@ -20,7 +20,7 @@ BUILTIN_ALLOWLIST: list[Rule] = [
         description="Directory listing",
         priority=500,
         action="allow",
-        match={"type": "pattern", "pattern": r"ls\s"},
+        match={"type": "pattern", "pattern": r"^ls\b"},
     ),
     Rule(
         rule_id="allow-pwd",

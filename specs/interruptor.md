@@ -138,7 +138,7 @@ These ship with the interruptor and CANNOT be removed (only overridden to `warn`
 | ID | Pattern | Reason |
 |----|---------|--------|
 | `allow-echo` | `^echo\s` | Safe output |
-| `allow-ls` | `^ls\s` | Directory listing |
+| `allow-ls` | `^ls\b` | Directory listing |
 | `allow-cd` | `^cd\s` | Directory change |
 | `allow-pwd` | `^pwd$` | Print working dir |
 | `allow-cat` | `^cat\s(?!.*/(etc|boot|proc|sys))` | Safe file reads |
@@ -147,6 +147,33 @@ These ship with the interruptor and CANNOT be removed (only overridden to `warn`
 | `allow-git-status` | `^git\s+status|^git\s+log|^git\s+diff` | Git read operations |
 | `allow-python-version` | `^python.*--version` | Version check |
 | `allow-which` | `^which\s|^command\s+-v` | Path resolution |
+
+### 4.4 Default-Allow Posture and Rule Provenance (DF-TERMINAL-JAIL-12)
+
+The engine is a **deny-list pattern firewall**, not an allow-list policy engine. §4.1's
+critical blocklist names the destructive shapes that are refused, and **any command that
+matches no rule at all — no block, no allow, no sandbox — is ALLOWED**. Matching §4.3 is
+therefore not a precondition for execution; it is a fast path, not the gate.
+
+An allow verdict carries provenance in `rule_id`:
+
+- `rule_id: "<id>"` with `action: "allow"` — a rule matched and permitted the command
+  (for the built-in allow rules, e.g. `allow-ls`).
+- `rule_id: null` with `action: "allow"` — **no rule matched at all**. This is
+  *default-allow*, not an approved decision, and it is distinguished from an approved
+  allow only by `rule_id`. Provenance is first-match in segment order: the first allow
+  rule that matched a segment names the whole verdict, while a warn reason and its
+  rule_id (TJ-DF-012) take precedence over a plain allow id.
+
+`cat /etc/passwd` is the canonical example of an explicit NON-match. The `allow-cat-safe`
+pattern is `^cat\s(?!.*/(etc|boot|proc|sys))`; its negative lookahead deliberately
+excludes `/etc`, `/boot`, `/proc` and `/sys`, so this command is **NOT** attributed to
+`allow-cat-safe` and rides default-allow with `rule_id: null` — an intentional non-match
+(the rule declines the read), not a rule decision that permitted it.
+
+For deny-by-default, supply user rules in `~/.config/terminal-jail/rules.d/` (a catch-all
+user `block` rule with a new id evaluates in the last layer and denies everything the
+built-in allow rules do not already match).
 
 ## 5. Command Parser
 

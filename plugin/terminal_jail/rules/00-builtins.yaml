@@ -339,7 +339,7 @@ rules:
     action: allow
     match:
       type: pattern
-      pattern: "ls\\s"
+      pattern: "^ls\\b"
 
   - id: "allow-pwd"
     description: "Print working directory"
