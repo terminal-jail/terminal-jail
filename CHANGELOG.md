@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Transparent auto-sandbox launch preflight (DF-TERMINAL-JAIL-15)
+
+- **`plugin/terminal_jail/interruptor/userns.py`**: a `modify`/auto-sandbox rewrite no longer selects the uid-mapped `unshare` launch merely because the namespace can be CREATED. The new `mapped_file_access_ok()` proves the property a rewrite depends on — inside the candidate launch the payload must read a caller-owned mode-600 probe file the caller just created **and** write a probe file in the caller's current working directory — on an explicit, fail-closed timeout (a timeout counts as failure) and behind an injectable runner seam so both host shapes are unit-testable without a capable host. When the mapped launch is creatable but fails that property (the payload's host uid is the caller's subuid, so DAC denies the caller's repository and HOME) `unshare_prefix()` keeps the mapping-less prefix and prints ONE loud `no filesystem isolation` warning naming the cause and `TERMINAL_JAIL_UID_MAP=0`; a namespace-creation failure and `TERMINAL_JAIL_UID_MAP=0|off|false` keep the previous behaviour (legacy prefix, no new output). Measured on this host with a root-created mapped namespace: `read_rc=1 write_rc=1` (`Permission denied` on both probes) versus `read_rc=0 write_rc=0` for the mapping-less launch.
+- **Unchanged**: the wrapper's explicit `--user` hard-isolation launch and its creation-only preflight, the `TERMINAL_JAIL_FS_ISOLATION` markers, the mapped flag strings (still the single source of truth in `userns.py`), and `scripts/fs-isolation-probe.py` semantics.
+- **Tests**: `plugin/test_userns.py` gains `TestFileAccessPreflight` (capable-host fallback + exactly one warning, property-pass selection of the mapped prefix, both probe halves required, bounded probe budgets, timeout / launch-error / non-zero-exit fail-closed, scratch cleanup, no property probe — and no new warning — when namespace creation itself fails) and `TestFileAccessPreflightLive` (real `unshare`: the probe passes on a writable caller cwd and fails on an unwritable one).
+- **Docs**: `README.md` (auto-sandbox rule list) and `specs/cli.md` (extended launch forms) state the new selection rule; neither claims filesystem isolation for the transparent auto-sandbox — the mapped launch is the explicit `--user` hard-isolation path.
+
 ### License-clean bubblewrap installation/dependency path (TJ-GAP-055)
 
 - **`install.sh`**: a new advisory `NOTE` when `bwrap` is not on `PATH`. bubblewrap is optional, so the note is never a preflight error: a host without bubblewrap installs successfully and the CLI keeps the `unshare` backend. The installer still never downloads, builds, installs as a package, or vendors bubblewrap, and stays POSIX `sh`.

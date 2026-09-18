@@ -67,9 +67,12 @@ rules:
       # regex: 'curl\s+.*\|\s*(?:bash|sh|dash|zsh)'
     # For modify action:
     # NOTE: the engine builds this prefix via terminal_jail/interruptor/
-    # userns.py — a uid-MAPPED namespace when the host permits it (real
-    # filesystem isolation), the legacy mapping-less flags shown here
-    # otherwise (TJ-DF-015; classify hosts with scripts/fs-isolation-probe.py).
+    # userns.py — the uid-mapped launch is used for a rewrite only when the
+    # host can create it AND a payload launched through it can still reach
+    # the caller's files (DF-TERMINAL-JAIL-15: a transparent rewrite must
+    # never break the caller's own file access); the mapping-less flags shown
+    # here come otherwise (TJ-DF-015; classify hosts with
+    # scripts/fs-isolation-probe.py).
     modify:
       prepend: "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
       # or: rewrite: "safe-alternative {args}"
@@ -228,11 +231,18 @@ The interruptor operates in one of three modes, configured via env var
 [terminal-jail] Modified: pytest → unshare --user --pid --fork --kill-child=SIGKILL pytest
 ```
 
-The auto-sandbox prefix carries a uid mapping where the host permits one
-(`--map-users/--map-groups` + `-S`/`-G` — real filesystem isolation); on
-hosts that deny mappings (e.g. AppArmor `unprivileged_userns`) it is the
-mapping-less flags shown above, without filesystem isolation
-(`scripts/fs-isolation-probe.py`).
+The auto-sandbox prefix is chosen by the engine on a **proven property**
+(`plugin/terminal_jail/interruptor/userns.py`): the uid-mapped launch
+(`--map-users/--map-groups` + `-S`/`-G` — real filesystem isolation) is used
+for a rewrite only when the host can create it AND a payload launched through
+it can still read the caller's mode-600 files and write in the caller's
+current working directory. Otherwise the mapping-less flags shown above are
+used, without filesystem isolation — on hosts that deny mappings (e.g.
+AppArmor `unprivileged_userns`) that was always true, and DF-TERMINAL-JAIL-15
+added the capable-host case where the mapped launch would instead deny the
+caller's own repository and HOME. The mapped launch remains available as the
+explicit `terminal-jail --user` hard-isolation path; classify a host with
+`scripts/fs-isolation-probe.py`.
 
 ### 7.3 Allowed Commands
 

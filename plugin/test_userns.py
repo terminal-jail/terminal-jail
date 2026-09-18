@@ -50,6 +50,46 @@ def _run_cli(
 # ── Engine helper unit tests ───────────────────────────────────────────────
 
 
+class _LaunchDouble:
+    """Launch runner double (DF-TERMINAL-JAIL-15 test seam).
+
+    Lets a test shape a host that the dev box cannot be: namespace creation
+    succeeding while the payload's file access is broken. Records every
+    (argv, timeout) so tests can assert the probe budgets and the
+    short-circuit behaviour.
+    """
+
+    def __init__(
+        self,
+        *,
+        ns_creation_ok: bool = True,
+        read_rc: int = 0,
+        write_rc: int = 0,
+    ) -> None:
+        self.ns_creation_ok = ns_creation_ok
+        self.read_rc = read_rc
+        self.write_rc = write_rc
+        self.calls: list[tuple[list[str], int]] = []
+
+    def __call__(
+        self, argv: list[str], timeout: int
+    ) -> subprocess.CompletedProcess[str]:
+        self.calls.append((list(argv), timeout))
+        if argv[-1] == "true":  # namespace-creation preflight
+            rc = 0 if self.ns_creation_ok else 1
+            return subprocess.CompletedProcess(argv, rc, "", "")
+        return subprocess.CompletedProcess(  # in-launch property payload
+            argv,
+            0,
+            f"read_rc={self.read_rc} write_rc={self.write_rc}\n",
+            "",
+        )
+
+    def properties(self) -> list[tuple[list[str], int]]:
+        """The launches that ran the property payload (not the `true` probe)."""
+        return [call for call in self.calls if call[0][-1] != "true"]
+
+
 class TestUsernsHelper:
     def test_mapped_flags_fragments(self) -> None:
         flags = userns.mapped_user_flags()
@@ -86,7 +126,13 @@ class TestUsernsHelper:
     def test_unshare_prefix_mapped_when_probe_passes(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # DF-TERMINAL-JAIL-15: namespace creation is no longer sufficient —
+        # the mapped prefix is selected only when the file-access property
+        # preflight passes as well (simulated with the runner seam).
         monkeypatch.setattr(userns, "mapped_launch_ok", lambda flags=None: True)
+        monkeypatch.setattr(
+            userns, "_LAUNCH_RUNNER", _LaunchDouble(read_rc=0, write_rc=0)
+        )
         monkeypatch.setattr(userns, "_DECISION", None)
         monkeypatch.setattr(userns, "_DECISION", None)
         prefix = userns.unshare_prefix()
@@ -112,6 +158,157 @@ class TestUsernsHelper:
         # The decider's module-level prefix must be exactly what the helper
         # decides for this host (single source of truth, engine parity).
         assert decider_module._UNSHARE_PREFIX == userns.unshare_prefix()
+
+
+class TestFileAccessPreflight:
+    """DF-TERMINAL-JAIL-15 — the transparent auto-sandbox launch is chosen on
+    the property that matters (the payload can still read the caller's
+    mode-600 files and write in the caller's cwd), never on namespace
+    creation alone."""
+
+    def test_capable_host_without_file_access_falls_back_to_legacy(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # The capable-host shape: `unshare <mapped flags> true` succeeds (this
+        # dev host cannot create that mapping, a capable host can), yet the
+        # payload inside it is denied the caller's mode-600 file and the
+        # caller's cwd — measured on this host with a root-created mapped
+        # namespace (see the DF-TERMINAL-JAIL-15 evidence).
+        double = _LaunchDouble(read_rc=1, write_rc=1)
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", double)
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        assert userns.mapped_launch_ok() is True
+        assert userns.mapped_file_access_ok() is False
+
+        prefix = userns.unshare_prefix()
+        assert prefix == f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        assert "--map-users" not in prefix
+        warning = capsys.readouterr().err
+        assert warning.count("WARNING") == 1, "exactly ONE loud warning"
+        assert "no filesystem isolation" in warning
+        assert "TERMINAL_JAIL_UID_MAP=0" in warning
+        assert "DF-TERMINAL-JAIL-15" in warning
+
+    def test_property_pass_selects_the_mapped_prefix(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        double = _LaunchDouble(read_rc=0, write_rc=0)
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", double)
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        assert userns.mapped_file_access_ok() is True
+        assert userns.unshare_prefix() == (
+            f"unshare {userns.mapped_user_flags()} bash -c "
+        )
+        assert capsys.readouterr().err == "", "no degradation warning on a pass"
+
+    def test_both_property_halves_are_required(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Reading the caller's file is not enough, and neither is writing:
+        # a launch counts as usable only when BOTH succeed.
+        for read_rc, write_rc in ((1, 0), (0, 1), (1, 1)):
+            monkeypatch.setattr(
+                userns,
+                "_LAUNCH_RUNNER",
+                _LaunchDouble(read_rc=read_rc, write_rc=write_rc),
+            )
+            assert userns.mapped_file_access_ok() is False, (read_rc, write_rc)
+
+    def test_probe_budgets_are_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A preflight that can hang is worse than no preflight: every launch
+        # carries an explicit timeout (the runner double asserts on it).
+        double = _LaunchDouble()
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", double)
+        assert userns.mapped_launch_ok() is True
+        assert [call[1] for call in double.calls] == [userns._PROBE_TIMEOUT]
+        assert userns.mapped_file_access_ok() is True
+        assert [call[1] for call in double.properties()] == [userns._PROPERTY_TIMEOUT]
+        assert userns._PROBE_TIMEOUT > 0 and userns._PROPERTY_TIMEOUT > 0
+
+    def test_timeout_counts_as_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def runner(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+            if argv[-1] == "true":
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            raise subprocess.TimeoutExpired(argv, timeout)
+
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", runner)
+        monkeypatch.setattr(userns, "_DECISION", None)
+        assert userns.mapped_file_access_ok() is False
+        assert userns.unshare_prefix() == (
+            f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        )
+
+    def test_launch_error_and_nonzero_exit_are_failures(self) -> None:
+        assert userns.mapped_file_access_ok(runner=lambda argv, timeout: None) is False
+
+        def failing(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(argv, 1, "", "unshare: EPERM")
+
+        assert userns.mapped_file_access_ok(runner=failing) is False
+
+    def test_probe_files_are_cleaned_up(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import tempfile
+
+        before = {
+            entry
+            for entry in os.listdir(tempfile.gettempdir())
+            if entry.startswith("tj-fsaccess-")
+        }
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", _LaunchDouble())
+        assert userns.mapped_file_access_ok() is True
+        after = {
+            entry
+            for entry in os.listdir(tempfile.gettempdir())
+            if entry.startswith("tj-fsaccess-")
+        }
+        assert after == before, "probe scratch dirs must not leak"
+
+    def test_namespace_creation_failure_skips_the_property_probe(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # Unchanged degraded-host behaviour: legacy prefix, no property probe
+        # (no added latency), and no new warning noise.
+        double = _LaunchDouble(ns_creation_ok=False)
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", double)
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        assert userns.unshare_prefix() == (
+            f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        )
+        assert double.properties() == []
+        assert capsys.readouterr().err == ""
+
+    def test_mapped_launch_needs_the_property_not_just_creation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Behavioural core of DF-TERMINAL-JAIL-15, on the pre-DF-15 surface.
+
+        A host that can CREATE the mapped launch must still not get it when
+        the payload cannot reach the caller's files. `raising=False` keeps the
+        RED run honest: on the pre-fix module the property seam does not exist,
+        the capability is never consulted, and this test fails by ASSERTION
+        (mapped prefix returned) rather than by AttributeError.
+        """
+        monkeypatch.setattr(userns, "mapped_launch_ok", lambda flags=None: True)
+        monkeypatch.setattr(
+            userns, "mapped_file_access_ok", lambda *a, **k: False, raising=False
+        )
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        prefix = userns.unshare_prefix()
+        assert prefix == f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        assert "--map-users" not in prefix
+        assert "no filesystem isolation" in capsys.readouterr().err
 
 
 # ── Wrapper parity (flag fragments) ────────────────────────────────────────
@@ -306,3 +503,58 @@ class TestFilesystemIsolation:
             )
         finally:
             home_probe.unlink(missing_ok=True)
+
+
+@pytest.mark.integration
+class TestFileAccessPreflightLive:
+    """The property preflight against this host's REAL unshare.
+
+    The mapping-less flags DO preserve the caller's file access here, so
+    varying only the property (a writable vs an unwritable cwd) shows the
+    probe measures file access — not merely "unshare exists".
+    """
+
+    @staticmethod
+    def _legacy_launch_works() -> bool:
+        try:
+            result = subprocess.run(
+                ["unshare", *userns.LEGACY_USER_FLAGS.split(), "true"],
+                capture_output=True,
+                timeout=20,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return result.returncode == 0
+
+    def test_property_passes_where_the_launch_preserves_access(
+        self, tmp_path: Path
+    ) -> None:
+        if not self._legacy_launch_works():
+            pytest.skip("HOST-DEGRADED-USERNS: no user namespace on this host")
+        assert (
+            userns.mapped_file_access_ok(
+                flags=userns.LEGACY_USER_FLAGS, cwd=str(tmp_path)
+            )
+            is True
+        ), "a launch that preserves the caller's file access must pass"
+        assert list(tmp_path.iterdir()) == [], "cwd probe file must be cleaned up"
+
+    def test_property_fails_when_the_cwd_cannot_be_written(
+        self, tmp_path: Path
+    ) -> None:
+        if not self._legacy_launch_works():
+            pytest.skip("HOST-DEGRADED-USERNS: no user namespace on this host")
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        os.chmod(locked, 0o500)
+        try:
+            assert (
+                userns.mapped_file_access_ok(
+                    flags=userns.LEGACY_USER_FLAGS, cwd=str(locked)
+                )
+                is False
+            ), "a launch that cannot write the caller's cwd must NOT pass"
+            assert list(locked.iterdir()) == []
+        finally:
+            os.chmod(locked, 0o700)

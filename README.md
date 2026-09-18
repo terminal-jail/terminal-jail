@@ -146,7 +146,7 @@ Rule IDs are stable — tests assert behavior by ID.
   - `builtin-curl-pipe-shell` — `curl|sh` / `wget|sh` pipe-to-shell
   - `builtin-sudo` — privilege escalation (`sudo`)
   - `builtin-code-injection` — code-injection vectors in interpreter arguments (`os.system(`, `subprocess.run(`, `eval(`, `exec(`, `__import__(` — scanned in quoted interpreter code too, TJ-GAP-042)
-- **8 Auto-Sandbox** (wrapped in `unshare --user --pid --fork --kill-child=SIGKILL`):
+- **8 Auto-Sandbox** (wrapped in an `unshare` prefix selected by the preflight described below):
   - `auto-pytest` — `pytest|tox|nose`
   - `auto-npm-test` — `npm test` / `npx vitest|jest`
   - `auto-go-test` — `go test`
@@ -155,6 +155,8 @@ Rule IDs are stable — tests assert behavior by ID.
   - `auto-cargo` — `cargo build|test`
   - `auto-gcc` — `gcc|g++|clang++` compilation
   - `auto-script` — script execution (`./foo.sh`, `bash foo.py`, etc.)
+  - The wrap prefix is chosen on the **property that matters** (DF-TERMINAL-JAIL-15), not on namespace creation: the uid-mapped launch is used for a rewrite only when this host can create it **and** a payload launched through it can still read a caller-owned mode-600 file and write in the caller's current working directory. A host where the mapped launch is creatable but breaks that property (the payload's host uid becomes the caller's subuid, so DAC denies the caller's repository and HOME) degrades to the mapping-less prefix with one loud `no filesystem isolation` warning naming the cause and `TERMINAL_JAIL_UID_MAP=0`.
+  - It never claims filesystem isolation it does not have: the mapped launch stays the **explicit hard-isolation path** (`terminal-jail --user`).
 - **10 Always-Allow** (skip further evaluation when matched):
   - `allow-echo` — `echo`
   - `allow-ls` — `ls`
