@@ -132,7 +132,11 @@ PIPELINE_BLOCK_VECTORS = [
 
 
 def _first_sandbox_rule(command: str) -> str | None:
-    """Replay the decider's sandbox layer order (MODIFY drops rule_id)."""
+    """Independently replay the sandbox layer order for a command.
+
+    The decider reports the MODIFY provenance on the result itself since
+    TJ-GAP-066; this replay stays as a cross-check of that claim.
+    """
     from terminal_jail.interruptor.matcher import Matcher
     from terminal_jail.interruptor.parser import parse_command
     from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
@@ -179,6 +183,10 @@ class TestEscapeWaveSandbox:
         assert result.action == Action.MODIFY, (
             f"dual-use vector {name!r} is not sandboxed: {command!r} -> "
             f"{result.action} (rule={result.rule_id!r})"
+        )
+        assert result.rule_id == rule_id, (
+            f"dual-use vector {name!r} reports provenance {result.rule_id!r}, "
+            f"expected {rule_id!r}"
         )
         assert _first_sandbox_rule(command) == rule_id, (
             f"dual-use vector {name!r} is not claimed by {rule_id!r}: "

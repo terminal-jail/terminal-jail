@@ -15,7 +15,13 @@ from .allowlist import BUILTIN_ALLOWLIST
 from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
 from .matcher import Matcher
-from .parser import Segment, SegmentType
+from .parser import (
+    Segment,
+    SegmentType,
+    rebuild_command,
+    segment_texts,
+    structure_preserved,
+)
 from .rules import Rule, RuleLoader, RuleSet
 from .sandbox import BUILTIN_SANDBOX
 from .types import Action, InterceptResult
@@ -100,7 +106,10 @@ class Decider:
             original: The original command string.
 
         Returns:
-            An InterceptResult with the final action decision.
+            An InterceptResult with the final action decision. An aggregate
+            MODIFY keeps the ORIGINAL command's shell structure (operators,
+            redirections, whitespace) and carries the rule id that rewrote the
+            first modified segment (TJ-GAP-066); see ``_rebuild_modified``.
         """
         if not segments:
             return InterceptResult(action=Action.ALLOW, command=original)
@@ -128,7 +137,7 @@ class Decider:
                 )
 
         # Then check each segment individually
-        modified_segments: list[str] = []
+        replacements: dict[int, str] = {}
         any_modified = False
         any_warn_reason = ""
         warn_rule_id: str | None = None
@@ -137,16 +146,23 @@ class Decider:
         # allow verdict names its provenance instead of looking identical to
         # a default-allow (no rule matched at all).
         allow_rule_id: str | None = None
+        # TJ-GAP-066: the aggregate MODIFY used to drop rule_id entirely, so
+        # callers had to replay the sandbox layer just to learn which rule
+        # rewrote the command. It now carries the rule that rewrote the FIRST
+        # segment (segment order) — for the built-in auto-sandbox layer that is
+        # the first matching sandbox rule.
+        modify_rule_id: str | None = None
 
-        for segment in segments:
+        for index, segment in enumerate(segments):
             result = self._evaluate_segment(segment)
             if result.action == Action.BLOCK:
                 return result
             if result.action in (Action.MODIFY, Action.SANDBOX):
                 any_modified = True
-                modified_segments.append(result.modified or segment.raw)
+                replacements[index] = result.modified or segment.raw
+                if modify_rule_id is None:
+                    modify_rule_id = result.rule_id
             elif result.action == Action.ALLOW:
-                modified_segments.append(segment.raw)
                 # Preserve a would-have-blocked warn reason (TJ-DF-012): a
                 # same-ID user rule with action=warn replaces a builtin and
                 # evaluates to ALLOW with a warn reason. Without this the
@@ -164,17 +180,16 @@ class Decider:
                     allow_rule_id = result.rule_id
             else:
                 # WARN / LOG — allow through
-                modified_segments.append(segment.raw)
                 if getattr(result, "reason", "") and not any_warn_reason:
                     any_warn_reason = result.reason
                     warn_rule_id = result.rule_id
 
         if any_modified:
-            modified_cmd = " ".join(modified_segments)
             return InterceptResult(
                 action=Action.MODIFY,
                 command=original,
-                modified=modified_cmd,
+                modified=self._rebuild_modified(original, segments, replacements),
+                rule_id=modify_rule_id,
                 reason="Command modified by auto-sandbox",
             )
 
@@ -195,6 +210,44 @@ class Decider:
             command=original,
             rule_id=allow_rule_id,
         )
+
+    def _rebuild_modified(
+        self,
+        original: str,
+        segments: list[Segment],
+        replacements: dict[int, str],
+    ) -> str:
+        """Rebuild the original command with the rewritten segments in place.
+
+        TJ-GAP-066: the aggregate MODIFY path used to join the rewritten
+        segments with a plain space, which DROPPED every shell operator of a
+        pipeline — ``go test ./... | tee /tmp/log`` came back as
+        ``unshare … bash -c 'go test ./...' tee /tmp/log``, i.e. ``tee`` became
+        an argument of the sandboxed first stage and the second stage never
+        ran. The rebuild now replaces each rewritten segment wholesale inside
+        the ORIGINAL text, so operators, redirections and whitespace survive.
+
+        Two guards run before the rebuilt string is trusted:
+
+        1. the segments handed in must be the ones this command parses to
+           (count and raw text), and
+        2. the rebuilt string must keep the same segment count and operator
+           sequence (``structure_preserved``) — the escaping of a segment that
+           carries a quoted operator is not always round-trip safe.
+
+        When either fails, the verdict degrades to a whole-command wrap: the
+        original command as ONE quoted argument. That keeps the sandbox (the
+        command still runs under namespace isolation) while making it
+        structurally impossible to drop or re-bind an operator.
+        """
+        derived = segment_texts(original)
+        if len(derived) == len(segments) and all(
+            text == segment.raw for text, segment in zip(derived, segments)
+        ):
+            rebuilt = rebuild_command(original, replacements)
+            if rebuilt is not None and structure_preserved(original, rebuilt):
+                return rebuilt
+        return f"{_UNSHARE_PREFIX}{_escape_for_shell(original.strip())}"
 
     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
         """Evaluate a single command segment against all rule layers."""

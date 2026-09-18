@@ -518,20 +518,54 @@ def test_bridge_sandboxes_quoted_pytest() -> None:
     the unquoted form. The bridge response must include a non-null
     ``modified`` field containing both the command name and flag.
 
-    Note: the decider's top-level ``evaluate()`` aggregates per-segment
-    MODIFY results into a single InterceptResult without preserving the
-    per-segment ``rule_id`` (a pre-existing behaviour), so we assert on
-    ``action`` and the ``modified`` payload.
+    The aggregate MODIFY reports the rule that rewrote the segment
+    (TJ-GAP-066), so the bridge response carries ``rule_id`` too.
     """
     response = _bridge_call("'pytest' '--version'")
     assert response.get("action") == "modify", (
         f"Expected modify for quoted pytest, got {response}"
+    )
+    assert response.get("rule_id") == "auto-pytest", (
+        f"bridge lost the MODIFY provenance: {response.get('rule_id')!r}"
     )
     modified = response.get("modified") or ""
     assert "pytest" in modified
     assert "--version" in modified
     assert "unshare" in modified, (
         "modified payload should wrap the command in unshare"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_bridge_preserves_pipeline_operators_in_modified() -> None:
+    """TJ-GAP-066: a sandboxed pipeline keeps its operators end-to-end.
+
+    The bridge is what the standalone wrapper executes verbatim, so this is
+    the level at which a dropped ``|`` turns into a different command. The
+    trailing stage must stay a PIPELINE STAGE (its own segment), not become
+    an argument of the sandboxed first stage.
+    """
+    from terminal_jail.interruptor.parser import (
+        operator_sequence,
+        parse_command,
+        segment_texts,
+    )
+
+    command = "go test ./... | tee /tmp/log"
+    response = _bridge_call(command)
+    assert response.get("action") == "modify", (
+        f"Expected modify for the sandboxed pipeline, got {response}"
+    )
+    assert response.get("rule_id") == "auto-go-test"
+    modified = response.get("modified") or ""
+    assert operator_sequence(modified) == operator_sequence(command) == ["|"], (
+        f"the bridge dropped or added an operator: {modified!r}"
+    )
+    assert len(segment_texts(modified)) == len(parse_command(command)), (
+        f"the bridge changed the segment count: {modified!r}"
+    )
+    assert segment_texts(modified)[1] == "tee /tmp/log", (
+        f"`tee /tmp/log` must stay a separate pipeline stage: {modified!r}"
     )
 
 

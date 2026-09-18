@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import NamedTuple
+from typing import Mapping, NamedTuple
 
 
 class TokenType(Enum):
@@ -76,6 +76,18 @@ class Segment(NamedTuple):
     pos: int
 
 
+class _Part(NamedTuple):
+    """A non-empty chunk of a command string with its span in the source.
+
+    ``start``/``end`` are offsets into the string that was scanned, so a
+    rebuild can copy every byte that is not being replaced verbatim.
+    """
+
+    text: str
+    start: int
+    end: int
+
+
 # Regex patterns for shell operators
 _OPERATOR_RE = re.compile(r"(&&|\|\||[|;&]|2>>|>>|2>|>|<)")
 
@@ -103,7 +115,18 @@ def _split_operators(cmd: str) -> list[str]:
     Splits on shell operators (|, ||, &&, ;, &, >, >>, <) while preserving
     them as separate tokens. Quoted strings are kept intact.
     """
-    parts: list[str] = []
+    return [part.text for part in _split_parts(cmd)]
+
+
+def _split_parts(cmd: str) -> list[_Part]:
+    """Split a command into non-empty parts carrying their source spans.
+
+    Same scanning rules as the historical ``_split_operators`` (operators are
+    their own parts, quoted strings stay intact); the spans are what makes a
+    faithful rebuild possible — every byte that is NOT a replaced segment can
+    be copied verbatim from the original text.
+    """
+    parts: list[_Part] = []
     i = 0
     while i < len(cmd):
         # Skip whitespace between tokens
@@ -113,13 +136,13 @@ def _split_operators(cmd: str) -> list[str]:
 
         # Check for multi-char operators
         if cmd[i : i + 2] in ("&&", "||", "2>", ">>"):
-            parts.append(cmd[i : i + 2])
+            parts.append(_Part(cmd[i : i + 2], i, i + 2))
             i += 2
             continue
 
         # Check for single-char operators
         if cmd[i] in ("|", ";", "&", "<", ">"):
-            parts.append(cmd[i])
+            parts.append(_Part(cmd[i], i, i + 1))
             i += 1
             continue
 
@@ -132,7 +155,7 @@ def _split_operators(cmd: str) -> list[str]:
                     end += 1  # skip escaped char
                 end += 1
             end += 1  # include closing quote
-            parts.append(cmd[i:end])
+            parts.append(_Part(cmd[i:end], i, min(end, len(cmd))))
             i = end
             continue
 
@@ -144,10 +167,35 @@ def _split_operators(cmd: str) -> list[str]:
             if cmd[i] in ("'", '"'):
                 break  # handled above
             i += 1
-        parts.append(cmd[start:i])
+        parts.append(_Part(cmd[start:i], start, i))
 
     # Filter empty parts
-    return [p for p in parts if p]
+    return [p for p in parts if p.text]
+
+
+def _group_parts(cmd: str) -> list[list[_Part]]:
+    """Group parts into segments exactly as ``_group_by_operator`` does.
+
+    Operator parts separate groups and are never members of one, so a group is
+    a maximal run of non-operator parts — the same shape ``parse_command``
+    builds from tokens.
+    """
+    groups: list[list[_Part]] = []
+    current: list[_Part] = []
+
+    for part in _split_parts(cmd):
+        if _operator_to_token_type(part.text) is not None:
+            if current:
+                groups.append(current)
+                current = []
+            # Operators are separators, not group members.
+        else:
+            current.append(part)
+
+    if current:
+        groups.append(current)
+
+    return groups
 
 
 def _operator_to_token_type(op: str) -> TokenType | None:
@@ -270,6 +318,94 @@ def parse_command(command: str) -> list[Segment]:
 def is_sensitive_path(path: str) -> bool:
     """Check if a path is a sensitive system path."""
     return bool(_SENSITIVE_PATHS.search(path))
+
+
+# =============================================================================
+# Faithful reconstruction (TJ-GAP-066)
+#
+# The decider rewrites individual segments (it wraps them in a namespace) and
+# then has to put the command back together. Re-joining the rewritten segments
+# with spaces DROPS every shell operator between them, so a sandboxed pipeline
+# silently became a different command (`a | b` -> `a b`, with `b` turned into
+# an ARGUMENT of `a` instead of a second pipeline stage). The helpers below
+# rebuild from the parser's own structure instead: a segment is replaced
+# wholesale, everything else (operators, redirections, whitespace) is copied
+# verbatim from the source text.
+# =============================================================================
+
+
+def segment_texts(command: str) -> list[str]:
+    """The raw text of each segment ``parse_command`` produces, in order.
+
+    Mirrors ``[segment.raw for segment in parse_command(command)]`` (pinned by
+    test): the rebuild's grouping must never drift from the evaluator's.
+    """
+    return [" ".join(part.text for part in group) for group in _group_parts(command)]
+
+
+def operator_sequence(command: str) -> list[str]:
+    """The shell operators of ``command``, in source order.
+
+    Uses the parser's own operator vocabulary, so ``cmd 2>&1 | tee f`` reports
+    ``["2>", "&", "|"]`` (``2>&1`` is two operator parts plus a word) — the
+    exact sequence a rebuild must reproduce.
+    """
+    return [
+        part.text
+        for part in _split_parts(command)
+        if _operator_to_token_type(part.text) is not None
+    ]
+
+
+def rebuild_command(command: str, replacements: Mapping[int, str]) -> str | None:
+    """Rebuild ``command`` with whole-segment replacements, verbatim elsewhere.
+
+    Args:
+        command: The original command string.
+        replacements: ``{segment index: new text}`` for the segments to
+            replace; every other byte of ``command`` (operators, redirections,
+            whitespace, quoting) is copied through unchanged.
+
+    Returns:
+        The rebuilt command, or ``None`` when a faithful rebuild is impossible:
+        the command has no parseable structure, an index is outside the derived
+        segment range, or a replacement is empty/blank (an empty replacement
+        would leave a dangling operator, i.e. change the structure). Callers
+        must treat ``None`` as a refusal — never emit a partial rebuild.
+    """
+    if not command.strip():
+        return None
+    if any(not text.strip() for text in replacements.values()):
+        return None
+
+    groups = _group_parts(command)
+    if not groups:
+        return None
+    for index in replacements:
+        if index < 0 or index >= len(groups):
+            return None
+
+    out: list[str] = []
+    cursor = 0
+    for index, group in enumerate(groups):
+        start, end = group[0].start, group[-1].end
+        out.append(command[cursor:start])  # operators/whitespace, verbatim
+        out.append(replacements.get(index, command[start:end]))
+        cursor = end
+    out.append(command[cursor:])
+    return "".join(out)
+
+
+def structure_preserved(original: str, rebuilt: str) -> bool:
+    """True when ``rebuilt`` keeps ``original``'s segment count and operators.
+
+    The safety net for any rebuild: a reconstruction that changes the number of
+    segments or the operator sequence has changed the command's shell
+    structure, so it must be rejected rather than executed.
+    """
+    return len(segment_texts(original)) == len(segment_texts(rebuilt)) and (
+        operator_sequence(original) == operator_sequence(rebuilt)
+    )
 
 
 def expand_variables(text: str) -> list[str]:
