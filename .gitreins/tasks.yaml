@@ -754,3 +754,25 @@ tasks:
   status: complete
   created_at: '2026-09-18T03:21:07.345293+00:00'
   completed_at: '2026-09-18T03:27:51.896754+00:00'
+- id: TJ-GAP-058
+  title: 'Network egress rule class: reverse shells + staged fetch pipes + upload-exfil'
+  criteria:
+  - 'blocklist.py ships a builtin-net-* BLOCK class covering /dev/tcp|/dev/udp redirect
+    reverse shell, nc/ncat -e|-c shell attach, socat EXEC:/SYSTEM: with pty|reverse,
+    mkfifo+nc two-way loop, openssl s_client piped to a shell; sandbox.py ships modify-verdict
+    rules for staged fetch pipes (wget -O- url | sh), shell-pipe upload shapes (curl
+    -T/--upload-file, wget --post-file) and whole-tree remote copy (rsync -a /, scp
+    -r /)'
+  - 'engine vs YAML mirror parity: every new rule id is in plugin/terminal_jail/rules/00-builtins.yaml
+    with an identical pattern; plugin/test_packaging.py mirror id-set/per-layer-count
+    and pattern-parity tests pass'
+  - regression tests assert verdict AND rule id per vector, plus ALLOW pins for ssh,
+    scp file host:, git push, plain curl/wget, nc -z port check, bare openssl s_client
+    diagnostic (no fleet breakage)
+  - .venv/bin/python -m pytest -q reports 0 failures (>=435 passed) and uvx ruff check
+    . reports no problems
+  - live probe via intercept() on the committed tree reproduces every claimed verdict
+    (vector -> action/rule_id table reported)
+  status: complete
+  created_at: '2026-09-18T08:42:36.949469+00:00'
+  completed_at: '2026-09-18T08:54:44.423708+00:00'
