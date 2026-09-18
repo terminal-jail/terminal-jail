@@ -1,0 +1,117 @@
+{
+  "task_id": "tj-gap-054",
+  "task_title": "Optional bubblewrap jail backend",
+  "task_criteria": [
+    "Add runtime-detected bubblewrap backend with private /proc and --die-with-parent, preserve unshare fallback, add tests and docs; no regressions in existing wrapper behavior."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "505315aaa9811fe89f9b398cb2e5e82d67ac691e",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2717 tests: ============================= test session starts ==============================\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260918T120809.423000Z.log"
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.10.20, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 453 items / 1 error\n\n==================================== ERRORS ====================================\n__________________ ERROR collecting plugin/test_packaging.py ___________________\nImportError while importing test module '/home/kara/terminal-jail/plugin/test_packaging.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\nplugin/test_packaging.py:26: in <module>\n    import tomllib\nE   ModuleNotFoundError: No module named 'tomllib'\n=========================== short test summary info ============================\nERROR plugin/test_packaging.py\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n=============================== 1 error in 0.11s ===============================\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "pytest reported failures",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260918T120809.423000Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 115 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n7:09AM INF scanned ~4379222 bytes (4.38 MB) in 402ms\n7:09AM INF no leaks found\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260918T120809.423000Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Add runtime-detected bubblewrap backend with private /proc and --die-with-parent, preserve unshare fallback, add tests and docs; no regressions in existing wrapper behavior.: IMPLEMENTATION (standalone/terminal-jail, commit 505315a): runtime detection at line 442 `_TJ_BWRAP_BIN=\"$(command -v bwrap 2>/dev/null || true)\"` (never assumed present); selector `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` validated at lines 186-191 (unknown value -> exit 2 before any namespace work); BWRAP_FLAGS = `--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc` (--proc /proc = private /proc; --die-with-parent = PR_SET_PDEATHSIG; --as-pid-1 deliberately absent). Selection at lines 452-475: bwrap demand fails closed (exit 2, command not run) on missing binary or failed probe, never silently downgraded; auto uses bwrap when present+probe-green else unshare, with a loud WARNING that the fallback 'does NOT provide a private /proc'; unshare pins prior behavior. LIVE EVIDENCE: private /proc confirmed \u2014 jail procs=5, init=bwrap, ns=pid:[4026538975] vs host procs=1660, init=systemd, ns=pid:[4026531836]. --die-with-parent confirmed \u2014 payload PID 2842438 present before SIGKILL of wrapper, absent after (no orphan). UNSHARE FALLBACK PRESERVED: `git diff HEAD~1 HEAD -- standalone/terminal-jail | grep -E 'exec unshare|UNSHARE_FLAGS='` returned ZERO changed lines (byte-for-byte); pinned `TERMINAL_JAIL_JAIL_BACKEND=unshare` and all `--user` paths still emit the pre-existing degradation warning and rc=0. TESTS: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -x --tb=short` (the configured guards.test_command) -> EXIT_CODE=0, '561 passed, 5 skipped in 18.51s'; baseline HEAD~1 -> '536 passed, 14 skipped in 11.51s' => +25 tests, 0 failures, no regressions. New plugin/test_backend_selection.py -> 16 passed in 0.51s including 2 LIVE tests (test_live_bwrap_private_proc_and_new_pid_namespace, test_live_bwrap_argv_and_exit_semantics) that ran rather than skipped. DOCS: README.md (lines 13, 24-36, 48, 61, 200-203, 314, 323, 333), specs/cli.md (lines 15-36, 149-156, 183-200, new section 4 'Jail backends' at 217-231 with selection-policy and per-backend property tables, test matrix CLI-17..CLI-25), docs/quickstart.md (100-143, 326-337), docs/deploy-to-karahermes.md, CHANGELOG.md, and `--help` output. LINT/STATIC: ruff 'All checks passed!' rc=0; `bash -n standalone/terminal-jail` syntax OK; LSP diagnostics 0 findings. The plugin/test_install.py edit only pins TERMINAL_JAIL_JAIL_BACKEND=unshare on one test with a docstring explaining why (auto would legitimately hand off to bwrap) \u2014 a documented adaptation, not regression masking.\nThe bubblewrap backend is fully implemented with runtime detection, private /proc and --die-with-parent (both verified live), the unshare fallback is preserved byte-for-byte, 16 new tests plus docs were added, and the full suite passes 561/5-skipped with zero regressions against a 536/14 baseline.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Add runtime-detected bubblewrap backend with private /proc and --die-with-parent, preserve unshare fallback, add tests and docs; no regressions in existing wrapper behavior.: IMPLEMENTATION (standalone/terminal-jail, commit 505315a): runtime detection at line 442 `_TJ_BWRAP_BIN=\"$(command -v bwrap 2>/dev/null || true)\"` (never assumed present); selector `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` validated at lines 186-191 (unknown value -> exit 2 before any namespace work); BWRAP_FLAGS = `--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc` (--proc /proc = private /proc; --die-with-parent = PR_SET_PDEATHSIG; --as-pid-1 deliberately absent). Selection at lines 452-475: bwrap demand fails closed (exit 2, command not run) on missing binary or failed probe, never silently downgraded; auto uses bwrap when present+probe-green else unshare, with a loud WARNING that the fallback 'does NOT provide a private /proc'; unshare pins prior behavior. LIVE EVIDENCE: private /proc confirmed \u2014 jail procs=5, init=bwrap, ns=pid:[4026538975] vs host procs=1660, init=systemd, ns=pid:[4026531836]. --die-with-parent confirmed \u2014 payload PID 2842438 present before SIGKILL of wrapper, absent after (no orphan). UNSHARE FALLBACK PRESERVED: `git diff HEAD~1 HEAD -- standalone/terminal-jail | grep -E 'exec unshare|UNSHARE_FLAGS='` returned ZERO changed lines (byte-for-byte); pinned `TERMINAL_JAIL_JAIL_BACKEND=unshare` and all `--user` paths still emit the pre-existing degradation warning and rc=0. TESTS: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -x --tb=short` (the configured guards.test_command) -> EXIT_CODE=0, '561 passed, 5 skipped in 18.51s'; baseline HEAD~1 -> '536 passed, 14 skipped in 11.51s' => +25 tests, 0 failures, no regressions. New plugin/test_backend_selection.py -> 16 passed in 0.51s including 2 LIVE tests (test_live_bwrap_private_proc_and_new_pid_namespace, test_live_bwrap_argv_and_exit_semantics) that ran rather than skipped. DOCS: README.md (lines 13, 24-36, 48, 61, 200-203, 314, 323, 333), specs/cli.md (lines 15-36, 149-156, 183-200, new section 4 'Jail backends' at 217-231 with selection-policy and per-backend property tables, test matrix CLI-17..CLI-25), docs/quickstart.md (100-143, 326-337), docs/deploy-to-karahermes.md, CHANGELOG.md, and `--help` output. LINT/STATIC: ruff 'All checks passed!' rc=0; `bash -n standalone/terminal-jail` syntax OK; LSP diagnostics 0 findings. The plugin/test_install.py edit only pins TERMINAL_JAIL_JAIL_BACKEND=unshare on one test with a docstring explaining why (auto would legitimately hand off to bwrap) \u2014 a documented adaptation, not regression masking.\nThe bubblewrap backend is fully implemented with runtime detection, private /proc and --die-with-parent (both verified live), the unshare fallback is preserved byte-for-byte, 16 new tests plus docs were added, and the full suite passes 561/5-skipped with zero regressions against a 536/14 baseline.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Add runtime-detected bubblewrap backend with private /proc and --die-with-parent, preserve unshare fallback, add tests and docs; no regressions in existing wrapper behavior.",
+                "status": "PASS",
+                "detail": "IMPLEMENTATION (standalone/terminal-jail, commit 505315a): runtime detection at line 442 `_TJ_BWRAP_BIN=\"$(command -v bwrap 2>/dev/null || true)\"` (never assumed present); selector `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` validated at lines 186-191 (unknown value -> exit 2 before any namespace work); BWRAP_FLAGS = `--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc` (--proc /proc = private /proc; --die-with-parent = PR_SET_PDEATHSIG; --as-pid-1 deliberately absent). Selection at lines 452-475: bwrap demand fails closed (exit 2, command not run) on missing binary or failed probe, never silently downgraded; auto uses bwrap when present+probe-green else unshare, with a loud WARNING that the fallback 'does NOT provide a private /proc'; unshare pins prior behavior. LIVE EVIDENCE: private /proc confirmed \u2014 jail procs=5, init=bwrap, ns=pid:[4026538975] vs host procs=1660, init=systemd, ns=pid:[4026531836]. --die-with-parent confirmed \u2014 payload PID 2842438 present before SIGKILL of wrapper, absent after (no orphan). UNSHARE FALLBACK PRESERVED: `git diff HEAD~1 HEAD -- standalone/terminal-jail | grep -E 'exec unshare|UNSHARE_FLAGS='` returned ZERO changed lines (byte-for-byte); pinned `TERMINAL_JAIL_JAIL_BACKEND=unshare` and all `--user` paths still emit the pre-existing degradation warning and rc=0. TESTS: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -x --tb=short` (the configured guards.test_command) -> EXIT_CODE=0, '561 passed, 5 skipped in 18.51s'; baseline HEAD~1 -> '536 passed, 14 skipped in 11.51s' => +25 tests, 0 failures, no regressions. New plugin/test_backend_selection.py -> 16 passed in 0.51s including 2 LIVE tests (test_live_bwrap_private_proc_and_new_pid_namespace, test_live_bwrap_argv_and_exit_semantics) that ran rather than skipped. DOCS: README.md (lines 13, 24-36, 48, 61, 200-203, 314, 323, 333), specs/cli.md (lines 15-36, 149-156, 183-200, new section 4 'Jail backends' at 217-231 with selection-policy and per-backend property tables, test matrix CLI-17..CLI-25), docs/quickstart.md (100-143, 326-337), docs/deploy-to-karahermes.md, CHANGELOG.md, and `--help` output. LINT/STATIC: ruff 'All checks passed!' rc=0; `bash -n standalone/terminal-jail` syntax OK; LSP diagnostics 0 findings. The plugin/test_install.py edit only pins TERMINAL_JAIL_JAIL_BACKEND=unshare on one test with a docstring explaining why (auto would legitimately hand off to bwrap) \u2014 a documented adaptation, not regression masking."
+              }
+            ],
+            "summary": "The bubblewrap backend is fully implemented with runtime detection, private /proc and --die-with-parent (both verified live), the unshare fallback is preserved byte-for-byte, 16 new tests plus docs were added, and the full suite passes 561/5-skipped with zero regressions against a 536/14 baseline."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: tj-gap-054\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2717 tests: ============================= test session starts ==============================\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Add runtime-detected bubblewrap backend with private /proc and --die-with-parent, preserve unshare fallback, add tests and docs; no regressions in existing wrapper behavior.: IMPLEMENTATION (standalone/terminal-jail, commit 505315a): runtime detection at line 442 `_TJ_BWRAP_BIN=\"$(command -v bwrap 2>/dev/null || true)\"` (never assumed present); selector `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` validated at lines 186-191 (unknown value -> exit 2 before any namespace work); BWRAP_FLAGS = `--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc` (--proc /proc = private /proc; --die-with-parent = PR_SET_PDEATHSIG; --as-pid-1 deliberately absent). Selection at lines 452-475: bwrap demand fails closed (exit 2, command not run) on missing binary or failed probe, never silently downgraded; auto uses bwrap when present+probe-green else unshare, with a loud WARNING that the fallback 'does NOT provide a private /proc'; unshare pins prior behavior. LIVE EVIDENCE: private /proc confirmed \u2014 jail procs=5, init=bwrap, ns=pid:[4026538975] vs host procs=1660, init=systemd, ns=pid:[4026531836]. --die-with-parent confirmed \u2014 payload PID 2842438 present before SIGKILL of wrapper, absent after (no orphan). UNSHARE FALLBACK PRESERVED: `git diff HEAD~1 HEAD -- standalone/terminal-jail | grep -E 'exec unshare|UNSHARE_FLAGS='` returned ZERO changed lines (byte-for-byte); pinned `TERMINAL_JAIL_JAIL_BACKEND=unshare` and all `--user` paths still emit the pre-existing degradation warning and rc=0. TESTS: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -x --tb=short` (the configured guards.test_command) -> EXIT_CODE=0, '561 passed, 5 skipped in 18.51s'; baseline HEAD~1 -> '536 passed, 14 skipped in 11.51s' => +25 tests, 0 failures, no regressions. New plugin/test_backend_selection.py -> 16 passed in 0.51s including 2 LIVE tests (test_live_bwrap_private_proc_and_new_pid_namespace, test_live_bwrap_argv_and_exit_semantics) that ran rather than skipped. DOCS: README.md (lines 13, 24-36, 48, 61, 200-203, 314, 323, 333), specs/cli.md (lines 15-36, 149-156, 183-200, new section 4 'Jail backends' at 217-231 with selection-policy and per-backend property tables, test matrix CLI-17..CLI-25), docs/quickstart.md (100-143, 326-337), docs/deploy-to-karahermes.md, CHANGELOG.md, and `--help` output. LINT/STATIC: ruff 'All checks passed!' rc=0; `bash -n standalone/terminal-jail` syntax OK; LSP diagnostics 0 findings. The plugin/test_install.py edit only pins TERMINAL_JAIL_JAIL_BACKEND=unshare on one test with a docstring explaining why (auto would legitimately hand off to bwrap) \u2014 a documented adaptation, not regression masking.\nThe bubblewrap backend is fully implemented with runtime detection, private /proc and --die-with-parent (both verified live), the unshare fallback is preserved byte-for-byte, 16 new tests plus docs were added, and the full suite passes 561/5-skipped with zero regressions against a 536/14 baseline.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-18T12:12:34.590450",
+  "evidence": {
+    "collected_at": "2026-09-18T12:12:34.606337+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 79390,
+        "truncated": false,
+        "source": "git show 505315aaa981"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1323,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "tj-gap-054"
+  }
+}

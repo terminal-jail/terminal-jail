@@ -1,0 +1,1205 @@
+commit 505315aaa9811fe89f9b398cb2e5e82d67ac691e
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Sep 18 07:04:21 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Sep 18 07:04:21 2026 -0500
+
+    feat(cli): optional bubblewrap backend with private /proc, unshare fallback. Addresses TJ-GAP-054.
+    
+    standalone/terminal-jail learns a runtime-detected backend selector:
+    TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare (default auto, no new CLI flags).
+    auto uses bwrap when it is installed AND its namespace probe passes, else the
+    unchanged unshare backend; bwrap is a demand that fails closed (exit 2, command
+    not run) when missing or unusable — never a silent downgrade; unshare pins the
+    pre-v1.2 behavior byte-for-byte; an unknown value exits 2 before any namespace
+    work.
+    
+    bwrap invocation (all measurements on bubblewrap 0.11.1, unprivileged):
+      bwrap --unshare-user --unshare-pid --die-with-parent --bind / / \
+            --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail ...
+    - --proc /proc mounts a fresh procfs: private /proc (jail sees 5 PIDs vs 1682
+      host PIDs; /proc/1 is bwrap's reaper, not the host init) — the gap this
+      backend exists to close, including for --user where unshare exposes the host
+      /proc.
+    - --die-with-parent (PR_SET_PDEATHSIG) tears the sandbox down on a SIGKILL of
+      the wrapper; the control run without the flag is orphaned.
+    - --dev-bind /dev /dev is load-bearing: with --bind / / alone, /dev/null,
+      /dev/zero and /dev/urandom return EACCES inside the sandbox, which broke the
+      --seccomp loader's Python interpreter (venv PATH) hash randomization.
+    - --as-pid-1 is deliberately NOT used: measured, it nullifies
+      --die-with-parent (orphaned jail), so the payload runs as PID 2 behind
+      bubblewrap's reaper.
+    - No added filesystem isolation: host root and host /dev are bound in exactly
+      as the unshare backend inherits them.
+    
+    Preserved: the unshare launch form and its exit/error semantics, --user mapped
+    filesystem isolation (auto keeps unshare there because bubblewrap has no
+    unprivileged --map-users equivalent — measured: --uid alone leaves a
+    caller-owned mode-600 file readable; bwrap --user states the loss loudly and
+    reports TERMINAL_JAIL_FS_ISOLATION=degraded), --seccomp, interruptor
+    block/modify/warn behavior, the argv trampoline, and the fd/PTY contract.
+    
+    Tests: plugin/test_backend_selection.py (16 cases — selection, the documented
+    flag contract, per-backend argv preservation with metacharacter/empty args,
+    bwrap-absent fallback, explicit-bwrap missing binary, explicit-bwrap probe
+    failure, auto probe-failure degradation, the --user mapping rule, and live
+    private-/proc + exit-semantics checks that skip with HOST-DEGRADED-BWRAP);
+    plugin/test_install.py's unshare-failure test now pins
+    TERMINAL_JAIL_JAIL_BACKEND=unshare so it keeps asserting the same contract.
+    Full suite: 561 passed / 5 pre-existing skips (baseline 536/14 — nine bare-mode
+    tests previously skipped as HOST-DEGRADED-PIDNS now run for real via bwrap on
+    this host). ruff clean; gitreins guard PASS.
+    
+    Docs: specs/cli.md (usage block now byte-matches the shipped --help, new
+    section 4 "Jail backends" with the selection policy, per-backend property
+    table and honest limits; sections 1, 6, 7, 8-adjacent error/status tables, 9
+    test matrix CLI-17..CLI-25, 10 acceptance), README (How It Works, Components,
+    Graceful Degradation, Requirements, Host Limitations), docs/quickstart.md
+    (backend selection + FAQ), docs/deploy-to-karahermes.md, CHANGELOG.
+    
+    Host-degraded limitation (unchanged and documented): this host denies the
+    --user uid mapping (AppArmor unprivileged_userns), so there is no mapped
+    filesystem isolation to compare against; bwrap + --user correctly reports
+    TERMINAL_JAIL_FS_ISOLATION=degraded.
+    
+    Addresses TJ-GAP-054.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ CHANGELOG.md                     |  10 +
+ README.md                        |  42 +++-
+ docs/deploy-to-karahermes.md     |   4 +-
+ docs/quickstart.md               |  66 +++++-
+ plugin/test_backend_selection.py | 464 +++++++++++++++++++++++++++++++++++++++
+ plugin/test_install.py           |  11 +-
+ specs/cli.md                     | 125 +++++++++--
+ standalone/terminal-jail         | 140 +++++++++++-
+ 8 files changed, 831 insertions(+), 31 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 420afe9..ec9a8ad 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,16 @@
+ 
+ ## [Unreleased]
+ 
++### Optional bubblewrap (bwrap) jail backend (TJ-GAP-054)
++
++- **`standalone/terminal-jail`**: runtime-detected backend selection via `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` (default `auto`; no new CLI flags). `auto` uses bubblewrap when it is installed and its namespace probe passes, otherwise the unchanged `unshare` backend; `bwrap` is a demand that fails closed (exit 2, command not run) when bubblewrap is missing or unusable; `unshare` pins the pre-v1.2 behavior byte-for-byte; an unknown value exits 2 before any namespace work.
++- **Private `/proc`**: the bwrap backend launches `bwrap --unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail …` — a fresh procfs the jail cannot use to enumerate host PIDs (measured: 5 entries vs 1682 host PIDs), plus `--die-with-parent` teardown that survives a SIGKILL of the wrapper. The unshare backend keeps its documented limitation (`--user` exposes the host `/proc`).
++- **No silent downgrade, no traded-away isolation**: a present-but-unusable bubblewrap under `auto` warns that the fallback has no private `/proc` before continuing; `auto` keeps the `unshare` mapped launch for `--user` on mapping-capable hosts because bubblewrap has no unprivileged `--map-users` equivalent (`--uid` alone leaves DAC unchanged — measured), and `bwrap --user` states that loss loudly with `TERMINAL_JAIL_FS_ISOLATION=degraded`.
++- **Deliberately not used**: `--as-pid-1` — it makes the payload namespace PID 1 and nullifies `--die-with-parent` (measured orphaned jail on bubblewrap 0.11.1). Consequence documented: under the bwrap backend the payload is PID 2 behind bubblewrap's reaper.
++- **Devices**: `--dev-bind /dev /dev` is required next to `--bind / /`; with the bind alone the sandbox's `/dev/null`, `/dev/zero` and `/dev/urandom` return `EACCES`, which breaks payloads such as the `--seccomp` loader's Python interpreter.
++- **Tests**: `plugin/test_backend_selection.py` (16 cases) covers selection, the documented flag contract, per-backend argv preservation, absence/failure/degradation paths, the `--user` mapping rule and live private-`/proc` + exit-semantics checks (host-conditional `HOST-DEGRADED-BWRAP` skips). `plugin/test_install.py`'s unshare-failure test now pins `TERMINAL_JAIL_JAIL_BACKEND=unshare` so it keeps asserting the same contract.
++- **Docs**: `specs/cli.md` §1/§4 ("Jail backends")/§6/§7/§9/§10, `README.md` (How It Works, Components, Graceful Degradation, Requirements, Host Limitations), `docs/quickstart.md` (backend selection + FAQ), `docs/deploy-to-karahermes.md`.
++
+ ### Docs & install path (2026-08-05)
+ 
+ - **Quick Start guide** (`docs/quickstart.md`): problem statement, which-component-for-which-user decision tree, install + verify steps for every path (CLI, interruptor modes, plugin, systemd drop-in, deploy shim), FAQ/troubleshooting. Linked from the README.
+diff --git a/README.md b/README.md
+index 8ef4e7b..5813f1a 100644
+--- a/README.md
++++ b/README.md
+@@ -10,7 +10,7 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a
+ |---|---|---|
+ | **systemd drop-in** | LIGHTWEIGHT — process-visibility, privilege, cgroup bounds (4 active directives: `ProtectProc=invisible`, `NoNewPrivileges=true`, `ProtectControlGroups=true`, `TasksMax=256`) | Does NOT create a PID namespace. The full profile (`PrivateUsers`, `RestrictNamespaces`, network/fs hardening) is commented out pending per-host verification |
+ | **Hermes Plugin** | Observability only | `pre_tool_call` (command visibility), `transform_terminal_output` (output annotation stub), command-length logging, metrics export |
+-| **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd |
++| **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd; an optional, runtime-detected `bwrap` backend (bubblewrap) adds a private `/proc` and `--die-with-parent` teardown |
+ 
+ ## How It Works
+ 
+@@ -20,6 +20,21 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a
+ # CLI only — the sole component that wraps commands:
+ ./standalone/terminal-jail echo "I'm in a PID namespace"
+ # → unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo "I'"'"'m in a PID namespace"'
++#
++# Backends (v1.2): TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare (default auto)
++# selects bubblewrap when it is installed AND its namespace probe passes,
++# otherwise util-linux unshare:
++# → bwrap --unshare-user --unshare-pid --die-with-parent --bind / / \
++#         --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail ...
++# Only the bwrap backend mounts a PRIVATE /proc — the jail's /proc lists just
++# its own processes (measured: 5 entries vs 1682 host PIDs; /proc/1 is
++# bubblewrap's reaper, not the host init) — and --die-with-parent kills the
++# sandbox even when the wrapper is SIGKILLed. `unshare --user` still exposes the
++# HOST /proc; that limitation is documented, not papered over.
++# A backend that was explicitly requested (TERMINAL_JAIL_JAIL_BACKEND=bwrap) and
++# cannot run exits 2 without running the command — isolation is never silently
++# downgraded. Optional dependency: the distro `bubblewrap` package.
++#
+ # On hosts that deny unprivileged PID namespaces (unshare: Operation not
+ # permitted, EPERM), bare mode exits 2 with a message naming the fallback
+ # (see Graceful Degradation); use the --user fallback instead (PID-namespace
+@@ -30,6 +45,8 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a
+ # (--map-users/--map-groups + -S/-G); it is active ONLY when the host permits
+ # it — otherwise the wrapper warns loudly on stderr:
+ #   "no filesystem isolation — could not create a uid mapping ...".
++# bubblewrap has no unprivileged equivalent of that uid mapping, so `auto` keeps
++# the unshare backend for --user on mapping-capable hosts.
+ # Check your host: python3 scripts/fs-isolation-probe.py
+ ```
+ 
+@@ -41,7 +58,7 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
+ |---|---|---|
+ | systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | LIGHTWEIGHT hardening — 4 active directives (process visibility, no-new-privileges, cgroup protection, task bound). NOT a PID namespace boundary; the full isolation profile is staged/commented. |
+ | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging (command length). Does NOT wrap commands. |
+-| Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
++| Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd; selects an optional bubblewrap backend at runtime (`TERMINAL_JAIL_JAIL_BACKEND=auto\|bwrap\|unshare`, default `auto`) |
+ | Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
+ | Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 30 built-in rules, JSON bridge for CLI integration |
+ 
+@@ -179,6 +196,15 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on t
+ > ONLY where a uid mapping can be created — classify your host with
+ > `python3 scripts/fs-isolation-probe.py`. See
+ > [Host Limitations](#host-limitations).
++>
++> **With bubblewrap installed** (optional, v1.2) the same first example can
++> succeed even on hosts that deny bare-mode `unshare`, as long as unprivileged
++> user namespaces are allowed: `TERMINAL_JAIL_JAIL_BACKEND=auto` (the default)
++> selects the bwrap backend, which additionally gives a **private `/proc`** —
++> the jail cannot enumerate host PIDs, and `--die-with-parent` tears the
++> sandbox down with the wrapper. Check with
++> `TERMINAL_JAIL_JAIL_BACKEND=auto ./standalone/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"'`
++> and compare against the host count.
+ 
+ ### Plugin (Hermes)
+ 
+@@ -285,7 +311,7 @@ Every layer degrades independently:
+ 
+ - **systemd drop-in**: optional — gateway runs without it. Provides process-visibility/privilege/cgroup hardening only; it is NOT a PID namespace boundary (the stronger directives are staged).
+ - **Plugin**: observes and logs. Returns command unchanged if disabled. Does not block execution.
+-- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation. `--user` itself has two tiers, chosen by an exact-flags preflight: when the host permits a **uid mapping** the launch is `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1 -S 65534 -G 65534 ...` (real filesystem isolation, `TERMINAL_JAIL_FS_ISOLATION=mapped`); otherwise it falls back to the legacy mapping-less namespace (`=degraded`) and prints a loud `no filesystem isolation` warning — the PID-namespace containment, env scrub, and exit codes stay exactly the same. `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode. `scripts/fs-isolation-probe.py` classifies any host (FULL/DEGRADED + cause, always exit 0).
++- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation. **Backend selection (v1.2)** is automatic *between equivalent isolation primitives* and is never a silent downgrade of the isolation level: `TERMINAL_JAIL_JAIL_BACKEND=auto` (default) uses bubblewrap when it is installed and its probe passes, otherwise `unshare`; `bwrap` demands bubblewrap and exits 2 when it is missing or unusable (command not run); `unshare` pins the pre-v1.2 behavior byte-for-byte; any other value exits 2. When bubblewrap is installed but its probe fails, `auto` prints a warning that the `unshare` fallback does **not** provide a private `/proc` before continuing. The private `/proc` is a bubblewrap-only property; under `--user` the `unshare` backend still exposes the host `/proc`. `--user` itself has two tiers, chosen by an exact-flags preflight: when the host permits a **uid mapping** the launch is `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1 -S 65534 -G 65534 ...` (real filesystem isolation, `TERMINAL_JAIL_FS_ISOLATION=mapped`); otherwise it falls back to the legacy mapping-less namespace (`=degraded`) and prints a loud `no filesystem isolation` warning — the PID-namespace containment, env scrub, and exit codes stay exactly the same. `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode. `scripts/fs-isolation-probe.py` classifies any host (FULL/DEGRADED + cause, always exit 0).
+ - **E2E battery (PID-NS layer)**: every run is labeled **FULL** or **DEGRADED** by `scripts/pidns-capability-probe.py` (classifies any host by probing bare mode: `FULL` when the namespace works, `DEGRADED` when the host refuses creation, `UNKNOWN` otherwise — the probe always exits 0). When the host is DEGRADED, bare-mode tests **skip** with a `HOST-DEGRADED-PIDNS` marker instead of silently passing, so the battery never reports "ALL GREEN" without actually verifying PID-namespace containment; on FULL hosts the containment test asserts the jailed command lands in a new PID namespace inode.
+ 
+ ## Requirements
+@@ -294,6 +320,7 @@ Every layer degrades independently:
+ - `util-linux` 2.32+ (`unshare` with `--kill-child`)
+ - `bash`
+ - systemd (for the primary isolation layer)
++- **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`); it is invoked as an external binary and never vendored into this MIT repository (it is LGPL-2.1-or-later; see TJ-GAP-055)
+ 
+ ## Host Limitations
+ 
+@@ -301,6 +328,15 @@ Every layer degrades independently:
+ 
+ The same applies to `--user`'s filesystem isolation tier: creating a uid mapping requires setuid/setgid inside the unprivileged user namespace, and stock Ubuntu ships an AppArmor profile (`unprivileged_userns`) that denies exactly those capabilities (`apparmor="DENIED" ... capname="setuid"` in `dmesg`; see also `sysctl kernel.apparmor_restrict_unprivileged_userns`). On such hosts the CLI falls back to the mapping-less namespace and prints a loud `no filesystem isolation` warning — a host restriction, not a code defect. Classify any host with `python3 scripts/fs-isolation-probe.py` (prints FULL or DEGRADED plus the diagnosed cause, always exits 0).
+ 
++### Bubblewrap backend (v1.2)
++
++bubblewrap needs the same unprivileged user-namespace permission as `unshare`, so a host that forbids user namespaces fails closed under **both** backends (exit 2, command not run) — it is not a workaround for that kernel/AppArmor policy. Where the policy allows user namespaces but denies bare-mode `unshare` (the configuration measured on this project's host: `unshare --pid --fork --mount-proc` → `Operation not permitted`, while `unshare --user --pid --fork` succeeds), the bwrap backend still runs bare mode and provides the private `/proc`.
++
++Two limits must be stated plainly rather than assumed away:
++
++1. **bubblewrap cannot provide the mapped filesystem isolation.** The `--user` uid mapping (`--map-users`/`--map-groups` + `-S`/`-G`) has no unprivileged bubblewrap equivalent: `bwrap --uid 65534` only re-labels the sandbox uid and DAC still evaluates with the caller's kuid (measured: a caller-owned mode-600 file stays readable). `TERMINAL_JAIL_JAIL_BACKEND=auto` therefore keeps the `unshare` backend for `--user` on mapping-capable hosts, and `TERMINAL_JAIL_JAIL_BACKEND=bwrap --user` reports `TERMINAL_JAIL_FS_ISOLATION=degraded` with a loud warning.
++2. **The payload is not namespace PID 1** under bubblewrap: bubblewrap's minimal reaper is PID 1 and the payload runs as PID 2 (`--as-pid-1` is deliberately not used because it nullifies `--die-with-parent` — measured orphaned jail). Anything that depends on being PID 1 inside the jail behaves differently than under the `unshare` backend; the containment parity battery for this difference is TJ-GAP-056.
++
+ ## Repository layout
+ 
+ ```
+diff --git a/docs/deploy-to-karahermes.md b/docs/deploy-to-karahermes.md
+index b25f3f8..e01d817 100644
+--- a/docs/deploy-to-karahermes.md
++++ b/docs/deploy-to-karahermes.md
+@@ -15,7 +15,9 @@ sudo chmod 755 /usr/local/bin/terminal-jail-bash
+ ### Step 2 — Install the SHELL shim (handles -lic invocation)
+ 
+ The Hermes terminal tool invokes the shell as: `bash -lic "set +m; {command}"`. We need a thin
+-wrapper that extracts the command, runs it through the interruptor, wraps with unshare, and execs.
++wrapper that extracts the command, runs it through the interruptor, wraps it in the CLI's jail
++(`--user --seccomp`; the backend — `unshare`, or the optional bubblewrap one with a private
++`/proc` — is chosen by the CLI at runtime, see `specs/cli.md` §4 "Jail backends"), and execs.
+ The canonical wrapper lives in this repo at `standalone/terminal-jail-sh` — install it from there
+ (do NOT copy a script by hand; the repo copy is the maintained one):
+ 
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index df8d18e..ce242f9 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -97,6 +97,54 @@ do not conflate the two. See §3c and FAQ §4.
+ If `~/.local/bin` is not on your PATH, run the export the installer printed,
+ or use the full path above.
+ 
++**Backend selection (v1.2 — optional bubblewrap).** Alongside `unshare` the CLI
++has an optional `bubblewrap` (`bwrap`) backend. Selection is an **environment
++variable** — no new flags:
++
++```bash
++TERMINAL_JAIL_JAIL_BACKEND=auto      # default: bwrap when installed + probing green, else unshare
++TERMINAL_JAIL_JAIL_BACKEND=bwrap     # demand bwrap: exit 2 (command not run) if missing/unusable
++TERMINAL_JAIL_JAIL_BACKEND=unshare   # pin the pre-v1.2 behavior exactly
++```
++
++Install the optional dependency the normal way and verify it, then watch the
++backend actually being used:
++
++```bash
++sudo apt install bubblewrap          # or: sudo dnf install bubblewrap  (never vendored in-repo)
++bwrap --version                      # → bubblewrap 0.11.1 (verified version)
++
++# PRIVATE /proc: the count inside the jail must be far below the host's count,
++# and /proc/1 inside must NOT be the host init.
++ls /proc | grep -c '^[0-9]'                                   # host: e.g. 1682
++~/.local/bin/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"; cat /proc/1/comm'
++# → e.g. 5 and "bwrap"     (host shows "systemd")
++
++# Fail-closed proof for an explicitly requested backend: no output, exit 2.
++TERMINAL_JAIL_JAIL_BACKEND=bwrap ~/.local/bin/terminal-jail --version   # still prints (help/version never launch)
++TERMINAL_JAIL_JAIL_BACKEND=typo ~/.local/bin/terminal-jail echo hi      # exit 2, names the accepted values
++```
++
++What each backend guarantees (do not conflate them):
++
++| | `unshare` backend | `bwrap` backend |
++|---|---|---|
++| New PID namespace | yes | yes |
++| Private `/proc` (host PIDs invisible) | bare mode only — **`--user` exposes the host `/proc`** | **yes, always** |
++| Payload is namespace PID 1 | yes | no (bubblewrap's reaper is PID 1; the payload is PID 2) |
++| Sandbox dies with the wrapper | `--kill-child=SIGKILL` | `--die-with-parent` (survives a SIGKILL of the wrapper) |
++| Filesystem isolation (uid mapping) | `--user` where the host allows a mapping | not available (reports `TERMINAL_JAIL_FS_ISOLATION=degraded`) |
++| Filesystem view | host's | host's (`--bind / /` + `--dev-bind /dev /dev`) — no added isolation |
++
++Honest limits: bubblewrap needs the **same** unprivileged user-namespace
++permission as `unshare`, so a host that forbids user namespaces fails closed
++under both backends. Where user namespaces are allowed but bare-mode `unshare`
++is denied, `auto` still gets you a contained, private-`/proc` jail — that is
++the measured situation on this project's host. And because bubblewrap has no
++unprivileged equivalent of `--map-users`, `auto` deliberately keeps the
++`unshare` backend for `--user` on hosts where the uid mapping works (real
++filesystem isolation), rather than silently trading it away.
++
+ ### 3b. Interruptor modes
+ 
+ ```bash
+@@ -275,7 +323,23 @@ importable). If the bridge is genuinely missing, enforce mode FAILS CLOSED
+ **Why does `--user` show host PIDs in `/proc`?**
+ User namespaces cannot mount a namespace-local `/proc` unprivileged. This is
+ documented behavior — `--user` trades `/proc` isolation for user-namespace
+-containment.
++containment. The **bubblewrap backend does not have to make that trade**: with
++the `bubblewrap` package installed, `TERMINAL_JAIL_JAIL_BACKEND=auto` (the
++default) gives the `--user` containment *and* a private `/proc` on hosts where
++the bwrap probe passes — verify with the PID-count check in §3a.
++
++**Which backend is running, and how do I pin one?**
++The CLI never says so on a successful launch (wrapper diagnostics would break
++the stdout/stderr contract), so check the property instead of trusting a label:
++`ls /proc | grep -c "^[0-9]"` inside the jail is a handful on the bwrap backend
++and the host count on the unshare backend. To force a choice use
++`TERMINAL_JAIL_JAIL_BACKEND=unshare` (exact pre-v1.2 behavior) or
++`=bwrap` (demands bubblewrap: a missing binary or a failed namespace probe
++exits **2 with the command not run** — the requested backend is never silently
++downgraded). A present-but-unusable bubblewrap under `auto` prints a warning
++naming the private-`/proc` loss, then continues with `unshare`. An unknown
++value exits 2 before anything runs. Backends are documented in `specs/cli.md`
++§4 ("Jail backends").
+ 
+ **Does `--user` isolate the filesystem?**
+ Only when the host allows a **uid mapping** (checked by preflight; marker
+diff --git a/plugin/test_backend_selection.py b/plugin/test_backend_selection.py
+new file mode 100644
+index 0000000..7c1a6d3
+--- /dev/null
++++ b/plugin/test_backend_selection.py
+@@ -0,0 +1,464 @@
++"""TJ-GAP-054 — runtime-detected bubblewrap (bwrap) backend for the CLI.
++
++Design under test (specs/cli.md section 4 "Jail backends"):
++
++- ``TERMINAL_JAIL_JAIL_BACKEND`` = ``auto`` (default) | ``bwrap`` | ``unshare``.
++- ``auto`` prefers bwrap when it is installed AND its probe passes, but keeps
++  the unshare mapped launch for ``--user`` on hosts where the uid-mapping
++  probe passed (bubblewrap has no unprivileged equivalent, and a mapping is
++  real filesystem isolation).
++- ``bwrap`` is a demand: missing binary or failed probe => exit 2 and the
++  command does NOT run (no silent downgrade).
++- ``unshare`` pins the pre-existing backend byte-for-byte.
++
++Most cases run against PATH-stub recorders (length/NUL-delimited argv logs), so
++they are host-independent and need no privileges; the live assertions skip with
++a HOST-DEGRADED-BWRAP marker on hosts without a usable bubblewrap, exactly like
++the existing HOST-DEGRADED-PIDNS / HOST-DEGRADED-FSISO lanes.
++
++The orphan-teardown property of ``--die-with-parent`` is measured by the
++project's own probe recipes rather than asserted here (TJ-GAP-056 owns the
++parity battery).
++"""
++
++from __future__ import annotations
++
++import functools
++import os
++import shutil
++import subprocess
++from pathlib import Path
++
++import pytest
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
++
++# Recorders log argv as NUL-terminated tokens followed by an "EOR" marker, which
++# distinguishes an empty argument from a record boundary.
++_BWRAP_STUB = """#!/usr/bin/env bash
++for a in "$@"; do printf '%s\\0' "$a" >> "$TJ_STUB_LOG"; done
++printf 'EOR\\0' >> "$TJ_STUB_LOG"
++last="${!#}"
++if [ "$last" = "true" ]; then
++    exit "${TJ_BWRAP_PROBE_EXIT:-0}"
++fi
++exit "${TJ_SANDBOX_EXIT:-0}"
++"""
++
++_UNSHARE_STUB = """#!/usr/bin/env bash
++for a in "$@"; do printf '%s\\0' "$a" >> "$TJ_UNSHARE_STUB_LOG"; done
++printf 'EOR\\0' >> "$TJ_UNSHARE_STUB_LOG"
++last="${!#}"
++if [ "$last" = "true" ]; then
++    exit "${TJ_UNSHARE_PROBE_EXIT:-0}"
++fi
++exit "${TJ_SANDBOX_EXIT:-0}"
++"""
++
++
++def _link_real(bindir: Path, *names: str) -> None:
++    for name in names:
++        real = shutil.which(name)
++        if real:
++            (bindir / name).symlink_to(real)
++
++
++def _make_stub_path(
++    tmp_path: Path, *, bwrap: bool = True, unshare: bool = True
++) -> str:
++    """Curated PATH: bash/uname/id/grep/cut/env plus argv-recording stubs.
++
++    A real /usr/bin/bwrap is deliberately NOT on this PATH, so "bwrap absent"
++    is deterministic on hosts that have bubblewrap installed.
++    """
++    bindir = tmp_path / "bin"
++    bindir.mkdir(exist_ok=True)
++    _link_real(
++        bindir, "bash", "uname", "id", "grep", "cut", "head", "env", "sh", "cat"
++    )
++    for name, body, enabled in (
++        ("bwrap", _BWRAP_STUB, bwrap),
++        ("unshare", _UNSHARE_STUB, unshare),
++    ):
++        stub = bindir / name
++        if enabled:
++            stub.write_text(body, encoding="utf-8")
++            stub.chmod(0o755)
++        elif stub.exists():
++            stub.unlink()
++    return str(bindir)
++
++
++def _env(tmp_path: Path, path: str, **overrides: str) -> dict[str, str]:
++    env = {
++        "PATH": path,
++        "HOME": str(tmp_path / "home"),
++        "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
++        "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
++        "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
++        "TJ_UNSHARE_STUB_LOG": str(tmp_path / "unshare.log"),
++    }
++    Path(env["HOME"]).mkdir(exist_ok=True)
++    env.update(overrides)
++    return env
++
++
++def _run_cli(
++    *args: str, env: dict[str, str], timeout: int = 30
++) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [str(CLI_SCRIPT), *args],
++        cwd=str(PROJECT_ROOT),
++        env=env,
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=timeout,
++    )
++
++
++def _records(log: Path) -> list[list[str]]:
++    """Parse the stub's argv log: NUL-terminated args, "EOR" ends a record."""
++    if not log.exists():
++        return []
++    records: list[list[str]] = []
++    current: list[bytes] = []
++    for token in log.read_bytes().split(b"\0"):
++        if token == b"EOR":
++            records.append([t.decode("utf-8", "replace") for t in current])
++            current = []
++        else:
++            current.append(token)
++    return records
++
++
++def _payload_argv(record: list[str]) -> list[str]:
++    """The argv the trampoline receives: `bash -c 'exec "$@"' terminal-jail ...`.
++
++    Indexed from the trampoline itself so the helper works for both backends
++    (bubblewrap separates options from the payload with `--`, unshare does not).
++    """
++    return record[record.index("bash") :]
++
++
++# ── Selector surface ───────────────────────────────────────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_help_documents_the_backend_selector(tmp_path: Path) -> None:
++    env = _env(tmp_path, _make_stub_path(tmp_path))
++    result = _run_cli("--help", env=env)
++    assert result.returncode == 0
++    assert "TERMINAL_JAIL_JAIL_BACKEND" in result.stdout
++    assert "bwrap" in result.stdout
++
++
++@pytest.mark.standalone_cli
++def test_unknown_backend_value_fails_closed(tmp_path: Path) -> None:
++    """A typo must not silently run with a default backend."""
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap-typo")
++    result = _run_cli("--no-interruptor", "echo", "nope", env=env)
++    assert result.returncode == 2
++    assert "bwrap-typo" in result.stderr
++    assert "auto, bwrap, or unshare" in result.stderr
++    assert "nope" not in result.stdout
++    # nothing was launched with either backend
++    assert _records(Path(env["TJ_STUB_LOG"])) == []
++    assert _records(Path(env["TJ_UNSHARE_STUB_LOG"])) == []
++
++
++# ── auto: selection, flags, argv ───────────────────────────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_auto_prefers_bwrap_when_present(tmp_path: Path) -> None:
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path)
++    result = _run_cli("--no-interruptor", "printf", "%s", "hi", env=env)
++    assert result.returncode == 0, result.stderr
++    bwrap_calls = _records(Path(env["TJ_STUB_LOG"]))
++    # exactly the probe (flags + `true`) and the launch (flags + `--` + payload)
++    assert len(bwrap_calls) == 2, bwrap_calls
++    assert bwrap_calls[0][-1] == "true"
++    assert bwrap_calls[0][:-1] == bwrap_calls[1][: len(bwrap_calls[0]) - 1]
++    # unshare is never touched when bwrap is selected
++    assert _records(Path(env["TJ_UNSHARE_STUB_LOG"])) == []
++    # the normal (non-degraded) selection is silent
++    assert "WARNING" not in result.stderr
++
++
++@pytest.mark.standalone_cli
++def test_bwrap_launch_flags_are_the_documented_contract(tmp_path: Path) -> None:
++    """Every documented flag, and the deliberately-omitted one.
++
++    --as-pid-1 is pinned ABSENT: it makes the payload namespace PID 1 and
++    nullifies --die-with-parent (measured orphan on bubblewrap 0.11.1), so the
++    contract is bwrap's default reaper + --die-with-parent.
++    """
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path)
++    _run_cli("--no-interruptor", "true", env=env)
++    launch = _records(Path(env["TJ_STUB_LOG"]))[1]
++    flags = launch[: launch.index("--")]
++    assert flags[:2] == ["--unshare-user", "--unshare-pid"]
++    assert "--die-with-parent" in flags
++    assert "--proc" in flags and flags[flags.index("--proc") + 1] == "/proc"
++    assert "--bind" in flags and flags[flags.index("--bind") + 1 :][:2] == ["/", "/"]
++    assert "--dev-bind" in flags
++    assert flags[flags.index("--dev-bind") + 1 :][:2] == ["/dev", "/dev"]
++    assert "--as-pid-1" not in flags
++    assert "--mount-proc" not in flags
++    # argv-preserving trampoline, not a shell-concatenated command string
++    assert launch[launch.index("--") + 1 :] == [
++        "bash",
++        "-c",
++        'exec "$@"',
++        "terminal-jail",
++        "true",
++    ]
++
++
++@pytest.mark.standalone_cli
++def test_bwrap_preserves_argv_boundaries(tmp_path: Path) -> None:
++    """Malformed/multiword/metacharacter arguments arrive as separate argv."""
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path)
++    payload = [
++        "a b",
++        "$(id)",
++        "`id`",
++        "quote'q",
++        'say "hi"',
++        "-dash",
++        "*",
++        "semi;colon",
++        "pipe|d",
++        "back\\slash",
++        "",
++        "  padded  ",
++    ]
++    result = _run_cli("--no-interruptor", "cmd", *payload, env=env)
++    assert result.returncode == 0, result.stderr
++    launch = _records(Path(env["TJ_STUB_LOG"]))[1]
++    assert _payload_argv(launch) == ["bash", "-c", 'exec "$@"', "terminal-jail", "cmd", *payload]
++
++
++@pytest.mark.standalone_cli
++def test_unshare_backend_preserves_argv_boundaries(tmp_path: Path) -> None:
++    """Existing backend, same argv guarantee."""
++    path = _make_stub_path(tmp_path, bwrap=False)
++    env = _env(tmp_path, path)
++    payload = ["a b", "$(id)", "-dash", "*", ""]
++    result = _run_cli("--no-interruptor", "cmd", *payload, env=env)
++    assert result.returncode == 0, result.stderr
++    launch = _records(Path(env["TJ_UNSHARE_STUB_LOG"]))[1]
++    assert _payload_argv(launch) == ["bash", "-c", 'exec "$@"', "terminal-jail", "cmd", *payload]
++
++
++# ── auto: absence / failure paths ──────────────────────────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_auto_falls_back_to_unshare_when_bwrap_absent(tmp_path: Path) -> None:
++    """bwrap absent is the documented normal path: unshare, silently."""
++    path = _make_stub_path(tmp_path, bwrap=False)
++    env = _env(tmp_path, path)
++    result = _run_cli("--no-interruptor", "cmd", "arg", env=env)
++    assert result.returncode == 0, result.stderr
++    unshare_calls = _records(Path(env["TJ_UNSHARE_STUB_LOG"]))
++    assert len(unshare_calls) == 2, unshare_calls
++    assert unshare_calls[0][-1] == "true"
++    assert "WARNING" not in result.stderr
++    assert not Path(env["TJ_STUB_LOG"]).exists()
++
++
++@pytest.mark.standalone_cli
++def test_auto_warns_and_falls_back_when_bwrap_probe_fails(tmp_path: Path) -> None:
++    """A present-but-unusable bwrap is loud: the private-/proc loss is stated."""
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path, TJ_BWRAP_PROBE_EXIT="1")
++    result = _run_cli("--no-interruptor", "cmd", env=env)
++    assert result.returncode == 0, result.stderr
++    assert "WARNING" in result.stderr
++    assert "does NOT provide a private /proc" in result.stderr
++    # probe only — bwrap was never launched
++    assert len(_records(Path(env["TJ_STUB_LOG"]))) == 1
++    assert len(_records(Path(env["TJ_UNSHARE_STUB_LOG"]))) == 2
++
++
++@pytest.mark.standalone_cli
++def test_explicit_bwrap_fails_closed_when_binary_missing(tmp_path: Path) -> None:
++    path = _make_stub_path(tmp_path, bwrap=False)
++    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap")
++    result = _run_cli("--no-interruptor", "cmd", env=env)
++    assert result.returncode == 2
++    assert "bubblewrap (bwrap) is not installed" in result.stderr
++    assert "command not run" in result.stderr
++    # NO silent downgrade to the unshare backend
++    assert _records(Path(env["TJ_UNSHARE_STUB_LOG"])) == []
++
++
++@pytest.mark.standalone_cli
++def test_explicit_bwrap_fails_closed_when_probe_fails(tmp_path: Path) -> None:
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap", TJ_BWRAP_PROBE_EXIT="1")
++    result = _run_cli("--no-interruptor", "cmd", env=env)
++    assert result.returncode == 2
++    assert "bwrap namespace creation failed" in result.stderr
++    assert len(_records(Path(env["TJ_STUB_LOG"]))) == 1  # probe only
++    assert _records(Path(env["TJ_UNSHARE_STUB_LOG"])) == []
++
++
++@pytest.mark.standalone_cli
++def test_pinned_unshare_ignores_a_present_bwrap(tmp_path: Path) -> None:
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="unshare")
++    result = _run_cli("--no-interruptor", "cmd", env=env)
++    assert result.returncode == 0, result.stderr
++    assert not Path(env["TJ_STUB_LOG"]).exists()
++    launch = _records(Path(env["TJ_UNSHARE_STUB_LOG"]))[1]
++    assert _payload_argv(launch) == ["bash", "-c", 'exec "$@"', "terminal-jail", "cmd"]
++
++
++# ── --user: mapped isolation is never traded away ──────────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_auto_keeps_unshare_mapped_launch_for_user(tmp_path: Path) -> None:
++    """A passing uid-mapping probe wins: bubblewrap cannot map a subuid, and a
++    mapping is real filesystem isolation (measured: bwrap --uid alone leaves a
++    caller-owned mode-600 file readable)."""
++    path = _make_stub_path(tmp_path)  # unshare stub passes every probe
++    env = _env(tmp_path, path)
++    result = _run_cli("--no-interruptor", "--user", "cmd", env=env)
++    assert result.returncode == 0, result.stderr
++    assert not Path(env["TJ_STUB_LOG"]).exists()  # bwrap never probed/launched
++    launch = _records(Path(env["TJ_UNSHARE_STUB_LOG"]))[-1]
++    assert any(a.startswith("--map-users=65534:") for a in launch), launch
++    assert "--user" in launch
++
++
++@pytest.mark.standalone_cli
++def test_auto_uses_bwrap_for_user_when_mapping_unavailable(tmp_path: Path) -> None:
++    """Degraded uid mapping => the bwrap backend still adds private /proc."""
++    path = _make_stub_path(tmp_path)
++    env = _env(tmp_path, path, TJ_UNSHARE_PROBE_EXIT="1")
++    result = _run_cli("--no-interruptor", "--user", "cmd", env=env)
++    assert result.returncode == 0, result.stderr
++    assert "no filesystem isolation" in result.stderr  # unchanged warning
++    launch = _records(Path(env["TJ_STUB_LOG"]))[1]
++    assert _payload_argv(launch) == [
++        "bash",
++        "-c",
++        'exec "$@"',
++        "terminal-jail",
++        "cmd",
++    ]
++
++
++@pytest.mark.standalone_cli
++def test_explicit_bwrap_with_user_states_the_isolation_loss(tmp_path: Path) -> None:
++    """Requesting bwrap on a mapped host must say what is given up."""
++    path = _make_stub_path(tmp_path)  # mapped probe passes
++    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap")
++    result = _run_cli("--no-interruptor", "--user", "cmd", env=env)
++    assert result.returncode == 0, result.stderr
++    assert "no filesystem isolation under the bwrap backend" in result.stderr
++    assert _records(Path(env["TJ_STUB_LOG"]))  # bwrap really ran
++
++
++# ── Live checks (host-conditional) ─────────────────────────────────────────
++
++
++@functools.lru_cache(maxsize=1)
++def _bwrap_usable() -> bool:
++    bwrap = shutil.which("bwrap")
++    if not bwrap:
++        return False
++    probe = subprocess.run(
++        [
++            bwrap,
++            "--unshare-user",
++            "--unshare-pid",
++            "--die-with-parent",
++            "--bind",
++            "/",
++            "/",
++            "--dev-bind",
++            "/dev",
++            "/dev",
++            "--proc",
++            "/proc",
++            "true",
++        ],
++        capture_output=True,
++        check=False,
++        timeout=30,
++    )
++    return probe.returncode == 0
++
++
++def _skip_unless_bwrap() -> None:
++    if not _bwrap_usable():
++        pytest.skip(
++            "HOST-DEGRADED-BWRAP: bubblewrap is absent or cannot create "
++            "namespaces on this host — bwrap-backend containment not verified"
++        )
++
++
++def _run_live(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
++    env = os.environ.copy()
++    env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = "bwrap"
++    return subprocess.run(
++        [str(CLI_SCRIPT), "--no-interruptor", *args],
++        cwd=str(PROJECT_ROOT),
++        env=env,
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=timeout,
++    )
++
++
++@pytest.mark.integration
++def test_live_bwrap_private_proc_and_new_pid_namespace() -> None:
++    _skip_unless_bwrap()
++    host_ns = Path("/proc/self/ns/pid").resolve()
++    host_procs = len([p for p in Path("/proc").iterdir() if p.name.isdigit()])
++    host_init = Path("/proc/1/comm").read_text(encoding="utf-8").strip()
++    result = _run_live(
++        "sh",
++        "-c",
++        'echo "ns=$(readlink /proc/self/ns/pid)"; echo "procs=$(ls /proc | '
++        'grep -c "^[0-9]")"; echo "init=$(cat /proc/1/comm)"',
++    )
++    assert result.returncode == 0, result.stderr
++    lines = dict(
++        line.split("=", 1) for line in result.stdout.strip().splitlines() if "=" in line
++    )
++    assert lines["ns"] != str(host_ns), "bwrap did not create a new PID namespace"
++    assert int(lines["procs"]) < host_procs, (
++        f"jail sees {lines['procs']} procs vs {host_procs} on the host — "
++        f"/proc is not private"
++    )
++    assert lines["init"] != host_init, (
++        f"jail /proc/1/comm={lines['init']!r} matches the host init: /proc is the "
++        f"host's"
++    )
++
++
++@pytest.mark.integration
++def test_live_bwrap_argv_and_exit_semantics() -> None:
++    _skip_unless_bwrap()
++    payload = ["a b", "$(id)", "-dash", "*", "", "new\nline"]
++    result = _run_live("printf", "[%s]", *payload)
++    assert result.returncode == 0, result.stderr
++    assert result.stdout == "".join(f"[{arg}]" for arg in payload)
++    exit_code = _run_live("bash", "-c", "exit 42")
++    assert exit_code.returncode == 42, exit_code.stderr
++    missing = _run_live("definitely-not-a-real-command-tj054")
++    assert missing.returncode == 127, missing.stderr
++    assert "not found" in missing.stderr
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index 6133cb5..f8d56fb 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -809,7 +809,14 @@ def test_bare_wrapper_unshare_failure_exits_2(
+     """TJ-GAP-034: namespace-creation failure must exit 2 with a message
+     (README "Graceful Degradation" contract), not leak raw unshare rc=1.
+     Simulated with a fake unshare in PATH that fails — warn mode + missing
+-    bridge so the wrapper reaches the launch section."""
++    bridge so the wrapper reaches the launch section.
++
++    TJ-GAP-054: the failure is pinned to the unshare backend explicitly. Under
++    the default `auto` selector a present bubblewrap legitimately takes over
++    and runs the command, so this test names the backend whose failure
++    contract it asserts; the auto selector's own degradation paths (bwrap
++    missing / bwrap probe failing) live in plugin/test_backend_selection.py.
++    """
+     bare = tmp_path / "bare"
+     bare.mkdir()
+     fakebin = tmp_path / "fakebin"
+@@ -836,6 +843,8 @@ def test_bare_wrapper_unshare_failure_exits_2(
+             # Deterministic bridge-absence (see test_bare_wrapper_* above).
+             "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
+             "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
++            # TJ-GAP-054: pin the backend this test exercises (see docstring).
++            "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
+         },
+     )
+     stdout = run.stdout.decode("utf-8", "replace")
+diff --git a/specs/cli.md b/specs/cli.md
+index 591a50f..66b02f2 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -12,14 +12,28 @@ unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'exec "$@"' termi
+ 
+ The literal `bash -c` program above is deliberately an argv-preserving trampoline. It is not a shell-concatenated representation of the user command. The first word following the `terminal-jail` placeholder is passed as `$1`; the remaining words are passed as `$2...`; `exec "$@"` then executes them without an additional parse, glob expansion, word splitting, or evaluation.
+ 
++The command above is the **unshare backend's** launch form. v1.2 adds a second, optional backend — bubblewrap — selected at runtime by `TERMINAL_JAIL_JAIL_BACKEND` (section 4, *Jail backends*), and emits an equivalent argv-preserving command:
++
++```text
++bwrap --unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail <command> [args...]
++```
++
++`TERMINAL_JAIL_JAIL_BACKEND=unshare` restores the v1.1 behavior byte-for-byte; `auto` (the default) selects bubblewrap only when it is installed *and* its namespace probe passes, so a host without bubblewrap behaves exactly as before.
++
+ ### Security claims that are valid
+ 
+ With a kernel and `unshare` configuration that permits the requested namespaces:
+ 
+-- The payload has a new PID namespace and sees itself as PID 1.
+-- The payload sees a `/proc` mounted for that PID namespace.
++- The payload has a new PID namespace. Under the unshare backend the payload is namespace PID 1; under the bubblewrap backend it is PID 2, with bubblewrap's minimal reaper as PID 1 (see section 4 — bubblewrap's `--as-pid-1` is deliberately not used because it nullifies `--die-with-parent`).
++- The payload sees a `/proc` mounted for that PID namespace. **This is
++  backend-conditional (v1.2):** the bubblewrap backend always mounts a fresh
++  procfs (the jail's `/proc` lists only the sandbox's own processes); the
++  unshare backend mounts one in bare mode (`--mount-proc`) but exposes the
++  **host** `/proc` under `--user`, because an unprivileged user namespace
++  cannot mount `/proc`. A private `/proc` must therefore never be claimed for
++  the unshare `--user` path.
+ - Signals addressed through namespace-visible PIDs cannot target host processes outside that PID namespace.
+-- When the `unshare` parent exits, `--kill-child=SIGKILL` requests SIGKILL for the child process tree created by `--fork`.
++- When the `unshare` parent exits, `--kill-child=SIGKILL` requests SIGKILL for the child process tree created by `--fork`; when the bubblewrap process dies, `--die-with-parent` (PR_SET_PDEATHSIG) kills the sandbox tree — including on a SIGKILL of the wrapper, where no userspace cleanup handler can run.
+ 
+ ### Explicit non-goals and limitations
+ 
+@@ -124,10 +138,22 @@ Options:
+                  (see README and scripts/fs-isolation-probe.py).
+   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
+                  (mount, pivot_root, kexec_load, etc.) inside the jail.
+-                 Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
++                 Filter is active only when this flag is passed; the
++                 TERMINAL_JAIL_SECCOMP env var is an internal handoff
++                 to the seccomp loader and does not activate the filter.
+   --interruptor  Enable the Bash command firewall (default). Evaluates
+                  commands against a rule engine before execution.
+   --no-interruptor  Disable the Bash command firewall.
++
++Environment:
++  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
++                 Select the jail backend (default: auto). auto uses
++                 bubblewrap when it is installed and its namespace probe
++                 passes, otherwise util-linux unshare. Only the bwrap
++                 backend provides a PRIVATE /proc; unshare is the
++                 documented fallback. A requested backend that cannot run
++                 fails closed (exit 2) — isolation is never silently
++                 downgraded. See specs/cli.md section 4 "Jail backends".
+ ```
+ 
+ ## 4. Launcher implementation contract
+@@ -141,9 +167,9 @@ set -euo pipefail
+ 
+ `set -e` is mandatory: setup/preflight operations must fail at their first unexpected error. Places where a nonzero status is intentionally inspected must use an `if`/`case` construct so that Bash does not abort before the wrapper prints its diagnostic.
+ 
+-### Required launch form
++### Required launch forms
+ 
+-After parsing and preflight, execute exactly this shape, with no command string construction:
++The **unshare backend** (the v1.1 contract, unchanged) executes exactly this shape, with no command string construction:
+ 
+ ```bash
+ exec unshare \
+@@ -154,11 +180,25 @@ exec unshare \
+   bash -c 'exec "$@"' terminal-jail "$@"
+ ```
+ 
++The **bubblewrap backend** (v1.2, section *Jail backends*) executes exactly this shape:
++
++```bash
++exec bwrap \
++  --unshare-user \
++  --unshare-pid \
++  --die-with-parent \
++  --bind / / \
++  --dev-bind /dev /dev \
++  --proc /proc \
++  -- bash -c 'exec "$@"' terminal-jail "$@"
++```
++
+ Requirements:
+ 
+-- `exec` is mandatory. It avoids an extra parent wrapper, preserves the caller's file descriptors, and makes the `unshare` exit status the CLI exit status.
+-- The `unshare` flags must be exactly `--pid`, `--fork`, `--mount-proc`, and `--kill-child=SIGKILL`. Do not substitute short forms or omit `--fork`.
+-- `bash -c 'exec "$@"' terminal-jail "$@"` is mandatory. The word `terminal-jail` supplies Bash's `$0`; the user command begins at `$1`. It prevents a user argument from becoming shell syntax.
++- `exec` is mandatory. It avoids an extra parent wrapper, preserves the caller's file descriptors, and makes the backend's exit status the CLI exit status.
++- **unshare backend:** the flags must be exactly `--pid`, `--fork`, `--mount-proc`, and `--kill-child=SIGKILL`. Do not substitute short forms or omit `--fork`.
++- **bubblewrap backend:** the flags must be exactly `--unshare-user`, `--unshare-pid`, `--die-with-parent`, `--bind / /`, `--dev-bind /dev /dev`, `--proc /proc`, then `--`. Do not add `--as-pid-1` (it makes the payload namespace PID 1 and nullifies `--die-with-parent`), do not omit `--die-with-parent`, and do not replace `--proc /proc` with the host `/proc`. The `--dev-bind /dev /dev` is required: with only `--bind / /` the sandbox's device nodes are present but unusable (`/dev/null`, `/dev/zero`, `/dev/urandom` all return `EACCES`), which breaks payloads such as a Python interpreter.
++- `bash -c 'exec "$@"' terminal-jail "$@"` is mandatory for **both** backends. The word `terminal-jail` supplies Bash's `$0`; the user command begins at `$1`. It prevents a user argument from becoming shell syntax.
+ - Do not use `eval`, `bash -c "$*"`, `"$@"` as shell source, a temporary command file, a pipeline, command substitution, or `xargs`.
+ - Do not modify `PATH`, current directory, environment variables, `umask`, resource limits, standard file descriptors, or terminal mode.
+ - The CLI performs no automatic shell fallback. If a user wants shell syntax, they must explicitly request it: `terminal-jail bash -c 'echo "$HOME"; command | other'`.
+@@ -174,16 +214,53 @@ The four extended options change the launch shape as follows:
+ 
+ `TERMINAL_JAIL_VERSION` overrides the reported version string (used by the release process to bake the version).
+ 
++### Jail backends (v1.2)
++
++The wrapper has two jail backends. Selection is **runtime-detected** from the environment variable `TERMINAL_JAIL_JAIL_BACKEND`; there are no new CLI flags (the flag contract in section 3 is unchanged, and a bare `--bwrap` is still just a payload command name).
++
++| Value | Behavior | Exit status when the backend cannot run |
++|---|---|---|
++| `auto` (default) | Use `bwrap` when it resolves on `PATH` **and** the bwrap probe passes (and the invocation does not need the unshare uid mapping, below). Otherwise use `unshare`. | n/a — falls back; a *present but unusable* bwrap warns loudly on stderr and continues with `unshare` |
++| `bwrap` | Demand bubblewrap. | `2` — bwrap missing, or the bwrap probe failed; the command does not run and isolation is **never** silently downgraded to `unshare` |
++| `unshare` | Pin the v1.1 backend byte-for-byte; bwrap is not probed or invoked. | `2` on namespace-creation failure (unchanged v1.1 message) |
++| anything else | Rejected before any namespace work. | `2` — message names the value and the accepted set |
++
++Selection rules and the reasons they exist:
++
++1. **bwrap is never assumed.** Presence is resolved with `command -v bwrap` at runtime; a host without bubblewrap behaves exactly as v1.1 (silently, no warning — that is the documented normal path).
++2. **`auto` keeps `unshare` for `--user` on hosts where the uid-mapping probe passes.** A uid mapping (`--map-users`/`--map-groups` + `-S`/`-G`) is real filesystem isolation, and bubblewrap has no unprivileged equivalent: its `--uid`/`--gid` only re-label the sandbox uid while DAC still evaluates with the caller's kuid (measured on bubblewrap 0.11.1: a caller-owned mode-600 file remains readable with `--uid 65534`). `auto` therefore never trades away isolation it can have; where the mapping is unavailable (degraded), `auto` uses bwrap and keeps the loud `no filesystem isolation` warning and `TERMINAL_JAIL_FS_ISOLATION=degraded`.
++3. **An explicitly requested `bwrap` always states the isolation loss** on a mapped host: it prints a `no filesystem isolation under the bwrap backend` warning and exports `TERMINAL_JAIL_FS_ISOLATION=degraded`, because that backend cannot apply the mapping this host supports.
++4. **A present-but-unusable bwrap is loud.** When `command -v bwrap` succeeds but the probe fails, `auto` prints a warning naming the loss (`this fallback does NOT provide a private /proc`) before continuing with `unshare`.
++5. **The unshare fallback stays fully available.** `util-linux unshare` remains a hard preflight requirement (`unshare is required (install util-linux)`, exit `2`) because it is both the fallback backend and the uid-mapping classifier; bubblewrap is optional on top of it.
++
++Backend differences that must never be overstated:
++
++| Property | `unshare` backend | `bwrap` backend |
++|---|---|---|
++| New PID namespace | yes | yes (`--unshare-pid`) |
++| New user namespace | `--user` only | always (`--unshare-user`) |
++| Private `/proc` (jail sees only its own PIDs) | bare mode only (`--mount-proc`); **`--user` exposes the host `/proc`** | yes, always (`--proc /proc` mounts a fresh procfs) |
++| Payload is namespace PID 1 | yes (`--fork`) | no — bubblewrap's reaper is PID 1, the payload is PID 2 |
++| Teardown when the wrapper dies | `--kill-child=SIGKILL` (util-linux installs a parent-death signal on the child) | `--die-with-parent` (PR_SET_PDEATHSIG on the sandbox) |
++| Filesystem view | host mount namespace (inherited) | host root and host `/dev` bound in (`--bind / /`, `--dev-bind /dev /dev`) — same visibility and permissions, **no added filesystem isolation** |
++| Filesystem isolation via uid mapping | `--user` on a mapping-capable host (`TERMINAL_JAIL_FS_ISOLATION=mapped`) | not available unprivileged (`TERMINAL_JAIL_FS_ISOLATION=degraded`) |
++| `--seccomp`, interruptor, exit-status and stdio semantics | unchanged | unchanged (same trampoline, same loader path) |
++
++Both backends are subject to the same host policy: both need unprivileged user namespaces, so on a host that denies them (e.g. Ubuntu's `kernel.apparmor_restrict_unprivileged_userns=1` with the `unprivileged_userns` AppArmor profile) **both** fail closed with exit `2` and the command does not run. Bubblewrap is not a workaround for a host that forbids user namespaces; where bare-mode `unshare` is denied but user namespaces are allowed (a common configuration), the bwrap backend can run in bare mode while the unshare backend cannot — an improvement, not a guarantee.
++
++Prerequisites: the `bubblewrap` system package (`apt install bubblewrap` / `dnf install bubblewrap`), invoked as an external binary; it is an optional runtime dependency like `util-linux`, never vendored into this repository (license/packaging work is tracked separately as TJ-GAP-055). Verified against bubblewrap 0.11.1. Host classification helpers: `scripts/pidns-capability-probe.py` (bare-mode namespace creation) and `scripts/fs-isolation-probe.py` (uid mapping); a bwrap-specific containment battery is TJ-GAP-056.
++
+ ### Preflight checks
+ 
+ Preflight occurs before the final `exec`:
+ 
+ 1. Confirm the host is Linux (`uname -s` exactly `Linux`). Otherwise print a concise diagnostic to stderr and exit `2`.
+-2. Resolve `unshare` using `command -v unshare`. If absent or not executable, print `terminal-jail: unshare is required (install util-linux)` to stderr and exit `2`.
+-3. Do not pre-resolve `<command>` on the host. Resolution must happen inside the launch environment, using the inherited `PATH`; pre-resolving would produce incorrect behavior for commands whose PATH, mounts, or executable availability differ at runtime.
+-4. Do not perform a speculative `unshare` capability probe. Such a probe is not equivalent to the real launch and can have policy-dependent side effects. Let the actual `unshare` invocation report kernel permission/capability failures unchanged on stderr.
++2. Reject an unknown `TERMINAL_JAIL_JAIL_BACKEND` value before any namespace work (exit `2`, message names the value and the accepted set).
++3. Resolve `unshare` using `command -v unshare`. If absent or not executable, print `terminal-jail: unshare is required (install util-linux)` to stderr and exit `2`. This check is unconditional in v1.2: `unshare` is both the fallback backend and the uid-mapping classifier.
++4. Resolve the backend: `command -v bwrap` (skipped entirely when the value is `unshare`), then probe the selected backend's exact launch flags with a throwaway `true` payload. A failed probe on an explicitly requested backend is a hard error (exit `2`, command not run). This probe is deliberate and backend-specific — it is what makes the documented degradation contract (exit `2` + a message) reachable instead of leaking a raw backend error after `exec`.
++5. Do not pre-resolve `<command>` on the host. Resolution must happen inside the launch environment, using the inherited `PATH`; pre-resolving would produce incorrect behavior for commands whose PATH, mounts, or executable availability differ at runtime.
+ 
+-The wrapper must use `command -v` only for its own dependency (`unshare`), not to validate the payload command.
++The wrapper must use `command -v` only for its own dependencies (`unshare`, optionally `bwrap`), not to validate the payload command.
+ 
+ ## 5. Standard stream and terminal preservation
+ 
+@@ -218,7 +295,7 @@ terminal emulator / SSH PTY
+           ▼
+   terminal-jail (exec)
+           ▼
+-  unshare --pid --fork (execs Bash trampoline)
++  <backend> --pid ... (execs Bash trampoline)
+           ▼
+   interactive payload, e.g. bash or python
+ ```
+@@ -235,7 +312,7 @@ TTY-dependent programs must observe `isatty(0)`, `isatty(1)`, and `isatty(2)` ex
+ 
+ ## 6. Exit-status contract
+ 
+-The wrapper must preserve the status returned by the launched `unshare`/payload path exactly. Because the wrapper `exec`s `unshare`, there is no wrapper post-processing that can lose a Bash, Make, test, or application exit code.
++The wrapper must preserve the status returned by the launched backend/payload path exactly. Because the wrapper `exec`s the backend, there is no wrapper post-processing that can lose a Bash, Make, test, or application exit code. Both backends use the same `bash -c 'exec "$@"'` trampoline, so `command not found` (normally `127`) and permission errors (normally `126`) keep their native diagnostics and statuses under either backend (verified live for the bubblewrap backend).
+ 
+ Examples:
+ 
+@@ -254,7 +331,7 @@ For a signal-terminated payload, the invoking shell reports the platform's norma
+ |---:|---|---|
+ | `0` | Successful wrapper action or payload success. | Help/version, or payload. |
+ | `1` | Conventional payload command failure. | Payload/unshare execution path; passed through unchanged. |
+-| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, or missing seccomp loader. | Wrapper only. |
++| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, missing seccomp loader, unknown `TERMINAL_JAIL_JAIL_BACKEND` value, or a requested backend that cannot run (bwrap missing / bwrap probe failed). | Wrapper only. |
+ | `126` | Command blocked by the interruptor (enforce mode). | Interruptor block box on stderr; also the payload's own `126` (permission denied) passes through unchanged. |
+ | `3` | Reserved for a future explicit jail setup/configuration error. v1 does not intentionally emit it. | Wrapper only. |
+ | `4` | Reserved for a future explicit resource/quota setup error. v1 does not intentionally emit it. | Wrapper only. |
+@@ -269,7 +346,11 @@ Important compatibility rule: Unix exit statuses are only 8 bits, and arbitrary
+ | No command | Wrapper argument parser | Error plus usage on stderr. | 2 |
+ | Non-Linux host | Wrapper preflight | Explain that this CLI requires Linux PID namespaces. | 2 |
+ | `unshare` unavailable | Wrapper preflight | Explain that util-linux `unshare` is required. | 2 |
+-| Kernel denies namespace creation (`EPERM`, disabled user namespaces, missing capabilities, container policy) | Actual `unshare` invocation | Preserve `unshare` stderr and returned status exactly. Do not hide it or retry with weaker flags. | Pass-through |
++| `TERMINAL_JAIL_JAIL_BACKEND` unknown value | Wrapper preflight (before any namespace work) | Name the value and the accepted set (`auto`, `bwrap`, `unshare`); the command is not run. | 2 |
++| `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but bubblewrap is not installed | Wrapper preflight | Say bubblewrap is not installed, name the system package, and state that the command was not run — never fall back silently. | 2 |
++| `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but the bwrap probe fails | Wrapper preflight | Say bwrap namespace creation failed and that the requested backend is never silently downgraded; the command is not run. | 2 |
++| `TERMINAL_JAIL_JAIL_BACKEND=auto`, bubblewrap present but its probe fails | Wrapper preflight | Warn on stderr that the fallback does **not** provide a private `/proc`, then continue with the `unshare` backend. | Payload (or `2` if `unshare` also fails) |
++| Kernel denies namespace creation (`EPERM`, disabled user namespaces, missing capabilities, container policy) | Selected backend's probe | Preserve the backend's stderr and returned status exactly. Do not hide it or retry with weaker flags. | Pass-through (probe failure on an explicitly requested backend: `2`) |
+ | Payload command not found | Bash trampoline `exec` | Preserve Bash's normal `command not found` stderr, including the command name. | Normally 127; pass-through |
+ | Payload executable not permitted | Bash trampoline/kernel | Preserve native `Permission denied` diagnostic and status. | Normally 126; pass-through |
+ | Disk full / quota (`ENOSPC`/`EDQUOT`) | Payload filesystem operation | Preserve payload stderr and exact returned status. | Pass-through |
+@@ -359,6 +440,15 @@ All tests must execute the installed or repository wrapper, not an inlined copy
+ | CLI-14 | Disk full/quota | Run a payload that writes to a filesystem mounted with a deliberately small external quota or tmpfs size. | Payload gets `ENOSPC`/`EDQUOT` diagnostic and nonzero status; wrapper does not alter either. | Error propagation; not quota enforcement by v1. |
+ | CLI-15 | Unshare unavailable | Execute wrapper with a PATH containing no `unshare` (while retaining required shell utilities). | Clear stderr diagnostic; status 2. | Dependency error path. |
+ | CLI-16 | Namespace permission denied | Run in a known restricted container/user configuration where the real `unshare` call returns EPERM. | Native `unshare` diagnostic and exact status pass through. | Permission error is not hidden or weakened. |
++| CLI-17 | bwrap selected by `auto` | `TERMINAL_JAIL_JAIL_BACKEND=auto` with PATH-stub recorders for `bwrap` and `unshare`; run a simple payload. | The recorded bwrap argv is exactly the documented flag set, then `--`, then the `bash -c 'exec "$@"' terminal-jail …` trampoline; `unshare` is never invoked; no warning on stderr. | Runtime detection and the documented flag contract, without needing a real namespace. A stub proves argv shape, not containment. |
++| CLI-18 | Private `/proc` under the bwrap backend | On a bubblewrap-capable host run `readlink /proc/self/ns/pid`, `ls /proc`, `cat /proc/1/comm` inside the jail and on the host. | The namespace inode differs, the jail's PID count is far below the host's, and `/proc/1/comm` is not the host init. | The private-`/proc` property is real for this backend. Host-conditional: skip with a `HOST-DEGRADED-BWRAP` marker where bwrap is absent or cannot create namespaces. |
++| CLI-19 | bwrap absent falls back to unshare | `auto` with a PATH that has no `bwrap` (stub `unshare` recorder). | The recorded `unshare` argv is the v1.1 shape; no warning is printed. | The documented normal path is silence-preserving; bubblewrap is never assumed. |
++| CLI-20 | Explicit `bwrap`, binary missing | `TERMINAL_JAIL_JAIL_BACKEND=bwrap`, PATH without `bwrap`. | Exit `2`; stderr names bubblewrap and the system package; the command does not run; `unshare` is not invoked. | Fail closed: an explicitly requested backend is never silently downgraded. |
++| CLI-21 | Explicit `bwrap`, probe fails | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` with a `bwrap` stub whose probe exits nonzero. | Exit `2`; the stub records the probe only (no launch); `unshare` is not invoked. | Same fail-closed contract for a host that has bwrap but denies its namespaces. |
++| CLI-22 | `auto` with a present-but-unusable bwrap | `auto` with a failing `bwrap` probe stub and a working `unshare` stub. | A warning naming the private-`/proc` loss is printed, then the `unshare` launch proceeds. | Degradation stays loud; no silent loss of a publicized property. |
++| CLI-23 | Argv preservation per backend | Run the wrapper with empty, whitespace, quote, glob, `$(…)`, semicolon and leading-dash arguments through each backend's recorder; then live through bwrap with `printf '[%s]'`. | The recorded trampoline argv equals the supplied argv element-for-element, and the live output is byte-exact. | No shell re-parsing, no reconstruction of the user command under either backend. |
++| CLI-24 | Unknown backend value | `TERMINAL_JAIL_JAIL_BACKEND=<typo>`. | Exit `2`; the message names the value and the accepted set; nothing is launched and no namespace is created. | A configuration typo cannot silently select a weaker backend. |
++| CLI-25 | v1.1 backend pinned | `TERMINAL_JAIL_JAIL_BACKEND=unshare` with `bwrap` present on PATH. | The `unshare` launch shape is used and `bwrap` is neither probed nor invoked. | The pre-v1.2 behavior is exactly recoverable, byte-for-byte. |
+ 
+ ### Safety requirements for destructive-looking tests
+ 
+@@ -378,3 +468,4 @@ A v1 implementation is complete only when all of the following are true:
+ 5. It preserves payload/unshare exit statuses exactly and returns wrapper usage/preflight errors as documented.
+ 6. Its installer is POSIX `sh`, installs verified content atomically to `~/.local/bin/` by default, and handles PATH idempotently without privilege escalation.
+ 7. Tests cover every row in section 9, including the intentionally negative resource and package-containment tests. No documentation or test report may claim security properties that the fixed PID-only flag set does not provide.
++8. (v1.2) The backend is selected by `TERMINAL_JAIL_JAIL_BACKEND` only, runtime-detected, with no new CLI flags; the unshare backend's launch form and exit semantics are unchanged; an explicitly requested backend that cannot run fails closed (exit `2`, command not run, no silent downgrade); the bubblewrap backend's command carries `--unshare-user`, `--unshare-pid`, `--die-with-parent`, `--bind / /`, `--dev-bind /dev /dev`, `--proc /proc` and the identical argv-preserving trampoline; a private `/proc` is claimed **only** for the bubblewrap backend and only where a live check on the host proves it; and `--seccomp`, interruptor, stdio and exit-status behavior are identical under both backends.
+diff --git a/standalone/terminal-jail b/standalone/terminal-jail
+index faf7403..6eaeea4 100755
+--- a/standalone/terminal-jail
++++ b/standalone/terminal-jail
+@@ -65,6 +65,16 @@ Options:
+   --interruptor  Enable the Bash command firewall (default). Evaluates
+                  commands against a rule engine before execution.
+   --no-interruptor  Disable the Bash command firewall.
++
++Environment:
++  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
++                 Select the jail backend (default: auto). auto uses
++                 bubblewrap when it is installed and its namespace probe
++                 passes, otherwise util-linux unshare. Only the bwrap
++                 backend provides a PRIVATE /proc; unshare is the
++                 documented fallback. A requested backend that cannot run
++                 fails closed (exit 2) — isolation is never silently
++                 downgraded. See specs/cli.md section 4 "Jail backends".
+ EOF
+ }
+ 
+@@ -166,6 +176,23 @@ if [ $# -eq 0 ]; then
+     exit 2
+ fi
+ 
++# --- jail backend request (TJ-GAP-054) -----------------------------------------
++# Runtime-detected backend selection, environment only (no new CLI flags):
++#   auto    (default) prefer bwrap when installed AND its probe passes;
++#   bwrap   demand bwrap — fail closed when missing or unusable, never a
++#           silent downgrade to weaker isolation;
++#   unshare pin the pre-existing backend exactly (byte-identical behavior).
++# Policy, rationale and limitations: specs/cli.md section 4 "Jail backends".
++TJ_BACKEND_REQUEST="${TERMINAL_JAIL_JAIL_BACKEND:-auto}"
++case "$TJ_BACKEND_REQUEST" in
++    auto|bwrap|unshare)
++        ;;
++    *)
++        echo "terminal-jail: unknown TERMINAL_JAIL_JAIL_BACKEND='${TJ_BACKEND_REQUEST}' (expected auto, bwrap, or unshare); command not run" >&2
++        exit 2
++        ;;
++esac
++
+ # Rebuild the command string from remaining arguments (preserving argv boundaries)
+ CMD_STR=""
+ for arg in "$@"; do
+@@ -356,6 +383,38 @@ else
+     UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
+ fi
+ 
++# --- bubblewrap backend flags (TJ-GAP-054) -------------------------------------
++# Flag-by-flag contract (all measured on bubblewrap 0.11.1, unprivileged):
++#   --unshare-user       new user namespace (bwrap implies one when not setuid;
++#                        stated explicitly so the namespace set is auditable)
++#   --unshare-pid        new PID namespace — the same namespace set the
++#                        unshare backend creates.
++#   --proc /proc         mount a FRESH procfs on /proc. This is the private
++#                        /proc: measured inside-vs-outside, the jail sees its
++#                        own PIDs only (5 entries vs 1682 host PID entries;
++#                        /proc/1 is bwrap's reaper, not the host init). The
++#                        unshare backend cannot do this under --user and
++#                        exposes the host /proc there.
++#   --die-with-parent     PR_SET_PDEATHSIG(SIGKILL) on the sandbox: a SIGKILLed
++#                        wrapper still tears the jail down (measured: with the
++#                        flag the payload is gone; without it, orphaned).
++#   --bind / /           preserve the existing filesystem view. bwrap's root is
++#                        an empty tmpfs without a root bind, and this backend
++#                        deliberately adds NO filesystem isolation (same
++#                        visibility/permissions as the unshare backend).
++#   --dev-bind /dev /dev device access is part of that preserved view: a plain
++#                        `--bind / /` alone leaves the sandbox's /dev nodes
++#                        USELESS (measured: /dev/null, /dev/zero, /dev/urandom
++#                        all return EACCES, which breaks Python interpreter
++#                        startup — e.g. the --seccomp loader under a venv
++#                        PATH). --dev-bind restores the host device view,
++#                        matching what the unshare backend sees.
++# --as-pid-1 is deliberately NOT used: it makes the payload namespace PID 1 and
++# NULLIFIES --die-with-parent (measured orphan on bubblewrap 0.11.1), so the
++# payload runs as PID 2 under bwrap's reaper. Consequence, documented in
++# specs/cli.md: under this backend the payload is not namespace PID 1.
++BWRAP_FLAGS="--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc"
++
+ # --- namespace preflight -------------------------------------------------------
+ # Verify namespace creation actually works before exec'ing: with exec, a
+ # failing unshare would replace this shell and leak a raw unshare error with
+@@ -363,12 +422,68 @@ fi
+ # (README "Graceful Degradation": exit code 2 + a message). The probe uses the
+ # same flags as the real launch, so its result is representative; the throwaway
+ # namespace is destroyed when the probe command exits.
+-if unshare $UNSHARE_FLAGS true >/dev/null 2>&1; then
+-    :
+-else
+-    probe_rc=$?
+-    echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+-    exit 2
++#
++# The backend is resolved here (TJ-GAP-054) because it needs the fs-isolation
++# decision made above for --user. Runtime detection only — bwrap is never
++# assumed to exist, and a backend that was explicitly requested is never
++# silently downgraded:
++#   bwrap      -> fail closed (exit 2) when bwrap is missing or its probe fails;
++#   auto       -> bwrap when present and probing green, else unshare; a present
++#                 but unusable bwrap warns loudly and falls back to unshare
++#                 (which has NO private /proc — that loss is stated, not silent);
++#   unshare    -> the pre-existing backend, untouched.
++# auto also keeps unshare for `--user` on a host where the mapped launch probe
++# passed: a uid mapping is real filesystem isolation and bubblewrap has no
++# unprivileged equivalent (its --uid only re-labels the sandbox uid — measured:
++# a caller-owned mode-600 file stays readable), so auto never trades away
++# isolation it can have.
++_TJ_BWRAP_BIN=""
++if [ "$TJ_BACKEND_REQUEST" != "unshare" ]; then
++    _TJ_BWRAP_BIN="$(command -v bwrap 2>/dev/null || true)"
++fi
++
++if [ "$TJ_BACKEND_REQUEST" = "bwrap" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" = "mapped" ]; then
++    echo "terminal-jail: WARNING: no filesystem isolation under the bwrap backend — bubblewrap has no unprivileged equivalent of unshare --map-users, so the uid mapping this host supports is not applied (use TERMINAL_JAIL_JAIL_BACKEND=unshare to keep it)" >&2
++    TERMINAL_JAIL_FS_ISOLATION=degraded
++    export TERMINAL_JAIL_FS_ISOLATION
++fi
++
++case "$TJ_BACKEND_REQUEST" in
++    bwrap)
++        if [ -z "$_TJ_BWRAP_BIN" ]; then
++            echo "terminal-jail: TERMINAL_JAIL_JAIL_BACKEND=bwrap was requested but bubblewrap (bwrap) is not installed; command not run — install the bubblewrap system package, or use TERMINAL_JAIL_JAIL_BACKEND=auto|unshare" >&2
++            exit 2
++        fi
++        if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS true >/dev/null 2>&1; then
++            TJ_BACKEND=bwrap
++        else
++            echo "terminal-jail: bwrap namespace creation failed (requested TERMINAL_JAIL_JAIL_BACKEND=bwrap); command not run — the requested backend is never silently downgraded" >&2
++            exit 2
++        fi
++        ;;
++    auto)
++        TJ_BACKEND=unshare
++        if [ -n "$_TJ_BWRAP_BIN" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
++            if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS true >/dev/null 2>&1; then
++                TJ_BACKEND=bwrap
++            else
++                echo "terminal-jail: WARNING: bubblewrap is installed but its namespace probe failed; falling back to the unshare backend — this fallback does NOT provide a private /proc" >&2
++            fi
++        fi
++        ;;
++    *)
++        TJ_BACKEND=unshare
++        ;;
++esac
++
++if [ "$TJ_BACKEND" = "unshare" ]; then
++    if unshare $UNSHARE_FLAGS true >/dev/null 2>&1; then
++        :  # probe green — proceed to launch
++    else
++        probe_rc=$?
++        echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
++        exit 2
++    fi
+ fi
+ 
+ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+@@ -377,8 +492,13 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+         exit 2
+     fi
+     export TERMINAL_JAIL_SECCOMP=1
+-    # The seccomp filter must be applied inside the PID namespace.
+-    # We use the loader script which applies the filter, then exec's the command.
++    # The seccomp filter must be applied inside the PID namespace. Both
++    # backends use the identical argv-preserving trampoline; the `--` below is
++    # bubblewrap's option/payload separator.
++    if [ "$TJ_BACKEND" = "bwrap" ]; then
++        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
++            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
++    fi
+     exec unshare \
+         $UNSHARE_FLAGS \
+         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+@@ -387,6 +507,10 @@ elif [ "$MODIFIED" -eq 1 ]; then
+     # no additional wrapping (double unshare → EPERM).
+     exec bash -c "$CMD_STR"
+ else
++    if [ "$TJ_BACKEND" = "bwrap" ]; then
++        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
++            bash -c 'exec "$@"' terminal-jail "$@"
++    fi
+     exec unshare \
+         $UNSHARE_FLAGS \
+         bash -c 'exec "$@"' terminal-jail "$@"
