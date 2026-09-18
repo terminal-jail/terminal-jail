@@ -15,7 +15,9 @@ sudo chmod 755 /usr/local/bin/terminal-jail-bash
 ### Step 2 — Install the SHELL shim (handles -lic invocation)
 
 The Hermes terminal tool invokes the shell as: `bash -lic "set +m; {command}"`. We need a thin
-wrapper that extracts the command, runs it through the interruptor, wraps with unshare, and execs.
+wrapper that extracts the command, runs it through the interruptor, wraps it in the CLI's jail
+(`--user --seccomp`; the backend — `unshare`, or the optional bubblewrap one with a private
+`/proc` — is chosen by the CLI at runtime, see `specs/cli.md` §4 "Jail backends"), and execs.
 The canonical wrapper lives in this repo at `standalone/terminal-jail-sh` — install it from there
 (do NOT copy a script by hand; the repo copy is the maintained one):
 

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Optional bubblewrap (bwrap) jail backend (TJ-GAP-054)
+
+- **`standalone/terminal-jail`**: runtime-detected backend selection via `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` (default `auto`; no new CLI flags). `auto` uses bubblewrap when it is installed and its namespace probe passes, otherwise the unchanged `unshare` backend; `bwrap` is a demand that fails closed (exit 2, command not run) when bubblewrap is missing or unusable; `unshare` pins the pre-v1.2 behavior byte-for-byte; an unknown value exits 2 before any namespace work.
+- **Private `/proc`**: the bwrap backend launches `bwrap --unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail …` — a fresh procfs the jail cannot use to enumerate host PIDs (measured: 5 entries vs 1682 host PIDs), plus `--die-with-parent` teardown that survives a SIGKILL of the wrapper. The unshare backend keeps its documented limitation (`--user` exposes the host `/proc`).
+- **No silent downgrade, no traded-away isolation**: a present-but-unusable bubblewrap under `auto` warns that the fallback has no private `/proc` before continuing; `auto` keeps the `unshare` mapped launch for `--user` on mapping-capable hosts because bubblewrap has no unprivileged `--map-users` equivalent (`--uid` alone leaves DAC unchanged — measured), and `bwrap --user` states that loss loudly with `TERMINAL_JAIL_FS_ISOLATION=degraded`.
+- **Deliberately not used**: `--as-pid-1` — it makes the payload namespace PID 1 and nullifies `--die-with-parent` (measured orphaned jail on bubblewrap 0.11.1). Consequence documented: under the bwrap backend the payload is PID 2 behind bubblewrap's reaper.
+- **Devices**: `--dev-bind /dev /dev` is required next to `--bind / /`; with the bind alone the sandbox's `/dev/null`, `/dev/zero` and `/dev/urandom` return `EACCES`, which breaks payloads such as the `--seccomp` loader's Python interpreter.
+- **Tests**: `plugin/test_backend_selection.py` (16 cases) covers selection, the documented flag contract, per-backend argv preservation, absence/failure/degradation paths, the `--user` mapping rule and live private-`/proc` + exit-semantics checks (host-conditional `HOST-DEGRADED-BWRAP` skips). `plugin/test_install.py`'s unshare-failure test now pins `TERMINAL_JAIL_JAIL_BACKEND=unshare` so it keeps asserting the same contract.
+- **Docs**: `specs/cli.md` §1/§4 ("Jail backends")/§6/§7/§9/§10, `README.md` (How It Works, Components, Graceful Degradation, Requirements, Host Limitations), `docs/quickstart.md` (backend selection + FAQ), `docs/deploy-to-karahermes.md`.
+
 ### Docs & install path (2026-08-05)
 
 - **Quick Start guide** (`docs/quickstart.md`): problem statement, which-component-for-which-user decision tree, install + verify steps for every path (CLI, interruptor modes, plugin, systemd drop-in, deploy shim), FAQ/troubleshooting. Linked from the README.

@@ -809,7 +809,14 @@ def test_bare_wrapper_unshare_failure_exits_2(
     """TJ-GAP-034: namespace-creation failure must exit 2 with a message
     (README "Graceful Degradation" contract), not leak raw unshare rc=1.
     Simulated with a fake unshare in PATH that fails — warn mode + missing
-    bridge so the wrapper reaches the launch section."""
+    bridge so the wrapper reaches the launch section.
+
+    TJ-GAP-054: the failure is pinned to the unshare backend explicitly. Under
+    the default `auto` selector a present bubblewrap legitimately takes over
+    and runs the command, so this test names the backend whose failure
+    contract it asserts; the auto selector's own degradation paths (bwrap
+    missing / bwrap probe failing) live in plugin/test_backend_selection.py.
+    """
     bare = tmp_path / "bare"
     bare.mkdir()
     fakebin = tmp_path / "fakebin"
@@ -836,6 +843,8 @@ def test_bare_wrapper_unshare_failure_exits_2(
             # Deterministic bridge-absence (see test_bare_wrapper_* above).
             "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
             "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+            # TJ-GAP-054: pin the backend this test exercises (see docstring).
+            "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
         },
     )
     stdout = run.stdout.decode("utf-8", "replace")

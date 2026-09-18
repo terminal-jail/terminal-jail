@@ -97,6 +97,54 @@ do not conflate the two. See §3c and FAQ §4.
 If `~/.local/bin` is not on your PATH, run the export the installer printed,
 or use the full path above.
 
+**Backend selection (v1.2 — optional bubblewrap).** Alongside `unshare` the CLI
+has an optional `bubblewrap` (`bwrap`) backend. Selection is an **environment
+variable** — no new flags:
+
+```bash
+TERMINAL_JAIL_JAIL_BACKEND=auto      # default: bwrap when installed + probing green, else unshare
+TERMINAL_JAIL_JAIL_BACKEND=bwrap     # demand bwrap: exit 2 (command not run) if missing/unusable
+TERMINAL_JAIL_JAIL_BACKEND=unshare   # pin the pre-v1.2 behavior exactly
+```
+
+Install the optional dependency the normal way and verify it, then watch the
+backend actually being used:
+
+```bash
+sudo apt install bubblewrap          # or: sudo dnf install bubblewrap  (never vendored in-repo)
+bwrap --version                      # → bubblewrap 0.11.1 (verified version)
+
+# PRIVATE /proc: the count inside the jail must be far below the host's count,
+# and /proc/1 inside must NOT be the host init.
+ls /proc | grep -c '^[0-9]'                                   # host: e.g. 1682
+~/.local/bin/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"; cat /proc/1/comm'
+# → e.g. 5 and "bwrap"     (host shows "systemd")
+
+# Fail-closed proof for an explicitly requested backend: no output, exit 2.
+TERMINAL_JAIL_JAIL_BACKEND=bwrap ~/.local/bin/terminal-jail --version   # still prints (help/version never launch)
+TERMINAL_JAIL_JAIL_BACKEND=typo ~/.local/bin/terminal-jail echo hi      # exit 2, names the accepted values
+```
+
+What each backend guarantees (do not conflate them):
+
+| | `unshare` backend | `bwrap` backend |
+|---|---|---|
+| New PID namespace | yes | yes |
+| Private `/proc` (host PIDs invisible) | bare mode only — **`--user` exposes the host `/proc`** | **yes, always** |
+| Payload is namespace PID 1 | yes | no (bubblewrap's reaper is PID 1; the payload is PID 2) |
+| Sandbox dies with the wrapper | `--kill-child=SIGKILL` | `--die-with-parent` (survives a SIGKILL of the wrapper) |
+| Filesystem isolation (uid mapping) | `--user` where the host allows a mapping | not available (reports `TERMINAL_JAIL_FS_ISOLATION=degraded`) |
+| Filesystem view | host's | host's (`--bind / /` + `--dev-bind /dev /dev`) — no added isolation |
+
+Honest limits: bubblewrap needs the **same** unprivileged user-namespace
+permission as `unshare`, so a host that forbids user namespaces fails closed
+under both backends. Where user namespaces are allowed but bare-mode `unshare`
+is denied, `auto` still gets you a contained, private-`/proc` jail — that is
+the measured situation on this project's host. And because bubblewrap has no
+unprivileged equivalent of `--map-users`, `auto` deliberately keeps the
+`unshare` backend for `--user` on hosts where the uid mapping works (real
+filesystem isolation), rather than silently trading it away.
+
 ### 3b. Interruptor modes
 
 ```bash
@@ -275,7 +323,23 @@ importable). If the bridge is genuinely missing, enforce mode FAILS CLOSED
 **Why does `--user` show host PIDs in `/proc`?**
 User namespaces cannot mount a namespace-local `/proc` unprivileged. This is
 documented behavior — `--user` trades `/proc` isolation for user-namespace
-containment.
+containment. The **bubblewrap backend does not have to make that trade**: with
+the `bubblewrap` package installed, `TERMINAL_JAIL_JAIL_BACKEND=auto` (the
+default) gives the `--user` containment *and* a private `/proc` on hosts where
+the bwrap probe passes — verify with the PID-count check in §3a.
+
+**Which backend is running, and how do I pin one?**
+The CLI never says so on a successful launch (wrapper diagnostics would break
+the stdout/stderr contract), so check the property instead of trusting a label:
+`ls /proc | grep -c "^[0-9]"` inside the jail is a handful on the bwrap backend
+and the host count on the unshare backend. To force a choice use
+`TERMINAL_JAIL_JAIL_BACKEND=unshare` (exact pre-v1.2 behavior) or
+`=bwrap` (demands bubblewrap: a missing binary or a failed namespace probe
+exits **2 with the command not run** — the requested backend is never silently
+downgraded). A present-but-unusable bubblewrap under `auto` prints a warning
+naming the private-`/proc` loss, then continues with `unshare`. An unknown
+value exits 2 before anything runs. Backends are documented in `specs/cli.md`
+§4 ("Jail backends").
 
 **Does `--user` isolate the filesystem?**
 Only when the host allows a **uid mapping** (checked by preflight; marker

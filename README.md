@@ -10,7 +10,7 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 |---|---|---|
 | **systemd drop-in** | LIGHTWEIGHT — process-visibility, privilege, cgroup bounds (4 active directives: `ProtectProc=invisible`, `NoNewPrivileges=true`, `ProtectControlGroups=true`, `TasksMax=256`) | Does NOT create a PID namespace. The full profile (`PrivateUsers`, `RestrictNamespaces`, network/fs hardening) is commented out pending per-host verification |
 | **Hermes Plugin** | Observability only | `pre_tool_call` (command visibility), `transform_terminal_output` (output annotation stub), command-length logging, metrics export |
-| **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd |
+| **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd; an optional, runtime-detected `bwrap` backend (bubblewrap) adds a private `/proc` and `--die-with-parent` teardown |
 
 ## How It Works
 
@@ -20,6 +20,21 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 # CLI only — the sole component that wraps commands:
 ./standalone/terminal-jail echo "I'm in a PID namespace"
 # → unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo "I'"'"'m in a PID namespace"'
+#
+# Backends (v1.2): TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare (default auto)
+# selects bubblewrap when it is installed AND its namespace probe passes,
+# otherwise util-linux unshare:
+# → bwrap --unshare-user --unshare-pid --die-with-parent --bind / / \
+#         --dev-bind /dev /dev --proc /proc -- bash -c 'exec "$@"' terminal-jail ...
+# Only the bwrap backend mounts a PRIVATE /proc — the jail's /proc lists just
+# its own processes (measured: 5 entries vs 1682 host PIDs; /proc/1 is
+# bubblewrap's reaper, not the host init) — and --die-with-parent kills the
+# sandbox even when the wrapper is SIGKILLed. `unshare --user` still exposes the
+# HOST /proc; that limitation is documented, not papered over.
+# A backend that was explicitly requested (TERMINAL_JAIL_JAIL_BACKEND=bwrap) and
+# cannot run exits 2 without running the command — isolation is never silently
+# downgraded. Optional dependency: the distro `bubblewrap` package.
+#
 # On hosts that deny unprivileged PID namespaces (unshare: Operation not
 # permitted, EPERM), bare mode exits 2 with a message naming the fallback
 # (see Graceful Degradation); use the --user fallback instead (PID-namespace
@@ -30,6 +45,8 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 # (--map-users/--map-groups + -S/-G); it is active ONLY when the host permits
 # it — otherwise the wrapper warns loudly on stderr:
 #   "no filesystem isolation — could not create a uid mapping ...".
+# bubblewrap has no unprivileged equivalent of that uid mapping, so `auto` keeps
+# the unshare backend for --user on mapping-capable hosts.
 # Check your host: python3 scripts/fs-isolation-probe.py
 ```
 
@@ -41,7 +58,7 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 |---|---|---|
 | systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | LIGHTWEIGHT hardening — 4 active directives (process visibility, no-new-privileges, cgroup protection, task bound). NOT a PID namespace boundary; the full isolation profile is staged/commented. |
 | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging (command length). Does NOT wrap commands. |
-| Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
+| Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd; selects an optional bubblewrap backend at runtime (`TERMINAL_JAIL_JAIL_BACKEND=auto\|bwrap\|unshare`, default `auto`) |
 | Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
 | Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 30 built-in rules, JSON bridge for CLI integration |
 
@@ -179,6 +196,15 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on t
 > ONLY where a uid mapping can be created — classify your host with
 > `python3 scripts/fs-isolation-probe.py`. See
 > [Host Limitations](#host-limitations).
+>
+> **With bubblewrap installed** (optional, v1.2) the same first example can
+> succeed even on hosts that deny bare-mode `unshare`, as long as unprivileged
+> user namespaces are allowed: `TERMINAL_JAIL_JAIL_BACKEND=auto` (the default)
+> selects the bwrap backend, which additionally gives a **private `/proc`** —
+> the jail cannot enumerate host PIDs, and `--die-with-parent` tears the
+> sandbox down with the wrapper. Check with
+> `TERMINAL_JAIL_JAIL_BACKEND=auto ./standalone/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"'`
+> and compare against the host count.
 
 ### Plugin (Hermes)
 
@@ -285,7 +311,7 @@ Every layer degrades independently:
 
 - **systemd drop-in**: optional — gateway runs without it. Provides process-visibility/privilege/cgroup hardening only; it is NOT a PID namespace boundary (the stronger directives are staged).
 - **Plugin**: observes and logs. Returns command unchanged if disabled. Does not block execution.
-- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation. `--user` itself has two tiers, chosen by an exact-flags preflight: when the host permits a **uid mapping** the launch is `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1 -S 65534 -G 65534 ...` (real filesystem isolation, `TERMINAL_JAIL_FS_ISOLATION=mapped`); otherwise it falls back to the legacy mapping-less namespace (`=degraded`) and prints a loud `no filesystem isolation` warning — the PID-namespace containment, env scrub, and exit codes stay exactly the same. `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode. `scripts/fs-isolation-probe.py` classifies any host (FULL/DEGRADED + cause, always exit 0).
+- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation. **Backend selection (v1.2)** is automatic *between equivalent isolation primitives* and is never a silent downgrade of the isolation level: `TERMINAL_JAIL_JAIL_BACKEND=auto` (default) uses bubblewrap when it is installed and its probe passes, otherwise `unshare`; `bwrap` demands bubblewrap and exits 2 when it is missing or unusable (command not run); `unshare` pins the pre-v1.2 behavior byte-for-byte; any other value exits 2. When bubblewrap is installed but its probe fails, `auto` prints a warning that the `unshare` fallback does **not** provide a private `/proc` before continuing. The private `/proc` is a bubblewrap-only property; under `--user` the `unshare` backend still exposes the host `/proc`. `--user` itself has two tiers, chosen by an exact-flags preflight: when the host permits a **uid mapping** the launch is `unshare --user --map-users=65534:<subuid>:1 --map-groups=65534:<subgid>:1 -S 65534 -G 65534 ...` (real filesystem isolation, `TERMINAL_JAIL_FS_ISOLATION=mapped`); otherwise it falls back to the legacy mapping-less namespace (`=degraded`) and prints a loud `no filesystem isolation` warning — the PID-namespace containment, env scrub, and exit codes stay exactly the same. `TERMINAL_JAIL_UID_MAP=0|off|false` forces the mapping-less mode. `scripts/fs-isolation-probe.py` classifies any host (FULL/DEGRADED + cause, always exit 0).
 - **E2E battery (PID-NS layer)**: every run is labeled **FULL** or **DEGRADED** by `scripts/pidns-capability-probe.py` (classifies any host by probing bare mode: `FULL` when the namespace works, `DEGRADED` when the host refuses creation, `UNKNOWN` otherwise — the probe always exits 0). When the host is DEGRADED, bare-mode tests **skip** with a `HOST-DEGRADED-PIDNS` marker instead of silently passing, so the battery never reports "ALL GREEN" without actually verifying PID-namespace containment; on FULL hosts the containment test asserts the jailed command lands in a new PID namespace inode.
 
 ## Requirements
@@ -294,12 +320,22 @@ Every layer degrades independently:
 - `util-linux` 2.32+ (`unshare` with `--kill-child`)
 - `bash`
 - systemd (for the primary isolation layer)
+- **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`); it is invoked as an external binary and never vendored into this MIT repository (it is LGPL-2.1-or-later; see TJ-GAP-055)
 
 ## Host Limitations
 
 `unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI's bare mode (which appends --mount-proc internally) will fail on some commands. This is a host kernel policy limitation, not a code defect. The systemd layer provides process-visibility and privilege hardening (`ProtectProc=invisible`, `NoNewPrivileges=true`) independently of `unshare`, but it does not create a PID namespace (the shipped drop-in's `PrivateUsers`/`RestrictNamespaces` directives are commented out pending verification).
 
 The same applies to `--user`'s filesystem isolation tier: creating a uid mapping requires setuid/setgid inside the unprivileged user namespace, and stock Ubuntu ships an AppArmor profile (`unprivileged_userns`) that denies exactly those capabilities (`apparmor="DENIED" ... capname="setuid"` in `dmesg`; see also `sysctl kernel.apparmor_restrict_unprivileged_userns`). On such hosts the CLI falls back to the mapping-less namespace and prints a loud `no filesystem isolation` warning — a host restriction, not a code defect. Classify any host with `python3 scripts/fs-isolation-probe.py` (prints FULL or DEGRADED plus the diagnosed cause, always exits 0).
+
+### Bubblewrap backend (v1.2)
+
+bubblewrap needs the same unprivileged user-namespace permission as `unshare`, so a host that forbids user namespaces fails closed under **both** backends (exit 2, command not run) — it is not a workaround for that kernel/AppArmor policy. Where the policy allows user namespaces but denies bare-mode `unshare` (the configuration measured on this project's host: `unshare --pid --fork --mount-proc` → `Operation not permitted`, while `unshare --user --pid --fork` succeeds), the bwrap backend still runs bare mode and provides the private `/proc`.
+
+Two limits must be stated plainly rather than assumed away:
+
+1. **bubblewrap cannot provide the mapped filesystem isolation.** The `--user` uid mapping (`--map-users`/`--map-groups` + `-S`/`-G`) has no unprivileged bubblewrap equivalent: `bwrap --uid 65534` only re-labels the sandbox uid and DAC still evaluates with the caller's kuid (measured: a caller-owned mode-600 file stays readable). `TERMINAL_JAIL_JAIL_BACKEND=auto` therefore keeps the `unshare` backend for `--user` on mapping-capable hosts, and `TERMINAL_JAIL_JAIL_BACKEND=bwrap --user` reports `TERMINAL_JAIL_FS_ISOLATION=degraded` with a loud warning.
+2. **The payload is not namespace PID 1** under bubblewrap: bubblewrap's minimal reaper is PID 1 and the payload runs as PID 2 (`--as-pid-1` is deliberately not used because it nullifies `--die-with-parent` — measured orphaned jail). Anything that depends on being PID 1 inside the jail behaves differently than under the `unshare` backend; the containment parity battery for this difference is TJ-GAP-056.
 
 ## Repository layout
 
