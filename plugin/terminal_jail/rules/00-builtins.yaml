@@ -247,6 +247,66 @@ rules:
       # bare `/` or `/*` assignment to qualify as root-scoped.
       pattern: "\\b[A-Za-z_]\\w*=/\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)|\\b[A-Za-z_]\\w*=/\\*\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)"
 
+  # ---------------------------------------------------------------------------
+  # TJ-GAP-058 network egress (probe 2026-09-16): reverse-shell shapes BLOCK,
+  # dual-use egress is auto-sandboxed (see the sandbox section below).
+  # ---------------------------------------------------------------------------
+  - id: "builtin-net-devtcp-redirect"
+    description: "Network-fd redirect reverse shell (/dev/tcp, /dev/udp)"
+    priority: 1000
+    action: block
+    block_message: "Reverse shell through a network file descriptor (redirect into /dev/tcp/... or /dev/udp/...) is blocked."
+    match:
+      type: pattern
+      # Requires a redirect operator bound to the fd path, so a mere mention
+      # inside a string/argument is not matched. Operators longest-first.
+      pattern: "(?:&>|>&|>>|<>|<<|>|<)\\s*/dev/(?:tcp|udp)/\\S"
+
+  - id: "builtin-net-mkfifo-reverse-shell"
+    description: "mkfifo feedback-loop reverse shell (fifo + shell + network client)"
+    priority: 1000
+    action: block
+    block_message: "mkfifo feedback-loop reverse shell is blocked — a fifo wired from a shell into a network client is the canonical two-way shell."
+    match:
+      type: pattern
+      # Both halves (a shell AND a pipe into a network client) must appear in
+      # the same command string; a lone mkfifo stays allowed. Lookaheads cross
+      # ; and | because the vector is a multi-segment command.
+      pattern: "\\bmkfifo\\b(?=[\\s\\S]*(?<![\\w/.-])(?:/bin/|/usr/bin/)?(?:sh|bash|dash|ksh)\\b)(?=[\\s\\S]*\\|\\s*(?:nc|ncat|netcat|socat)\\b)"
+
+  - id: "builtin-net-nc-shell-attach"
+    description: "netcat/ncat with a shell attach (-e/-c/--exec or a shell on either side of a pipe)"
+    priority: 1000
+    action: block
+    block_message: "netcat/ncat with a shell attach (-e / -c / --exec, or a shell piped to/from the connection) is blocked — that is a reverse shell, not a port check."
+    match:
+      type: pattern
+      # Arms: (1) -e/--exec/--sh-exec, (2) ncat -c <shell>, (3) connection
+      # piped INTO a shell, (4) shell piped INTO the connection (host+port
+      # required). `nc -z host port` port checks stay allowed.
+      pattern: "(?<![\\w.-])(?:nc|ncat|netcat)\\s[^|;&]*(?<![\\w-])(?:--exec|--sh-exec|-e)\\b|(?<![\\w.-])(?:nc|ncat|netcat)\\s[^|;&]*(?<![\\w-])-c\\s+(?:/bin/|/usr/bin/)?(?:sh|bash|dash|zsh|ksh)\\b|(?<![\\w.-])(?:nc|ncat|netcat)\\b[^|;&]*\\|\\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b|(?<![\\w/.-])(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-\\S+|\\d?>&?\\d+))*\\s*\\|\\s*(?:nc|ncat|netcat)\\s+(?:-\\S+\\s+)*\\S+\\s+(?:\\d+|\\$\\S+)"
+
+  - id: "builtin-net-socat-exec"
+    description: "socat EXEC:/SYSTEM: wired to a network endpoint"
+    priority: 1000
+    action: block
+    block_message: "socat wired to EXEC:/SYSTEM: over a network address is blocked — it spawns a remote-command shell over the socket."
+    match:
+      type: pattern
+      # Both halves required in the same segment: a relay/listener without
+      # EXEC:/SYSTEM: stays allowed.
+      pattern: "(?<![\\w.-])socat\\s+(?=[^|;&]*(?<![\\w-])(?:exec|system):)(?=[^|;&]*(?<![\\w-])(?:tcp|udp|sctp|openssl)(?:4|6)?(?:-listen|-connect|-recvfrom|-sendto)?:)"
+
+  - id: "builtin-net-openssl-pipe-shell"
+    description: "openssl s_client piped into a shell"
+    priority: 1000
+    action: block
+    block_message: "Piping an openssl s_client TLS session into a shell is blocked — a bare s_client diagnostic (no shell pipe) stays allowed."
+    match:
+      type: pattern
+      # Pipe target must be a shell; TLS-inspection pipelines stay allowed.
+      pattern: "(?<![\\w.-])openssl\\s+s_client\\b[^|;&]*\\|\\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b"
+
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block
   # =============================================================================
@@ -321,6 +381,53 @@ rules:
     match:
       type: pattern
       pattern: "\\./(.+\\.(sh|py|rb|zsh|bash|ksh)|[^/]+\\.(sh|py|rb|zsh|bash|ksh))|\\b(bash|sh|dash|zsh|python3?|ksh)\\s+[^\\s|;&]+\\.(sh|py|rb|zsh|bash|ksh)"
+
+  # ---------------------------------------------------------------------------
+  # TJ-GAP-058 network egress (dual-use shapes -> namespace wrap, not block).
+  # ---------------------------------------------------------------------------
+  - id: "builtin-net-fetch-pipe-qualified"
+    description: "Fetch pipeline into a path-qualified or wrapped interpreter"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: downloaded script piped into a path-qualified/wrapped shell (namespace isolation, command still runs)."
+    match:
+      type: pattern
+      # Companion to builtin-curl-pipe-shell, which blocks the BARE
+      # interpreter form `curl <url> | sh`. Path-qualified / wrapped
+      # interpreters stay in the dual-use tier and get the namespace wrap.
+      pattern: "^\\s*(?:(?:env|busybox|setsid|xargs)\\s+(?:-{1,2}[A-Za-z0-9-]+\\s+)*)?(?:/usr)?/bin/(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-{1,2}[A-Za-z0-9-]+|\\d?>&?\\d+))*\\s*$|^\\s*(?:env|busybox|setsid|xargs)\\s+(?:-{1,2}[A-Za-z0-9-]+\\s+)*(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-{1,2}[A-Za-z0-9-]+|\\d?>&?\\d+))*\\s*$|(?<![\\w.-])(?:curl|wget)\\b[^|;&]*\\|\\s*(?:(?:env|busybox|setsid|xargs)\\s+)?(?:/usr)?/bin/(?:bash|sh|dash|zsh|ksh)\\b|(?<![\\w.-])(?:curl|wget)\\b[^|;&]*\\|\\s*(?:env|busybox|setsid|xargs)\\s+(?:bash|sh|dash|zsh|ksh)\\b"
+
+  - id: "builtin-net-curl-upload"
+    description: "curl upload of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: curl sending a local payload out (-T/--upload-file, -d/--data-binary @file) in isolated namespace."
+    match:
+      type: pattern
+      # Local-file payloads only (-T/--upload-file, --data* @file, -d @file).
+      # Inline bodies (`curl -X POST -d '{...}'`) keep their ALLOW verdict.
+      pattern: "(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])(?:-T|--upload-file)\\b|(?<![\\w.-])curl\\b[^|;&]*--data(?:-binary|-raw|-urlencode)?[= ]@\\S+|(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])-d\\s*@\\S+"
+
+  - id: "builtin-net-wget-post-file"
+    description: "wget POST of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: wget posting a local file body (--post-file/--body-file) in isolated namespace."
+    match:
+      type: pattern
+      # wget file-body POST: --post-file / --body-file.
+      pattern: "(?<![\\w.-])wget\\b[^|;&]*(?<![\\w-])--(?:post-file|body-file)[= ]\\S+"
+
+  - id: "builtin-net-remote-tree-copy"
+    description: "Whole-tree remote copy (root filesystem source to a remote host)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: whole-tree copy (rsync/scp with a root '/' source) to a remote host in isolated namespace."
+    match:
+      type: pattern
+      # Source must be a standalone `/` token AND the destination a remote
+      # host:path, so scoped copies keep their plain ALLOW verdict.
+      pattern: "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/])/(?![\\w/])[^|;&]*\\s[^\\s|;&]+:"
 
   # =============================================================================
   # Always-Allow (priority 500) — never block, never sandbox
