@@ -191,6 +191,49 @@ class TestFileAccessPreflight:
         assert "no filesystem isolation" in warning
         assert "TERMINAL_JAIL_UID_MAP=0" in warning
         assert "DF-TERMINAL-JAIL-15" in warning
+        # The named cause is the one this host shape produced: the payload's
+        # host uid is the caller's subordinate uid.
+        assert f"subordinate uid {userns.subid_range_start()[0]}" in warning, warning
+
+    def test_warning_names_the_observed_marker_not_an_assumed_cause(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # A creatable mapped launch that fails the property for another reason
+        # (here: a caller cwd it cannot write) must not be attributed to the
+        # uid mapping — the warning quotes the marker it actually observed.
+        monkeypatch.setattr(userns, "mapped_launch_ok", lambda flags=None: True)
+        monkeypatch.setattr(
+            userns, "_LAUNCH_RUNNER", _LaunchDouble(read_rc=0, write_rc=1)
+        )
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        assert userns.unshare_prefix() == (
+            f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        )
+        warning = capsys.readouterr().err
+        assert "read_rc=0 write_rc=1" in warning, warning
+        assert "subordinate uid" not in warning, warning
+
+    def test_warning_reports_a_missing_marker(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        # A launch that exits 0 without producing the marker (e.g. a payload
+        # that never ran) is reported as such, never as the DAC case.
+        def silent(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        monkeypatch.setattr(userns, "mapped_launch_ok", lambda flags=None: True)
+        monkeypatch.setattr(userns, "_LAUNCH_RUNNER", silent)
+        monkeypatch.setattr(userns, "_DECISION", None)
+
+        assert userns.unshare_prefix() == (
+            f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
+        )
+        assert "no marker" in capsys.readouterr().err
 
     def test_property_pass_selects_the_mapped_prefix(
         self,

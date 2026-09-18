@@ -87,8 +87,10 @@ _PROPERTY_TIMEOUT = 15
 
 # The exact last line the property payload prints when BOTH file-access
 # checks succeeded (read_rc=0: caller-owned mode-600 file readable;
-# write_rc=0: probe file created in the caller's cwd).
+# write_rc=0: probe file created in the caller's cwd), and the marker of the
+# documented DF-TERMINAL-JAIL-15 capable-host case where BOTH are denied.
 _PROPERTY_MARKER = "read_rc=0 write_rc=0"
+_PROPERTY_DENIED_MARKER = "read_rc=1 write_rc=1"
 
 # How a launch argv is executed. `_LAUNCH_RUNNER` is the test seam that lets
 # a test simulate a host shape (namespace creation OK, file access broken)
@@ -224,24 +226,17 @@ def _property_payload(secret_path: str, target_path: str) -> str:
     )
 
 
-def mapped_file_access_ok(
+def _property_observation(
     flags: str | None = None,
     *,
     cwd: str | None = None,
     runner: LaunchRunner | None = None,
-) -> bool:
-    """Does the candidate launch PRESERVE the caller's file access?
+) -> str:
+    """Run the property payload inside the candidate launch.
 
-    The property that matters for a transparent rewrite: inside the launch
-    the payload must be able to (a) read a caller-owned probe file the
-    caller just created with mode 600 and (b) write a probe file in the
-    caller's current working directory. Namespace creation alone is not
-    evidence for either (DF-TERMINAL-JAIL-15: under the mapped launch the
-    payload's host uid is the caller's subuid, so DAC denies both).
-
-    Bounded and fail-closed: any launch error, non-zero exit, unexpected
-    output or timeout scores as NOT usable. `cwd` defaults to the caller's
-    current directory; `runner` overrides `_LAUNCH_RUNNER` for tests.
+    Returns the payload's final marker line, or "" when the launch produced
+    none (it never started, timed out, exited non-zero, or printed nothing)
+    — so a caller can name the cause it OBSERVED instead of assuming one.
     """
     if flags is None:
         flags = mapped_user_flags()
@@ -265,11 +260,11 @@ def mapped_file_access_ok(
             runner,
         )
         if result is None or result.returncode != 0:
-            return False
+            return ""
         lines = (result.stdout or "").strip().splitlines()
-        return bool(lines) and lines[-1] == _PROPERTY_MARKER
+        return lines[-1] if lines else ""
     except OSError:
-        return False
+        return ""
     finally:
         shutil.rmtree(probe_dir, ignore_errors=True)
         try:
@@ -278,23 +273,60 @@ def mapped_file_access_ok(
             pass
 
 
-def _degradation_warning() -> str:
+def mapped_file_access_ok(
+    flags: str | None = None,
+    *,
+    cwd: str | None = None,
+    runner: LaunchRunner | None = None,
+) -> bool:
+    """Does the candidate launch PRESERVE the caller's file access?
+
+    The property that matters for a transparent rewrite: inside the launch
+    the payload must be able to (a) read a caller-owned probe file the
+    caller just created with mode 600 and (b) write a probe file in the
+    caller's current working directory. Namespace creation alone is not
+    evidence for either (DF-TERMINAL-JAIL-15: under the mapped launch the
+    payload's host uid is the caller's subuid, so DAC denies both).
+
+    Bounded and fail-closed: any launch error, non-zero exit, unexpected
+    output or timeout scores as NOT usable. `cwd` defaults to the caller's
+    current directory; `runner` overrides `_LAUNCH_RUNNER` for tests.
+    """
+    return _property_observation(flags, cwd=cwd, runner=runner) == _PROPERTY_MARKER
+
+
+def _degradation_warning(observed: str) -> str:
     """One line naming the degradation, its cause and the way out.
 
     Same shape as the wrapper's warnings (standalone/terminal-jail): the
     leading `terminal-jail: WARNING: no filesystem isolation` marker is the
-    one users and tests already look for.
+    one users and tests already look for. The cause is stated from the
+    OBSERVED marker: the mapped launch that denies the caller's files reports
+    `read_rc=1 write_rc=1` (the documented DF-TERMINAL-JAIL-15 capable-host
+    case); any other marker is reported verbatim rather than attributed to
+    the uid mapping.
     """
     subuid_start, subgid_start = subid_range_start()
+    if observed == _PROPERTY_DENIED_MARKER:
+        cause = (
+            "the payload started through it cannot read the caller's own files"
+            f" — its host uid becomes the subordinate uid {subuid_start}, so"
+            " DAC denies the caller's repository and HOME"
+        )
+    else:
+        cause = (
+            "the file-access probe inside it did not report"
+            f" {_PROPERTY_MARKER!r} (observed {observed or 'no marker'!r}): a"
+            " usable launch must let the payload read a caller-owned mode-600"
+            " file and write a probe file in the caller's current directory"
+        )
     return (
         "terminal-jail: WARNING: no filesystem isolation — the transparent "
         "auto-sandbox fell back to the mapping-less PID namespace"
         f" ({LEGACY_USER_FLAGS}): this host CAN create the uid-mapped launch"
-        f" ({mapped_user_flags(subuid_start, subgid_start)}), but a payload"
-        " started through it cannot read the caller's own files — its host uid"
-        f" becomes the subordinate uid {subuid_start}, so DAC denies the"
-        " caller's repository and HOME, and an auto-sandboxed rewrite must"
-        " never break the caller's file access (DF-TERMINAL-JAIL-15). Set"
+        f" ({mapped_user_flags(subuid_start, subgid_start)}), but"
+        f" {cause} — an auto-sandboxed rewrite must never break the caller's"
+        " file access (DF-TERMINAL-JAIL-15). Set"
         " TERMINAL_JAIL_UID_MAP=0 to make this mapping-less mode the explicit"
         " choice (it is also what silences this warning); use"
         " `terminal-jail --user` where the mapped hard-isolation launch is"
@@ -317,11 +349,15 @@ def unshare_prefix() -> str:
     global _DECISION
     if _DECISION is None:
         legacy = f"unshare {LEGACY_USER_FLAGS}{_PREFIX_SUFFIX}"
-        if uid_map_disabled() or not mapped_launch_ok():
-            _DECISION = legacy
-        elif mapped_file_access_ok():
+        observed: str | None = None
+        if not uid_map_disabled() and mapped_launch_ok():
+            observed = _property_observation()
+        if observed == _PROPERTY_MARKER:
             _DECISION = f"unshare {mapped_user_flags()}{_PREFIX_SUFFIX}"
         else:
-            print(_degradation_warning(), file=sys.stderr)
+            if observed is not None:
+                # Creatable but not file-access preserving: degrade LOUDLY,
+                # naming the marker that was actually observed.
+                print(_degradation_warning(observed), file=sys.stderr)
             _DECISION = legacy
     return _DECISION
