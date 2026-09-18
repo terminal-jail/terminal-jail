@@ -741,3 +741,16 @@ tasks:
   status: complete
   created_at: '2026-09-17T02:47:34.914844+00:00'
   completed_at: '2026-09-17T02:55:29.619403+00:00'
+- id: DF-TERMINAL-JAIL-12
+  title: Allow verdict provenance + default-allow posture docs
+  criteria:
+  - bridge returns rule_id=allow-pwd for 'pwd' and allow-git-read for 'git status'
+    (live probe)
+  - unmatched command 'psql -c x' still returns rule_id=null action=allow (default-allow
+    preserved)
+  - regression tests added to plugin/test_interruptor.py for allow provenance, green
+  - README.md + docs/quickstart.md + specs/interruptor.md each state the deny-list
+    default-allow posture
+  status: complete
+  created_at: '2026-09-18T03:21:07.345293+00:00'
+  completed_at: '2026-09-18T03:27:51.896754+00:00'
