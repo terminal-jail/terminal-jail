@@ -22,6 +22,7 @@ test; this module is the fast guard that runs on every CI pass.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -252,3 +253,157 @@ def test_rules_loader_prefers_libyaml_c_loader() -> None:
 
     via_reference = _yaml.safe_load(SHIPPED_RULES.read_text())["rules"]
     assert [r.id for r in via_loader] == [r["id"] for r in via_reference]
+
+
+# ── TJ-GAP-055: bubblewrap stays an external, unvendored dependency ──────────
+#
+# Spec row specs/cli.md §9 CLI-27. Two verdicts, both offline and
+# host-independent:
+#   1. the TRACKED tree ships no bubblewrap source/vendor artifact and no
+#      submodule — the only supported install path is the distro package;
+#   2. README.md and specs/cli.md keep stating the optional/external/
+#      no-vendoring/no-legal-advice boundary and the fail-closed contract.
+
+_PROJECT_ROOT_STR = str(PROJECT_ROOT)
+_VENDOR_DIR_SEGMENTS = frozenset(
+    {
+        "vendor",
+        "vendored",
+        "third_party",
+        "third-party",
+        "thirdparty",
+        "subprojects",
+    }
+)
+_BWRAP_DIR_NAMES = frozenset({"bwrap", "bubblewrap"})
+_BWRAP_SOURCE_SUFFIXES = frozenset(
+    {".c", ".h", ".cc", ".cpp", ".cxx", ".hpp", ".rs", ".go", ".mk", ".am", ".ac"}
+)
+_MD_EMPHASIS_RE = re.compile(r"[`*_]")
+# A denial anywhere on the line makes a "vendoring bubblewrap" mention a
+# statement that this repository does NOT do it.
+_DENIAL_RE = re.compile(r"\b(no|not|never|none|without|neither)\b", re.I)
+
+
+def _tracked_paths() -> list[str]:
+    result = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=_PROJECT_ROOT_STR,
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        "git ls-files failed — the tracked-tree audit cannot run: "
+        f"{result.stderr.decode('utf-8', 'replace')!r}"
+    )
+    return [p for p in result.stdout.decode("utf-8").split("\0") if p]
+
+
+def _plain_markdown(text: str) -> str:
+    """Strip markdown emphasis so claims can be asserted as plain prose."""
+    return _MD_EMPHASIS_RE.sub("", text)
+
+
+def test_tracked_tree_ships_no_vendored_bubblewrap() -> None:
+    """TJ-GAP-055: bubblewrap must remain an external distro package — no
+    vendored source tree, no submodule, no bundled binary, no C source."""
+    paths = _tracked_paths()
+    assert paths, "git ls-files returned nothing — the audit would be vacuous"
+    # Positive control: the audit really is looking at this repository.
+    assert "install.sh" in paths and "README.md" in paths, paths[:20]
+
+    vendor_paths = sorted(
+        p for p in paths if _VENDOR_DIR_SEGMENTS & set(Path(p).parts[:-1])
+    )
+    assert vendor_paths == [], (
+        f"tracked vendor/third-party paths (vendoring would break the "
+        f"packaging boundary): {vendor_paths}"
+    )
+
+    bwrap_paths = sorted(
+        p for p in paths if _BWRAP_DIR_NAMES & {part.lower() for part in Path(p).parts}
+    )
+    assert bwrap_paths == [], (
+        f"tracked bubblewrap directory/artifact (bubblewrap is installed from "
+        f"the distro, never shipped here): {bwrap_paths}"
+    )
+
+    bwrap_sources = sorted(
+        p
+        for p in paths
+        if "bwrap" in Path(p).name.lower()
+        and Path(p).suffix.lower() in _BWRAP_SOURCE_SUFFIXES
+    )
+    assert bwrap_sources == [], f"tracked bubblewrap source file: {bwrap_sources}"
+
+    gitmodules = PROJECT_ROOT / ".gitmodules"
+    if gitmodules.exists():
+        content = gitmodules.read_text(encoding="utf-8")
+        assert not re.search(r"bubblewrap|bwrap", content, re.I), (
+            "bubblewrap must not be vendored as a git submodule"
+        )
+
+
+def test_docs_state_bubblewrap_packaging_boundary() -> None:
+    """TJ-GAP-055: README/spec must state the narrow, honest boundary —
+    optional, distro package, external executable, not vendored or
+    redistributed, unshare fallback, explicit bwrap demand fails closed, and
+    explicitly NOT legal advice."""
+    readme = _plain_markdown((PROJECT_ROOT / "README.md").read_text(encoding="utf-8"))
+    spec = _plain_markdown(
+        (PROJECT_ROOT / "specs" / "cli.md").read_text(encoding="utf-8")
+    )
+
+    for name, doc in (("README.md", readme), ("specs/cli.md", spec)):
+        for phrase in (
+            "apt install bubblewrap",
+            "dnf install bubblewrap",
+            "LGPL-2.1-or-later",
+            "not legal advice",
+            "advisory note",
+            "fails closed",
+        ):
+            assert phrase in doc, f"{name} is missing the packaging claim {phrase!r}"
+
+    # The optional dependency must be labeled optional where it is introduced.
+    optional_lines = [
+        line
+        for line in readme.splitlines()
+        if "bubblewrap" in line.lower() and "optional" in line.lower()
+    ]
+    assert optional_lines, "README.md never labels bubblewrap as optional"
+
+    for phrase in (
+        "does not vendor, bundle, download, build, or redistribute bubblewrap",
+        "resolved from PATH",
+        "only prints an advisory note",
+    ):
+        assert phrase in readme, f"README.md is missing {phrase!r}"
+
+    for phrase in (
+        "optional runtime dependency",
+        "never vendored",
+        "resolved from PATH",
+    ):
+        assert phrase in spec, f"specs/cli.md is missing {phrase!r}"
+
+    # Negative: a line that mentions vendoring bubblewrap must be a denial —
+    # this is what catches the claim being flipped to "we vendor it".
+    claiming_lines = [
+        (name, line)
+        for name, doc in (("README.md", readme), ("specs/cli.md", spec))
+        for line in doc.splitlines()
+        if any(
+            claim in line.lower()
+            for claim in ("vendor bubblewrap", "vendoring bubblewrap", "vendored bubblewrap")
+        )
+    ]
+    assert claiming_lines, (
+        "no document line mentions vendoring bubblewrap — the negative check "
+        "would be vacuous"
+    )
+    for name, line in claiming_lines:
+        assert _DENIAL_RE.search(line), (
+            f"{name} mentions vendoring bubblewrap without denying it: {line.strip()!r}"
+        )

@@ -111,7 +111,7 @@ Install the optional dependency the normal way and verify it, then watch the
 backend actually being used:
 
 ```bash
-sudo apt install bubblewrap          # or: sudo dnf install bubblewrap  (never vendored in-repo)
+sudo apt install bubblewrap          # or: sudo dnf install bubblewrap  (external distro package — never vendored here)
 bwrap --version                      # → bubblewrap 0.11.1 (verified version)
 
 # PRIVATE /proc: the count inside the jail must be far below the host's count,
@@ -124,6 +124,18 @@ ls /proc | grep -c '^[0-9]'                                   # host: e.g. 1682
 TERMINAL_JAIL_JAIL_BACKEND=bwrap ~/.local/bin/terminal-jail --version   # still prints (help/version never launch)
 TERMINAL_JAIL_JAIL_BACKEND=typo ~/.local/bin/terminal-jail echo hi      # exit 2, names the accepted values
 ```
+
+bubblewrap is an optional external runtime dependency: install it from your
+distribution as above and the CLI resolves the externally installed `bwrap`
+executable from `PATH` at run time. This MIT project does not vendor or
+redistribute it — no vendored source tree, no git submodule, no binary blob,
+and `install.sh` neither downloads nor installs packages (it only prints an
+advisory note when `bwrap` is missing, and the install still succeeds).
+bubblewrap is LGPL-2.1-or-later under its own authors' terms and is
+redistributed by your distribution, not by this project; this is project
+packaging guidance, not legal advice. Skipping it is fully supported: `auto`
+then uses the `unshare` backend, and only an explicitly demanded
+`TERMINAL_JAIL_JAIL_BACKEND=bwrap` fails closed (exit 2, command not run).
 
 What each backend guarantees (do not conflate them):
 

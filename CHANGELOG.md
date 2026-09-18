@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### License-clean bubblewrap installation/dependency path (TJ-GAP-055)
+
+- **`install.sh`**: a new advisory `NOTE` when `bwrap` is not on `PATH`. bubblewrap is optional, so the note is never a preflight error: a host without bubblewrap installs successfully and the CLI keeps the `unshare` backend. The installer still never downloads, builds, installs as a package, or vendors bubblewrap, and stays POSIX `sh`.
+- **Packaging boundary stated**: `README.md` (Requirements + *Bubblewrap backend*), `specs/cli.md` §4 and `docs/quickstart.md` now say plainly that bubblewrap is an optional external distro package invoked from `PATH`, that this MIT-licensed repository does not vendor, bundle, download, build, or redistribute it (bubblewrap is LGPL-2.1-or-later under its own authors' terms — project packaging guidance, not legal advice), and that an explicitly demanded `TERMINAL_JAIL_JAIL_BACKEND=bwrap` still fails closed (exit 2, command not run) while `auto` falls back to `unshare`.
+- **Docs**: `docs/dependency-audit.md` lists `bwrap` as an optional external dependency and records the installer's no-vendoring property.
+- **Tests**: `plugin/test_install.py` covers the installer contract (advisory when absent with a still-successful install, silent when present, no bubblewrap artifact written into the install tree, and a source invariant that `install.sh` never downloads/builds/installs/vendors bubblewrap). `plugin/test_packaging.py` adds the tracked-tree verdict (no vendor/third-party tree, no submodule, no bubblewrap source file) and the documentation-claim contract over `README.md` / `specs/cli.md`. All cases are offline, host-independent, and need no `bwrap` binary.
+
 ### Optional bubblewrap (bwrap) jail backend (TJ-GAP-054)
 
 - **`standalone/terminal-jail`**: runtime-detected backend selection via `TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare` (default `auto`; no new CLI flags). `auto` uses bubblewrap when it is installed and its namespace probe passes, otherwise the unchanged `unshare` backend; `bwrap` is a demand that fails closed (exit 2, command not run) when bubblewrap is missing or unusable; `unshare` pins the pre-v1.2 behavior byte-for-byte; an unknown value exits 2 before any namespace work.

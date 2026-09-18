@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -915,3 +916,198 @@ def test_repo_layout_seccomp_loader_imports_plugin_and_runs_command(
     assert "ModuleNotFoundError" not in combined
     assert "No module named 'terminal_jail'" not in combined
     assert "tj-df-002-repo-ok" in stdout, f"command output missing: stdout={stdout!r}"
+
+
+# ── TJ-GAP-055: bubblewrap is an OPTIONAL external dependency ────────────────
+#
+# Contract (README *Bubblewrap backend*, specs/cli.md §4 + §8) and spec row
+# specs/cli.md §9 CLI-26: bubblewrap is an optional distro package the CLI
+# resolves from PATH at run time, never vendored by this repository — so
+# install.sh may ADVISE about it but must not download, build, package-install,
+# or vendor it, and a missing bwrap must never fail an install (util-linux
+# unshare remains the fallback backend).
+#
+# These cases run the installer against a curated PATH (real coreutils, no
+# host bwrap), so they are deterministic whether or not the host has
+# bubblewrap installed, need no network, and never touch the real HOME.
+
+# Tools the LOCAL-mode install path invokes (cd/pwd/command/printf are shell
+# builtins). unshare is deliberately NOT linked: its absence is what proves the
+# required-tool WARNING and the optional-bwrap NOTE are different contracts.
+_INSTALL_TOOLS = (
+    "awk",
+    "bash",
+    "cat",
+    "chmod",
+    "cmp",
+    "cp",
+    "date",
+    "dirname",
+    "grep",
+    "head",
+    "mkdir",
+    "mv",
+    "rm",
+    "sh",
+    "uname",
+)
+
+# Commands that would mean install.sh itself downloads, builds, or installs
+# bubblewrap. Only a command POSITION counts: the advisory legitimately names
+# "apt install bubblewrap" / "dnf install bubblewrap" as advice to the user.
+_FORBIDDEN_AT_COMMAND_POSITION_RE = re.compile(
+    r"(?:^|[;&|]|\$\(|``|\()\s*"
+    r"(curl|wget|git|tar|make|gcc|g\+\+|cc|cp|mv|dd|"
+    r"apt|apt-get|dnf|yum|apk|pacman|pip|pip3|uv|npm|yarn|unzip)\b"
+)
+
+# Extensions that would betray vendored source or a redistributed package.
+_VENDORED_SUFFIXES = (
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".o",
+    ".a",
+    ".deb",
+    ".rpm",
+    ".tar",
+    ".gz",
+    ".xz",
+    ".zst",
+    ".patch",
+)
+
+
+def _curated_install_bin(tmp_path: Path, *, bwrap: bool) -> Path:
+    """Curated installer PATH: real coreutils, host bwrap always excluded."""
+    bindir = tmp_path / ("toolbin-present" if bwrap else "toolbin-absent")
+    bindir.mkdir(exist_ok=True)
+    _link_tools(bindir, *_INSTALL_TOOLS)
+    missing = sorted(t for t in _INSTALL_TOOLS if not (bindir / t).exists())
+    assert not missing, f"host lacks tools the curated PATH needs: {missing}"
+    if bwrap:
+        stub = bindir / "bwrap"
+        stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        stub.chmod(0o755)
+    return bindir
+
+
+def _run_local_install(
+    tmp_path: Path, bindir: Path
+) -> tuple[subprocess.CompletedProcess[bytes], Path]:
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir(exist_ok=True)
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "PATH": str(bindir),
+        },
+    )
+    return result, install_dir
+
+
+@pytest.mark.standalone_cli
+def test_installer_bwrap_note_is_advisory_and_install_still_succeeds(
+    tmp_path: Path,
+) -> None:
+    """TJ-GAP-055: with no bubblewrap on PATH the installer prints an advisory
+    NOTE (distro package, unshare fallback, no-vendoring boundary) and still
+    exits 0 with the binary installed — bwrap is never a preflight error."""
+    bindir = _curated_install_bin(tmp_path, bwrap=False)
+    result, install_dir = _run_local_install(tmp_path, bindir)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "optional bubblewrap (bwrap) not found" in out, out
+    assert "apt install bubblewrap" in out, out
+    assert "dnf install bubblewrap" in out, out
+    assert "unshare backend" in out, out
+    assert "never downloads, builds, or redistributes it" in out, out
+    # Contrast: the REQUIRED tool is warned about as a warning; bubblewrap is
+    # not — the optional dependency must never be phrased as a requirement.
+    assert "unshare (util-linux) is required" in out, out
+    assert "bubblewrap (bwrap) is required" not in out, out
+    # ...and the install completed anyway.
+    installed = install_dir / "terminal-jail"
+    assert installed.exists(), out
+    assert installed.stat().st_mode & stat.S_IXUSR, out
+    assert "terminal-jail installer: done." in out, out
+
+
+@pytest.mark.standalone_cli
+def test_installer_is_silent_about_bwrap_when_it_is_present(tmp_path: Path) -> None:
+    """TJ-GAP-055: the note is real detection, not an unconditional banner."""
+    bindir = _curated_install_bin(tmp_path, bwrap=True)
+    result, install_dir = _run_local_install(tmp_path, bindir)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "bubblewrap" not in out, out
+    assert (install_dir / "terminal-jail").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_installer_writes_no_bubblewrap_artifact(tmp_path: Path) -> None:
+    """TJ-GAP-055: a local install must deposit no bubblewrap artifact — no
+    binary named bwrap/bubblewrap and no vendored source or redistributed
+    package anywhere under the install scope."""
+    bindir = _curated_install_bin(tmp_path, bwrap=False)
+    result, install_dir = _run_local_install(tmp_path, bindir)
+    assert result.returncode == 0, (result.stdout + result.stderr).decode(
+        "utf-8", "replace"
+    )
+
+    scopes = [install_dir, tmp_path / "lib", tmp_path / "home"]
+    files = [p for scope in scopes if scope.exists() for p in scope.rglob("*")]
+
+    named = [str(p) for p in files if "bwrap" in p.name.lower()]
+    assert named == [], f"bubblewrap artifact written by the installer: {named}"
+
+    vendored = [
+        str(p)
+        for p in files
+        if p.is_file() and p.suffix.lower() in _VENDORED_SUFFIXES
+    ]
+    assert vendored == [], f"vendored source/package deposited: {vendored}"
+
+
+@pytest.mark.standalone_cli
+def test_install_sh_never_downloads_or_vendors_bubblewrap(
+    install_script: Path,
+) -> None:
+    """TJ-GAP-055 source invariant: every bwrap mention in install.sh is advice.
+    No line that names bubblewrap may run a downloader, a build tool, a package
+    manager, or a file copy, and no such line may gate an exit — the distro
+    package is the only installation path, and the installer stays advisory."""
+    lines = install_script.read_text(encoding="utf-8").splitlines()
+    bwrap_lines = [
+        (number, line)
+        for number, line in enumerate(lines, 1)
+        if "bwrap" in line.lower()
+    ]
+    assert bwrap_lines, "install.sh no longer mentions bwrap — audit would be vacuous"
+    assert any(
+        "command -v bwrap" in line for _, line in bwrap_lines
+    ), "install.sh must detect bwrap with command -v"
+
+    offenders = [
+        (number, line.strip())
+        for number, line in bwrap_lines
+        if _FORBIDDEN_AT_COMMAND_POSITION_RE.search(line)
+        or re.search(r"\bexit\b", line)
+    ]
+    assert offenders == [], (
+        "install.sh acts on bubblewrap instead of advising about it "
+        f"(download/build/install/vendor or exit): {offenders}"
+    )

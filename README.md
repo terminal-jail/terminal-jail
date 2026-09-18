@@ -320,7 +320,7 @@ Every layer degrades independently:
 - `util-linux` 2.32+ (`unshare` with `--kill-child`)
 - `bash`
 - systemd (for the primary isolation layer)
-- **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`); it is invoked as an external binary and never vendored into this MIT repository (it is LGPL-2.1-or-later; see TJ-GAP-055)
+- **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`). It is an external runtime dependency resolved from `PATH`, exactly like `util-linux`, and never a requirement: without it the CLI uses the `unshare` backend, and `install.sh` only prints an advisory note (a missing `bwrap` never fails an install). An explicit `TERMINAL_JAIL_JAIL_BACKEND=bwrap` still fails closed — exit 2, command not run. Packaging/legal boundary: see *Bubblewrap backend* below.
 
 ## Host Limitations
 
@@ -331,6 +331,8 @@ The same applies to `--user`'s filesystem isolation tier: creating a uid mapping
 ### Bubblewrap backend (v1.2)
 
 bubblewrap needs the same unprivileged user-namespace permission as `unshare`, so a host that forbids user namespaces fails closed under **both** backends (exit 2, command not run) — it is not a workaround for that kernel/AppArmor policy. Where the policy allows user namespaces but denies bare-mode `unshare` (the configuration measured on this project's host: `unshare --pid --fork --mount-proc` → `Operation not permitted`, while `unshare --user --pid --fork` succeeds), the bwrap backend still runs bare mode and provides the private `/proc`.
+
+**Install path and packaging boundary (TJ-GAP-055).** bubblewrap is an *optional* external runtime dependency, treated exactly like `util-linux`: install it from your distribution (`sudo apt install bubblewrap`, `sudo dnf install bubblewrap` — the same examples used by `specs/cli.md` and `docs/quickstart.md`) and the CLI resolves the externally installed `bwrap` executable from `PATH` at run time. This MIT-licensed repository does **not** vendor, bundle, download, build, or redistribute bubblewrap: there is no vendored source tree, no git submodule, no binary blob, and no download or build step in `install.sh` — its only interaction with bubblewrap is an advisory note when `bwrap` is not on `PATH`, and that absence never fails an install (`unshare` remains the fallback backend). bubblewrap itself is **LGPL-2.1-or-later**, licensed and redistributed by its own authors and by your distribution, not by this project; whether to install it, and complying with its license terms, is between you and your distribution. This is project packaging guidance, **not legal advice**. `plugin/test_install.py` and `plugin/test_packaging.py` pin this contract: the installer stays advisory-only, the tracked tree contains no vendor artifacts, and these documentation claims are regression-tested.
 
 Two limits must be stated plainly rather than assumed away:
 

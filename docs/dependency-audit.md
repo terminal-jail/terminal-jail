@@ -87,6 +87,7 @@ Same profile as core — pure stdlib, no external risk.
 |-----------|------|------|
 | `bash` | System shell | Pre-existing; required by Hermes already |
 | `unshare` (util-linux) | PID namespace | Required for functionality; system-installed |
+| `bwrap` (bubblewrap) | Optional PID-namespace backend with a private `/proc` | External distro package invoked from `PATH`; **never vendored or redistributed** by this repo (LGPL-2.1-or-later). Absent ⇒ `unshare` fallback; an explicitly demanded `bwrap` fails closed |
 | `uname` | System info | Coreutils, always present on Linux |
 
 No network calls. No file writes beyond stdout/stderr. No dynamic code loading.
@@ -109,6 +110,7 @@ No network calls. No file writes beyond stdout/stderr. No dynamic code loading.
 - Only writes to `$HOME/.local/bin` — no system directories, no `sudo`
 - Modifies user shell profile (`.profile`, `.bashrc`, `.zshrc`) — gated by existence checks
 - Does not download or execute arbitrary code at runtime
+- Never downloads, builds, installs as a package, or vendors bubblewrap: the optional `bwrap` dependency is advisory only — a host without bubblewrap installs successfully and the CLI keeps the `unshare` backend (TJ-GAP-055)
 
 ---
 

@@ -125,6 +125,16 @@ fi
 if ! command -v unshare >/dev/null 2>&1; then
     echo "terminal-jail installer: WARNING — unshare (util-linux) is required to run terminal-jail but was not found"
 fi
+# Bubblewrap is an OPTIONAL external runtime dependency (TJ-GAP-055). The CLI
+# resolves bwrap from PATH at run time and falls back to util-linux unshare when
+# it is absent, so a missing bwrap must NEVER fail an install: this is an
+# advisory NOTE, not a preflight error. This installer never downloads, builds,
+# installs as a package, or vendors bubblewrap — it only names the distro
+# system package the user may install themselves. The package-manager examples
+# below match the README and specs/cli.md wording.
+if ! command -v bwrap >/dev/null 2>&1; then
+    echo "terminal-jail installer: NOTE — optional bubblewrap (bwrap) not found. The CLI will use the util-linux unshare backend, and installation continues normally. To enable the private-/proc bwrap backend, install the distro system package (Debian/Ubuntu: apt install bubblewrap, Fedora/RHEL: dnf install bubblewrap). bubblewrap is an external dependency — this installer never downloads, builds, or redistributes it."
+fi
 
 # --- install -----------------------------------------------------------------
 mkdir -p "$TERMINAL_JAIL_INSTALL_DIR"
