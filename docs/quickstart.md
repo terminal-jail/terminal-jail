@@ -412,7 +412,12 @@ The file itself contains the full rollback procedure.
 `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
 `TERMINAL_JAIL_INSTALL_DIR` prefix it lands under `<prefix>/config/terminal-jail/rules.d/`
 instead (the engine won't read it there — the installer prints a WARNING). Set
-`TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins.
+`TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins —
+or export `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and the installer resolves its rules
+directory to exactly that value (the engine reads the same variable at run time, so prefix
+installs load their rules). Note for prefix installs: opt-in rule packs (`--rule-pack`) are
+SKIPPED in the prefix-local scope instead of being installed inert — the skip message names the
+remediation.
 See `specs/interruptor.md`.
 
 ## 5. Next steps

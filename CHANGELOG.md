@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
+
+- **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
+  rules-dir override, the resolved rules dir (`<prefix>/config/terminal-jail/rules.d`)
+  is prefix-local config the engine never loads — yet `--rule-pack` reported the
+  pack installed there, silently inert. Two changes:
+  (1) a new resolver case — an exported `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`
+  (the engine's own user-rules variable, read verbatim at run time) resolves the
+  installer's single rules directory to exactly that value for custom-prefix
+  installs, so default rules AND packs land where the engine actually loads
+  (the default install's live scope and an explicit `TERMINAL_JAIL_RULES_DIR`
+  are unchanged and still win);
+  (2) in the remaining prefix-local scope every requested `--rule-pack` is
+  skipped before the validator runs — one stderr reason naming the inert
+  target and the exact remediation (explicit `TERMINAL_JAIL_RULES_DIR`;
+  `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` exported for install AND run;
+  or the default install dir) — under the DF-TERMINAL-JAIL-21 contract:
+  nothing written for the pack, base install always completes, summary +
+  exit `2`. `--unrule-pack` is removal and stays available in every scope.
+  The prefix default-rules WARNING now also names the engine-env channel and
+  the pack skip. Regression tests pin the prefix skip (nothing written,
+  remediation named), both engine-loaded channels (pack byte-copied +
+  `intercept()` verdicts BLOCK through the installed file), and the
+  no-PyYAML/plain-JSON/no-python3/validator-refusal pack tests moved to the
+  engine-loaded scope. README, docs/quickstart.md, and specs/cli.md updated.
+
 ### Rule-pack failure skips instead of aborting the base install (DF-TERMINAL-JAIL-21)
 
 - **`install.sh` + `scripts/rule-pack-tool.py`**: a fresh Debian host without

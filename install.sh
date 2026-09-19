@@ -303,14 +303,26 @@ resolve_user_rules_dir() {
     #   live:     default install dir ($HOME/.local/bin) -> the live user rules
     #             dir $HOME/.config/terminal-jail/rules.d (unchanged behavior;
     #             the engine does NOT honor XDG_CONFIG_HOME)
+    #   engine:   custom prefix + the engine's own user-rules knob
+    #             TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR set -> that exact
+    #             directory (DF-TERMINAL-JAIL-22: the engine reads this env var
+    #             verbatim — interruptor/config.py — so rules installed there
+    #             are LOADED, and the installer's single rules dir IS the
+    #             engine's rules dir)
     #   prefix:   anything else -> <install prefix>/config/terminal-jail/
-    #             rules.d, with the parent resolved like LIB_DIR below
+    #             rules.d, with the parent resolved like LIB_DIR below. The
+    #             engine does not scan prefix-local config: requested packs
+    #             skip loudly in this scope (DF-TERMINAL-JAIL-22, below) and
+    #             the shipped default rules file carries its own WARNING.
     if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
         RESOLVED_RULES_DIR="$TERMINAL_JAIL_RULES_DIR"
         RULES_SCOPE="explicit"
     elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
         RESOLVED_RULES_DIR="$HOME/.config/terminal-jail/rules.d"
         RULES_SCOPE="live"
+    elif [ -n "${TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR:-}" ]; then
+        RESOLVED_RULES_DIR="$TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"
+        RULES_SCOPE="engine-env"
     else
         rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
         RESOLVED_RULES_DIR="${rules_prefix}/config/terminal-jail/rules.d"
@@ -358,6 +370,19 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
     else
     install_rule_pack() {
         pack="$1"
+        # DF-TERMINAL-JAIL-22: a requested pack may only be reported as
+        # installed when the engine will actually LOAD it. The pack lands in
+        # the one resolved rules dir; in the prefix scope that directory is
+        # prefix-local config the engine never scans, so installing there
+        # would be silent inertness. Refuse the PACK — never the base install
+        # — with the exact remediation, reusing the DF-TERMINAL-JAIL-21
+        # skip/exit-2 contract. Every engine-loaded scope (live, explicit
+        # TERMINAL_JAIL_RULES_DIR, engine-env) installs normally.
+        if [ "$RULES_SCOPE" = "prefix" ]; then
+            echo "terminal-jail installer: rules target is ${RESOLVED_RULES_DIR} (prefix-local config, custom TERMINAL_JAIL_INSTALL_DIR) — the engine does not read prefix-local config, so installing '${pack}' there would be silently inert." >&2
+            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — the resolved rules dir ${RESOLVED_RULES_DIR} is prefix-local config the engine does NOT load (it reads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only). Nothing was written for this pack. Remediation, pick one: (1) re-run with TERMINAL_JAIL_RULES_DIR=<engine-loaded dir> (explicit target, always wins); (2) re-run with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<engine-loaded dir> exported when BOTH installing and running the CLI (the engine reads this env var at run time); (3) re-run with the default install dir (no custom TERMINAL_JAIL_INSTALL_DIR) so the live ~/.config/terminal-jail/rules.d is targeted."
+            return 0
+        fi
         pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
         pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
         if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
@@ -464,7 +489,7 @@ if [ -n "$LOCAL_WRAPPER" ]; then
         user_rules_dir="$RESOLVED_RULES_DIR"
         rules_scope="$RULES_SCOPE"
         if [ "$rules_scope" = "prefix" ]; then
-            echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory."
+            echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory, or export TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=${user_rules_dir} when running the CLI to load this directory (DF-TERMINAL-JAIL-22: requested rule packs are NOT installed in this scope)."
         fi
         shipped_rules="$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml"
         installed_rules="${user_rules_dir}/00-builtins.yaml"

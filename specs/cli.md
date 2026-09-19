@@ -389,7 +389,7 @@ Flags are parsed before any `mkdir` or write, so a refused flag (or a refused
 pack) leaves the filesystem untouched. Pack names are restricted to `[a-z0-9-]`
 so the derived file name cannot escape the rules directory.
 
-Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
+Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. With a custom prefix, an exported `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` (the engine's own user-rules variable, read verbatim at run time) resolves the installer's rules directory to exactly that value — the one prefix channel whose target the engine actually loads. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
 
 ### Rule packs (`--rule-pack`, TJ-GAP-061)
 
@@ -444,6 +444,21 @@ Installation is **fail-closed, validated before any write**:
 
    and exits `2`. With all requested packs installed (or none requested), the
    behavior and the `0` exit are unchanged from before this fix.
+7. DF-TERMINAL-JAIL-22 — **a pack is installed only where the engine loads
+   it:** the pack always lands in the one resolved rules dir, but the
+   engine-loaded property of that dir depends on the install scope (live,
+   explicit `TERMINAL_JAIL_RULES_DIR`, and engine-env
+   `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` are loaded; prefix-local
+   config is not). In the prefix-local scope `--rule-pack` therefore NEVER
+   reports an installed pack: each requested pack is skipped before the
+   validator runs, with one stderr line naming the inert target and the
+   exact remediation (explicit `TERMINAL_JAIL_RULES_DIR`; or export
+   `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and run the CLI with the
+   same variable exported; or use the default install dir), the base install
+   completes, and the run exits `2` under the DF-TERMINAL-JAIL-21 summary
+   contract. Nothing is written for the pack — a "successful" pack file the
+   engine cannot read is the defect this rule forbids. `--unrule-pack` is
+   removal and stays available in every scope.
 
 Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
 contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)

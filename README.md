@@ -442,7 +442,11 @@ file to `~/.config/terminal-jail/rules.d/00-builtins.yaml`, while a custom
 `<prefix>/config/terminal-jail/rules.d/` instead (the engine only reads
 `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`, so the
 installer prints a warning for prefix installs). Set `TERMINAL_JAIL_RULES_DIR`
-to target the live rules directory explicitly — it always wins.
+to target the live rules directory explicitly — it always wins — or export
+`TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and the installer resolves
+its rules directory to exactly that value (the engine reads the same variable
+verbatim at run time, so with a custom prefix this is the one channel that
+keeps prefix installs loading their rules).
 
 ### Rule packs (opt-in)
 
@@ -464,10 +468,25 @@ as an **opt-in rule pack**: a curated rule file in the repository under
 
 A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
 rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`
-explicit, else the live `~/.config/terminal-jail/rules.d`, else
-`<prefix>/config/terminal-jail/rules.d`). Nothing else is written;
-`--unrule-pack` deletes that one file and never touches `00-builtins.yaml` or
-another pack.
+explicit, else the live `~/.config/terminal-jail/rules.d`, else — with a
+custom prefix — the engine's `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` when
+exported, else `<prefix>/config/terminal-jail/rules.d`). Nothing else is
+written; `--unrule-pack` deletes that one file and never touches
+`00-builtins.yaml` or another pack.
+
+**A pack is only installed where the engine will actually load it**
+(DF-TERMINAL-JAIL-22): in the prefix-local scope the resolved directory is
+config the engine never scans, so `--rule-pack` does NOT quietly write an
+inert file there — every requested pack is skipped with the
+DF-TERMINAL-JAIL-21 contract (one stderr reason naming the inert target and
+the exact remediation, base install completes, exit `2`). To install packs
+under a custom prefix, pick one: set `TERMINAL_JAIL_RULES_DIR` to an
+engine-loaded directory (explicit target, always wins), export
+`TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and run the CLI with the
+same variable exported (the engine reads it at run time), or use the default
+install dir so the live `~/.config/terminal-jail/rules.d` is targeted.
+`--unrule-pack` is removal, not installation, and stays available in every
+scope.
 
 **Packs are validated before anything is written** (`scripts/rule-pack-tool.py`,
 run by the installer — POSIX `sh` cannot parse YAML):
