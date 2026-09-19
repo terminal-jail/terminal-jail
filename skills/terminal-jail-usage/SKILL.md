@@ -131,11 +131,18 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 
 ## Common pitfalls (current as of 2026-08-22)
 
-1. **`chmod -R 777 /` is now BLOCKED** (TJ-DF-011 fixed, verified live
-   2026-08-22): the world-writable-root rule is token-aware/order-
-   independent — `chmod -R 777 /`, `chmod --recursive 777 /`,
-   `chmod a+rwx /`, `chmod 7777 /`, `chmod -R 777 /etc` ALL block with
-   `builtin-chmod-777-root`; benign `chmod 755 /` still allows.
+1. **World-writable `chmod` on ANY absolute path is BLOCKED** (TJ-DF-011
+   fixed, verified live 2026-08-22; scope corrected and stated in the
+   message by DF-TERMINAL-JAIL-7): the world-writable rule is token-aware/
+   order-independent and matches by SCOPE, not by root — `chmod 777 /`,
+   `chmod -R 777 /`, `chmod --recursive 777 /`, `chmod a+rwx /`,
+   `chmod 7777 /`, `chmod -R 777 /etc` and any other `/`-rooted target
+   such as `chmod 777 /tmp/work` ALL block with `builtin-chmod-777-root`.
+   Relative targets (`chmod 777 work`) and `~`-rooted targets
+   (`chmod 777 ~/work`) are ALLOWED, as is benign `chmod 755 /`. If a
+   legitimate workflow needs a world-writable absolute path, override this
+   id to `action: warn` with a same-id rule in
+   `~/.config/terminal-jail/rules.d/`.
 2. **Same-ID `action: warn` override surfaces a warning** (TJ-DF-012
    fixed): command runs (allow) but the CLI prints a WARN line with the
    would-have-blocked reason on stderr. Use it for downgraded-rule

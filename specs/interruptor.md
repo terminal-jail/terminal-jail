@@ -118,7 +118,7 @@ These ship with the interruptor and CANNOT be removed (only overridden to `warn`
 | `builtin-dd-root` | `dd\s+.*of=/dev/` | Raw device write |
 | `builtin-mkfs` | `mkfs\..*` | Filesystem creation |
 | `builtin-fdisk` | `fdisk|parted|gdisk` | Partition manipulation |
-| `builtin-chmod-777-root` | `chmod\s+777\s+/` | World-writable root |
+| `builtin-chmod-777-root` | `\bchmod\s+(?=[^|;&]*(?<!\S)(?:7777|777|a\+rwx)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)?[^|;&]*\s+/` | World-writable absolute path — ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed (TJ-DF-011) |
 | `builtin-echo-to-system` | `>.*>/etc/|>.*>/boot/` | Redirect to system paths |
 | `builtin-curl-pipe-shell` | `curl.*\||wget.*\||.*\|\s*(ba)?sh` | Pipe to shell from network |
 | `builtin-sudo` | `sudo\s` | Privilege escalation |

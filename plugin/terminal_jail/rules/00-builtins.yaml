@@ -97,10 +97,10 @@ rules:
       pattern: "fdisk|parted|gdisk"
 
   - id: "builtin-chmod-777-root"
-    description: "World-writable root"
+    description: "World-writable absolute path"
     priority: 1000
     action: block
-    block_message: "Setting world-writable permissions on root (/) is blocked."
+    block_message: "Blocked: chmod making a path world-writable — mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target — `/tmp/work`, `/var/www`, `/etc` — not only root (`/`). Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict, as do non-world-writable modes on absolute paths (`chmod 755 /`). Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/` if a legitimate workflow needs a world-writable absolute path."
     match:
       type: pattern
       # World-writable mode on a /-rooted path (TJ-DF-011): mode token

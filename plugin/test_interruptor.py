@@ -1322,6 +1322,24 @@ class TestNetworkUploadRuleRegistry:
             "builtin-net-wget-post-file": ("wget", "--post-file", "non-secret", "warn level"),
             "builtin-net-curl-form-upload": ("curl", "-f", "non-secret", "warn level"),
             "builtin-net-remote-tree-copy": ("rsync", "scp", "non-secret", "warn level"),
+            # DF-TERMINAL-JAIL-7: this rule fires on ANY absolute /-rooted
+            # target (not only root), so the message must state that scope
+            # rather than naming `chmod 777 /` as the whole rule. A root-only
+            # message ("Setting world-writable permissions on root (/) is
+            # blocked.") fails every needle below — it names no mode token
+            # beyond the bare default, no scope word, no allowance and no
+            # override path.
+            "builtin-chmod-777-root": (
+                "chmod",
+                "7777",
+                "a+rwx",
+                "recursive",
+                "absolute",
+                "relative",
+                "~/",
+                "rules.d",
+                "warn level",
+            ),
         }
         for rule_id, needles in expectations.items():
             # needles are lower-case on purpose: the message is lower-cased

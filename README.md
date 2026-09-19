@@ -141,7 +141,7 @@ Rule IDs are stable — tests assert behavior by ID.
   - `builtin-dd-root` — raw device write (`dd of=/dev/sd*`)
   - `builtin-mkfs` — filesystem creation (`mkfs.*`)
   - `builtin-fdisk` — partition manipulation (`fdisk`)
-  - `builtin-chmod-777-root` — world-writable root (`chmod 777 /`; `chmod 000 /` is NOT blocked — scope is the world-writable variant)
+  - `builtin-chmod-777-root` — world-writable **absolute** path (`chmod 777`/`7777`/`a+rwx`, with `-R`/`--recursive` optional, on ANY `/`-rooted target — `/tmp/work` and `/var/www` are blocked, not only root `/`; relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets are ALLOWED, and `chmod 000 /` is NOT blocked — scope is the world-writable variant)
   - `builtin-echo-to-system` — redirect output to system paths (`echo … > /etc/…` etc.)
   - `builtin-curl-pipe-shell` — `curl|sh` / `wget|sh` pipe-to-shell
   - `builtin-sudo` — privilege escalation (`sudo`)
