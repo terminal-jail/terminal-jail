@@ -3,7 +3,12 @@ guards:
   lint: true
   tests: true
   test_mode: diff
-  test_command: pytest -x --tb=short
+  # PINNED INTERPRETER (tick #289): the suite imports tomllib (3.11+) while the
+  # standard GitReins invocation puts the gitreins venv first on PATH — that venv
+  # is Python 3.10, so a bare `pytest` collected the tree under 3.10 and died with
+  # ModuleNotFoundError: No module named 'tomllib' (guard log guard-20260919T005837).
+  # Pinning the repo venv here makes the tests lane independent of PATH ordering.
+  test_command: .venv/bin/python -m pytest -x --tb=short
   static_analysis: true
   # TRUST-001 default for a repo whose ticks commit board data (.coding-hermes/**)
   # and harness records only: a DEGENERATE run (no gradable staged file, so lint
@@ -13,13 +18,23 @@ guards:
   # plus `gitreins guard --full` still grade the whole tree on every push.
   allow_skips: true
 evaluator:
-  max_iterations: 100
-  max_time: 30m
-  max_input_tokens: 2M
+  max_iterations: 200
+  max_time: 45m
+  # RUNG (tick #289): the DF-TERMINAL-JAIL-16 tier2 judge starved at the OLD 2M
+  # rung — `Cap exceeded: Input token budget (2.0M) exceeded (2.0M used)`, verdict
+  # 933b300c INCOMPLETE, tier1 PASS (usage.jsonl tier2 row: 2,035,763 tokens_in).
+  # used == cap is STARVATION, not the model window: deepseek-v4-flash is 1M per
+  # call and 8M is the fleet-proven rung for a live-verification criteria set.
+  max_input_tokens: 8M
   max_output_tokens: 0.4M
   tool_call_weight: 0.1
   fast_track: auto
-  file_scope: changed
+  # file_scope: changed grades the WORKING-TREE diff, but this repo's judged work
+  # is normally COMMITTED before `task complete`, so the scope collapsed to
+  # nothing and the judge re-read the artifact through shell/git slices, re-sent on
+  # every iteration — the token half of the same starvation. `full` gives the judge
+  # the tree it is grading.
+  file_scope: full
   code_context_budget: 0.70
   compaction_threshold: 0.90
 defaults:
