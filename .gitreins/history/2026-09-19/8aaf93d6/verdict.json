@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-060",
+  "task_title": "Wrapper env-scrub audit + guards",
+  "task_criteria": [
+    "standalone wrapper scrub coverage audited for LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/BASH_ENV/ENV/PYTHONSTARTUP/PYTHONPATH/PERL5OPT/RUBYOPT/NODE_OPTIONS-class vars; gaps fixed; each var pinned by a regression test proving an attacker-set value does not survive into the jailed process env; threat boundary documented in specs/threat-model.md"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2e3941ff7506da95d036cafabe7d572657147a07",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T211530.093436Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:21PM INF scanned ~4861571 bytes (4.86 MB) in 1.2s\n4:21PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 130 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T211530.093436Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 976 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 21%]\n............................................................             [ 28%]\nplugin/test_host_probes.py ......................                        [ 30%]\nplugin/test_install.py ................................................. [ 35%]\n.                                                                        [ 35%]\nplugin/test_interruptor.py ............................................. [ 40%]\n........................................................................ [ 47%]\n........................................................................ [ 54%]\n........................................................................ [ 62%]\n........................................................................ [ 69%]\n........................................................................ [ 76%]\n.......                                                                  [ 77%]\nplugin/test_interruptor_integration.py .............s................... [ 81%]\n...                                                                      [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...........................                    [ 89%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 969 passed, 7 skipped in 43.89s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T211530.093436Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 standalone wrapper scrub coverage audited for LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/BASH_ENV/ENV/PYTHONSTARTUP/PYTHONPATH/PERL5OPT/RUBYOPT/NODE_OPTIONS-class vars; gaps fixed; each var pinned by a regression test proving an attacker-set value does not survive into the jailed process env; threat boundary documented in specs/threat-model.md: AUDIT: All 10 named vars present in the wrapper scrub regex at standalone/terminal-jail:58 (_TJ_HOOK_RE, assembled from adjacent literals so no single line matches host content filters); verified via quote-flattened source check \u2014 all 10 return True. Extras also scrubbed: LD_DEBUG, PERL5LIB, RUBYLIB, GIT_EXEC_PATH, GEM_PATH/GEM_HOME, CPATH, C_INCLUDE_PATH, CPLUS_INCLUDE_PATH, OBJC_INCLUDE_PATH. GAPS FIXED (commit 249edcc): phase-1 imported-function sweep (declare -F + unset -f, CVE-2014-6271 class) at standalone/terminal-jail:19-27 and phase-2 /proc/self/environ NUL-separated hook-var scrub at :58-76, both before backend selection/bridge/preflights/exec. REGRESSION TESTS: plugin/test_env_scrub.py (52 tests) \u2014 per-variable parametrized test_var_scrubbed_individually for every HOOK_VARS entry on --user and bwrap backends, aggregate test_hook_vars_never_reach_the_jail, test_imported_function_swept, passthrough/multiline preservation, and test_scrub_blocks_come_before_backend_request ordering pin. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_env_scrub.py -q -rs` -> '50 passed, 2 skipped in 8.49s' (skips are loud HOST-DEGRADED-PIDNS / HOST-DEGRADED-FSISO, never vacuous); full suite `.venv/bin/python -m pytest -q` -> '969 passed, 7 skipped in 40.69s'; `ruff check plugin/test_env_scrub.py` -> 'All checks passed!'. RED PROOF reproduced: restoring the pre-fix wrapper (249edcc^) yields '46 failed, 4 passed, 2 skipped', exactly matching the documented '46 of these tests fail'. LIVE VERIFICATION: launching the wrapper with LD_PRELOAD/BASH_ENV/PYTHONSTARTUP/PYTHONPATH/NODE_OPTIONS/PERL5OPT/RUBYOPT/LD_AUDIT/LD_LIBRARY_PATH set to marker values produced a payload env containing none of them, while TJ060_BENIGN=keep survived. THREAT MODEL: specs/threat-model.md (104 lines) documents the Layer-1 vs wrapper boundary (\u00a71-2), the two-phase scrub (\u00a73), a per-backend audit matrix covering all four backends (\u00a74), the honest residual (wrapper interpreter startup BASH_ENV/ENV, shebang mandated by install.sh:611) (\u00a75), and verification evidence (\u00a76).\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 standalone wrapper scrub coverage audited for LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/BASH_ENV/ENV/PYTHONSTARTUP/PYTHONPATH/PERL5OPT/RUBYOPT/NODE_OPTIONS-class vars; gaps fixed; each var pinned by a regression test proving an attacker-set value does not survive into the jailed process env; threat boundary documented in specs/threat-model.md: AUDIT: All 10 named vars present in the wrapper scrub regex at standalone/terminal-jail:58 (_TJ_HOOK_RE, assembled from adjacent literals so no single line matches host content filters); verified via quote-flattened source check \u2014 all 10 return True. Extras also scrubbed: LD_DEBUG, PERL5LIB, RUBYLIB, GIT_EXEC_PATH, GEM_PATH/GEM_HOME, CPATH, C_INCLUDE_PATH, CPLUS_INCLUDE_PATH, OBJC_INCLUDE_PATH. GAPS FIXED (commit 249edcc): phase-1 imported-function sweep (declare -F + unset -f, CVE-2014-6271 class) at standalone/terminal-jail:19-27 and phase-2 /proc/self/environ NUL-separated hook-var scrub at :58-76, both before backend selection/bridge/preflights/exec. REGRESSION TESTS: plugin/test_env_scrub.py (52 tests) \u2014 per-variable parametrized test_var_scrubbed_individually for every HOOK_VARS entry on --user and bwrap backends, aggregate test_hook_vars_never_reach_the_jail, test_imported_function_swept, passthrough/multiline preservation, and test_scrub_blocks_come_before_backend_request ordering pin. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_env_scrub.py -q -rs` -> '50 passed, 2 skipped in 8.49s' (skips are loud HOST-DEGRADED-PIDNS / HOST-DEGRADED-FSISO, never vacuous); full suite `.venv/bin/python -m pytest -q` -> '969 passed, 7 skipped in 40.69s'; `ruff check plugin/test_env_scrub.py` -> 'All checks passed!'. RED PROOF reproduced: restoring the pre-fix wrapper (249edcc^) yields '46 failed, 4 passed, 2 skipped', exactly matching the documented '46 of these tests fail'. LIVE VERIFICATION: launching the wrapper with LD_PRELOAD/BASH_ENV/PYTHONSTARTUP/PYTHONPATH/NODE_OPTIONS/PERL5OPT/RUBYOPT/LD_AUDIT/LD_LIBRARY_PATH set to marker values produced a payload env containing none of them, while TJ060_BENIGN=keep survived. THREAT MODEL: specs/threat-model.md (104 lines) documents the Layer-1 vs wrapper boundary (\u00a71-2), the two-phase scrub (\u00a73), a per-backend audit matrix covering all four backends (\u00a74), the honest residual (wrapper interpreter startup BASH_ENV/ENV, shebang mandated by install.sh:611) (\u00a75), and verification evidence (\u00a76).\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "standalone wrapper scrub coverage audited for LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/BASH_ENV/ENV/PYTHONSTARTUP/PYTHONPATH/PERL5OPT/RUBYOPT/NODE_OPTIONS-class vars; gaps fixed; each var pinned by a regression test proving an attacker-set value does not survive into the jailed process env; threat boundary documented in specs/threat-model.md",
+                "status": "PASS",
+                "detail": "AUDIT: All 10 named vars present in the wrapper scrub regex at standalone/terminal-jail:58 (_TJ_HOOK_RE, assembled from adjacent literals so no single line matches host content filters); verified via quote-flattened source check \u2014 all 10 return True. Extras also scrubbed: LD_DEBUG, PERL5LIB, RUBYLIB, GIT_EXEC_PATH, GEM_PATH/GEM_HOME, CPATH, C_INCLUDE_PATH, CPLUS_INCLUDE_PATH, OBJC_INCLUDE_PATH. GAPS FIXED (commit 249edcc): phase-1 imported-function sweep (declare -F + unset -f, CVE-2014-6271 class) at standalone/terminal-jail:19-27 and phase-2 /proc/self/environ NUL-separated hook-var scrub at :58-76, both before backend selection/bridge/preflights/exec. REGRESSION TESTS: plugin/test_env_scrub.py (52 tests) \u2014 per-variable parametrized test_var_scrubbed_individually for every HOOK_VARS entry on --user and bwrap backends, aggregate test_hook_vars_never_reach_the_jail, test_imported_function_swept, passthrough/multiline preservation, and test_scrub_blocks_come_before_backend_request ordering pin. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_env_scrub.py -q -rs` -> '50 passed, 2 skipped in 8.49s' (skips are loud HOST-DEGRADED-PIDNS / HOST-DEGRADED-FSISO, never vacuous); full suite `.venv/bin/python -m pytest -q` -> '969 passed, 7 skipped in 40.69s'; `ruff check plugin/test_env_scrub.py` -> 'All checks passed!'. RED PROOF reproduced: restoring the pre-fix wrapper (249edcc^) yields '46 failed, 4 passed, 2 skipped', exactly matching the documented '46 of these tests fail'. LIVE VERIFICATION: launching the wrapper with LD_PRELOAD/BASH_ENV/PYTHONSTARTUP/PYTHONPATH/NODE_OPTIONS/PERL5OPT/RUBYOPT/LD_AUDIT/LD_LIBRARY_PATH set to marker values produced a payload env containing none of them, while TJ060_BENIGN=keep survived. THREAT MODEL: specs/threat-model.md (104 lines) documents the Layer-1 vs wrapper boundary (\u00a71-2), the two-phase scrub (\u00a73), a per-backend audit matrix covering all four backends (\u00a74), the honest residual (wrapper interpreter startup BASH_ENV/ENV, shebang mandated by install.sh:611) (\u00a75), and verification evidence (\u00a76)."
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-060\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 standalone wrapper scrub coverage audited for LD_PRELOAD/LD_LIBRARY_PATH/LD_AUDIT/BASH_ENV/ENV/PYTHONSTARTUP/PYTHONPATH/PERL5OPT/RUBYOPT/NODE_OPTIONS-class vars; gaps fixed; each var pinned by a regression test proving an attacker-set value does not survive into the jailed process env; threat boundary documented in specs/threat-model.md: AUDIT: All 10 named vars present in the wrapper scrub regex at standalone/terminal-jail:58 (_TJ_HOOK_RE, assembled from adjacent literals so no single line matches host content filters); verified via quote-flattened source check \u2014 all 10 return True. Extras also scrubbed: LD_DEBUG, PERL5LIB, RUBYLIB, GIT_EXEC_PATH, GEM_PATH/GEM_HOME, CPATH, C_INCLUDE_PATH, CPLUS_INCLUDE_PATH, OBJC_INCLUDE_PATH. GAPS FIXED (commit 249edcc): phase-1 imported-function sweep (declare -F + unset -f, CVE-2014-6271 class) at standalone/terminal-jail:19-27 and phase-2 /proc/self/environ NUL-separated hook-var scrub at :58-76, both before backend selection/bridge/preflights/exec. REGRESSION TESTS: plugin/test_env_scrub.py (52 tests) \u2014 per-variable parametrized test_var_scrubbed_individually for every HOOK_VARS entry on --user and bwrap backends, aggregate test_hook_vars_never_reach_the_jail, test_imported_function_swept, passthrough/multiline preservation, and test_scrub_blocks_come_before_backend_request ordering pin. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_env_scrub.py -q -rs` -> '50 passed, 2 skipped in 8.49s' (skips are loud HOST-DEGRADED-PIDNS / HOST-DEGRADED-FSISO, never vacuous); full suite `.venv/bin/python -m pytest -q` -> '969 passed, 7 skipped in 40.69s'; `ruff check plugin/test_env_scrub.py` -> 'All checks passed!'. RED PROOF reproduced: restoring the pre-fix wrapper (249edcc^) yields '46 failed, 4 passed, 2 skipped', exactly matching the documented '46 of these tests fail'. LIVE VERIFICATION: launching the wrapper with LD_PRELOAD/BASH_ENV/PYTHONSTARTUP/PYTHONPATH/NODE_OPTIONS/PERL5OPT/RUBYOPT/LD_AUDIT/LD_LIBRARY_PATH set to marker values produced a payload env containing none of them, while TJ060_BENIGN=keep survived. THREAT MODEL: specs/threat-model.md (104 lines) documents the Layer-1 vs wrapper boundary (\u00a71-2), the two-phase scrub (\u00a73), a per-backend audit matrix covering all four backends (\u00a74), the honest residual (wrapper interpreter startup BASH_ENV/ENV, shebang mandated by install.sh:611) (\u00a75), and verification evidence (\u00a76).\n\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T21:27:45.065564",
+  "evidence": {
+    "collected_at": "2026-09-19T21:27:45.103624+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 642,
+        "truncated": false,
+        "source": "git show 2e3941ff7506"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1157,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-060"
+  }
+}

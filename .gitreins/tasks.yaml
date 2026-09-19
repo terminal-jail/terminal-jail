@@ -975,5 +975,6 @@ tasks:
     vars; gaps fixed; each var pinned by a regression test proving an attacker-set
     value does not survive into the jailed process env; threat boundary documented
     in specs/threat-model.md
-  status: in_progress
+  status: complete
   created_at: '2026-09-19T19:50:35.539221+00:00'
+  completed_at: '2026-09-19T21:20:59.846215+00:00'
