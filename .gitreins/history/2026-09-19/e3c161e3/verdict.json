@@ -1,0 +1,147 @@
+{
+  "task_id": "TJ-GAP-061",
+  "task_title": "Rule-pack system: opt-in curated rule sets (rules/packs/*.yaml) selectable at install time, explicit precedence contract",
+  "task_criteria": [
+    "install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs; a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml",
+    "the engine loads the installed pack: a live intercept/bridge probe returns the pack rule id (pack-<name>-*) with the pack installed, and does not without it",
+    "id-collision contract: a pack rule whose id collides with an engine builtin id, or with an already-installed pack, is REFUSED (non-zero exit, no file written)",
+    "schema-invalid pack is refused at install time (non-zero exit, nothing written); --unrule-pack removes only that pack file and leaves other rules intact",
+    "each shipped pack has its own test file exercising its rules through intercept(); full suite green via .venv/bin/python -m pytest -q",
+    "README documents the packs (what each blocks + opt-in stance) and specs/cli.md installer-inputs table documents the new flags"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a33adf198d2052d3dad7d33bf0bb1382fbc09e12",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T050129.764467Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n12:02AM INF scanned ~4710204 bytes (4.71 MB) in 412ms\n12:02AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 123 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T050129.764467Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 865 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [ 10%]\n........................................................................ [ 18%]\n............................................................             [ 25%]\nplugin/test_install.py ........................................          [ 30%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 43%]\n........................................................................ [ 52%]\n........................................................................ [ 60%]\n........................................................................ [ 68%]\n....................................................                     [ 74%]\nplugin/test_interruptor_integration.py .............s................... [ 78%]\n...                                                                      [ 78%]\nplugin/test_metrics_export.py .....................                      [ 81%]\nplugin/test_modify_preflight.py ......                                   [ 82%]\nplugin/test_packaging.py ..........                                      [ 83%]\nplugin/test_plugin.py ................                                   [ 85%]\nplugin/test_rule_packs.py ...........................                    [ 88%]\nplugin/test_seccomp.py .........................................sss      [ 93%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 860 passed, 5 skipped in 41.32s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T050129.764467Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs; a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml: install.sh:98-124 parses --rule-pack/--unrule-pack (both `--flag val` and `--flag=val`) and --list-rule-packs; add_rule_pack/add_unrule_pack (lines 43-62) accumulate repeatable names. Live: `TERMINAL_JAIL_INSTALL_DIR=/tmp/tjtest/prefix/bin ./install.sh --rule-pack db` exit 0, wrote /tmp/tjtest/prefix/config/terminal-jail/rules.d/terminal-jail-pack-db.yaml (5563 bytes). `./install.sh --list-rule-packs` exit 0 printed `db\t.../packs/db.yaml\t3`.\n  \u2713 the engine loads the installed pack: a live intercept/bridge probe returns the pack rule id (pack-<name>-*) with the pack installed, and does not without it: With pack installed (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<scratch rules.d>), live intercept() returned: 'psql ... DROP DATABASE prod_app' -> block pack-db-drop-database; 'mysql -e DROP TABLE customers' -> block pack-db-drop-table; 'pg_dump mydb' -> modify pack-db-dump-restore. With an empty rules dir the same commands returned allow/None (no pack-* id).\n  \u2713 id-collision contract: a pack rule whose id collides with an engine builtin id, or with an already-installed pack, is REFUSED (non-zero exit, no file written): Builtin collision: pack with id 'builtin-rm-rf-root' -> install.sh exit 2, stderr 'collide with engine builtin ids', no shadow.yaml written. Already-installed collision: pack 'dup2' with id 'pack-dup2-drop-database' already present in zz-handwritten.yaml -> exit 2, 'are already installed in ... refusing to shadow them', no dup2 file written. Enforced by scripts/rule-pack-tool.py cmd_validate collision oracles before install.sh:355-360 cp.\n  \u2713 schema-invalid pack is refused at install time (non-zero exit, nothing written); --unrule-pack removes only that pack file and leaves other rules intact: Schema-invalid pack (rule missing 'match') -> install.sh exit 2, 'has no 'match' mapping', no file written. `--unrule-pack dup` exit 0 removed only terminal-jail-pack-dup.yaml; 00-builtins.yaml, terminal-jail-pack-db.yaml and zz-handwritten.yaml remained, and the db pack still fired through intercept() (block pack-db-drop-database).\n  \u2713 each shipped pack has its own test file exercising its rules through intercept(); full suite green via .venv/bin/python -m pytest -q: Only one shipped pack (plugin/terminal_jail/rules/packs/db.yaml); plugin/test_rule_packs.py TestShippedDbPack (lines 105-160) drives each rule through intercept() with parametrized positives, benign controls, and a no-pack control. `.venv/bin/python -m pytest -q` -> '860 passed, 5 skipped in 27.67s' (exit 0); pack file alone 27 passed.\n  \u2713 README documents the packs (what each blocks + opt-in stance) and specs/cli.md installer-inputs table documents the new flags: README.md:447-500 '### Rule packs (opt-in)' documents the db pack (blocks DROP DATABASE/DROP TABLE, sandboxes dump/restore tooling), the opt-in stance, validation/collision contract and precedence. specs/cli.md:374-384 'Installer inputs and defaults' table has rows for --rule-pack, --unrule-pack and --list-rule-packs; specs/cli.md:394 adds the 'Rule packs (--rule-pack, TJ-GAP-061)' section.\nAll six criteria pass: installer flags work end-to-end (scratch-prefix install writes terminal-jail-pack-db.yaml), the engine loads the pack via intercept() and not without it, builtin/installed id collisions and schema-invalid packs are refused with exit 2 and nothing written, --unrule-pack removes only its own file, the shipped db pack has an intercept()-driven test file, the full suite is green (860 passed, 5 skipped), and README + specs/cli.md document the packs and flags.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs; a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml: install.sh:98-124 parses --rule-pack/--unrule-pack (both `--flag val` and `--flag=val`) and --list-rule-packs; add_rule_pack/add_unrule_pack (lines 43-62) accumulate repeatable names. Live: `TERMINAL_JAIL_INSTALL_DIR=/tmp/tjtest/prefix/bin ./install.sh --rule-pack db` exit 0, wrote /tmp/tjtest/prefix/config/terminal-jail/rules.d/terminal-jail-pack-db.yaml (5563 bytes). `./install.sh --list-rule-packs` exit 0 printed `db\t.../packs/db.yaml\t3`.\n  \u2713 the engine loads the installed pack: a live intercept/bridge probe returns the pack rule id (pack-<name>-*) with the pack installed, and does not without it: With pack installed (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<scratch rules.d>), live intercept() returned: 'psql ... DROP DATABASE prod_app' -> block pack-db-drop-database; 'mysql -e DROP TABLE customers' -> block pack-db-drop-table; 'pg_dump mydb' -> modify pack-db-dump-restore. With an empty rules dir the same commands returned allow/None (no pack-* id).\n  \u2713 id-collision contract: a pack rule whose id collides with an engine builtin id, or with an already-installed pack, is REFUSED (non-zero exit, no file written): Builtin collision: pack with id 'builtin-rm-rf-root' -> install.sh exit 2, stderr 'collide with engine builtin ids', no shadow.yaml written. Already-installed collision: pack 'dup2' with id 'pack-dup2-drop-database' already present in zz-handwritten.yaml -> exit 2, 'are already installed in ... refusing to shadow them', no dup2 file written. Enforced by scripts/rule-pack-tool.py cmd_validate collision oracles before install.sh:355-360 cp.\n  \u2713 schema-invalid pack is refused at install time (non-zero exit, nothing written); --unrule-pack removes only that pack file and leaves other rules intact: Schema-invalid pack (rule missing 'match') -> install.sh exit 2, 'has no 'match' mapping', no file written. `--unrule-pack dup` exit 0 removed only terminal-jail-pack-dup.yaml; 00-builtins.yaml, terminal-jail-pack-db.yaml and zz-handwritten.yaml remained, and the db pack still fired through intercept() (block pack-db-drop-database).\n  \u2713 each shipped pack has its own test file exercising its rules through intercept(); full suite green via .venv/bin/python -m pytest -q: Only one shipped pack (plugin/terminal_jail/rules/packs/db.yaml); plugin/test_rule_packs.py TestShippedDbPack (lines 105-160) drives each rule through intercept() with parametrized positives, benign controls, and a no-pack control. `.venv/bin/python -m pytest -q` -> '860 passed, 5 skipped in 27.67s' (exit 0); pack file alone 27 passed.\n  \u2713 README documents the packs (what each blocks + opt-in stance) and specs/cli.md installer-inputs table documents the new flags: README.md:447-500 '### Rule packs (opt-in)' documents the db pack (blocks DROP DATABASE/DROP TABLE, sandboxes dump/restore tooling), the opt-in stance, validation/collision contract and precedence. specs/cli.md:374-384 'Installer inputs and defaults' table has rows for --rule-pack, --unrule-pack and --list-rule-packs; specs/cli.md:394 adds the 'Rule packs (--rule-pack, TJ-GAP-061)' section.\nAll six criteria pass: installer flags work end-to-end (scratch-prefix install writes terminal-jail-pack-db.yaml), the engine loads the pack via intercept() and not without it, builtin/installed id collisions and schema-invalid packs are refused with exit 2 and nothing written, --unrule-pack removes only its own file, the shipped db pack has an intercept()-driven test file, the full suite is green (860 passed, 5 skipped), and README + specs/cli.md document the packs and flags.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs; a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml",
+                "status": "PASS",
+                "detail": "install.sh:98-124 parses --rule-pack/--unrule-pack (both `--flag val` and `--flag=val`) and --list-rule-packs; add_rule_pack/add_unrule_pack (lines 43-62) accumulate repeatable names. Live: `TERMINAL_JAIL_INSTALL_DIR=/tmp/tjtest/prefix/bin ./install.sh --rule-pack db` exit 0, wrote /tmp/tjtest/prefix/config/terminal-jail/rules.d/terminal-jail-pack-db.yaml (5563 bytes). `./install.sh --list-rule-packs` exit 0 printed `db\t.../packs/db.yaml\t3`."
+              },
+              {
+                "criterion": "the engine loads the installed pack: a live intercept/bridge probe returns the pack rule id (pack-<name>-*) with the pack installed, and does not without it",
+                "status": "PASS",
+                "detail": "With pack installed (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<scratch rules.d>), live intercept() returned: 'psql ... DROP DATABASE prod_app' -> block pack-db-drop-database; 'mysql -e DROP TABLE customers' -> block pack-db-drop-table; 'pg_dump mydb' -> modify pack-db-dump-restore. With an empty rules dir the same commands returned allow/None (no pack-* id)."
+              },
+              {
+                "criterion": "id-collision contract: a pack rule whose id collides with an engine builtin id, or with an already-installed pack, is REFUSED (non-zero exit, no file written)",
+                "status": "PASS",
+                "detail": "Builtin collision: pack with id 'builtin-rm-rf-root' -> install.sh exit 2, stderr 'collide with engine builtin ids', no shadow.yaml written. Already-installed collision: pack 'dup2' with id 'pack-dup2-drop-database' already present in zz-handwritten.yaml -> exit 2, 'are already installed in ... refusing to shadow them', no dup2 file written. Enforced by scripts/rule-pack-tool.py cmd_validate collision oracles before install.sh:355-360 cp."
+              },
+              {
+                "criterion": "schema-invalid pack is refused at install time (non-zero exit, nothing written); --unrule-pack removes only that pack file and leaves other rules intact",
+                "status": "PASS",
+                "detail": "Schema-invalid pack (rule missing 'match') -> install.sh exit 2, 'has no 'match' mapping', no file written. `--unrule-pack dup` exit 0 removed only terminal-jail-pack-dup.yaml; 00-builtins.yaml, terminal-jail-pack-db.yaml and zz-handwritten.yaml remained, and the db pack still fired through intercept() (block pack-db-drop-database)."
+              },
+              {
+                "criterion": "each shipped pack has its own test file exercising its rules through intercept(); full suite green via .venv/bin/python -m pytest -q",
+                "status": "PASS",
+                "detail": "Only one shipped pack (plugin/terminal_jail/rules/packs/db.yaml); plugin/test_rule_packs.py TestShippedDbPack (lines 105-160) drives each rule through intercept() with parametrized positives, benign controls, and a no-pack control. `.venv/bin/python -m pytest -q` -> '860 passed, 5 skipped in 27.67s' (exit 0); pack file alone 27 passed."
+              },
+              {
+                "criterion": "README documents the packs (what each blocks + opt-in stance) and specs/cli.md installer-inputs table documents the new flags",
+                "status": "PASS",
+                "detail": "README.md:447-500 '### Rule packs (opt-in)' documents the db pack (blocks DROP DATABASE/DROP TABLE, sandboxes dump/restore tooling), the opt-in stance, validation/collision contract and precedence. specs/cli.md:374-384 'Installer inputs and defaults' table has rows for --rule-pack, --unrule-pack and --list-rule-packs; specs/cli.md:394 adds the 'Rule packs (--rule-pack, TJ-GAP-061)' section."
+              }
+            ],
+            "summary": "All six criteria pass: installer flags work end-to-end (scratch-prefix install writes terminal-jail-pack-db.yaml), the engine loads the pack via intercept() and not without it, builtin/installed id collisions and schema-invalid packs are refused with exit 2 and nothing written, --unrule-pack removes only its own file, the shipped db pack has an intercept()-driven test file, the full suite is green (860 passed, 5 skipped), and README + specs/cli.md document the packs and flags."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-061\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs; a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml: install.sh:98-124 parses --rule-pack/--unrule-pack (both `--flag val` and `--flag=val`) and --list-rule-packs; add_rule_pack/add_unrule_pack (lines 43-62) accumulate repeatable names. Live: `TERMINAL_JAIL_INSTALL_DIR=/tmp/tjtest/prefix/bin ./install.sh --rule-pack db` exit 0, wrote /tmp/tjtest/prefix/config/terminal-jail/rules.d/terminal-jail-pack-db.yaml (5563 bytes). `./install.sh --list-rule-packs` exit 0 printed `db\t.../packs/db.yaml\t3`.\n  \u2713 the engine loads the installed pack: a live intercept/bridge probe returns the pack rule id (pack-<name>-*) with the pack installed, and does not without it: With pack installed (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<scratch rules.d>), live intercept() returned: 'psql ... DROP DATABASE prod_app' -> block pack-db-drop-database; 'mysql -e DROP TABLE customers' -> block pack-db-drop-table; 'pg_dump mydb' -> modify pack-db-dump-restore. With an empty rules dir the same commands returned allow/None (no pack-* id).\n  \u2713 id-collision contract: a pack rule whose id collides with an engine builtin id, or with an already-installed pack, is REFUSED (non-zero exit, no file written): Builtin collision: pack with id 'builtin-rm-rf-root' -> install.sh exit 2, stderr 'collide with engine builtin ids', no shadow.yaml written. Already-installed collision: pack 'dup2' with id 'pack-dup2-drop-database' already present in zz-handwritten.yaml -> exit 2, 'are already installed in ... refusing to shadow them', no dup2 file written. Enforced by scripts/rule-pack-tool.py cmd_validate collision oracles before install.sh:355-360 cp.\n  \u2713 schema-invalid pack is refused at install time (non-zero exit, nothing written); --unrule-pack removes only that pack file and leaves other rules intact: Schema-invalid pack (rule missing 'match') -> install.sh exit 2, 'has no 'match' mapping', no file written. `--unrule-pack dup` exit 0 removed only terminal-jail-pack-dup.yaml; 00-builtins.yaml, terminal-jail-pack-db.yaml and zz-handwritten.yaml remained, and the db pack still fired through intercept() (block pack-db-drop-database).\n  \u2713 each shipped pack has its own test file exercising its rules through intercept(); full suite green via .venv/bin/python -m pytest -q: Only one shipped pack (plugin/terminal_jail/rules/packs/db.yaml); plugin/test_rule_packs.py TestShippedDbPack (lines 105-160) drives each rule through intercept() with parametrized positives, benign controls, and a no-pack control. `.venv/bin/python -m pytest -q` -> '860 passed, 5 skipped in 27.67s' (exit 0); pack file alone 27 passed.\n  \u2713 README documents the packs (what each blocks + opt-in stance) and specs/cli.md installer-inputs table documents the new flags: README.md:447-500 '### Rule packs (opt-in)' documents the db pack (blocks DROP DATABASE/DROP TABLE, sandboxes dump/restore tooling), the opt-in stance, validation/collision contract and precedence. specs/cli.md:374-384 'Installer inputs and defaults' table has rows for --rule-pack, --unrule-pack and --list-rule-packs; specs/cli.md:394 adds the 'Rule packs (--rule-pack, TJ-GAP-061)' section.\nAll six criteria pass: installer flags work end-to-end (scratch-prefix install writes terminal-jail-pack-db.yaml), the engine loads the pack via intercept() and not without it, builtin/installed id collisions and schema-invalid packs are refused with exit 2 and nothing written, --unrule-pack removes only its own file, the shipped db pack has an intercept()-driven test file, the full suite is green (860 passed, 5 skipped), and README + specs/cli.md document the packs and flags.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T05:04:59.693440",
+  "evidence": {
+    "collected_at": "2026-09-19T05:04:59.714876+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 88607,
+        "truncated": false,
+        "source": "git show a33adf198d20"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 9572,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-061"
+  }
+}

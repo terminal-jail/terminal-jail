@@ -1,0 +1,1945 @@
+commit a33adf198d2052d3dad7d33bf0bb1382fbc09e12
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Sep 18 23:55:52 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Sep 18 23:55:52 2026 -0500
+
+    feat(install): rule-pack system — opt-in packs, precedence + collision contract (TJ-GAP-061)
+    
+    Bane asked for "a way to enable extra rules that are not part of the main set":
+    the default firewall stays lean and identical on every host, and niche policy
+    ships as an opt-in pack chosen per host at install time.
+    
+    Deliverable:
+    * plugin/terminal_jail/rules/packs/db.yaml — first pack (2 block @950, 1 sandbox
+      @650, ids pack-db-*). Deliberately small: it proves the mechanism end to end;
+      the wider catalogue is TJ-GAP-062.
+    * scripts/rule-pack-tool.py — the validate/list helper install.sh calls (POSIX
+      sh cannot parse YAML). validate parses with the engine's own loader semantics
+      (CSafeLoader with a safe_load fallback, then json — as rules.py does),
+      requires the rule schema and the pack-<name>-* id namespace, and REFUSES id
+      collisions against the engine builtin set (derived at run time from
+      interruptor.{blocklist,sandbox,allowlist}) or any rule file already installed
+      in the resolved rules dir. Exit 0 + one summary line, or exit 2 + exactly one
+      reason line on stderr. The destination file is exempt from the collision scan,
+      so re-installing a pack is not a self-collision; an installed file the engine
+      cannot parse FAILS CLOSED here (the engine itself fails open).
+    * install.sh — flag parsing (--rule-pack, repeatable; --unrule-pack;
+      --list-rule-packs; -h/--help; unknown flag or malformed pack name -> exit 2,
+      nothing written), still POSIX sh (sh -n and dash -n clean). The rules-target
+      resolution moved into resolve_user_rules_dir() so the default rules file and
+      every pack share ONE notion of "rules dir" (the DF-TERMINAL-JAIL-8 scope rule
+      is unchanged). The pack phase runs BEFORE the install section's mkdir -p, so a
+      refusal leaves nothing behind — no directory, no file, no wrapper. Packs need
+      the checkout, so both knobs are refused in release mode.
+    * Tests: plugin/test_rule_packs.py (27 cases — the shipped pack's ids fire
+      through intercept() with a scratch TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR,
+      benign controls stay default-allow, pack-absent control, and every validator
+      refusal incl. one-line stderr) + plugin/test_install.py extended (38 test
+      functions / 40 collected): install lands in the resolved rules dir, unrule
+      removes exactly one file and spares a foreign sibling, builtin-shadow /
+      schema-invalid / malformed packs, unknown flags/packs, unsafe names are all
+      refused with an empty prefix.
+    * Docs: README "Rule packs (opt-in)" section (shipped packs, opt-in stance,
+      install/uninstall one-liners); specs/cli.md installer-inputs table gains the
+      three flags plus the rule-pack contract (an undocumented flag is an incomplete
+      change); specs/interruptor.md §3.4 pins the precedence contract — engine
+      builtins < packs < user rules.d files — the id-namespace rule, and the 950/650
+      priority convention (priorities order layer-4 rules, they do not move a pack
+      between engine layers).
+    
+    Evidence on this tree:
+    * sh -n install.sh, dash -n install.sh -> clean.
+    * scratch-prefix install --rule-pack db -> writes <rules dir>/
+      terminal-jail-pack-db.yaml next to 00-builtins.yaml; --unrule-pack db removes
+      only that file (seeded foreign file survives, 00-builtins.yaml byte-identical
+      before/after).
+    * live engine probe with the pack installed: psql -c "DROP DATABASE prod_app"
+      -> block/pack-db-drop-database; mysql -e "DROP TABLE customers"
+      -> block/pack-db-drop-table; pg_dump mydb > /tmp/dump.sql
+      -> modify/pack-db-dump-restore; psql -c "SELECT 1" and mysql -e "SELECT 1"
+      -> allow with rule_id null. With the pack removed all three positives are
+      allow/null again.
+    * refusal demos on a scratch checkout (exit 2, one reason line, prefix verified
+      EMPTY — 0 paths): pack id == builtin id, malformed YAML, schema-invalid rule,
+      unknown pack, unknown flag, unsafe pack name; a foreign rules.d file carrying
+      pack-db-* ids is refused as "already installed".
+    * .venv/bin/python -m pytest plugin -q -> 860 passed, 5 skipped (baseline
+      821/5; +39 new tests). uvx ruff check . -> All checks passed.
+      scripts/yaml-mirror-parity-probe.py -> 54/54 (35/9/10), ALL PROBES PASS.
+      install.sh --list-rule-packs -> "db<TAB>.../rules/packs/db.yaml<TAB>3".
+    
+    Deliberate residual, documented in specs/interruptor.md §3.4: the collision
+    oracle inspects the engine builtin set plus the resolved USER rules dir, so a
+    root-managed /etc/terminal-jail/rules.d rule carrying a pack-* id is not visible
+    to the unprivileged installer.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md                                |  59 ++++
+ install.sh                               | 272 +++++++++++++++--
+ plugin/terminal_jail/rules/packs/db.yaml |  95 ++++++
+ plugin/test_install.py                   | 273 +++++++++++++++++
+ plugin/test_rule_packs.py                | 498 +++++++++++++++++++++++++++++++
+ scripts/rule-pack-tool.py                | 434 +++++++++++++++++++++++++++
+ specs/cli.md                             |  51 +++-
+ specs/interruptor.md                     |  56 ++++
+ 8 files changed, 1716 insertions(+), 22 deletions(-)
+
+diff --git a/README.md b/README.md
+index d2a17bb..a43f989 100644
+--- a/README.md
++++ b/README.md
+@@ -133,6 +133,10 @@ Counts verified from the engine (`BUILTIN_BLOCKLIST` / `BUILTIN_SANDBOX` / `BUIL
+ `plugin/terminal_jail/interruptor/`): **35 critical blocklist, 9 auto-sandbox, 10 always-allow**.
+ Rule IDs are stable — tests assert behavior by ID.
+ 
++This list is the whole firewall on a fresh install. Optional per-host policy is
++shipped separately as opt-in rule packs (see Install → *Rule packs*) and never by
++growing this list — the default set stays lean and identical everywhere.
++
+ - **35 Critical Blocklist** (priority 1000, evaluated first, cannot be removed — only overridden to `warn` by a same-ID user rule):
+   - `builtin-kill-all` — mass process kill (`kill -9 -1`)
+   - `builtin-killpg-pid1` — process-group kill targeting PID 1 or own process group (`os.killpg(0/1, …)`, `kill(-1/0, …)`)
+@@ -440,6 +444,61 @@ file to `~/.config/terminal-jail/rules.d/00-builtins.yaml`, while a custom
+ installer prints a warning for prefix installs). Set `TERMINAL_JAIL_RULES_DIR`
+ to target the live rules directory explicitly — it always wins.
+ 
++### Rule packs (opt-in)
++
++The default rule set is deliberately lean and **identical on every host**: the
++same 54 built-in rules, nothing host-specific baked in. Niche policy — database
++abuse, cluster tooling, CI metadata, whatever a given host actually needs — ships
++as an **opt-in rule pack**: a curated rule file in the repository under
++`plugin/terminal_jail/rules/packs/`, installed only where you ask for it.
++
++```bash
++./install.sh --rule-pack db                 # opt in (repeatable, for more packs)
++./install.sh --unrule-pack db               # opt out
++./install.sh --list-rule-packs              # what this checkout ships
++```
++
++| Pack | Blocks | Sandboxes | Rules |
++|------|--------|-----------|------:|
++| `db` | `DROP DATABASE` (`pack-db-drop-database`), `DROP TABLE` (`pack-db-drop-table`) | bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 3 |
++
++A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
++rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`
++explicit, else the live `~/.config/terminal-jail/rules.d`, else
++`<prefix>/config/terminal-jail/rules.d`). Nothing else is written;
++`--unrule-pack` deletes that one file and never touches `00-builtins.yaml` or
++another pack.
++
++**Packs are validated before anything is written** (`scripts/rule-pack-tool.py`,
++run by the installer — POSIX `sh` cannot parse YAML):
++
++- schema: every rule needs `id` / `action` / `match` with a match type the engine
++  can dispatch, and a non-empty `pattern` for pattern rules;
++- ids must live in the pack's namespace `pack-<name>-*`;
++- **no id may collide** with an engine built-in id (`builtin-*`, `auto-*`,
++  `allow-*`) or with an id already installed in the target rules dir.
++
++A refusal is `exit 2`, one reason line on stderr, and **nothing written at all** —
++no pack file, no default rules file, no wrapper. The collision rule is the point
++of the whole mechanism: a `rules.d` entry whose id matches a built-in REPLACES
++that built-in in its layer, so a pack that reused a built-in id could silently
++downgrade (or resurrect) a built-in rule. Refusal at install time, never a silent
++override.
++
++Two practical notes: installing a pack requires `python3` (the installer refuses
++to copy an unvalidated pack; `--unrule-pack` needs no Python), and packs come
++from the repository checkout, so they are unavailable in release mode.
++
++**Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules
++carry new ids, so they are evaluated after the built-in blocklist, allow-list and
++auto-sandbox layers (they can tighten, never loosen, the default set). A user
++file that sorts after the pack file (say `zz-local.yaml`) can same-id override a
++pack rule — including overriding one to `warn`, the same escape hatch the
++built-ins offer. Pack rule priorities are 950 for blocks and 650 for sandboxes,
++sitting between the built-in tiers (1000 / 700 / 500); that orders pack rules
++against each other, it does not move them between engine layers. The full
++contract is `specs/interruptor.md` §3.4.
++
+ Release-mode installs (downloading the wrapper from a published release plus
+ its SHA-256 checksum, verified and atomically installed) are supported by
+ `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`,
+diff --git a/install.sh b/install.sh
+index 8e1bfa8..d067ad9 100755
+--- a/install.sh
++++ b/install.sh
+@@ -21,6 +21,119 @@ TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
+ TERMINAL_JAIL_RULES_DIR="${TERMINAL_JAIL_RULES_DIR:-}"
+ TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
+ 
++# --- installer flags (TJ-GAP-061) --------------------------------------------
++# The installer stays env-var driven; these flags only add the opt-in rule-pack
++# knobs. Every flag is parsed BEFORE anything is created or written, so an
++# unknown flag, an unknown pack name, or a pack the validator refuses leaves the
++# filesystem untouched. Pack names are restricted to [a-z0-9-] so the derived
++# file name (terminal-jail-pack-<name>.yaml) can neither escape the rules
++# directory nor be read as a glob.
++RULE_PACKS=""
++UNRULE_PACKS=""
++LIST_RULE_PACKS=0
++
++valid_pack_name() {
++    case "$1" in
++        ""|-*) return 1 ;;
++        *[!a-z0-9-]*) return 1 ;;
++    esac
++    return 0
++}
++
++add_rule_pack() {
++    if ! valid_pack_name "$1"; then
++        echo "terminal-jail installer: --rule-pack: invalid pack name '$1' (expected [a-z0-9-]+)" >&2
++        exit 2
++    fi
++    case " $RULE_PACKS " in
++        *" $1 "*) ;; # already queued — installing a pack twice is a no-op
++        *) RULE_PACKS="${RULE_PACKS:+$RULE_PACKS }$1" ;;
++    esac
++}
++
++add_unrule_pack() {
++    if ! valid_pack_name "$1"; then
++        echo "terminal-jail installer: --unrule-pack: invalid pack name '$1' (expected [a-z0-9-]+)" >&2
++        exit 2
++    fi
++    case " $UNRULE_PACKS " in
++        *" $1 "*) ;;
++        *) UNRULE_PACKS="${UNRULE_PACKS:+$UNRULE_PACKS }$1" ;;
++    esac
++}
++
++usage() {
++    cat <<'USAGE'
++terminal-jail installer — POSIX sh
++
++Usage: install.sh [options]
++
++Options:
++  --rule-pack <name>    Install an opt-in rule pack from this repository
++                        checkout (repeatable, e.g. --rule-pack db). The pack is
++                        validated BEFORE anything is written: an unknown pack, a
++                        malformed or invalid pack, a rule id outside the
++                        pack-<name>-* namespace, or an id colliding with an
++                        engine builtin id or an already-installed rule file is
++                        refused (exit 2) with nothing written.
++  --unrule-pack <name>  Remove an installed rule pack. Only
++                        terminal-jail-pack-<name>.yaml is touched — the default
++                        rules file and every other pack are never modified.
++  --list-rule-packs     List the rule packs this checkout ships (exit 0).
++  -h, --help            Print this help and exit 0.
++
++Environment (all optional):
++  TERMINAL_JAIL_INSTALL_DIR    install directory (default: $HOME/.local/bin)
++  TERMINAL_JAIL_RULES_DIR      target rules directory; when set it always wins
++                               (default: derived from the install scope)
++  TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
++                               local checkout (rule packs need the checkout)
++  TERMINAL_JAIL_VERSION        version to install (default: 1.1.0)
++  TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
++USAGE
++}
++
++while [ $# -gt 0 ]; do
++    case "$1" in
++        --rule-pack)
++            if [ $# -lt 2 ]; then
++                echo "terminal-jail installer: --rule-pack requires a pack name" >&2
++                exit 2
++            fi
++            add_rule_pack "$2"
++            shift 2
++            ;;
++        --rule-pack=*)
++            add_rule_pack "${1#--rule-pack=}"
++            shift
++            ;;
++        --unrule-pack)
++            if [ $# -lt 2 ]; then
++                echo "terminal-jail installer: --unrule-pack requires a pack name" >&2
++                exit 2
++            fi
++            add_unrule_pack "$2"
++            shift 2
++            ;;
++        --unrule-pack=*)
++            add_unrule_pack "${1#--unrule-pack=}"
++            shift
++            ;;
++        --list-rule-packs)
++            LIST_RULE_PACKS=1
++            shift
++            ;;
++        -h|--help)
++            usage
++            exit 0
++            ;;
++        *)
++            echo "terminal-jail installer: unknown argument '$1' (see --help)" >&2
++            exit 2
++            ;;
++    esac
++done
++
+ # --- source vs release mode --------------------------------------------------
+ # When run from a repository checkout — invoked relatively (./install.sh or
+ # install.sh) with standalone/terminal-jail present next to this script —
+@@ -41,6 +154,15 @@ case "${0:-}" in
+         ;;
+ esac
+ 
++# Rule packs (TJ-GAP-061) ship in the repository checkout only: the pack files
++# and the YAML validator live next to install.sh. Release mode has no pack
++# source, so --rule-pack/--unrule-pack are refused there (see below) and
++# PACKS_SOURCE_DIR stays empty — every pack path is guarded on it.
++PACKS_SOURCE_DIR=""
++if [ -n "$SCRIPT_DIR" ] && [ -d "$SCRIPT_DIR/plugin/terminal_jail/rules/packs" ]; then
++    PACKS_SOURCE_DIR="$SCRIPT_DIR/plugin/terminal_jail/rules/packs"
++fi
++
+ # --- preflight ---------------------------------------------------------------
+ if [ -z "${HOME:-}" ]; then
+     echo "terminal-jail installer: HOME is not set; cannot determine install directory" >&2
+@@ -68,6 +190,35 @@ if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ]; then
+     exit 1
+ fi
+ 
++# --- rule packs need the checkout (TJ-GAP-061) -------------------------------
++# A pack is a repository artifact (rules/packs/<name>.yaml) validated by a
++# repository script, so both knobs are refused in release mode rather than
++# half-working: nothing is written.
++if [ -z "$LOCAL_WRAPPER" ]; then
++    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
++        echo "terminal-jail installer: --rule-pack/--unrule-pack need the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
++        exit 2
++    fi
++fi
++
++# --- rule-pack listing (TJ-GAP-061) ------------------------------------------
++# Informational only: name the packs this checkout ships and exit 0 without
++# touching anything. A missing checkout/packs directory is refused loudly —
++# an empty list would read as "this project has no packs".
++if [ "$LIST_RULE_PACKS" -eq 1 ]; then
++    if [ -z "$PACKS_SOURCE_DIR" ]; then
++        echo "terminal-jail installer: --list-rule-packs needs a repository checkout (no plugin/terminal_jail/rules/packs next to ${0:-install.sh})" >&2
++        exit 2
++    fi
++    if ! command -v python3 >/dev/null 2>&1; then
++        echo "terminal-jail installer: --list-rule-packs requires python3 (rule packs are YAML; the lister counts the rules)" >&2
++        exit 2
++    fi
++    echo "terminal-jail installer: rule packs available in this checkout (opt in with --rule-pack <name>):"
++    python3 "$SCRIPT_DIR/scripts/rule-pack-tool.py" list
++    exit 0
++fi
++
+ # --- downloader / checksum verifier (release mode only) ----------------------
+ has_curl=0
+ has_wget=0
+@@ -136,6 +287,102 @@ if ! command -v bwrap >/dev/null 2>&1; then
+     echo "terminal-jail installer: NOTE — optional bubblewrap (bwrap) not found. The CLI will use the util-linux unshare backend, and installation continues normally. To enable the private-/proc bwrap backend, install the distro system package (Debian/Ubuntu: apt install bubblewrap, Fedora/RHEL: dnf install bubblewrap). bubblewrap is an external dependency — this installer never downloads, builds, or redistributes it."
+ fi
+ 
++# --- rules target resolution (DF-TERMINAL-JAIL-8) ----------------------------
++# Resolved ONCE, here, so the shipped default rules file and any opt-in rule
++# pack land in the SAME directory: the installer has exactly one notion of
++# "rules dir". Assigns RESOLVED_RULES_DIR and RULES_SCOPE (plain call, never
++# via command substitution, so the assignments reach the rest of the script).
++resolve_user_rules_dir() {
++    #   explicit: TERMINAL_JAIL_RULES_DIR set -> used verbatim (caller opted in;
++    #             any path allowed, even outside the prefix)
++    #   live:     default install dir ($HOME/.local/bin) -> the live user rules
++    #             dir $HOME/.config/terminal-jail/rules.d (unchanged behavior;
++    #             the engine does NOT honor XDG_CONFIG_HOME)
++    #   prefix:   anything else -> <install prefix>/config/terminal-jail/
++    #             rules.d, with the parent resolved like LIB_DIR below
++    if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
++        RESOLVED_RULES_DIR="$TERMINAL_JAIL_RULES_DIR"
++        RULES_SCOPE="explicit"
++    elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
++        RESOLVED_RULES_DIR="$HOME/.config/terminal-jail/rules.d"
++        RULES_SCOPE="live"
++    else
++        rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
++        RESOLVED_RULES_DIR="${rules_prefix}/config/terminal-jail/rules.d"
++        RULES_SCOPE="prefix"
++    fi
++}
++resolve_user_rules_dir
++
++# --- opt-in rule packs (TJ-GAP-061) ------------------------------------------
++# Packs are per-host policy: the default rule set stays lean and a pack is
++# installed only when the operator asks for it (--rule-pack <name>), landing as
++# terminal-jail-pack-<name>.yaml in the SAME resolved rules dir as the default
++# rules file. This whole section runs BEFORE the install section's mkdir -p and
++# before the wrapper is copied, so a refusal — unknown pack, python3 missing,
++# validator refusal (bad schema, malformed YAML, id outside the pack namespace,
++# id collision) — leaves NOTHING behind: no directory, no file.
++# scripts/rule-pack-tool.py is authoritative for every check; packs are
++# validated one at a time IN THE ORDER REQUESTED, so a pack that collides with
++# one requested earlier in the same invocation is refused when it is reached
++# (the earlier pack stays installed — refusing cannot un-install it).
++if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
++    pack_tool="$SCRIPT_DIR/scripts/rule-pack-tool.py"
++    if [ ! -f "$pack_tool" ]; then
++        echo "terminal-jail installer: rule packs need ${pack_tool}, which is missing from this checkout — nothing was written" >&2
++        exit 2
++    fi
++    if [ -n "$RULE_PACKS" ] && ! command -v python3 >/dev/null 2>&1; then
++        echo "terminal-jail installer: --rule-pack requires python3 to validate a pack BEFORE installing it, and python3 was not found — nothing was written" >&2
++        exit 2
++    fi
++
++    install_rule_pack() {
++        pack="$1"
++        pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
++        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
++        if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
++            if [ -n "$PACKS_SOURCE_DIR" ]; then
++                echo "terminal-jail installer: unknown rule pack '${pack}' (no ${pack_src}) — nothing was written" >&2
++            else
++                echo "terminal-jail installer: unknown rule pack '${pack}' (this checkout ships no plugin/terminal_jail/rules/packs directory) — nothing was written" >&2
++            fi
++            exit 2
++        fi
++        # FAIL CLOSED: validate before writing anything. The validator refuses
++        # invalid schema, malformed YAML, ids outside the pack's namespace, and
++        # id collisions (engine builtins / installed rule files).
++        if ! python3 "$pack_tool" validate "$pack_src" --pack-name "$pack" --rules-dir "$RESOLVED_RULES_DIR"; then
++            echo "terminal-jail installer: rule pack '${pack}' REFUSED — nothing was written (see the validator reason above)" >&2
++            exit 2
++        fi
++        mkdir -p "$RESOLVED_RULES_DIR"
++        cp "$pack_src" "$pack_dest"
++        echo "terminal-jail installer: installed rule pack '${pack}' to ${pack_dest}"
++    }
++
++    remove_rule_pack() {
++        pack="$1"
++        # Exactly one file: terminal-jail-pack-<name>.yaml. The default rules
++        # file and every other pack are never touched (the name is shell-safe:
++        # [a-z0-9-] only, quoted, never globbed).
++        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
++        if [ -f "$pack_dest" ]; then
++            rm -f "$pack_dest"
++            echo "terminal-jail installer: removed rule pack '${pack}' (${pack_dest})"
++        else
++            echo "terminal-jail installer: rule pack '${pack}' is not installed at ${pack_dest} — nothing was removed"
++        fi
++    }
++
++    for pack in $RULE_PACKS; do
++        install_rule_pack "$pack"
++    done
++    for pack in $UNRULE_PACKS; do
++        remove_rule_pack "$pack"
++    done
++fi
++
+ # --- install -----------------------------------------------------------------
+ mkdir -p "$TERMINAL_JAIL_INSTALL_DIR"
+ 
+@@ -175,26 +422,11 @@ if [ -n "$LOCAL_WRAPPER" ]; then
+     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
+     # override path for root-managed deployments).
+     if [ -f "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" ]; then
+-        # DF-TERMINAL-JAIL-8: three-way rules-target resolution — the installer
+-        # must never write user config outside the scope the caller selected.
+-        #   explicit: TERMINAL_JAIL_RULES_DIR set -> used verbatim (caller
+-        #             opted in; any path allowed, even outside the prefix)
+-        #   live:     default install dir ($HOME/.local/bin) -> the live user
+-        #             rules dir $HOME/.config/terminal-jail/rules.d (unchanged
+-        #             behavior; the engine does NOT honor XDG_CONFIG_HOME)
+-        #   prefix:   anything else -> <install prefix>/config/terminal-jail/
+-        #             rules.d, with the parent resolved like LIB_DIR above
+-        rules_scope="live"
+-        if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
+-            user_rules_dir="$TERMINAL_JAIL_RULES_DIR"
+-            rules_scope="explicit"
+-        elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
+-            user_rules_dir="$HOME/.config/terminal-jail/rules.d"
+-        else
+-            rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
+-            user_rules_dir="${rules_prefix}/config/terminal-jail/rules.d"
+-            rules_scope="prefix"
+-        fi
++        # DF-TERMINAL-JAIL-8: the three-way rules-target resolution lives in
++        # resolve_user_rules_dir() above, called ONCE before the install — the
++        # default rules file and any opt-in rule pack share that one answer.
++        user_rules_dir="$RESOLVED_RULES_DIR"
++        rules_scope="$RULES_SCOPE"
+         if [ "$rules_scope" = "prefix" ]; then
+             echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory."
+         fi
+diff --git a/plugin/terminal_jail/rules/packs/db.yaml b/plugin/terminal_jail/rules/packs/db.yaml
+new file mode 100644
+index 0000000..0c1a18d
+--- /dev/null
++++ b/plugin/terminal_jail/rules/packs/db.yaml
+@@ -0,0 +1,95 @@
++# terminal-jail OPT-IN rule pack: db — database-destructive shapes (TJ-GAP-061)
++#
++# This file is NOT part of the shipped default rule set. It is installed only
++# when the operator explicitly asks for it:
++#
++#     ./install.sh --rule-pack db
++#
++# and removed with:
++#
++#     ./install.sh --unrule-pack db
++#
++# On install it is byte-copied to
++#   <rules dir>/terminal-jail-pack-db.yaml
++# where <rules dir> is the SAME resolved rules directory the installer uses for
++# the default rules file (explicit TERMINAL_JAIL_RULES_DIR > live
++# ~/.config/terminal-jail/rules.d > <prefix>/config/terminal-jail/rules.d).
++# The engine loads it through the ordinary RuleLoader, so every rule here is
++# also a normal same-id-overridable user rule.
++#
++# PRIORITIES — deliberately BETWEEN the builtin tiers, never colliding with them:
++#   950 = pack block   (below the builtin critical blocklist tier 1000)
++#   650 = pack sandbox (below the builtin auto-sandbox tier 700, above the
++#                        builtin always-allow tier 500)
++# The gap matters because pack rule ids are NEW ids: the decider evaluates them
++# in Layer 4 (new-id rules) after the builtin blocklist/allowlist/sandbox
++# layers, in priority order — so 950/650 order the pack's own rules against
++# each other and against any user rule that shares Layer 4, while a builtin
++# still gets first refusal within its own layer. See specs/interruptor.md §3.4
++# for the precedence contract.
++#
++# ID CONTRACT — every rule id MUST be `pack-db-*`. install.sh runs
++# scripts/rule-pack-tool.py BEFORE writing anything and REFUSES the pack if any
++# id collides with an engine builtin id (`builtin-*`, `auto-*`, `allow-*`) or
++# with an id already installed in the target rules dir. A pack may never
++# shadow a builtin: a same-id rules.d entry replaces the builtin in its layer,
++# which is exactly the silent-override class this contract closes.
++#
++# SCOPE — these are SHAPE rules, in the same spirit as the builtin egress
++# family: they match the destructive statement anywhere in the command string
++# (a SQL client is not required), so a migration script pasted into an
++# interpreter is caught too, and a non-database command that merely carries the
++# text is caught as well. The BENIGN control vectors are the ordinary reads
++# (`psql -c 'SELECT 1'`, `mysql -e 'SELECT 1'`), which no rule here matches.
++# The wider catalogue (psql `\!` escape, mysql SHUTDOWN, redis CONFIG) is
++# TJ-GAP-062 and is deliberately NOT in this file — this pack exists to prove
++# the mechanism end-to-end.
++
++rules:
++  # ---------------------------------------------------------------------------
++  # DROP DATABASE — destroys a whole database, including every object in it.
++  # ---------------------------------------------------------------------------
++  - id: "pack-db-drop-database"
++    description: "DROP DATABASE statement (whole-database destruction)"
++    priority: 950
++    action: block
++    block_message: "Blocked by the optional 'db' rule pack: a DROP DATABASE statement destroys an entire database. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it."
++    match:
++      type: pattern
++      # `DROP DATABASE` (and the optional `IF EXISTS` tail). Statement-shape
++      # match, case-insensitive via the matcher; `(?<![\w-])` is the
++      # token-start boundary so identifiers ending in the word (e.g.
++      # `xdrop database`) are not matched.
++      pattern: "(?<![\\w-])drop\\s+database\\b"
++
++  # ---------------------------------------------------------------------------
++  # DROP TABLE — destroys a table and its rows.
++  # ---------------------------------------------------------------------------
++  - id: "pack-db-drop-table"
++    description: "DROP TABLE statement (table destruction)"
++    priority: 950
++    action: block
++    block_message: "Blocked by the optional 'db' rule pack: a DROP TABLE statement destroys a table and its contents. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it (a scratch/temp table drop included)."
++    match:
++      type: pattern
++      # `DROP TABLE` in its plain spelling; the `DROP TABLE IF EXISTS` form
++      # matches the same arm. Same token-start boundary as above.
++      pattern: "(?<![\\w-])drop\\s+table\\b"
++
++  # ---------------------------------------------------------------------------
++  # Bulk dump / restore tooling — dual use, so it is SANDBOXED, not blocked.
++  # ---------------------------------------------------------------------------
++  - id: "pack-db-dump-restore"
++    description: "Bulk database dump/restore tooling (namespace wrap, command still runs)"
++    priority: 650
++    action: sandbox
++    block_message: "Auto-sandboxed by the optional 'db' rule pack: bulk dump/restore tooling reads or rewrites a whole database."
++    match:
++      type: pattern
++      # pg_dump / pg_dumpall / pg_restore / mysqldump / mysqlimport. The
++      # namespace wrap does NOT restrict network or database access — it
++      # contains the filesystem view; the command still runs.
++      # Shape rule, so a capability probe (`pg_dump --version`) is wrapped
++      # too — exactly what the builtin auto-sandbox tier does for `make
++      # --version`. The command still runs and prints its version.
++      pattern: "(?<![\\w-])(?:pg_dump|pg_dumpall|pg_restore|mysqldump|mysqlimport)\\b"
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index 6a439d3..acb418f 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -2,6 +2,7 @@ from __future__ import annotations
+ 
+ import os
+ import re
++import shutil
+ import stat
+ import subprocess
+ import sys
+@@ -1111,3 +1112,275 @@ def test_install_sh_never_downloads_or_vendors_bubblewrap(
+         "install.sh acts on bubblewrap instead of advising about it "
+         f"(download/build/install/vendor or exit): {offenders}"
+     )
++
++
++# ── TJ-GAP-061: opt-in rule packs (--rule-pack / --unrule-pack) ─────────────
++
++DB_PACK = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs" / "db.yaml"
++
++# Fixture packs for the refusal paths. The shipped packs are valid by
++# construction, so a bad pack must be seeded into a checkout of our own.
++_SHADOW_BUILTIN_PACK = """rules:
++  - id: "builtin-rm-rf-root"
++    description: "attempt to shadow a builtin"
++    priority: 950
++    action: block
++    block_message: "nope"
++    match:
++      type: pattern
++      pattern: "zzz"
++"""
++
++_SCHEMA_INVALID_PACK = """rules:
++  - id: "pack-broken-no-match"
++    description: "no match block"
++    priority: 950
++    action: block
++    block_message: "nope"
++"""
++
++_MALFORMED_PACK = "rules: [ this : is : not : valid\n"
++
++
++def _scratch_checkout(tmp_path: Path) -> Path:
++    """A throwaway copy of the installer's checkout surface.
++
++    install.sh resolves its pack source relative to its own directory, so a
++    fixture pack can only be exercised from a checkout we own. The copy is
++    deliberately minimal: install.sh, the validator, the wrapper, and the
++    terminal_jail package tree are everything an install reads.
++    """
++    checkout = tmp_path / "checkout"
++    (checkout / "scripts").mkdir(parents=True)
++    (checkout / "standalone").mkdir()
++    (checkout / "plugin").mkdir()
++    shutil.copy2(PROJECT_ROOT / "install.sh", checkout / "install.sh")
++    shutil.copy2(PROJECT_ROOT / "scripts" / "rule-pack-tool.py", checkout / "scripts")
++    shutil.copy2(PROJECT_ROOT / "standalone" / "terminal-jail", checkout / "standalone")
++    shutil.copytree(
++        PROJECT_ROOT / "plugin" / "terminal_jail",
++        checkout / "plugin" / "terminal_jail",
++    )
++    return checkout
++
++
++def _install_env(tmp_path: Path) -> dict[str, str]:
++    home = tmp_path / "home"
++    home.mkdir(exist_ok=True)
++    install_dir = tmp_path / "bin"
++    install_dir.mkdir(exist_ok=True)
++    return {
++        **os.environ,
++        "HOME": str(home),
++        "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
++        # Never inherit a rules target from the invoking shell: these tests must
++        # write into the scratch prefix only (an empty value == unset here).
++        "TERMINAL_JAIL_RULES_DIR": "",
++    }
++
++
++def _run_repo_install(
++    tmp_path: Path, *args: str
++) -> subprocess.CompletedProcess[bytes]:
++    """Run the real checkout's installer (cwd=repo root => local mode)."""
++    return subprocess.run(
++        ["sh", "install.sh", *args],
++        capture_output=True,
++        text=False,
++        check=False,
++        timeout=30,
++        cwd=str(PROJECT_ROOT),
++        env=_install_env(tmp_path),
++    )
++
++
++def _run_checkout_install(
++    checkout: Path, tmp_path: Path, *args: str
++) -> subprocess.CompletedProcess[bytes]:
++    return subprocess.run(
++        ["sh", "install.sh", *args],
++        capture_output=True,
++        text=False,
++        check=False,
++        timeout=30,
++        cwd=str(checkout),
++        env=_install_env(tmp_path),
++    )
++
++
++def _assert_nothing_written(tmp_path: Path) -> None:
++    """A refusal — or a flag-only run — leaves no file behind (TJ-GAP-061:
++    the pack phase runs before the install section's mkdir)."""
++    install_dir = tmp_path / "bin"
++    assert list(install_dir.iterdir()) == [], sorted(
++        path.name for path in install_dir.iterdir()
++    )
++    assert not (tmp_path / "config").exists()
++
++
++@pytest.mark.standalone_cli
++def test_install_rule_pack_lands_in_the_resolved_rules_dir(tmp_path: Path) -> None:
++    """--rule-pack db byte-copies the shipped pack next to the default rules
++    file, in the directory the install scope resolves to."""
++    result = _run_repo_install(tmp_path, "--rule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    pack = rules_dir / "terminal-jail-pack-db.yaml"
++    assert pack.exists(), out
++    # byte-identical to the shipped pack, and beside the default rules file
++    assert pack.read_bytes() == DB_PACK.read_bytes()
++    assert (rules_dir / "00-builtins.yaml").exists(), out
++    assert f"installed rule pack 'db' to {pack}" in out, out
++    # the validator ran and reported the engine-derived builtin count
++    assert "rule-pack-tool: pack 'db' valid" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_unrule_pack_removes_only_that_pack(tmp_path: Path) -> None:
++    """--unrule-pack removes terminal-jail-pack-db.yaml and nothing else: a
++    foreign file beside it and the default rules file both survive."""
++    install = _run_repo_install(tmp_path, "--rule-pack", "db")
++    assert install.returncode == 0, install.stderr.decode("utf-8", "replace")
++
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    pack = rules_dir / "terminal-jail-pack-db.yaml"
++    foreign = rules_dir / "zz-foreign-user-rules.yaml"
++    foreign.write_text("rules: []\n", encoding="utf-8")
++    builtins_before = (rules_dir / "00-builtins.yaml").read_bytes()
++
++    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    assert f"removed rule pack 'db' ({pack})" in out, out
++    assert not pack.exists(), out
++    assert foreign.exists(), "a foreign rule file was removed"
++    assert foreign.read_text(encoding="utf-8") == "rules: []\n"
++    assert (rules_dir / "00-builtins.yaml").read_bytes() == builtins_before
++
++
++@pytest.mark.standalone_cli
++def test_unrule_pack_for_a_pack_that_is_not_installed(tmp_path: Path) -> None:
++    """Removal is idempotent and says so — it never fails on a clean host."""
++    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    assert "is not installed at" in out, out
++    assert "nothing was removed" in out, out
++
++
++@pytest.mark.standalone_cli
++@pytest.mark.parametrize(
++    ("fixture_name", "body", "needle"),
++    [
++        ("shadow", _SHADOW_BUILTIN_PACK, "collide with engine builtin ids"),
++        ("broken", _SCHEMA_INVALID_PACK, "has no 'match' mapping"),
++        ("malformed", _MALFORMED_PACK, "cannot parse"),
++    ],
++)
++def test_install_refuses_a_bad_pack_and_writes_nothing(
++    tmp_path: Path, fixture_name: str, body: str, needle: str
++) -> None:
++    """Schema-invalid, malformed, and builtin-shadowing packs are refused by
++    the validator BEFORE anything is written — no pack file, no default rules
++    file, no wrapper."""
++    checkout = _scratch_checkout(tmp_path)
++    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
++        body, encoding="utf-8"
++    )
++
++    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", fixture_name)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert needle in out, out
++    assert f"rule pack '{fixture_name}' REFUSED" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
++    """An id another installed rule file already carries is refused — a pack
++    may never shadow a rule that is already live in the rules dir."""
++    checkout = _scratch_checkout(tmp_path)
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    rules_dir.mkdir(parents=True)
++    (rules_dir / "zz-handwritten.yaml").write_text(
++        "rules:\n"
++        '  - id: "pack-db-drop-database"\n'
++        "    priority: 900\n"
++        "    action: warn\n"
++        "    match:\n"
++        "      type: pattern\n"
++        '      pattern: "drop database"\n',
++        encoding="utf-8",
++    )
++
++    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "are already installed in" in out, out
++    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
++    # the seeded file is untouched
++    assert "pack-db-drop-database" in (rules_dir / "zz-handwritten.yaml").read_text()
++
++
++@pytest.mark.standalone_cli
++def test_install_refuses_an_unknown_rule_pack(tmp_path: Path) -> None:
++    result = _run_repo_install(tmp_path, "--rule-pack", "nope")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "unknown rule pack 'nope'" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_install_refuses_an_unknown_flag(tmp_path: Path) -> None:
++    result = _run_repo_install(tmp_path, "--bogus-flag")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "unknown argument '--bogus-flag'" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_install_refuses_an_unsafe_pack_name(tmp_path: Path) -> None:
++    """A pack name may not escape the rules directory."""
++    result = _run_repo_install(tmp_path, "--rule-pack", "../db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "invalid pack name '../db'" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_list_rule_packs_names_db(tmp_path: Path) -> None:
++    """--list-rule-packs names the shipped pack (and its rule count) without
++    touching anything."""
++    result = _run_repo_install(tmp_path, "--list-rule-packs")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    rows = [line for line in out.splitlines() if line.startswith("db\t")]
++    assert rows, out
++    assert str(DB_PACK) in rows[0], rows
++    assert rows[0].endswith("\t3"), rows
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
++    result = _run_repo_install(tmp_path, "--help")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    for flag in ("--rule-pack <name>", "--unrule-pack <name>", "--list-rule-packs"):
++        assert flag in out, out
++    _assert_nothing_written(tmp_path)
+diff --git a/plugin/test_rule_packs.py b/plugin/test_rule_packs.py
+new file mode 100644
+index 0000000..bf1b1f9
+--- /dev/null
++++ b/plugin/test_rule_packs.py
+@@ -0,0 +1,498 @@
++"""Tests for the opt-in rule-pack system (TJ-GAP-061).
++
++Two surfaces:
++
++* the shipped ``db`` pack, driven end to end through the engine's ``intercept()``
++  with a SCRATCH ``TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`` (never the host's
++  live rules dir, which may hold a stale ``00-builtins.yaml``);
++* ``scripts/rule-pack-tool.py`` — the validator the installer runs BEFORE it
++  writes anything. Its refusals are the install-time contract: bad schema,
++  malformed YAML, an id outside the pack's namespace, or an id collision with
++  an engine builtin / an already-installed rule file.
++"""
++
++from __future__ import annotations
++
++import os
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++from terminal_jail.interruptor import Action, intercept
++from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
++from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
++from terminal_jail.interruptor.rules import RuleLoader
++from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++PACKS_DIR = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs"
++DB_PACK = PACKS_DIR / "db.yaml"
++PACK_TOOL = PROJECT_ROOT / "scripts" / "rule-pack-tool.py"
++
++ENGINE_BUILTIN_COUNT = len(BUILTIN_BLOCKLIST) + len(BUILTIN_SANDBOX) + len(BUILTIN_ALLOWLIST)
++
++# The pack's positive vectors: one per rule id, with the verdict the engine
++# must produce when the pack is installed.
++DB_PACK_POSITIVES = (
++    (
++        'psql -h db.internal -c "DROP DATABASE prod_app"',
++        Action.BLOCK,
++        "pack-db-drop-database",
++    ),
++    ('mysql -e "DROP TABLE customers"', Action.BLOCK, "pack-db-drop-table"),
++    ("pg_dump mydb > /tmp/dump.sql", Action.MODIFY, "pack-db-dump-restore"),
++)
++
++# Benign controls: ordinary reads the pack must not touch (default-allow —
++# no rule matched at all, which is NOT the same as an approved allow).
++DB_PACK_BENIGN_CONTROLS = ('psql -c "SELECT 1"', 'mysql -e "SELECT 1"')
++
++
++# ---------------------------------------------------------------------------
++# fixtures / helpers
++# ---------------------------------------------------------------------------
++
++
++def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
++    """Invoke the installer's validator exactly as install.sh does."""
++    return subprocess.run(
++        [sys.executable, str(PACK_TOOL), *args],
++        capture_output=True,
++        text=True,
++        check=False,
++        cwd=str(PROJECT_ROOT),
++        timeout=60,
++    )
++
++
++def _write_pack(path: Path, body: str) -> Path:
++    path.write_text(body, encoding="utf-8")
++    return path
++
++
++def _scratch_rule_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
++    """Point the engine at a scratch rules dir + an empty system rules dir."""
++    rules_dir = tmp_path / "rules.d"
++    rules_dir.mkdir()
++    empty_system = tmp_path / "empty-system-rules.d"
++    empty_system.mkdir()
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", str(rules_dir))
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", str(empty_system))
++    return rules_dir
++
++
++@pytest.fixture()
++def installed_pack(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
++    """The shipped ``db`` pack installed under the installer's own file name."""
++    rules_dir = _scratch_rule_dirs(tmp_path, monkeypatch)
++    (rules_dir / "terminal-jail-pack-db.yaml").write_bytes(DB_PACK.read_bytes())
++    return rules_dir
++
++
++@pytest.fixture()
++def empty_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
++    """The same scratch config, but with NO pack installed."""
++    return _scratch_rule_dirs(tmp_path, monkeypatch)
++
++
++# ---------------------------------------------------------------------------
++# the shipped pack, through the live engine
++# ---------------------------------------------------------------------------
++
++
++class TestShippedDbPack:
++    """The pack is real policy: its ids fire through intercept()."""
++
++    @pytest.mark.parametrize(("command", "action", "rule_id"), DB_PACK_POSITIVES)
++    def test_each_pack_rule_fires_on_its_positive_vector(
++        self,
++        installed_pack: Path,
++        command: str,
++        action: Action,
++        rule_id: str,
++    ) -> None:
++        result = intercept(command)
++
++        assert result.rule_id == rule_id, result
++        assert result.action == action, result
++        if action == Action.MODIFY:
++            # A sandbox verdict is a rewrite, not a refusal: the command still
++            # runs, wrapped in the namespace prefix.
++            assert result.modified, result
++            assert "unshare" in result.modified
++
++    @pytest.mark.parametrize("command", DB_PACK_BENIGN_CONTROLS)
++    def test_benign_controls_are_not_attributed_to_the_pack(
++        self, installed_pack: Path, command: str
++    ) -> None:
++        result = intercept(command)
++
++        assert result.action == Action.ALLOW, result
++        assert result.rule_id is None, (result, "pack must not match an ordinary read")
++
++    def test_positive_vectors_are_unattributed_without_the_pack(
++        self, empty_rules: Path
++    ) -> None:
++        """Control: with no pack installed the same commands are default-allow."""
++        for command, _action, rule_id in DB_PACK_POSITIVES:
++            result = intercept(command)
++            assert result.action != Action.BLOCK, (command, result)
++            assert result.rule_id != rule_id, (command, result)
++            assert not str(result.rule_id or "").startswith("pack-"), (command, result)
++
++    def test_pack_file_loads_through_the_engine_loader(self, installed_pack: Path) -> None:
++        """The pack is an ordinary rules.d file: the engine's own loader reads
++        all three rules under the installer's file name."""
++        loaded = RuleLoader(
++            system_dir=str(installed_pack.parent / "empty-system-rules.d"),
++            user_dir=str(installed_pack),
++        ).load_all()
++
++        ids = {rule.id for rule in loaded.rules}
++        assert ids == {
++            "pack-db-drop-database",
++            "pack-db-drop-table",
++            "pack-db-dump-restore",
++        }, ids
++
++
++# ---------------------------------------------------------------------------
++# the installer's validator
++# ---------------------------------------------------------------------------
++
++
++class TestValidatorAccepts:
++    def test_shipped_pack_is_valid(self, tmp_path: Path) -> None:
++        rules_dir = tmp_path / "rules.d"
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++
++        assert result.returncode == 0, result.stderr
++        assert "pack 'db' valid" in result.stdout
++        assert "3 rule(s)" in result.stdout
++        assert f"{ENGINE_BUILTIN_COUNT} engine builtin ids" in result.stdout, result.stdout
++
++    def test_engine_match_types_are_derived_from_the_engine(self, tmp_path: Path) -> None:
++        """A non-pattern dispatch type is accepted, an invented one refused:
++        the valid set comes from matcher.py, not from a hardcoded list."""
++        src = tmp_path / "packs-src"
++        src.mkdir()
++        rules_dir = tmp_path / "rules.d"  # absent: nothing installed to collide with
++        pack = _write_pack(
++            src / "db.yaml",
++            "rules:\n"
++            '  - id: "pack-db-syscall"\n'
++            "    priority: 650\n"
++            "    action: sandbox\n"
++            "    match:\n"
++            "      type: syscall\n",
++        )
++        accepted = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++        assert accepted.returncode == 0, accepted.stderr
++
++        invented = _write_pack(
++            src / "invented.yaml",
++            "rules:\n"
++            '  - id: "pack-db-telepathy"\n'
++            "    priority: 650\n"
++            "    action: sandbox\n"
++            "    match:\n"
++            "      type: telepathy\n",
++        )
++        refused = _run_tool(
++            "validate", str(invented), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++        assert refused.returncode == 2, refused.stdout
++        assert "telepathy" in refused.stderr
++        assert "pattern" in refused.stderr, refused.stderr
++
++    def test_reinstall_over_its_own_file_is_not_a_self_collision(
++        self, tmp_path: Path
++    ) -> None:
++        rules_dir = tmp_path / "rules.d"
++        rules_dir.mkdir()
++        (rules_dir / "terminal-jail-pack-db.yaml").write_bytes(DB_PACK.read_bytes())
++
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++
++        assert result.returncode == 0, result.stderr
++
++
++class TestValidatorRefusals:
++    """Every refusal: exit 2, nothing written, ONE reason line on stderr."""
++
++    def _assert_refused(
++        self, result: subprocess.CompletedProcess[str], needle: str
++    ) -> None:
++        assert result.returncode == 2, (result.stdout, result.stderr)
++        assert needle in result.stderr, result.stderr
++        stderr_lines = [line for line in result.stderr.splitlines() if line.strip()]
++        assert len(stderr_lines) == 1, stderr_lines
++
++    def test_builtin_id_collision_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(
++            tmp_path / "shadow.yaml",
++            "rules:\n"
++            '  - id: "builtin-rm-rf-root"\n'
++            "    priority: 950\n"
++            "    action: block\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "zzz"\n',
++        )
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "collide with engine builtin ids")
++
++    def test_id_outside_the_pack_namespace_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(
++            tmp_path / "namespace.yaml",
++            "rules:\n"
++            '  - id: "my-own-rule"\n'
++            "    priority: 950\n"
++            "    action: block\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "zzz"\n',
++        )
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "outside the pack namespace 'pack-db-*'")
++
++    def test_schema_invalid_rule_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(
++            tmp_path / "schema.yaml",
++            "rules:\n"
++            '  - id: "pack-db-no-match"\n'
++            "    priority: 950\n"
++            "    action: block\n",
++        )
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "has no 'match' mapping")
++
++    def test_invalid_action_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(
++            tmp_path / "action.yaml",
++            "rules:\n"
++            '  - id: "pack-db-bad-action"\n'
++            "    priority: 950\n"
++            "    action: nuke\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "zzz"\n',
++        )
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "action 'nuke' is not one of")
++
++    def test_pattern_rule_without_a_pattern_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(
++            tmp_path / "nopattern.yaml",
++            "rules:\n"
++            '  - id: "pack-db-empty-pattern"\n'
++            "    priority: 950\n"
++            "    action: block\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: ""\n',
++        )
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "without a non-empty 'pattern'")
++
++    def test_malformed_yaml_is_refused_on_one_line(self, tmp_path: Path) -> None:
++        pack = _write_pack(tmp_path / "malformed.yaml", "rules: [ this : is : not : valid\n")
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        # The PyYAML ParserError is multi-line; the refusal contract is ONE line.
++        self._assert_refused(result, "cannot parse")
++
++    def test_missing_rules_key_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(tmp_path / "norules.yaml", "not_rules: []\n")
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "no top-level 'rules' key")
++
++    def test_empty_rules_list_is_refused(self, tmp_path: Path) -> None:
++        pack = _write_pack(tmp_path / "empty.yaml", "rules: []\n")
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "top-level 'rules' list is empty")
++
++    def test_duplicate_ids_inside_the_pack_are_refused(self, tmp_path: Path) -> None:
++        rule = (
++            "  - id: \"pack-db-dup\"\n"
++            "    priority: 950\n"
++            "    action: block\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "zzz"\n'
++        )
++        pack = _write_pack(tmp_path / "dup.yaml", "rules:\n" + rule + rule)
++
++        result = _run_tool(
++            "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "duplicate rule id(s) inside the pack")
++
++    def test_id_already_installed_in_the_rules_dir_is_refused(self, tmp_path: Path) -> None:
++        """The other-packs oracle: an id an installed file already carries is
++        refused (a pack must not shadow it)."""
++        rules_dir = tmp_path / "rules.d"
++        rules_dir.mkdir()
++        (rules_dir / "zz-handwritten.yaml").write_text(
++            "rules:\n"
++            '  - id: "pack-db-drop-database"\n'
++            "    priority: 900\n"
++            "    action: warn\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "drop database"\n',
++            encoding="utf-8",
++        )
++
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++
++        self._assert_refused(result, "are already installed in")
++        assert "zz-handwritten.yaml" in result.stderr, result.stderr
++
++    def test_unknown_pack_name_pattern_is_refused(self, tmp_path: Path) -> None:
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db/../evil", "--rules-dir", str(tmp_path)
++        )
++
++        self._assert_refused(result, "invalid pack name")
++
++    def test_missing_pack_file_is_refused(self, tmp_path: Path) -> None:
++        result = _run_tool(
++            "validate",
++            str(tmp_path / "absent.yaml"),
++            "--pack-name",
++            "db",
++            "--rules-dir",
++            str(tmp_path),
++        )
++
++        self._assert_refused(result, "pack file not found")
++
++    def test_unknown_option_is_refused(self, tmp_path: Path) -> None:
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db", "--bogus", "x"
++        )
++
++        self._assert_refused(result, "unknown option '--bogus'")
++
++    def test_installed_files_the_engine_cannot_parse_fail_closed(
++        self, tmp_path: Path
++    ) -> None:
++        """The engine fails OPEN on an unparseable rules file; the collision
++        oracle must not — a skipped file would make its ids invisible."""
++        rules_dir = tmp_path / "rules.d"
++        rules_dir.mkdir()
++        (rules_dir / "broken.yaml").write_text(
++            "rules: [ this : is : not : valid\n", encoding="utf-8"
++        )
++
++        result = _run_tool(
++            "validate", str(DB_PACK), "--pack-name", "db", "--rules-dir", str(rules_dir)
++        )
++
++        self._assert_refused(result, "installed rule file")
++        assert "cannot be read" in result.stderr, result.stderr
++
++
++class TestValidatorList:
++    def test_list_names_the_shipped_db_pack(self) -> None:
++        result = _run_tool("list")
++
++        assert result.returncode == 0, result.stderr
++        rows = [line.split("\t") for line in result.stdout.splitlines() if line.strip()]
++        by_name = {row[0]: row for row in rows}
++        assert "db" in by_name, result.stdout
++        name, path, count = by_name["db"]
++        assert name == "db"
++        assert Path(path) == DB_PACK
++        assert count == "3"
++
++    def test_list_rejects_arguments(self) -> None:
++        result = _run_tool("list", "extra")
++
++        assert result.returncode == 2
++        assert "takes no arguments" in result.stderr
++
++
++class TestValidatorEngineDefaults:
++    def test_rules_dir_defaults_to_the_engine_user_rules_dir(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """Without --rules-dir the validator reads the dir the ENGINE reads
++        (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR), so a manual run cannot
++        silently validate against a different rules dir than the engine loads."""
++        rules_dir = tmp_path / "engine-rules.d"
++        rules_dir.mkdir()
++        (rules_dir / "zz-handwritten.yaml").write_text(
++            "rules:\n"
++            '  - id: "pack-db-drop-table"\n'
++            "    priority: 900\n"
++            "    action: warn\n"
++            "    match:\n"
++            "      type: pattern\n"
++            '      pattern: "drop table"\n',
++            encoding="utf-8",
++        )
++        env = os.environ.copy()
++        env["TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"] = str(rules_dir)
++
++        result = subprocess.run(
++            [
++                sys.executable,
++                str(PACK_TOOL),
++                "validate",
++                str(DB_PACK),
++                "--pack-name",
++                "db",
++            ],
++            capture_output=True,
++            text=True,
++            check=False,
++            cwd=str(PROJECT_ROOT),
++            timeout=60,
++            env=env,
++        )
++
++        assert result.returncode == 2, (result.stdout, result.stderr)
++        assert "are already installed in" in result.stderr, result.stderr
+diff --git a/scripts/rule-pack-tool.py b/scripts/rule-pack-tool.py
+new file mode 100755
+index 0000000..c47dffa
+--- /dev/null
++++ b/scripts/rule-pack-tool.py
+@@ -0,0 +1,434 @@
++#!/usr/bin/env python3
++"""Rule-pack validator / lister for the terminal-jail installer (TJ-GAP-061).
++
++``install.sh`` is POSIX ``sh`` and cannot parse YAML, so every rule-pack
++decision is made here, BEFORE the installer writes anything::
++
++    rule-pack-tool.py validate <pack.yaml> --pack-name <name> [--rules-dir <dir>]
++    rule-pack-tool.py list
++    rule-pack-tool.py --help
++
++``validate`` exits 0 and prints one summary line when the pack is installable,
++and exits 2 with a ONE-LINE reason on stderr when it is refused. Refusal means
++"nothing is written" — the installer runs this first and only copies the pack
++file on exit 0.
++
++Contract enforced by ``validate``:
++
++* the file parses with the engine's own loader semantics (PyYAML
++  ``CSafeLoader`` with a ``safe_load`` fallback, then stdlib ``json`` — the same
++  chain as ``plugin/terminal_jail/interruptor/rules.py::_parse_file``);
++* it is a mapping carrying a non-empty top-level ``rules:`` list;
++* every rule carries ``id``/``action``/``match``, an ``action`` in
++  {block, sandbox, allow, warn}, a ``match.type`` the engine's matcher can
++  actually dispatch (derived from the engine at run time, never hardcoded), and
++  a non-empty ``pattern``/``regex`` for the pattern matcher;
++* every id is inside the pack's namespace ``pack-<pack-name>-*``;
++* no id repeats inside the pack, and no id collides with
++  (a) an ENGINE builtin id — derived at run time from
++  ``terminal_jail.interruptor.{blocklist,sandbox,allowlist}`` — or
++  (b) an id carried by a rule file already installed in the target rules dir,
++  so two packs can never shadow each other.
++
++The destination file ``<rules-dir>/terminal-jail-pack-<name>.yaml`` is
++EXCLUDED from (b): that is the file the installer is about to replace, so
++re-installing an already-installed pack is not a self-collision.
++
++The tool fails CLOSED where the engine fails OPEN: an installed rule file that
++cannot be parsed is a refusal (id collisions cannot be ruled out), not a
++silently skipped file.
++"""
++
++from __future__ import annotations
++
++import inspect
++import json
++import os
++import re
++import sys
++from collections import Counter
++from pathlib import Path
++from typing import Any
++
++USAGE = """usage: rule-pack-tool.py validate <pack.yaml> --pack-name <name> [--rules-dir <dir>]
++       rule-pack-tool.py list
++       rule-pack-tool.py --help
++
++validate  Refuse (exit 2, one-line reason on stderr) or accept (exit 0) a rule
++          pack before the installer copies it. Checks the schema, the
++          pack-<name>-* id namespace, and id collisions against the engine
++          builtin rule set plus every rule file installed in --rules-dir.
++list      Print <name>\\t<path>\\t<rule count> for every pack shipped next to
++          this script (plugin/terminal_jail/rules/packs/*.yaml)."""
++
++SCRIPT_DIR = Path(__file__).resolve().parent
++REPO_ROOT = SCRIPT_DIR.parent
++PACKS_DIR = REPO_ROOT / "plugin" / "terminal_jail" / "rules" / "packs"
++PLUGIN_DIR = REPO_ROOT / "plugin"
++
++PACK_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
++VALID_ACTIONS = ("block", "sandbox", "allow", "warn")
++PACK_FILE_PREFIX = "terminal-jail-pack-"
++PACK_FILE_SUFFIX = ".yaml"
++
++
++class PackParseError(Exception):
++    """A rule document that could not be read under engine semantics."""
++
++
++def _refuse(reason: str) -> int:
++    """Print a one-line refusal on stderr and return the refusal exit code."""
++    print(f"rule-pack-tool: refused: {reason}", file=sys.stderr)
++    return 2
++
++
++# ---------------------------------------------------------------------------
++# engine-derived facts (never a hardcoded list)
++# ---------------------------------------------------------------------------
++
++
++def _import_engine(module: str) -> Any:
++    """Import a ``terminal_jail.interruptor`` submodule from the repo checkout."""
++    if str(PLUGIN_DIR) not in sys.path:
++        sys.path.insert(0, str(PLUGIN_DIR))
++    import importlib
++
++    return importlib.import_module(module)
++
++
++def _engine_builtin_ids() -> set[str]:
++    """The rule ids the engine ships as builtins (blocklist/sandbox/allowlist)."""
++    blocklist = _import_engine("terminal_jail.interruptor.blocklist").BUILTIN_BLOCKLIST
++    sandbox = _import_engine("terminal_jail.interruptor.sandbox").BUILTIN_SANDBOX
++    allowlist = _import_engine("terminal_jail.interruptor.allowlist").BUILTIN_ALLOWLIST
++    return {rule.id for rule in [*blocklist, *sandbox, *allowlist]}
++
++
++def _engine_match_types() -> set[str]:
++    """The match types the engine's matcher can dispatch.
++
++    Derived from ``Matcher.match_segment``'s dispatch table in the engine
++    source, so a pack can never declare a type the engine would silently
++    ignore (an unknown type returns a non-match and the rule never fires).
++    """
++    matcher = _import_engine("terminal_jail.interruptor.matcher")
++    dispatch_src = inspect.getsource(matcher.Matcher.match_segment)
++    return set(re.findall(r'"([a-z_]+)"\s*:\s*self\._match_\w+', dispatch_src))
++
++
++# ---------------------------------------------------------------------------
++# document loading (engine semantics)
++# ---------------------------------------------------------------------------
++
++
++def _load_document(path: Path) -> Any:
++    """Parse one rule document the way the engine's loader does.
++
++    ``rules.py::_parse_file`` tries PyYAML (``CSafeLoader`` when libyaml is
++    available, else ``safe_load``) and falls back to stdlib ``json`` only when
++    PyYAML is missing. Mirrored here so a pack that the engine could load is
++    never refused for a parsing difference.
++    """
++    with open(path) as handle:  # engine opens without an explicit encoding
++        content = handle.read()
++
++    try:
++        import yaml
++
++        if hasattr(yaml, "CSafeLoader"):
++            return yaml.load(content, Loader=yaml.CSafeLoader)
++        return yaml.safe_load(content)
++    except ImportError:
++        return json.loads(content)
++
++
++def _load_rule_entries(path: Path, *, require_rules_key: bool) -> list[Any]:
++    """Return the top-level ``rules`` list of a rule document.
++
++    Raises ``PackParseError`` when the document is not a mapping, when the
++    ``rules`` key is missing (only when ``require_rules_key`` — the engine
++    itself defaults a missing key to an empty list) or is not a list.
++    """
++    try:
++        data = _load_document(path)
++    except Exception as exc:
++        # A PyYAML ParserError is multi-line; the refusal contract is exactly
++        # ONE line on stderr, so the parser text is folded onto one.
++        detail = " ".join(f"{exc.__class__.__name__}: {exc}".split())
++        raise PackParseError(f"cannot parse ({detail})") from exc
++
++    if not isinstance(data, dict):
++        raise PackParseError("top-level document is not a YAML mapping")
++
++    if require_rules_key and "rules" not in data:
++        raise PackParseError("no top-level 'rules' key")
++
++    raw = data.get("rules", [])
++    if not isinstance(raw, list):
++        raise PackParseError("top-level 'rules' key is not a list")
++    return raw
++
++
++# ---------------------------------------------------------------------------
++# collision oracle
++# ---------------------------------------------------------------------------
++
++
++def _installed_rule_ids(rules_dir: Path, exclude: Path) -> list[tuple[str, Path]]:
++    """``(rule id, file)`` for every ``*.yaml``/``*.yml`` rule file installed.
++
++    Fails closed: a file the engine could not parse is an error here, because
++    a parser failure would make its ids invisible to the collision check.
++    """
++    found: list[tuple[str, Path]] = []
++    if not rules_dir.is_dir():
++        return found
++
++    for path in sorted(rules_dir.iterdir()):
++        if path.suffix not in (".yaml", ".yml"):
++            continue
++        if path.resolve() == exclude.resolve():
++            continue
++        try:
++            entries = _load_rule_entries(path, require_rules_key=False)
++        except PackParseError as exc:
++            raise PackParseError(
++                f"installed rule file {path} cannot be read ({exc}) — "
++                "id collisions cannot be ruled out"
++            ) from exc
++        for entry in entries:
++            if isinstance(entry, dict):
++                rule_id = entry.get("id")
++                if isinstance(rule_id, str) and rule_id:
++                    found.append((rule_id, path))
++    return found
++
++
++# ---------------------------------------------------------------------------
++# subcommands
++# ---------------------------------------------------------------------------
++
++
++def _parse_named_options(args: list[str], allowed: tuple[str, ...]) -> tuple[dict, list[str]]:
++    """Split ``args`` into option values and positionals (``--opt value``/``=``).
++
++    Kept hand-rolled (no argparse) because a refusal must be exactly ONE line
++    on stderr — argparse would dump usage blocks.
++    """
++    options: dict[str, str] = {}
++    positionals: list[str] = []
++    index = 0
++    while index < len(args):
++        arg = args[index]
++        if arg.startswith("--"):
++            name, sep, inline = arg.partition("=")
++            key = name[2:]
++            if key not in allowed:
++                raise ValueError(f"unknown option {name!r}")
++            if sep:
++                value = inline
++            else:
++                index += 1
++                if index >= len(args):
++                    raise ValueError(f"option {name!r} requires a value")
++                value = args[index]
++            options[key] = value
++        elif arg.startswith("-") and arg != "-":
++            raise ValueError(f"unknown option {arg!r}")
++        else:
++            positionals.append(arg)
++        index += 1
++    return options, positionals
++
++
++def cmd_validate(args: list[str]) -> int:
++    """Validate one pack file for installation into the resolved rules dir."""
++    try:
++        options, positionals = _parse_named_options(args, ("pack-name", "rules-dir"))
++    except ValueError as exc:
++        return _refuse(f"{exc} (try: rule-pack-tool.py --help)")
++
++    if len(positionals) != 1:
++        return _refuse(
++            "validate takes exactly one pack file path "
++            f"(got {len(positionals)}) — see rule-pack-tool.py --help"
++        )
++    pack_path = Path(positionals[0])
++
++    pack_name = options.get("pack-name")
++    if pack_name is None:
++        return _refuse("validate requires --pack-name <name>")
++    if not PACK_NAME_RE.fullmatch(pack_name):
++        return _refuse(
++            f"invalid pack name {pack_name!r} (expected [a-z0-9][a-z0-9-]*)"
++        )
++
++    if not pack_path.is_file():
++        return _refuse(f"pack file not found: {pack_path}")
++
++    try:
++        builtin_ids = _engine_builtin_ids()
++        match_types = _engine_match_types()
++    except Exception as exc:  # noqa: BLE001 — refusal path: any failure refuses
++        return _refuse(
++            "cannot read the engine rule constants "
++            f"({exc.__class__.__name__}: {exc}) — refusing rather than "
++            "validating against a guessed list"
++        )
++    if not builtin_ids:
++        return _refuse("the engine reported an empty builtin rule set — refusing")
++    if not match_types:
++        return _refuse(
++            "cannot derive the engine's match types from "
++            "interruptor/matcher.py — refusing"
++        )
++
++    try:
++        entries = _load_rule_entries(pack_path, require_rules_key=True)
++    except PackParseError as exc:
++        return _refuse(f"{pack_path}: {exc}")
++
++    if not entries:
++        return _refuse(
++            f"{pack_path}: top-level 'rules' list is empty — a pack that "
++            "installs no rule is refused"
++        )
++
++    id_re = re.compile(rf"pack-{re.escape(pack_name)}-[a-z0-9][a-z0-9-]*")
++    ids: list[str] = []
++    for position, entry in enumerate(entries):
++        where = f"rules[{position}]"
++        if not isinstance(entry, dict):
++            return _refuse(f"{pack_path}: {where} is not a mapping")
++        rule_id = entry.get("id")
++        if not isinstance(rule_id, str) or not rule_id:
++            return _refuse(f"{pack_path}: {where} has no 'id'")
++        action = entry.get("action")
++        if action not in VALID_ACTIONS:
++            return _refuse(
++                f"{pack_path}: {where} ({rule_id}) action {action!r} is not one "
++                f"of {list(VALID_ACTIONS)}"
++            )
++        match = entry.get("match")
++        if not isinstance(match, dict) or not match:
++            return _refuse(f"{pack_path}: {where} ({rule_id}) has no 'match' mapping")
++        match_type = match.get("type", "pattern")  # the matcher's own default
++        if match_type not in match_types:
++            return _refuse(
++                f"{pack_path}: {where} ({rule_id}) match type {match_type!r} is "
++                f"not dispatchable by the engine (valid: {sorted(match_types)})"
++            )
++        if match_type == "pattern":
++            pattern = match.get("pattern") or match.get("regex")
++            if not isinstance(pattern, str) or not pattern.strip():
++                return _refuse(
++                    f"{pack_path}: {where} ({rule_id}) is a pattern rule without "
++                    "a non-empty 'pattern'/'regex'"
++                )
++        ids.append(rule_id)
++
++    # Check order is deliberate: the COLLISION oracles run before the namespace
++    # check so a pack that tries to shadow a builtin is refused for exactly that
++    # reason instead of being masked by "id outside the pack namespace".
++    duplicates = sorted({rule_id for rule_id in ids if ids.count(rule_id) > 1})
++    if duplicates:
++        return _refuse(
++            f"{pack_path}: duplicate rule id(s) inside the pack: {duplicates}"
++        )
++
++    builtin_hits = sorted(set(ids) & builtin_ids)
++    if builtin_hits:
++        return _refuse(
++            f"{pack_path}: rule id(s) {builtin_hits} collide with engine builtin "
++            "ids — a pack may never shadow a builtin"
++        )
++
++    namespace_violations = [
++        (position, rule_id)
++        for position, rule_id in enumerate(ids, start=1)
++        if not id_re.fullmatch(rule_id)
++    ]
++    if namespace_violations:
++        position, rule_id = namespace_violations[0]
++        return _refuse(
++            f"{pack_path}: rules[{position - 1}] id {rule_id!r} is outside the "
++            f"pack namespace 'pack-{pack_name}-*'"
++        )
++
++    rules_dir = Path(
++        options.get("rules-dir")
++        or os.environ.get("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR")
++        or str(Path.home() / ".config" / "terminal-jail" / "rules.d")
++    )
++    destination = rules_dir / f"{PACK_FILE_PREFIX}{pack_name}{PACK_FILE_SUFFIX}"
++    try:
++        installed = _installed_rule_ids(rules_dir, exclude=destination)
++    except PackParseError as exc:
++        return _refuse(f"{exc}")
++
++    installed_hits = sorted(
++        {rule_id for rule_id, _ in installed if rule_id in set(ids)}
++    )
++    if installed_hits:
++        sources = sorted(
++            {
++                str(path)
++                for rule_id, path in installed
++                if rule_id in set(installed_hits)
++            }
++        )
++        return _refuse(
++            f"{pack_path}: rule id(s) {installed_hits} are already installed in "
++            f"{rules_dir} ({', '.join(sources)}) — refusing to shadow them"
++        )
++
++    counts = Counter(entry["action"] for entry in entries)
++    breakdown = ", ".join(f"{count} {action}" for action, count in sorted(counts.items()))
++    print(
++        f"rule-pack-tool: pack '{pack_name}' valid — {len(entries)} rule(s) "
++        f"({breakdown}); checked against {len(builtin_ids)} engine builtin ids "
++        f"and {len(installed)} installed rule id(s) in {rules_dir}; installs to "
++        f"{destination}"
++    )
++    return 0
++
++
++def cmd_list(args: list[str]) -> int:
++    """Print ``<name>\\t<path>\\t<rule count>`` for every shipped pack."""
++    if args:
++        return _refuse(
++            f"list takes no arguments (got {len(args)}) — see rule-pack-tool.py --help"
++        )
++    if not PACKS_DIR.is_dir():
++        return _refuse(f"no rule packs directory at {PACKS_DIR}")
++
++    rows: list[tuple[str, Path, int]] = []
++    for path in sorted(PACKS_DIR.glob("*.yaml")):
++        try:
++            entries = _load_rule_entries(path, require_rules_key=True)
++        except PackParseError as exc:
++            return _refuse(f"shipped pack {path} cannot be read ({exc})")
++        rows.append((path.stem, path, len(entries)))
++
++    for name, path, count in rows:
++        print(f"{name}\t{path}\t{count}")
++    return 0
++
++
++def main(argv: list[str]) -> int:
++    if not argv:
++        print(USAGE, file=sys.stderr)
++        return 2
++    command = argv[0]
++    if command in ("-h", "--help", "help"):
++        print(USAGE)
++        return 0
++    if command == "validate":
++        return cmd_validate(argv[1:])
++    if command == "list":
++        return cmd_list(argv[1:])
++    return _refuse(f"unknown subcommand {command!r} (expected 'validate' or 'list')")
++
++
++if __name__ == "__main__":
++    sys.exit(main(sys.argv[1:]))
+diff --git a/specs/cli.md b/specs/cli.md
+index 5596a9a..5224df2 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -373,15 +373,62 @@ Release documentation must replace `<project-host>` with the canonical HTTPS hos
+ 
+ ### Installer inputs and defaults
+ 
+-| Variable | Default | Meaning |
++| Variable / flag | Default | Meaning |
+ |---|---|---|
+ | `TERMINAL_JAIL_VERSION` | Current stable release version | Optional pinned release version. `latest` is allowed only if project policy explicitly supports it. |
+ | `TERMINAL_JAIL_INSTALL_DIR` | `$HOME/.local/bin` | Installation directory. |
+-| `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
++| `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`) AND for every opt-in rule pack (`terminal-jail-pack-<name>.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
+ | `TERMINAL_JAIL_BASE_URL` | Canonical release base URL | Release endpoint used to download the Bash wrapper and its checksum. |
++| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below); an unknown pack, a malformed/invalid pack, or an id collision exits `2` with nothing written. |
++| `--unrule-pack <name>` | off | Remove an installed rule pack. Deletes exactly `<rules dir>/terminal-jail-pack-<name>.yaml` — never `00-builtins.yaml` and never another pack. Idempotent: a pack that is not installed is reported and the install continues. |
++| `--list-rule-packs` | off | Print `<name>` TAB `<path>` TAB `<rule count>` for every pack in the checkout and exit `0` without writing anything. |
++| `-h`, `--help` | off | Print the installer usage (including the flags above) and exit `0`. |
++| any other argument | — | Unknown flags are refused: exit `2`, one message, nothing written. The installer never ignores an argument it does not understand. |
++
++Flags are parsed before any `mkdir` or write, so a refused flag (or a refused
++pack) leaves the filesystem untouched. Pack names are restricted to `[a-z0-9-]`
++so the derived file name cannot escape the rules directory.
+ 
+ Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
+ 
++### Rule packs (`--rule-pack`, TJ-GAP-061)
++
++The default rule set stays lean and identical on every host; niche policy ships
++as an opt-in **rule pack**, selected per host at install time. A pack is a
++curated YAML rule file under `plugin/terminal_jail/rules/packs/<name>.yaml`,
++installed by byte-copy to `<resolved rules dir>/terminal-jail-pack-<name>.yaml`
++— the SAME directory the scope rule above resolves for `00-builtins.yaml`. There
++is exactly one notion of "rules dir" in the installer.
++
++Installation is **fail-closed, validated before any write**:
++
++1. POSIX `sh` cannot parse YAML, so the installer delegates every check to
++   `scripts/rule-pack-tool.py validate <pack> --pack-name <name> --rules-dir <dir>`
++   (the validator exits `0` with one summary line, or `2` with one reason line on
++   stderr).
++2. The validator parses the pack with the engine's own loader semantics, then
++   requires: a top-level `rules:` list; per rule an `id`, an `action` in
++   `{block, sandbox, allow, warn}`, a `match` mapping whose `type` the engine's
++   matcher can dispatch (derived from `interruptor/matcher.py` at run time), and a
++   non-empty `pattern`/`regex` for pattern rules; every id inside the pack's
++   namespace `pack-<name>-*`; no repeated id inside the pack.
++3. **Collision oracle:** an id equal to an ENGINE builtin id (derived at run time
++   from `terminal_jail.interruptor.{blocklist,sandbox,allowlist}`) or equal to an
++   id carried by any rule file already installed in the target rules dir is
++   refused. A pack may never shadow a builtin or another pack. The destination
++   file itself is exempt, so re-installing a pack is not a self-collision.
++4. `python3` is therefore required to install a pack: with no `python3` on
++   `PATH` the installer refuses the pack with a clear message instead of copying
++   it unvalidated. `--unrule-pack` needs no Python.
++5. Rule packs need the **repository checkout** (local mode) — release mode ships
++   no pack source, so both knobs are refused there (exit `2`, nothing written).
++6. Every refusal leaves **nothing** behind: the pack phase runs before the
++   install section's `mkdir` and before the wrapper is copied.
++
++Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
++contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)
++are specified in `specs/interruptor.md` §3.4.
++
+ The script must reject an empty/unset `HOME` with a diagnostic; it must not fall back to `/` or a system location.
+ 
+ ### Platform detection
+diff --git a/specs/interruptor.md b/specs/interruptor.md
+index 6deca0c..345a5ca 100644
+--- a/specs/interruptor.md
++++ b/specs/interruptor.md
+@@ -104,6 +104,62 @@ rules:
+ | `timeout` | varies | Command wrapped in `timeout N` before execution |
+ | `sandbox` | varies | Command prefixed with `unshare` + `--seccomp` |
+ 
++### 3.4 Rule Packs and the Precedence Contract (TJ-GAP-061)
++
++The default rule set is deliberately lean and identical on every host. Niche
++policy ships as an **opt-in rule pack** instead: a curated rule file at
++`plugin/terminal_jail/rules/packs/<name>.yaml`, installed per host by
++`./install.sh --rule-pack <name>` to
++`<resolved user rules dir>/terminal-jail-pack-<name>.yaml` (see `specs/cli.md`
++§8 for the resolution rule and the flag contract). Installing a pack writes that
++one file; `--unrule-pack <name>` removes that one file and touches nothing else.
++
++**Precedence: engine builtins < packs < user `rules.d` files.** Concretely:
++
++1. **Engine builtins first, in their own layers.** `builtin-*` / `auto-*` /
++   `allow-*` rules keep their layers: the critical blocklist (including the
++   decider's whole-command pass), then the always-allow list, then the
++   auto-sandbox tier. A pack rule carries a NEW id, so the decider places it in
++   its last layer (new-id user rules, priority order, first match wins) — after
++   every builtin layer. A pack therefore cannot reorder, weaken, or bypass a
++   builtin layer.
++2. **A pack id may NEVER equal a builtin id — install-time refusal, not silent
++   override.** `scripts/rule-pack-tool.py validate` refuses a pack (exit 2, one
++   reason line on stderr, nothing written) if any of its ids equals an id in the
++   engine's builtin set — derived at run time from
++   `terminal_jail.interruptor.{blocklist,sandbox,allowlist}` — or equals an id
++   carried by any rule file already installed in the target rules dir. Rationale:
++   a `rules.d` entry with a builtin id REPLACES that builtin in its layer
++   (same-id override), so without the refusal a pack could silently downgrade —
++   or resurrect — a builtin rule.
++3. **Packs load before the user's own files by filename.** Inside a rules dir
++   the loader reads `*.yaml`/`*.yml` in lexical filename order, and a same-id
++   rule replaces the earlier one (the user dir also overrides the system dir).
++   `00-builtins.yaml` < `terminal-jail-pack-<name>.yaml` < `zz-*.yaml`: a user
++   file sorting after a pack can same-id override any pack rule — that is the
++   escape hatch (override a pack rule to `warn`, or repoint its pattern at local
++   policy). The installer never relies on that filename order to resolve a
++   conflict silently: a collision it can see is refused *before* the copy.
++4. **Pack ids are namespaced `pack-<pack-name>-*`.** The validator builds the
++   accepted id set from the pack name the installer passes, so a pack can
++   neither impersonate another pack's ids nor carry an unprefixed id that would
++   compete in the builtin namespace.
++5. **Pack priorities sit between the builtin tiers:** 950 for pack `block`
++   rules, 650 for pack `sandbox` rules (builtin tiers: 1000 blocklist, 700
++   auto-sandbox, 500 always-allow). Those numbers order a pack's own rules —
++   and any user rule sharing the last layer — against each other. The layer
++   order in (1) is structural and is NOT affected by a priority value: a pack
++   `block` at 950 still evaluates after the builtin always-allow list.
++
++Verified by `plugin/test_rule_packs.py` (the shipped pack's ids fire through
++`intercept()`, benign controls stay default-allow) and `plugin/test_install.py`
++(install/uninstall, refusals write nothing).
++
++Residual, stated rather than implied: the installer only inspects the resolved
++USER rules dir (plus the engine's builtin set). A rule a root administrator
++dropped into `/etc/terminal-jail/rules.d/` carrying a `pack-*` id is not visible
++to it, and the user-dir pack would override that same-id system rule.
++
+ ## 4. Built-in Default Rules
+ 
+ These ship with the interruptor and CANNOT be removed (only overridden to `warn` level):

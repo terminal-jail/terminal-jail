@@ -866,3 +866,22 @@ tasks:
   status: complete
   created_at: '2026-09-19T04:19:51.943524+00:00'
   completed_at: '2026-09-19T04:27:51.774195+00:00'
+- id: TJ-GAP-061
+  title: 'Rule-pack system: opt-in curated rule sets (rules/packs/*.yaml) selectable
+    at install time, explicit precedence contract'
+  criteria:
+  - install.sh accepts repeatable --rule-pack <name>, --unrule-pack <name> and --list-rule-packs;
+    a scratch-prefix install writes <resolved rules dir>/terminal-jail-pack-<name>.yaml
+  - 'the engine loads the installed pack: a live intercept/bridge probe returns the
+    pack rule id (pack-<name>-*) with the pack installed, and does not without it'
+  - 'id-collision contract: a pack rule whose id collides with an engine builtin id,
+    or with an already-installed pack, is REFUSED (non-zero exit, no file written)'
+  - schema-invalid pack is refused at install time (non-zero exit, nothing written);
+    --unrule-pack removes only that pack file and leaves other rules intact
+  - each shipped pack has its own test file exercising its rules through intercept();
+    full suite green via .venv/bin/python -m pytest -q
+  - README documents the packs (what each blocks + opt-in stance) and specs/cli.md
+    installer-inputs table documents the new flags
+  status: complete
+  created_at: '2026-09-19T04:43:40.905162+00:00'
+  completed_at: '2026-09-19T05:02:48.807240+00:00'
