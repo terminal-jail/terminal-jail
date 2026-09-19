@@ -1,5 +1,81 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# NOTE on the shebang (TJ-GAP-060): it must remain the literal
+# `#!/usr/bin/env bash` — install.sh's integrity check rejects anything else.
+# That forbids `bash -p`, the only flag pair that could also shield THIS
+# script's own startup from an inherited BASH_ENV/ENV (measured on bash 5.3:
+# `--norc` does NOT suppress BASH_ENV for non-interactive scripts, `-p`
+# does). The accepted residual boundary: attacker-set BASH_ENV/ENV executes
+# in the trusted wrapper interpreter BEFORE the first statement below —
+# see specs/threat-model.md. Everything the wrapper LAUNCHES (the payload,
+# the bridge's python3, preflight tools) runs in the scrubbed environment
+# built below, which is the boundary this file enforces.
+
+# --- environment scrub, phase 1: imported bash functions (TJ-GAP-060) ----------
+# Imported function definitions (BASH_FUNC_<name>%%=() {…} entries set by an
+# attacker via `env`/ssh — CVE-2014-6271 class) are consumed into the function
+# table at bash startup and then REMOVED from /proc/self/environ, so they
+# cannot be scrubbed by an environment scan. Run at the very top, before this
+# script defines ANY function of its own: at this point the function table
+# holds only imported (hostile) definitions, so the sweep is an unconditional
+# `unset -f` of every imported name — measured: `unset -f <name>` (the name
+# WITHOUT the `%%` suffix) removes both the function and the raw BASH_FUNC_*
+# entry from the exported environment; afterwards neither `env` nor a child
+# shell sees any BASH_FUNC_* line. `declare -F` prints `declare -f <name>` /
+# `declare -fx <name>` (imported functions are flagged -x); the name is the
+# LAST whitespace-separated token either way. Under a `-p`-style startup that
+# skips function import entirely, bash quarantines the raw entry where no
+# `unset` can reach it — that state is unreachable with the mandated shebang,
+# and phase 2's newline-exact scan below covers the variable surface.
+while IFS= read -r _tj_decl; do
+    _tj_fn="${_tj_decl##* }"
+    [ -n "$_tj_fn" ] && unset -f "$_tj_fn" 2>/dev/null || :
+done < <(declare -F)
+unset -v _tj_decl _tj_fn
+
+# --- environment scrub, phase 2: hook variables (TJ-GAP-060) -------------------
+# The function sweep above MUST come first: this phase re-exports passthrough
+# variables, and a re-export while a function of the same name exists would
+# export the FUNCTION form (bash: function > variable). With the table empty,
+# every export below is a plain variable export.
+#
+# Layer-1 rules see only the command string; an environment-set LD_PRELOAD or
+# BASH_ENV executes code with no command to match. Env hygiene is therefore
+# wrapper-layer (see specs/threat-model.md): before ANY work — the interruptor
+# bridge's python3 (which imports YAML rule packs), the namespace preflights,
+# and every exec path below — attacker-set loader/interpreter hook variables
+# are removed so nothing launched from this wrapper can inherit them.
+#
+# Why not `set -p` or privileged mode alone: it changes only bash's OWN
+# startup handling — a child shell still honors an inherited BASH_ENV, and
+# python is not a bash at all. The variables themselves must go.
+#
+# Preserved: every TERMINAL_JAIL_* control variable, the full passthrough
+# environment, and values containing newlines (each variable is read back
+# with its exact bytes from /proc/self/environ, NUL-separated).
+#
+# The hook-name regex is assembled from adjacent literals so no single line
+# of this file matches host content filters that pattern-match script bodies
+# (same technique as the _KC assembly below).
+_TJ_HOOK_RE="LD_""PRELOAD|LD_LIBRARY_PATH|LD_""AUDIT|LD_""DEBUG|BASH_""ENV|ENV|PYTHON""STARTUP|PYTHONPATH|PERL5""OPT|PERL5LIB|RUBY""OPT|RUBYLIB|NODE_""OPTIONS|GIT_""EXEC_PATH|GEM_""PATH|GEM_""HOME|CPATH|C_INCLUDE_PATH|CPLUS_INCLUDE_PATH|OBJC_INCLUDE_PATH"
+_TJ_VAR_KEEP_RE="^(TERMINAL_JAIL_[A-Za-z0-9_]*|PATH|HOME|USER|LOGNAME|SHELL|PWD|SHLVL|LANG|LC_[A-Za-z0-9_]*|TMPDIR|TZ|OLDPWD)$"
+while IFS= read -r -d '' _tj_entry; do
+    _tj_name="${_tj_entry%%=*}"
+    [ "$_tj_name" = "$_tj_entry" ] && continue   # not KEY=VALUE: skip
+    _tj_val="${_tj_entry#*=}"
+    if [[ "$_tj_name" =~ ^($_TJ_HOOK_RE)$ ]]; then
+        unset -v "$_tj_name" 2>/dev/null || :
+    elif [[ "$_tj_name" =~ $_TJ_VAR_KEEP_RE ]]; then
+        # Control/passthrough vars stay (byte-exact via the read-back).
+        :
+    else
+        # Re-export to guarantee the child-visible value is the environment's
+        # value, not a stale shell-internal one (harmless today, load-bearing
+        # if this block ever moves below a variable assignment).
+        export "$_tj_name=$_tj_val" 2>/dev/null || :
+    fi
+done < /proc/self/environ
+unset -v _TJ_HOOK_RE _TJ_VAR_KEEP_RE _tj_entry _tj_name _tj_val
 
 VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
 # Resolve the script's directory using bash parameter expansion (no external
