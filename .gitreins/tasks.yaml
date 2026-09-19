@@ -796,3 +796,33 @@ tasks:
   status: complete
   created_at: '2026-09-18T23:45:28.437315+00:00'
   completed_at: '2026-09-19T00:01:57.517525+00:00'
+- id: DF-TERMINAL-JAIL-16
+  title: Block raw-socket data exfiltration and stop allow-cat-safe approving a net-client
+    pipe source
+  criteria:
+  - 'A bare raw-socket network client (nc/ncat/netcat/socat) that receives a LOCAL
+    FILE payload is BLOCKED with a builtin-net-* rule id: ''cat <file> | nc host port'',
+    ''cat <file> | nc -u host port'', ''dd if=<file> | nc host port'', ''<netclient>
+    host port < <file>'', ''socat - TCP:host:port < <file>''. Inline/generated payloads
+    (echo ... | nc host port) and port checks (nc -z host port) keep their current
+    verdicts.'
+  - 'allow-cat-safe no longer returns an APPROVED verdict (rule_id=allow-cat-safe)
+    for a segment that feeds a raw network client: the exfil layer is evaluated before
+    the always-allow short-circuit for those pipeline shapes. Verified by bridge probe:
+    the ''cat <secret> | nc host port'' verdict is block with the exfil rule id, never
+    rule_id=allow-cat-safe.'
+  - 'engine and YAML mirror stay in parity: every new rule id exists in plugin/terminal_jail/rules/00-builtins.yaml
+    with an identical pattern; scripts/yaml-mirror-parity-probe.py reports ALL PROBES
+    PASS with re-baselined totals; plugin/test_packaging.py mirror id-set/layer-count/pattern-parity
+    tests pass.'
+  - 'Regression tests assert verdict AND rule id per vector (block vectors + ALLOW/MODIFY
+    controls: nc -z port check, echo|nc, cat log | grep, cat log | python3 deploy.py
+    MODIFY, curl -T MODIFY, rsync whole-tree MODIFY), and the new block tests FAIL
+    against the pre-fix engine.'
+  - .venv/bin/python -m pytest -q reports 0 failures (>=435 passed baseline) and uvx
+    ruff check . reports no problems; README.md + specs/interruptor.md state the residual
+    data-out boundary (ssh/rsync/scp/git-push/curl-over-sandbox is NOT network-contained)
+    as a named limitation; live bridge probes on the committed tree reproduce every
+    claimed verdict.
+  status: in_progress
+  created_at: '2026-09-19T00:39:06.253314+00:00'
