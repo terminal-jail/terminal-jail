@@ -846,3 +846,23 @@ tasks:
   status: complete
   created_at: '2026-09-19T03:25:33.852366+00:00'
   completed_at: '2026-09-19T03:49:59.897715+00:00'
+- id: DF-TERMINAL-JAIL-7
+  title: State the real scope of the world-writable-path block message + docs (DF-TERMINAL-JAIL-7)
+  criteria:
+  - bridge probe {"command":"chmod 777 /tmp/tjprobe/work"} returns action=block rule_id=builtin-chmod-777-root
+    with a reason that names an absolute /-rooted path and does NOT claim the scope
+    is root (/) only
+  - engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML
+    mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text
+    stating the refused shape, the absolute-path scope, that relative/~ targets are
+    allowed, and the same-id warn override
+  - 'rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777
+    /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root
+    while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full
+    plugin suite is green'
+  - plugin/test_interruptor.py pins the corrected message with needles a wrong message
+    would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md
+    no longer present 'chmod 777 /' as the full scope
+  status: complete
+  created_at: '2026-09-19T04:19:51.943524+00:00'
+  completed_at: '2026-09-19T04:27:51.774195+00:00'

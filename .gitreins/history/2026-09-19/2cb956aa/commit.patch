@@ -1,0 +1,183 @@
+commit 62d06e671c6c91f7b6496f7b44700ae4e312f5f5
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Sep 18 23:22:44 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Sep 18 23:22:44 2026 -0500
+
+    fix(interruptor): state the real scope of the world-writable-path block (DF-TERMINAL-JAIL-7)
+    
+    The `builtin-chmod-777-root` block message and description claimed the rule
+    scopes to root ("Setting world-writable permissions on root (/) is blocked"),
+    while the pattern's target is `\s+/` — it fires on ANY absolute /-rooted path.
+    A live probe blocked `chmod 777 /tmp/tjprobe/work` with that root-only reason.
+    
+    Message (plugin/terminal_jail/interruptor/blocklist.py +
+    plugin/terminal_jail/rules/00-builtins.yaml, byte-identical text):
+    - names the refused shape: chmod making a path world-writable (777 / 7777 /
+      a+rwx, `-R`/`--recursive` optional),
+    - names the scope that actually fires: any absolute (/-rooted) target
+      (/tmp/work, /var/www, /etc), not only root (/),
+    - states that relative and ~-rooted targets keep their ALLOW verdict,
+    - names the documented override: a same-id user rule in
+      ~/.config/terminal-jail/rules.d/ set to warn level.
+    - description: "World-writable root" -> "World-writable absolute path".
+    
+    Id, pattern, priority and action are untouched — rule behaviour is unchanged
+    and re-probed: `chmod 777 /`, `chmod -R 777 /`, `chmod --recursive 777 /`,
+    `chmod a+rwx /`, `chmod 7777 /`, `chmod -R 777 /etc` still block under
+    `builtin-chmod-777-root`; `chmod 777 tjwork`, `chmod 777 ~/tjwork` and
+    `chmod 755 /` still allow.
+    
+    Test: plugin/test_interruptor.py::test_block_messages_state_shape_and_scope
+    gains `builtin-chmod-777-root` needles (chmod, 7777, a+rwx, recursive,
+    absolute, relative, ~/, rules.d, warn level); the pre-fix root-only message
+    fails them (RED verified by reverting only the message).
+    
+    Docs: README.md, specs/interruptor.md (real pattern + accurate reason),
+    specs/integration.md and skills/terminal-jail-usage/SKILL.md pitfall #1 no
+    longer present `chmod 777 /` as the rule's full scope.
+    
+    Gates: `.venv/bin/python -m pytest plugin -q` -> 821 passed, 5 skipped;
+    `uvx ruff check .` -> All checks passed.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md                                     |  2 +-
+ plugin/terminal_jail/interruptor/blocklist.py |  4 ++--
+ plugin/terminal_jail/rules/00-builtins.yaml   |  4 ++--
+ plugin/test_interruptor.py                    | 18 ++++++++++++++++++
+ skills/terminal-jail-usage/SKILL.md           | 17 ++++++++++++-----
+ specs/integration.md                          |  2 +-
+ specs/interruptor.md                          |  2 +-
+ 7 files changed, 37 insertions(+), 12 deletions(-)
+
+diff --git a/README.md b/README.md
+index 5d42a52..d2a17bb 100644
+--- a/README.md
++++ b/README.md
+@@ -141,7 +141,7 @@ Rule IDs are stable — tests assert behavior by ID.
+   - `builtin-dd-root` — raw device write (`dd of=/dev/sd*`)
+   - `builtin-mkfs` — filesystem creation (`mkfs.*`)
+   - `builtin-fdisk` — partition manipulation (`fdisk`)
+-  - `builtin-chmod-777-root` — world-writable root (`chmod 777 /`; `chmod 000 /` is NOT blocked — scope is the world-writable variant)
++  - `builtin-chmod-777-root` — world-writable **absolute** path (`chmod 777`/`7777`/`a+rwx`, with `-R`/`--recursive` optional, on ANY `/`-rooted target — `/tmp/work` and `/var/www` are blocked, not only root `/`; relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets are ALLOWED, and `chmod 000 /` is NOT blocked — scope is the world-writable variant)
+   - `builtin-echo-to-system` — redirect output to system paths (`echo … > /etc/…` etc.)
+   - `builtin-curl-pipe-shell` — `curl|sh` / `wget|sh` pipe-to-shell
+   - `builtin-sudo` — privilege escalation (`sudo`)
+diff --git a/plugin/terminal_jail/interruptor/blocklist.py b/plugin/terminal_jail/interruptor/blocklist.py
+index ff05ba1..c7e0d3a 100644
+--- a/plugin/terminal_jail/interruptor/blocklist.py
++++ b/plugin/terminal_jail/interruptor/blocklist.py
+@@ -135,10 +135,10 @@ BUILTIN_BLOCKLIST: list[Rule] = [
+     ),
+     Rule(
+         rule_id="builtin-chmod-777-root",
+-        description="World-writable root",
++        description="World-writable absolute path",
+         priority=1000,
+         action="block",
+-        block_message="Setting world-writable permissions on root (/) is blocked.",
++        block_message="Blocked: chmod making a path world-writable — mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target — `/tmp/work`, `/var/www`, `/etc` — not only root (`/`). Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict, as do non-world-writable modes on absolute paths (`chmod 755 /`). Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/` if a legitimate workflow needs a world-writable absolute path.",
+         match={
+             "type": "pattern",
+             # World-writable mode on a /-rooted path (TJ-DF-011): the mode
+diff --git a/plugin/terminal_jail/rules/00-builtins.yaml b/plugin/terminal_jail/rules/00-builtins.yaml
+index 60fd408..b5eb9d1 100644
+--- a/plugin/terminal_jail/rules/00-builtins.yaml
++++ b/plugin/terminal_jail/rules/00-builtins.yaml
+@@ -97,10 +97,10 @@ rules:
+       pattern: "fdisk|parted|gdisk"
+ 
+   - id: "builtin-chmod-777-root"
+-    description: "World-writable root"
++    description: "World-writable absolute path"
+     priority: 1000
+     action: block
+-    block_message: "Setting world-writable permissions on root (/) is blocked."
++    block_message: "Blocked: chmod making a path world-writable — mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target — `/tmp/work`, `/var/www`, `/etc` — not only root (`/`). Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict, as do non-world-writable modes on absolute paths (`chmod 755 /`). Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/` if a legitimate workflow needs a world-writable absolute path."
+     match:
+       type: pattern
+       # World-writable mode on a /-rooted path (TJ-DF-011): mode token
+diff --git a/plugin/test_interruptor.py b/plugin/test_interruptor.py
+index 4511bfa..3221ab2 100644
+--- a/plugin/test_interruptor.py
++++ b/plugin/test_interruptor.py
+@@ -1322,6 +1322,24 @@ class TestNetworkUploadRuleRegistry:
+             "builtin-net-wget-post-file": ("wget", "--post-file", "non-secret", "warn level"),
+             "builtin-net-curl-form-upload": ("curl", "-f", "non-secret", "warn level"),
+             "builtin-net-remote-tree-copy": ("rsync", "scp", "non-secret", "warn level"),
++            # DF-TERMINAL-JAIL-7: this rule fires on ANY absolute /-rooted
++            # target (not only root), so the message must state that scope
++            # rather than naming `chmod 777 /` as the whole rule. A root-only
++            # message ("Setting world-writable permissions on root (/) is
++            # blocked.") fails every needle below — it names no mode token
++            # beyond the bare default, no scope word, no allowance and no
++            # override path.
++            "builtin-chmod-777-root": (
++                "chmod",
++                "7777",
++                "a+rwx",
++                "recursive",
++                "absolute",
++                "relative",
++                "~/",
++                "rules.d",
++                "warn level",
++            ),
+         }
+         for rule_id, needles in expectations.items():
+             # needles are lower-case on purpose: the message is lower-cased
+diff --git a/skills/terminal-jail-usage/SKILL.md b/skills/terminal-jail-usage/SKILL.md
+index 4bc554e..46b3c92 100644
+--- a/skills/terminal-jail-usage/SKILL.md
++++ b/skills/terminal-jail-usage/SKILL.md
+@@ -131,11 +131,18 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
+ 
+ ## Common pitfalls (current as of 2026-08-22)
+ 
+-1. **`chmod -R 777 /` is now BLOCKED** (TJ-DF-011 fixed, verified live
+-   2026-08-22): the world-writable-root rule is token-aware/order-
+-   independent — `chmod -R 777 /`, `chmod --recursive 777 /`,
+-   `chmod a+rwx /`, `chmod 7777 /`, `chmod -R 777 /etc` ALL block with
+-   `builtin-chmod-777-root`; benign `chmod 755 /` still allows.
++1. **World-writable `chmod` on ANY absolute path is BLOCKED** (TJ-DF-011
++   fixed, verified live 2026-08-22; scope corrected and stated in the
++   message by DF-TERMINAL-JAIL-7): the world-writable rule is token-aware/
++   order-independent and matches by SCOPE, not by root — `chmod 777 /`,
++   `chmod -R 777 /`, `chmod --recursive 777 /`, `chmod a+rwx /`,
++   `chmod 7777 /`, `chmod -R 777 /etc` and any other `/`-rooted target
++   such as `chmod 777 /tmp/work` ALL block with `builtin-chmod-777-root`.
++   Relative targets (`chmod 777 work`) and `~`-rooted targets
++   (`chmod 777 ~/work`) are ALLOWED, as is benign `chmod 755 /`. If a
++   legitimate workflow needs a world-writable absolute path, override this
++   id to `action: warn` with a same-id rule in
++   `~/.config/terminal-jail/rules.d/`.
+ 2. **Same-ID `action: warn` override surfaces a warning** (TJ-DF-012
+    fixed): command runs (allow) but the CLI prints a WARN line with the
+    would-have-blocked reason on stderr. Use it for downgraded-rule
+diff --git a/specs/integration.md b/specs/integration.md
+index dad5073..069be12 100644
+--- a/specs/integration.md
++++ b/specs/integration.md
+@@ -172,7 +172,7 @@ A restricted address-family policy is not automatically a universal egress deny.
+ The Interruptor Bash engine adds a pre-execution command evaluation layer that operates before any namespace or syscall boundary is crossed:
+ 
+ - **Parsing:** Commands are tokenized into structured segments (commands, arguments, pipes, redirects, heredocs, command substitutions, variable expansions) before any rule matching occurs.
+-- **Blocklist (critical, priority 1000):** 12 rules that always block — recursive root deletion (`rm -rf /`), fork bombs (`:(){ :|:& };:`), mass process kill (`kill -9 -1`), process-group kill targeting PID 1 or own process group (`killpg`/`kill` on 0/1), raw device writes (`dd if=/... of=/dev/sda`), filesystem creation (`mkfs.*`), partition manipulation (`fdisk`), world-writable root (`chmod 777 /`), output redirection to system paths (`echo ... > /etc/...`), download-to-shell pipes (`curl | sh`, `wget | bash`), privilege escalation (`sudo`), and code-injection vectors in interpreter arguments (`os.system(`, `subprocess.run(`, `eval(`, `exec(` — scanned in quoted interpreter code too, TJ-GAP-042). They cannot be removed; a same-ID user rule may downgrade one to `warn` only.
++- **Blocklist (critical, priority 1000):** 12 rules that always block — recursive root deletion (`rm -rf /`), fork bombs (`:(){ :|:& };:`), mass process kill (`kill -9 -1`), process-group kill targeting PID 1 or own process group (`killpg`/`kill` on 0/1), raw device writes (`dd if=/... of=/dev/sda`), filesystem creation (`mkfs.*`), partition manipulation (`fdisk`), world-writable absolute paths (`chmod 777`/`7777`/`a+rwx`, recursive optional, on any `/`-rooted target such as `/` or `/tmp/work` — relative and `~`-rooted targets are not matched), output redirection to system paths (`echo ... > /etc/...`), download-to-shell pipes (`curl | sh`, `wget | bash`), privilege escalation (`sudo`), and code-injection vectors in interpreter arguments (`os.system(`, `subprocess.run(`, `eval(`, `exec(` — scanned in quoted interpreter code too, TJ-GAP-042). They cannot be removed; a same-ID user rule may downgrade one to `warn` only.
+ - **Auto-sandbox (priority 700):** 8 rules that wrap commands in an unshare PID namespace — test runners (`pytest`/`tox`/`nose`, `npm test`/`npx vitest`/`npx jest`, `go test`), build tools (`make`, `cargo build`/`cargo test`, `gcc`/`g++`/`clang++`), package installers (`pip install`), and script execution (`./foo.sh`, `./foo.py`, `./foo.rb`). The command is rewritten as `unshare --user --pid --fork bash -c '...'`. Plain network downloads (`curl -o`, `wget`), package-manager updates (`apt-get update`), and container queries (`docker ps`) are NOT auto-sandboxed; the only network-pipeline protection is the blocklist rule for download-to-shell pipes (`curl | sh`, `wget | bash`) above.
+ - **Allowlist (priority 500):** 10 rules that always pass — `echo`, `ls`, `pwd`, `cd`, `which`/`command -v`, `grep`, `find` (without `-exec`/`-delete`), `cat` on non-sensitive paths (excluding `/etc`, `/boot`, `/proc`, `/sys`), `git status`/`log`/`diff`, and `python ... --version`.
+ - **User rules (future):** Loaded from `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/` in lexical order with user rules overriding system rules.
+diff --git a/specs/interruptor.md b/specs/interruptor.md
+index ee80ca5..6deca0c 100644
+--- a/specs/interruptor.md
++++ b/specs/interruptor.md
+@@ -118,7 +118,7 @@ These ship with the interruptor and CANNOT be removed (only overridden to `warn`
+ | `builtin-dd-root` | `dd\s+.*of=/dev/` | Raw device write |
+ | `builtin-mkfs` | `mkfs\..*` | Filesystem creation |
+ | `builtin-fdisk` | `fdisk|parted|gdisk` | Partition manipulation |
+-| `builtin-chmod-777-root` | `chmod\s+777\s+/` | World-writable root |
++| `builtin-chmod-777-root` | `\bchmod\s+(?=[^|;&]*(?<!\S)(?:7777|777|a\+rwx)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)?[^|;&]*\s+/` | World-writable absolute path — ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed (TJ-DF-011) |
+ | `builtin-echo-to-system` | `>.*>/etc/|>.*>/boot/` | Redirect to system paths |
+ | `builtin-curl-pipe-shell` | `curl.*\||wget.*\||.*\|\s*(ba)?sh` | Pipe to shell from network |
+ | `builtin-sudo` | `sudo\s` | Privilege escalation |

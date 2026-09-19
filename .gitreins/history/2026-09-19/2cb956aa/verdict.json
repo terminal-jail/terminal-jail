@@ -1,0 +1,135 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-7",
+  "task_title": "State the real scope of the world-writable-path block message + docs (DF-TERMINAL-JAIL-7)",
+  "task_criteria": [
+    "bridge probe {\"command\":\"chmod 777 /tmp/tjprobe/work\"} returns action=block rule_id=builtin-chmod-777-root with a reason that names an absolute /-rooted path and does NOT claim the scope is root (/) only",
+    "engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text stating the refused shape, the absolute-path scope, that relative/~ targets are allowed, and the same-id warn override",
+    "rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full plugin suite is green",
+    "plugin/test_interruptor.py pins the corrected message with needles a wrong message would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md no longer present 'chmod 777 /' as the full scope"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "62d06e671c6c91f7b6496f7b44700ae4e312f5f5",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T042747.253407Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n11:27PM INF scanned ~3855313 bytes (3.86 MB) in 769ms\n11:27PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 120 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T042747.253407Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 826 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [ 10%]\n........................................................................ [ 19%]\n............................................................             [ 26%]\nplugin/test_install.py ............................                      [ 30%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 44%]\n........................................................................ [ 53%]\n........................................................................ [ 61%]\n........................................................................ [ 70%]\n....................................................                     [ 76%]\nplugin/test_interruptor_integration.py .............s................... [ 80%]\n...                                                                      [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 87%]\nplugin/test_seccomp.py .........................................sss      [ 92%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 821 passed, 5 skipped in 22.59s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T042747.253407Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 bridge probe {\"command\":\"chmod 777 /tmp/tjprobe/work\"} returns action=block rule_id=builtin-chmod-777-root with a reason that names an absolute /-rooted path and does NOT claim the scope is root (/) only: Ran `echo '{\"command\":\"chmod 777 /tmp/tjprobe/work\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"rule_id\": \"builtin-chmod-777-root\", \"reason\": \"Blocked: chmod making a path world-writable \u2014 mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`). ...\"}. Reason names absolute /-rooted paths and explicitly denies root-only scope.\n  \u2713 engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text stating the refused shape, the absolute-path scope, that relative/~ targets are allowed, and the same-id warn override: Python comparison of the two extracted strings: PY len 573, YAML len 573, IDENTICAL: True (blocklist.py:141 vs 00-builtins.yaml:103). Text states refused shape (mode `777`, `7777` or `a+rwx`, `-R`/`--recursive` optional), absolute-path scope ('fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`)'), relative/~ allowed ('Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict'), and same-id warn override ('Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/`').\n  \u2713 rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full plugin suite is green: Live intercept() run: 'chmod 777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /' -> block builtin-chmod-777-root; 'chmod --recursive 777 /' -> block builtin-chmod-777-root; 'chmod a+rwx /' -> block builtin-chmod-777-root; 'chmod 7777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /etc' -> block builtin-chmod-777-root; 'chmod 777 relative' -> allow; 'chmod 777 ~/x' -> allow; 'chmod 755 /' -> allow. Full plugin suite: `.venv/bin/python -m pytest plugin/ -q --tb=short` -> '821 passed, 5 skipped in 20.43s', exit_code 0.\n  \u2713 plugin/test_interruptor.py pins the corrected message with needles a wrong message would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md no longer present 'chmod 777 /' as the full scope: test_interruptor.py:1310-1355 test_block_messages_state_shape_and_scope pins builtin-chmod-777-root with needles ('chmod','7777','a+rwx','recursive','absolute','relative','~/','rules.d','warn level'); comment at 1327-1331 states a root-only message ('Setting world-writable permissions on root (/) is blocked.') fails every needle. Docs: README.md:144 'on ANY `/`-rooted target \u2014 `/tmp/work` and `/var/www` are blocked, not only root `/`; relative ... and `~`-rooted ... are ALLOWED'; specs/interruptor.md:121 'ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed' (line 534 T-I10 is a test-case listing, not a scope claim); specs/integration.md:175 'on any `/`-rooted target such as `/` or `/tmp/work` \u2014 relative and `~`-rooted targets are not matched'; SKILL.md:135-146 'scope corrected and stated in the message by DF-TERMINAL-JAIL-7 ... matches by SCOPE, not by root' with all variants plus /tmp/work and the relative/~ allowances. No doc presents 'chmod 777 /' as the full scope.\nAll four criteria verified with live bridge probe output, byte-identical message comparison, live rule-behaviour checks, and a green 821-passed plugin suite.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 bridge probe {\"command\":\"chmod 777 /tmp/tjprobe/work\"} returns action=block rule_id=builtin-chmod-777-root with a reason that names an absolute /-rooted path and does NOT claim the scope is root (/) only: Ran `echo '{\"command\":\"chmod 777 /tmp/tjprobe/work\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"rule_id\": \"builtin-chmod-777-root\", \"reason\": \"Blocked: chmod making a path world-writable \u2014 mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`). ...\"}. Reason names absolute /-rooted paths and explicitly denies root-only scope.\n  \u2713 engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text stating the refused shape, the absolute-path scope, that relative/~ targets are allowed, and the same-id warn override: Python comparison of the two extracted strings: PY len 573, YAML len 573, IDENTICAL: True (blocklist.py:141 vs 00-builtins.yaml:103). Text states refused shape (mode `777`, `7777` or `a+rwx`, `-R`/`--recursive` optional), absolute-path scope ('fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`)'), relative/~ allowed ('Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict'), and same-id warn override ('Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/`').\n  \u2713 rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full plugin suite is green: Live intercept() run: 'chmod 777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /' -> block builtin-chmod-777-root; 'chmod --recursive 777 /' -> block builtin-chmod-777-root; 'chmod a+rwx /' -> block builtin-chmod-777-root; 'chmod 7777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /etc' -> block builtin-chmod-777-root; 'chmod 777 relative' -> allow; 'chmod 777 ~/x' -> allow; 'chmod 755 /' -> allow. Full plugin suite: `.venv/bin/python -m pytest plugin/ -q --tb=short` -> '821 passed, 5 skipped in 20.43s', exit_code 0.\n  \u2713 plugin/test_interruptor.py pins the corrected message with needles a wrong message would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md no longer present 'chmod 777 /' as the full scope: test_interruptor.py:1310-1355 test_block_messages_state_shape_and_scope pins builtin-chmod-777-root with needles ('chmod','7777','a+rwx','recursive','absolute','relative','~/','rules.d','warn level'); comment at 1327-1331 states a root-only message ('Setting world-writable permissions on root (/) is blocked.') fails every needle. Docs: README.md:144 'on ANY `/`-rooted target \u2014 `/tmp/work` and `/var/www` are blocked, not only root `/`; relative ... and `~`-rooted ... are ALLOWED'; specs/interruptor.md:121 'ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed' (line 534 T-I10 is a test-case listing, not a scope claim); specs/integration.md:175 'on any `/`-rooted target such as `/` or `/tmp/work` \u2014 relative and `~`-rooted targets are not matched'; SKILL.md:135-146 'scope corrected and stated in the message by DF-TERMINAL-JAIL-7 ... matches by SCOPE, not by root' with all variants plus /tmp/work and the relative/~ allowances. No doc presents 'chmod 777 /' as the full scope.\nAll four criteria verified with live bridge probe output, byte-identical message comparison, live rule-behaviour checks, and a green 821-passed plugin suite.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "bridge probe {\"command\":\"chmod 777 /tmp/tjprobe/work\"} returns action=block rule_id=builtin-chmod-777-root with a reason that names an absolute /-rooted path and does NOT claim the scope is root (/) only",
+                "status": "PASS",
+                "detail": "Ran `echo '{\"command\":\"chmod 777 /tmp/tjprobe/work\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"rule_id\": \"builtin-chmod-777-root\", \"reason\": \"Blocked: chmod making a path world-writable \u2014 mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`). ...\"}. Reason names absolute /-rooted paths and explicitly denies root-only scope."
+              },
+              {
+                "criterion": "engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text stating the refused shape, the absolute-path scope, that relative/~ targets are allowed, and the same-id warn override",
+                "status": "PASS",
+                "detail": "Python comparison of the two extracted strings: PY len 573, YAML len 573, IDENTICAL: True (blocklist.py:141 vs 00-builtins.yaml:103). Text states refused shape (mode `777`, `7777` or `a+rwx`, `-R`/`--recursive` optional), absolute-path scope ('fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`)'), relative/~ allowed ('Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict'), and same-id warn override ('Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/`')."
+              },
+              {
+                "criterion": "rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full plugin suite is green",
+                "status": "PASS",
+                "detail": "Live intercept() run: 'chmod 777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /' -> block builtin-chmod-777-root; 'chmod --recursive 777 /' -> block builtin-chmod-777-root; 'chmod a+rwx /' -> block builtin-chmod-777-root; 'chmod 7777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /etc' -> block builtin-chmod-777-root; 'chmod 777 relative' -> allow; 'chmod 777 ~/x' -> allow; 'chmod 755 /' -> allow. Full plugin suite: `.venv/bin/python -m pytest plugin/ -q --tb=short` -> '821 passed, 5 skipped in 20.43s', exit_code 0."
+              },
+              {
+                "criterion": "plugin/test_interruptor.py pins the corrected message with needles a wrong message would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md no longer present 'chmod 777 /' as the full scope",
+                "status": "PASS",
+                "detail": "test_interruptor.py:1310-1355 test_block_messages_state_shape_and_scope pins builtin-chmod-777-root with needles ('chmod','7777','a+rwx','recursive','absolute','relative','~/','rules.d','warn level'); comment at 1327-1331 states a root-only message ('Setting world-writable permissions on root (/) is blocked.') fails every needle. Docs: README.md:144 'on ANY `/`-rooted target \u2014 `/tmp/work` and `/var/www` are blocked, not only root `/`; relative ... and `~`-rooted ... are ALLOWED'; specs/interruptor.md:121 'ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed' (line 534 T-I10 is a test-case listing, not a scope claim); specs/integration.md:175 'on any `/`-rooted target such as `/` or `/tmp/work` \u2014 relative and `~`-rooted targets are not matched'; SKILL.md:135-146 'scope corrected and stated in the message by DF-TERMINAL-JAIL-7 ... matches by SCOPE, not by root' with all variants plus /tmp/work and the relative/~ allowances. No doc presents 'chmod 777 /' as the full scope."
+              }
+            ],
+            "summary": "All four criteria verified with live bridge probe output, byte-identical message comparison, live rule-behaviour checks, and a green 821-passed plugin suite."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-7\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 bridge probe {\"command\":\"chmod 777 /tmp/tjprobe/work\"} returns action=block rule_id=builtin-chmod-777-root with a reason that names an absolute /-rooted path and does NOT claim the scope is root (/) only: Ran `echo '{\"command\":\"chmod 777 /tmp/tjprobe/work\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"rule_id\": \"builtin-chmod-777-root\", \"reason\": \"Blocked: chmod making a path world-writable \u2014 mode `777`, `7777` or `a+rwx`, with `-R`/`--recursive` optional. The rule matches by SCOPE, not by root: it fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`). ...\"}. Reason names absolute /-rooted paths and explicitly denies root-only scope.\n  \u2713 engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text stating the refused shape, the absolute-path scope, that relative/~ targets are allowed, and the same-id warn override: Python comparison of the two extracted strings: PY len 573, YAML len 573, IDENTICAL: True (blocklist.py:141 vs 00-builtins.yaml:103). Text states refused shape (mode `777`, `7777` or `a+rwx`, `-R`/`--recursive` optional), absolute-path scope ('fires on ANY absolute (`/`-rooted) target \u2014 `/tmp/work`, `/var/www`, `/etc` \u2014 not only root (`/`)'), relative/~ allowed ('Relative (`chmod 777 work`) and `~`-rooted (`chmod 777 ~/work`) targets keep their ALLOW verdict'), and same-id warn override ('Override this id to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/`').\n  \u2713 rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full plugin suite is green: Live intercept() run: 'chmod 777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /' -> block builtin-chmod-777-root; 'chmod --recursive 777 /' -> block builtin-chmod-777-root; 'chmod a+rwx /' -> block builtin-chmod-777-root; 'chmod 7777 /' -> block builtin-chmod-777-root; 'chmod -R 777 /etc' -> block builtin-chmod-777-root; 'chmod 777 relative' -> allow; 'chmod 777 ~/x' -> allow; 'chmod 755 /' -> allow. Full plugin suite: `.venv/bin/python -m pytest plugin/ -q --tb=short` -> '821 passed, 5 skipped in 20.43s', exit_code 0.\n  \u2713 plugin/test_interruptor.py pins the corrected message with needles a wrong message would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md no longer present 'chmod 777 /' as the full scope: test_interruptor.py:1310-1355 test_block_messages_state_shape_and_scope pins builtin-chmod-777-root with needles ('chmod','7777','a+rwx','recursive','absolute','relative','~/','rules.d','warn level'); comment at 1327-1331 states a root-only message ('Setting world-writable permissions on root (/) is blocked.') fails every needle. Docs: README.md:144 'on ANY `/`-rooted target \u2014 `/tmp/work` and `/var/www` are blocked, not only root `/`; relative ... and `~`-rooted ... are ALLOWED'; specs/interruptor.md:121 'ANY `/`-rooted target blocks (`/`, `/tmp/work`, `/var/www`), not only root; relative and `~`-rooted targets are allowed' (line 534 T-I10 is a test-case listing, not a scope claim); specs/integration.md:175 'on any `/`-rooted target such as `/` or `/tmp/work` \u2014 relative and `~`-rooted targets are not matched'; SKILL.md:135-146 'scope corrected and stated in the message by DF-TERMINAL-JAIL-7 ... matches by SCOPE, not by root' with all variants plus /tmp/work and the relative/~ allowances. No doc presents 'chmod 777 /' as the full scope.\nAll four criteria verified with live bridge probe output, byte-identical message comparison, live rule-behaviour checks, and a green 821-passed plugin suite.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T04:29:05.925309",
+  "evidence": {
+    "collected_at": "2026-09-19T04:29:05.943105+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 14182,
+        "truncated": false,
+        "source": "git show 62d06e671c6c"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6020,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-7"
+  }
+}
