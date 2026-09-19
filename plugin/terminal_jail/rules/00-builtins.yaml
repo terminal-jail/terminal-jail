@@ -3,8 +3,8 @@
 # ~/.config/terminal-jail/rules.d/00-builtins.yaml (user rules dir the engine
 # loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
-# These reflect the same 50 rules hardcoded in the Python engine
-# (28 blocklist / 12 sandbox / 10 allow). Rule ids AND pattern strings must stay
+# These reflect the same 54 rules hardcoded in the Python engine
+# (31 blocklist / 13 sandbox / 10 allow). Rule ids AND pattern strings must stay
 # byte-identical to the engine constants: install.sh copies this file into the
 # user rules dir, where same-id override REPLACES the builtin.
 
@@ -340,6 +340,51 @@ rules:
       # so `nc host port < /dev/null` keeps its ALLOW verdict.
       pattern: "(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s[^|;&]*(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))\\S"
 
+  # ---------------------------------------------------------------------------
+  # DF-TERMINAL-JAIL-17 interpreter egress. DF-TERMINAL-JAIL-16 blocked the
+  # raw-socket half of data-out; the INTERPRETER half was still default-allow:
+  # a `python3 -c` reverse shell built on socket + fd duplication, and a
+  # urllib/requests upload whose body is a local file. Blocklist rules are
+  # matched against the WHOLE command string first (then per segment), so a
+  # `sh -c` / `bash -c` wrapper around the same payload needs no separate rule.
+  # Both halves of the transfer must be present for every rule, so harmless
+  # interpreter one-liners keep their ALLOW verdict. Patterns are byte-identical
+  # to the engine constants (gated by scripts/yaml-mirror-parity-probe.py).
+  # ---------------------------------------------------------------------------
+  - id: "builtin-interp-egress-socket-shell"
+    description: "Interpreter socket reverse shell (socket connect + fd duplication / pty)"
+    priority: 1000
+    action: block
+    block_message: "Interpreter reverse shell is blocked: a Python socket is created and connected, then wired into a duplicated file descriptor or pty (`socket.socket()`/`create_connection()` + `.connect(` + `os.dup2(`/`pty.spawn(`). The rule matches by SHAPE — a plain socket client with no fd handoff is NOT matched — and it does not cover Perl/Ruby/Node sockets, nc/socat (separate rules), a `subprocess` fd handoff (already blocked by builtin-code-injection), or an API name hidden behind an indirection."
+    match:
+      type: pattern
+      # socket constructor + connect + fd-handoff (`os.dup2(`/`dup2(`/`pty.spawn(`).
+      # The fd-handoff half deliberately excludes `subprocess` (already blocked by
+      # builtin-code-injection), so one vector has one stable rule id.
+      pattern: "(?=[\\s\\S]*(?:\\bsocket\\.(?:socket|create_connection)\\s*\\(|\\bsocket\\s*\\(\\s*\\)))(?=[\\s\\S]*(?:\\.connect\\s*\\(|create_connection\\s*\\())(?=[\\s\\S]*(?:\\b(?:os\\.)?dup2\\s*\\(|\\bpty\\.spawn\\s*\\())"
+
+  - id: "builtin-interp-egress-socket-file"
+    description: "Interpreter raw-socket send of a local file (file exfiltration)"
+    priority: 1000
+    action: block
+    block_message: "Interpreter file exfiltration is blocked: a Python socket is connected and `send`/`sendall`/`sendfile` is handed a LOCAL-FILE read or file object (`open(...).read()`, `open(..., 'rb')`, `read_bytes()`, `read_text()`). The rule matches by SHAPE — it also fires on non-secret files — and it does not cover a payload built in memory (`sendall(b'…')`) or a file read served through another library."
+    match:
+      type: pattern
+      # socket constructor + `send`/`sendall` + a LOCAL-FILE read.
+      # In-memory payloads (`sendall(b'...')`) stay allowed.
+      pattern: "(?=[\\s\\S]*(?:\\bsocket\\.(?:socket|create_connection)\\s*\\(|\\bsocket\\s*\\(\\s*\\)))(?=[\\s\\S]*\\.send(?:all|file)?\\s*\\()(?=[\\s\\S]*(?:open\\s*\\([^)]*\\)\\s*\\.read(?:lines)?\\s*\\(|open\\s*\\([^)]*,\\s*['\\\"][rb]{1,2}['\\\"]|read_bytes\\s*\\(|read_text\\s*\\())"
+
+  - id: "builtin-interp-egress-http-file"
+    description: "Interpreter HTTP upload of a local file (file exfiltration)"
+    priority: 1000
+    action: block
+    block_message: "Interpreter file exfiltration is blocked: an HTTP client call (urlopen / requests.post|put|patch / httpx.post|put|patch / http.client / urllib.request.Request / `<conn>.request('POST', …)`) is given a LOCAL-FILE read as its body (`open(...).read()`, `open(..., 'rb')`, `files={'f': open(...)}`, `read_bytes()`). The rule matches by SHAPE — it also fires on non-secret files and on `json=json.load(open(<file>))` bodies — and it does not cover inline bodies (`json={...}`, `data=b'...'`), non-HTTP interpreters, or a hidden API name. Override to warn level if a legitimate workflow needs it."
+    match:
+      type: pattern
+      # HTTP client call + a LOCAL-FILE read as the body. Inline bodies
+      # (`json={...}`, `data=b'...'`) stay allowed.
+      pattern: "(?=[\\s\\S]*(?:urlopen\\s*\\(|requests\\s*\\.\\s*(?:post|put|patch)\\s*\\(|httpx\\s*\\.\\s*(?:post|put|patch)\\s*\\(|http\\s*\\.\\s*client\\s*\\.|urllib\\s*\\.\\s*request\\s*\\.\\s*Request\\s*\\(|\\.request\\s*\\(\\s*['\\\"](?:POST|PUT|PATCH)['\\\"]))(?=[\\s\\S]*(?:open\\s*\\([^)]*\\)\\s*\\.read(?:lines)?\\s*\\(|open\\s*\\([^)]*,\\s*['\\\"][rb]{1,2}['\\\"]|read_bytes\\s*\\(|read_text\\s*\\())"
+
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block
   # =============================================================================
@@ -440,6 +485,22 @@ rules:
       # Local-file payloads only (-T/--upload-file, --data* @file, -d @file).
       # Inline bodies (`curl -X POST -d '{...}'`) keep their ALLOW verdict.
       pattern: "(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])(?:-T|--upload-file)\\b|(?<![\\w.-])curl\\b[^|;&]*--data(?:-binary|-raw|-urlencode)?[= ]@\\S+|(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])-d\\s*@\\S+"
+
+  - id: "builtin-net-curl-form-upload"
+    description: "curl multipart form upload of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: curl sending a local file as a multipart form field (-F/--form with an @file or <file payload) in isolated namespace. The namespace wrap contains the filesystem view, not the socket — it is not an egress control (only a block rule stops an upload)."
+    match:
+      type: pattern
+      # Multipart file payloads only: `name=@path` (upload with filename)
+      # and `name=<path` (content-only). Inline fields (`-F 'name=value'`)
+      # and `--form-string` keep their ALLOW verdict. `(?-i:-F)` keeps the
+      # short flag case-sensitive under the matcher's re.IGNORECASE, so
+      # `curl -fsSL <url>` is never read as a form upload; `[\s\S]*?`
+      # (instead of the usual `[^|;&]*`) spans a quoted URL that carries
+      # `&` before the flag — a sandbox over-match only costs a wrap.
+      pattern: "(?<![\\w.-])curl\\b[\\s\\S]*?(?:(?-i:-F)|--form)(?![-\\w])(?:=|\\s+)?[^|;&\\s]*=(?:@|<)\\S+"
 
   - id: "builtin-net-wget-post-file"
     description: "wget POST of a local file (staged exfil)"

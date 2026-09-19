@@ -490,4 +490,79 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             "pattern": r"(?<![\w.-])(?:nc|ncat|netcat|socat)\s[^|;&]*(?<!<)<(?!<|&)\s*(?!/dev/(?:null|stdin)(?![\w.-]))\S",
         },
     ),
+    # ── DF-TERMINAL-JAIL-17 interpreter-egress family (probe 2026-09-18) ─────
+    # ── DF-TERMINAL-JAIL-16 closed the raw-socket half of the data-out gap. ──
+    # ── The INTERPRETER half was still default-allow: a `python3 -c` reverse ─
+    # ── shell built on socket + fd duplication, and a urllib/requests upload ─
+    # ── whose body is a local file, were plain ALLOW verdicts. A `sh -c` / ───
+    # ── `bash -c` wrapper does NOT need its own rule: blocklist rules are ────
+    # ── evaluated against the whole command string (and then per segment), ───
+    # ── and the wrapped payload's text is present in that string either way, ─
+    # ── so the wrapper cannot hide a shape these patterns can see. ───────────
+    # Action: BLOCK. These are the exfiltration/escape half of the interpreter
+    # surface — same call as the DF-16 file-exfil rules — while harmless
+    # interpreter one-liners stay ALLOW (see the pinned controls in
+    # plugin/test_escape_waves.py).
+    #
+    # Shape discipline: every rule requires BOTH halves of the transfer to be
+    # present in the command string (a network primitive AND the fd/pty handoff
+    # or the local-file read). A lone `socket.socket(); …connect(…)` client, a
+    # bare `urlopen(<url>)`, a lone `os.dup2(1, 2)`, or `grep -rn 'socket.socket' src/`
+    # match only ONE half and keep their pre-existing verdict.
+    #
+    # The lookaheads deliberately cross `;` and `|` (`[\s\S]*`) for the same
+    # reason the mkfifo rule does: the canonical vectors carry `;` INSIDE the
+    # quoted interpreter program, which a segment-local `[^|;&]*` cannot span.
+    # Cost: two unrelated halves in one compound command could over-match — the
+    # trade is deliberate (fail loud on the exfil shape, not silently allow it).
+    # Residual (documented in README "Data-Out Boundary"): Perl/Ruby/Node
+    # sockets, payloads assembled in memory, an indirection that hides the API
+    # name (getattr/importlib/base64), and any transfer whose network call is
+    # not one of the primitives named below.
+    Rule(
+        rule_id="builtin-interp-egress-socket-shell",
+        description="Interpreter socket reverse shell (socket connect + fd duplication / pty)",
+        priority=1000,
+        action="block",
+        block_message="Interpreter reverse shell is blocked: a Python socket is created and connected, then wired into a duplicated file descriptor or pty (`socket.socket()`/`create_connection()` + `.connect(` + `os.dup2(`/`pty.spawn(`). The rule matches by SHAPE — a plain socket client with no fd handoff is NOT matched — and it does not cover Perl/Ruby/Node sockets, nc/socat (separate rules), a `subprocess` fd handoff (already blocked by builtin-code-injection), or an API name hidden behind an indirection.",
+        match={
+            "type": "pattern",
+            # The fd-handoff half is deliberately `os.dup2(`/`dup2(`/`pty.spawn(` only.
+            # A `subprocess.call(..., stdin=s.fileno())` handoff is NOT claimed here:
+            # builtin-code-injection (a pre-existing blocklist rule) already matches
+            # any `subprocess.(call|run|Popen|check_output)(`, and claiming the same
+            # vector from two rules makes the reported id depend on rule ORDER —
+            # which shifts when a host installs the shipped YAML as same-id user
+            # overrides (overrides are appended, not substituted in place). One
+            # vector, one stable rule id.
+            # Arm A accepts both spellings of the socket constructor: the
+            # attribute form (`socket.socket(`, `socket.create_connection(`) and
+            # the bare form a `from socket import socket` program produces
+            # (`s = socket()`). Without the bare form, importing the name
+            # directly was a one-token bypass of the whole family.
+            "pattern": r"(?=[\s\S]*(?:\bsocket\.(?:socket|create_connection)\s*\(|\bsocket\s*\(\s*\)))(?=[\s\S]*(?:\.connect\s*\(|create_connection\s*\())(?=[\s\S]*(?:\b(?:os\.)?dup2\s*\(|\bpty\.spawn\s*\())",
+        },
+    ),
+    Rule(
+        rule_id="builtin-interp-egress-socket-file",
+        description="Interpreter raw-socket send of a local file (file exfiltration)",
+        priority=1000,
+        action="block",
+        block_message="Interpreter file exfiltration is blocked: a Python socket is connected and `send`/`sendall`/`sendfile` is handed a LOCAL-FILE read or file object (`open(...).read()`, `open(..., 'rb')`, `read_bytes()`, `read_text()`). The rule matches by SHAPE — it also fires on non-secret files — and it does not cover a payload built in memory (`sendall(b'…')`) or a file read served through another library.",
+        match={
+            "type": "pattern",
+            "pattern": r"(?=[\s\S]*(?:\bsocket\.(?:socket|create_connection)\s*\(|\bsocket\s*\(\s*\)))(?=[\s\S]*\.send(?:all|file)?\s*\()(?=[\s\S]*(?:open\s*\([^)]*\)\s*\.read(?:lines)?\s*\(|open\s*\([^)]*,\s*['\"][rb]{1,2}['\"]|read_bytes\s*\(|read_text\s*\())",
+        },
+    ),
+    Rule(
+        rule_id="builtin-interp-egress-http-file",
+        description="Interpreter HTTP upload of a local file (file exfiltration)",
+        priority=1000,
+        action="block",
+        block_message="Interpreter file exfiltration is blocked: an HTTP client call (urlopen / requests.post|put|patch / httpx.post|put|patch / http.client / urllib.request.Request / `<conn>.request('POST', …)`) is given a LOCAL-FILE read as its body (`open(...).read()`, `open(..., 'rb')`, `files={'f': open(...)}`, `read_bytes()`). The rule matches by SHAPE — it also fires on non-secret files and on `json=json.load(open(<file>))` bodies — and it does not cover inline bodies (`json={...}`, `data=b'...'`), non-HTTP interpreters, or a hidden API name. Override to warn level if a legitimate workflow needs it.",
+        match={
+            "type": "pattern",
+            "pattern": r"(?=[\s\S]*(?:urlopen\s*\(|requests\s*\.\s*(?:post|put|patch)\s*\(|httpx\s*\.\s*(?:post|put|patch)\s*\(|http\s*\.\s*client\s*\.|urllib\s*\.\s*request\s*\.\s*Request\s*\(|\.request\s*\(\s*['\"](?:POST|PUT|PATCH)['\"]))(?=[\s\S]*(?:open\s*\([^)]*\)\s*\.read(?:lines)?\s*\(|open\s*\([^)]*,\s*['\"][rb]{1,2}['\"]|read_bytes\s*\(|read_text\s*\())",
+        },
+    ),
 ]

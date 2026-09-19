@@ -120,7 +120,7 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
         f"only-in-engine: {sorted(engine_ids - yaml_ids)}"
     )
 
-    # Per-layer counts must match the documented engine (28/12/10).
+    # Per-layer counts must match the documented engine (31/13/10).
     block_ids = {r["id"] for r in data["rules"] if r.get("action") == "block"}
     sandbox_ids = {r["id"] for r in data["rules"] if r.get("action") == "sandbox"}
     allow_ids = {r["id"] for r in data["rules"] if r.get("action") == "allow"}
