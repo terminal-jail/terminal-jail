@@ -19,6 +19,86 @@ TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # other TERMINAL_JAIL_INSTALL_DIR. A non-empty value is used verbatim and
 # always wins, even outside the selected prefix.
 TERMINAL_JAIL_RULES_DIR="${TERMINAL_JAIL_RULES_DIR:-}"
+
+# --- path normalization (DF-TERMINAL-JAIL-24) --------------------------------
+# Derived prefix paths (<prefix>/config/... rules dir, <prefix>/lib/... lib
+# dir) must print as normalized absolute paths: no embedded ".." segments, and
+# no raw sh error when the prefix's parent does not exist yet. readlink -m /
+# realpath -m canonicalize textually without touching the filesystem; the
+# final fallback is a pure-POSIX walk for hosts without either tool. The walk
+# treats leading "/.." as "/" (per POSIX), collapses "./", and folds away
+# ".." against the preceding non-".." segment; symlinked ancestors beyond the
+# last existing component are left as-is, matching what the cd+pwd idiom
+# resolved before.
+path_normalize() {
+    # path_normalize <path> -> prints the normalized absolute path
+    if command -v readlink >/dev/null 2>&1 \
+        && normalized="$(readlink -m -- "$1" 2>/dev/null)" \
+        && [ -n "$normalized" ]; then
+        printf '%s\n' "$normalized"
+        return 0
+    fi
+    if command -v realpath >/dev/null 2>&1 \
+        && normalized="$(realpath -m -- "$1" 2>/dev/null)" \
+        && [ -n "$normalized" ]; then
+        printf '%s\n' "$normalized"
+        return 0
+    fi
+    if [ "${1#/}" = "$1" ]; then
+        input="$(pwd -P 2>/dev/null || pwd)/$1"
+    else
+        input="$1"
+    fi
+    # Textual segment walk: no IFS games, no glob expansion, no filesystem
+    # access. "/tmp/t/../x" -> "/x", "/.." -> "/", "./a" -> cwd/a. Absolute
+    # inputs anchor output at "/" up front (the first empty segment must not
+    # be folded away), so a fold can never drop the root; a relative path
+    # that folds to nothing prints ".". The readlink/realpath branches cover
+    # every realistic installer input — this walk only runs on stripped hosts
+    # without either tool (the curated-PATH tests).
+    output=""
+    case "$input" in
+        /*)
+            output="/"
+            input="${input#/}"
+            ;;
+    esac
+    rest="$input"
+    while [ -n "$rest" ]; do
+        segment="${rest%%/*}"
+        case "$rest" in
+            */*) rest="${rest#*/}" ;;
+            *) rest="" ;;
+        esac
+        case "$segment" in
+            "" | ".") continue ;;
+            "..")
+                case "$output" in
+                    "/" | "") ;;
+                    *)
+                        output="${output%/}"
+                        case "$output" in
+                            */*) output="${output%/*}/" ;;
+                            *) output="" ;;
+                        esac
+                        ;;
+                esac
+                ;;
+            *)
+                case "$output" in
+                    "/") output="/$segment/" ;;
+                    *) output="$output$segment/" ;;
+                esac
+                ;;
+        esac
+    done
+    case "$output" in
+        "") output="." ;;
+        "/") ;;
+        *) output="${output%/}" ;;
+    esac
+    printf '%s\n' "$output"
+}
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 
 # --- installer flags (TJ-GAP-061) --------------------------------------------
@@ -324,7 +404,11 @@ resolve_user_rules_dir() {
         RESOLVED_RULES_DIR="$TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"
         RULES_SCOPE="engine-env"
     else
-        rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
+        # DF-TERMINAL-JAIL-24: normalize textually — the old
+        # `cd <dir>/.. && pwd` idiom emitted a raw sh error when the parent
+        # did not exist yet and fell back to a literal "<dir>/.." that
+        # leaked un-normalized ".." into every printed rules path.
+        rules_prefix="$(path_normalize "${TERMINAL_JAIL_INSTALL_DIR}/..")"
         RESOLVED_RULES_DIR="${rules_prefix}/config/terminal-jail/rules.d"
         RULES_SCOPE="prefix"
     fi
@@ -465,7 +549,7 @@ if [ -n "$LOCAL_WRAPPER" ]; then
     # Ship the runtime support tree next to the binary so the installed CLI
     # finds the interruptor bridge and seccomp loader (fail-closed: a binary
     # without its bridge BLOCKS in enforce mode — see TJ-GAP-021).
-    LIB_DIR="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
+    LIB_DIR="$(path_normalize "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
     if [ -d "$SCRIPT_DIR/plugin/terminal_jail" ]; then
         mkdir -p "$LIB_DIR/plugin"
         cp -R "$SCRIPT_DIR/plugin/terminal_jail" "$LIB_DIR/plugin/"

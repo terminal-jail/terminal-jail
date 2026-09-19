@@ -592,6 +592,60 @@ def test_prefix_install_does_not_touch_home_rules(
 
 
 @pytest.mark.standalone_cli
+def test_prefix_install_missing_parent_no_cd_error_no_dotdot(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """DF-TERMINAL-JAIL-24: a scratch prefix whose parent does not exist yet
+    must not print a raw sh ``can't cd`` error at the top of a successful
+    install, and no printed path may carry an un-normalized ``/../`` segment.
+    The old `cd <dir>/..` + pwd idiom emitted exactly that error (stderr, with
+    the install still succeeding) and fell back to a literal ``<dir>/..`` that
+    leaked into the prefix rules WARNING and the rules messages."""
+    home = tmp_path / "home"
+    home.mkdir()
+    install_dir = tmp_path / "opt" / "tj"  # parent opt/ deliberately absent
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, (
+        f"Install failed (rc={result.returncode}): "
+        f"stderr={result.stderr.decode('utf-8', 'replace')}"
+    )
+    stdout = result.stdout.decode("utf-8", "replace")
+    stderr = result.stderr.decode("utf-8", "replace")
+    output = stdout + stderr
+
+    # (a) no raw shell error about the missing parent — the raw line the old
+    # script printed was: ./install.sh: NNN: cd: can't cd to <prefix>/..
+    assert "can't cd" not in stderr, stderr
+    assert "can't cd" not in stdout, stdout
+    # (b) every printed path is normalized — no embedded "/../" anywhere.
+    assert "/../" not in output, output
+    # (c) the install itself is complete and the derived paths are the
+    # normalized prefix targets: rules + lib land next to the binary.
+    assert (install_dir / "terminal-jail").exists(), output
+    prefix = tmp_path / "opt"
+    prefix_rules = prefix / "config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
+    assert prefix_rules.exists(), f"default rules not installed to prefix: {prefix_rules}"
+    assert str(prefix_rules) in output, output
+    assert (prefix / "lib" / "terminal-jail" / "seccomp-loader.py").exists(), output
+    # (d) the prefix-scope WARNING still names the (now normalized) target.
+    assert "non-default install prefix" in output
+
+
+@pytest.mark.standalone_cli
 def test_explicit_rules_dir_wins_over_install_scope(
     install_script: Path, tmp_path: Path
 ) -> None:
