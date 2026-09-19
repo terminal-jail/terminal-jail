@@ -476,7 +476,44 @@ case "$TJ_BACKEND_REQUEST" in
         ;;
 esac
 
-if [ "$TJ_BACKEND" = "unshare" ]; then
+# DF-TERMINAL-JAIL-11: when the interruptor bridge already supplied a namespace
+# prefix (action=modify), the command that will actually run is the REWRITE —
+# not this wrapper's bare-mode launch — so the bare-mode probe is not
+# representative of it. On a DEGRADED host (bare `unshare --mount-proc` denied
+# while `unshare --user` works, e.g. Ubuntu with the stock AppArmor userns
+# profile) that probe failed and this wrapper exited 2 BEFORE the
+# already-prefixed branch below was ever reached: every auto-sandbox class
+# (make, pytest, go test, pip install, cargo, gcc, npm test, ./script.sh) was
+# unusable end-to-end even though the bridge's own prefix ran fine. The
+# preflight therefore probes the REWRITE'S OWN flags, and a failed prefix probe
+# is reported as an honest "auto-sandbox modify unavailable" verdict — never as
+# a generic namespace-creation failure after a prefix was already supplied.
+# The bare-mode probe below stays exactly as it was for every command the
+# firewall did not rewrite.
+if [ "$MODIFIED" -eq 1 ]; then
+    # The bridge's rewrite shape is `<prefix> bash -c <payload>` (userns.py:
+    # _PREFIX_SUFFIX), so the prefix flags are everything between the leading
+    # `unshare ` and that separator; the pattern requires a flag token so a
+    # degenerate `unshare bash -c …` (no flags at all) is not probed with an
+    # empty flag set. A rewrite that is not unshare-prefixed adds no namespace
+    # at this layer, so there is nothing to preflight: it is executed as-is,
+    # exactly as specs/cli.md documents for action=modify.
+    case "$CMD_STR" in
+        unshare\ -*" bash -c "*)
+            _tj_prefix_flags="${CMD_STR#unshare }"
+            _tj_prefix_flags="${_tj_prefix_flags%% bash -c *}"
+            # The flags are a flat token list; word splitting is intended.
+            # shellcheck disable=SC2086
+            if unshare $_tj_prefix_flags true >/dev/null 2>&1; then
+                :  # rewrite prefix probe green — proceed to launch
+            else
+                prefix_rc=$?
+                echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                exit 2
+            fi
+            ;;
+    esac
+elif [ "$TJ_BACKEND" = "unshare" ]; then
     if unshare $UNSHARE_FLAGS true >/dev/null 2>&1; then
         :  # probe green — proceed to launch
     else

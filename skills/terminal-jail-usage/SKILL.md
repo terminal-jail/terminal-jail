@@ -15,8 +15,10 @@ description: >-
   DF-17; probes not jail-aware — DF-18; bunker-las-03 spawn still dead — DF-19;
   egress MODIFY does not prevent exfiltration — DF-20), refreshed 2026-09-19
   (DF-16 fixed: raw-socket file payloads block with builtin-net-file-exfil-*,
-  and an approved `allow-cat-safe` no longer covers a net-client pipe source).
-version: 1.4.0
+  and an approved `allow-cat-safe` no longer covers a net-client pipe source;
+  DF-11 fixed: the auto-sandbox `modify` preflight now probes the rewrite's own
+  prefix, so rewrites run on DEGRADED hosts).
+version: 1.5.0
 category: software-development
 ---
 
@@ -165,14 +167,19 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 6. **install.sh local-checkout detection**: must be invoked as
    `./install.sh` (or `install.sh`); `bash /abs/path/install.sh` refuses
    (release mode is opt-in). Intentional, just don't be surprised.
-7. **Auto-sandbox (modify) is DEAD on DEGRADED hosts (2026-09-17,
+7. **Auto-sandbox (modify) on DEGRADED hosts is FIXED (2026-09-19,
    DF-TERMINAL-JAIL-11)**: `terminal-jail bash script.sh` (or any
-   make/pytest/go-test/pip/script command) prints
-   `[terminal-jail] Modified: … → sandboxed` then exits 2 with a namespace
-   error — the wrapper's bare-mode preflight fires before the
-   bridge-prefixed command can run, even though the same flags succeed via
-   `--user`. Until DF-11 lands, run everyday commands with explicit
-   `--user` instead of relying on auto-sandbox.
+   make/pytest/go-test/pip/script command) used to print
+   `[terminal-jail] Modified: … → sandboxed` and then exit 2 with a namespace
+   error, because the wrapper's bare-mode preflight fired before the
+   bridge-prefixed command could run. The wrapper now probes the REWRITE'S own
+   prefix flags, so the rewrite executes and the inner exit code propagates
+   (`terminal-jail bash script.sh` → the script runs, rc = the script's own).
+   If that prefix itself cannot be created the verdict is the honest
+   `auto-sandbox modify unavailable` (exit 2, naming the flags probed) — never
+   a generic namespace failure. Bare mode for commands the firewall did NOT
+   rewrite is unchanged: still fail-closed, `--user` still the explicit path
+   there.
 
 ## Right-way patterns
 

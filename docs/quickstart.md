@@ -94,6 +94,21 @@ second layer is classified by a different probe —
 `python3 scripts/fs-isolation-probe.py` (`FULL` | `DEGRADED` + cause, exit 0) —
 do not conflate the two. See §3c and FAQ §4.
 
+**Exception — auto-sandboxed (`modify`) commands DO run on a `DEGRADED` host**
+(DF-TERMINAL-JAIL-11). The interruptor bridge supplies the rewrite's own `--user`
+prefix, and the wrapper probes **that** prefix instead of its own bare-mode
+launch, so:
+
+```bash
+~/.local/bin/terminal-jail bash script.sh   # auto-sandboxed: runs, exits with the script's status
+~/.local/bin/terminal-jail go test ./...    # same for make/pytest/pip/cargo/gcc/npm test
+```
+
+A rewrite whose own prefix this host cannot create exits 2 with an
+`auto-sandbox modify unavailable` verdict that names the flags probed — never a
+generic namespace-creation message. (The bare-mode verdict above still applies to
+every command the firewall did **not** rewrite.)
+
 If `~/.local/bin` is not on your PATH, run the export the installer printed,
 or use the full path above.
 
