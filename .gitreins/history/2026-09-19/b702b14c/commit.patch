@@ -1,0 +1,16 @@
+commit 70fe624346411943070b04f7811b59f893f9bf08
+Merge: f3806fb 8acff67
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Sep 19 15:35:16 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Sep 19 15:35:16 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-9 — rule counts + generated catalog (8acff67)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ README.md               |  22 ++++--
+ docs/quickstart.md      |  19 ++++-
+ docs/rule-catalog.md    | 103 ++++++++++++++++++++++++++
+ scripts/rule-catalog.py | 189 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 323 insertions(+), 10 deletions(-)

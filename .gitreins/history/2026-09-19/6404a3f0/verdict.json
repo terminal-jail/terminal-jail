@@ -1,0 +1,117 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-8",
+  "task_title": "Make TestUserRules user-modify assertion independent of subordinate-ID mappings",
+  "task_criteria": [
+    "The regression test must pass with and without /etc/subuid and /etc/subgid entries while still asserting the required unshare PID/lifecycle flags and command payload; add no production behavior change."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a3c8cd9dc0d3d9a0044e85559189a80b18f0a9f6",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T065720.067100Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n1:57AM INF scanned ~3948342 bytes (3.95 MB) in 351ms\n1:57AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 123 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T065720.067100Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 885 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [ 10%]\n........................................................................ [ 18%]\n............................................................             [ 25%]\nplugin/test_install.py ........................................          [ 29%]\nplugin/test_interruptor.py ............................................. [ 34%]\n........................................................................ [ 42%]\n........................................................................ [ 50%]\n........................................................................ [ 59%]\n........................................................................ [ 67%]\n........................................................................ [ 75%]\n                                                                         [ 75%]\nplugin/test_interruptor_integration.py .............s................... [ 79%]\n...                                                                      [ 79%]\nplugin/test_metrics_export.py .....................                      [ 81%]\nplugin/test_modify_preflight.py ......                                   [ 82%]\nplugin/test_packaging.py ..........                                      [ 83%]\nplugin/test_plugin.py ................                                   [ 85%]\nplugin/test_rule_packs.py ...........................                    [ 88%]\nplugin/test_seccomp.py .........................................sss      [ 93%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 880 passed, 5 skipped in 21.51s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T065720.067100Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The regression test must pass with and without /etc/subuid and /etc/subgid entries while still asserting the required unshare PID/lifecycle flags and command payload; add no production behavior change.: (a) Host-independence: plugin/test_interruptor.py:2009 replaces the old host-derived `result.modified.startswith(f\"{unshare_prefix()}'\")` with `_assert_sandboxed_modify(result, \"danger-tool --wipe\")` (helper at :1837), which partitions on _LAUNCH_CONTRACT = \"--pid --fork --kill-child=SIGKILL bash -c \" (:1800) and accepts EITHER _LEGACY_LAUNCH_RE (:1802, ^unshare --user <contract>$) OR _MAPPED_LAUNCH_RE (:1806, ^unshare --user --map-users=65534:\\d+:1 --map-groups=65534:\\d+:1 -S 65534 -G 65534 <contract>$). Verified live: this host HAS subuid/subgid (kara:100000:65536 in both /etc/subuid and /etc/subgid) but unshare_prefix() returns the mapping-less form -> `.venv/bin/python -m pytest plugin/test_interruptor.py -k TestUserRules -q -p no:cacheprovider` => '32 passed'; monkeypatching userns.unshare_prefix to the mapped form => '32 passed'; forcing the legacy/no-subuid form => '32 passed'. Regexes checked directly against legacy, mapped(host 100000), mapped(DEFAULT_SUBID_START) and mapped(arbitrary 999999) prefixes -> all matched=True; bare 'unshare ' -> False. (b) Flags/payload still asserted: the contract pins --pid --fork --kill-child=SIGKILL presence, order and position immediately before the payload introducer, and the payload must equal exactly \"'\" + command + \"'\" (ONE quoted arg); rule_id provenance assertion kept at :1998. Mutation RED confirmed: legacy-only regex => 5 failed; weakening payload check to `command in payload` => 2 failed (unquoted/truncated payload negatives). (c) No production change: `git diff --name-only a3c8cd9~1 a3c8cd9` => only plugin/test_interruptor.py; `git diff a3c8cd9~1 a3c8cd9 -- plugin/terminal_jail/` is empty; working tree has no production edits. (d) Tests: full suite `.venv/bin/python -m pytest -q -p no:cacheprovider` => '880 passed, 5 skipped in 22.90s' exit 0; `ruff check plugin/test_interruptor.py` => 'All checks passed!' exit 0; LSP diagnostics empty. File restored to committed sha256 74ad01f960a061e0a655175bb85de9dbeb3a23f58612ef9e11f4f2cb63bcd59e.\nThe TestUserRules user-modify assertion was rewritten as a host-independent launch-contract check that passes with and without subuid/subgid entries (32 passed in all three simulated host configurations, 880 passed full suite) while still pinning the --pid/--fork/--kill-child flags and the quoted command payload, with only plugin/test_interruptor.py changed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The regression test must pass with and without /etc/subuid and /etc/subgid entries while still asserting the required unshare PID/lifecycle flags and command payload; add no production behavior change.: (a) Host-independence: plugin/test_interruptor.py:2009 replaces the old host-derived `result.modified.startswith(f\"{unshare_prefix()}'\")` with `_assert_sandboxed_modify(result, \"danger-tool --wipe\")` (helper at :1837), which partitions on _LAUNCH_CONTRACT = \"--pid --fork --kill-child=SIGKILL bash -c \" (:1800) and accepts EITHER _LEGACY_LAUNCH_RE (:1802, ^unshare --user <contract>$) OR _MAPPED_LAUNCH_RE (:1806, ^unshare --user --map-users=65534:\\d+:1 --map-groups=65534:\\d+:1 -S 65534 -G 65534 <contract>$). Verified live: this host HAS subuid/subgid (kara:100000:65536 in both /etc/subuid and /etc/subgid) but unshare_prefix() returns the mapping-less form -> `.venv/bin/python -m pytest plugin/test_interruptor.py -k TestUserRules -q -p no:cacheprovider` => '32 passed'; monkeypatching userns.unshare_prefix to the mapped form => '32 passed'; forcing the legacy/no-subuid form => '32 passed'. Regexes checked directly against legacy, mapped(host 100000), mapped(DEFAULT_SUBID_START) and mapped(arbitrary 999999) prefixes -> all matched=True; bare 'unshare ' -> False. (b) Flags/payload still asserted: the contract pins --pid --fork --kill-child=SIGKILL presence, order and position immediately before the payload introducer, and the payload must equal exactly \"'\" + command + \"'\" (ONE quoted arg); rule_id provenance assertion kept at :1998. Mutation RED confirmed: legacy-only regex => 5 failed; weakening payload check to `command in payload` => 2 failed (unquoted/truncated payload negatives). (c) No production change: `git diff --name-only a3c8cd9~1 a3c8cd9` => only plugin/test_interruptor.py; `git diff a3c8cd9~1 a3c8cd9 -- plugin/terminal_jail/` is empty; working tree has no production edits. (d) Tests: full suite `.venv/bin/python -m pytest -q -p no:cacheprovider` => '880 passed, 5 skipped in 22.90s' exit 0; `ruff check plugin/test_interruptor.py` => 'All checks passed!' exit 0; LSP diagnostics empty. File restored to committed sha256 74ad01f960a061e0a655175bb85de9dbeb3a23f58612ef9e11f4f2cb63bcd59e.\nThe TestUserRules user-modify assertion was rewritten as a host-independent launch-contract check that passes with and without subuid/subgid entries (32 passed in all three simulated host configurations, 880 passed full suite) while still pinning the --pid/--fork/--kill-child flags and the quoted command payload, with only plugin/test_interruptor.py changed.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The regression test must pass with and without /etc/subuid and /etc/subgid entries while still asserting the required unshare PID/lifecycle flags and command payload; add no production behavior change.",
+                "status": "PASS",
+                "detail": "(a) Host-independence: plugin/test_interruptor.py:2009 replaces the old host-derived `result.modified.startswith(f\"{unshare_prefix()}'\")` with `_assert_sandboxed_modify(result, \"danger-tool --wipe\")` (helper at :1837), which partitions on _LAUNCH_CONTRACT = \"--pid --fork --kill-child=SIGKILL bash -c \" (:1800) and accepts EITHER _LEGACY_LAUNCH_RE (:1802, ^unshare --user <contract>$) OR _MAPPED_LAUNCH_RE (:1806, ^unshare --user --map-users=65534:\\d+:1 --map-groups=65534:\\d+:1 -S 65534 -G 65534 <contract>$). Verified live: this host HAS subuid/subgid (kara:100000:65536 in both /etc/subuid and /etc/subgid) but unshare_prefix() returns the mapping-less form -> `.venv/bin/python -m pytest plugin/test_interruptor.py -k TestUserRules -q -p no:cacheprovider` => '32 passed'; monkeypatching userns.unshare_prefix to the mapped form => '32 passed'; forcing the legacy/no-subuid form => '32 passed'. Regexes checked directly against legacy, mapped(host 100000), mapped(DEFAULT_SUBID_START) and mapped(arbitrary 999999) prefixes -> all matched=True; bare 'unshare ' -> False. (b) Flags/payload still asserted: the contract pins --pid --fork --kill-child=SIGKILL presence, order and position immediately before the payload introducer, and the payload must equal exactly \"'\" + command + \"'\" (ONE quoted arg); rule_id provenance assertion kept at :1998. Mutation RED confirmed: legacy-only regex => 5 failed; weakening payload check to `command in payload` => 2 failed (unquoted/truncated payload negatives). (c) No production change: `git diff --name-only a3c8cd9~1 a3c8cd9` => only plugin/test_interruptor.py; `git diff a3c8cd9~1 a3c8cd9 -- plugin/terminal_jail/` is empty; working tree has no production edits. (d) Tests: full suite `.venv/bin/python -m pytest -q -p no:cacheprovider` => '880 passed, 5 skipped in 22.90s' exit 0; `ruff check plugin/test_interruptor.py` => 'All checks passed!' exit 0; LSP diagnostics empty. File restored to committed sha256 74ad01f960a061e0a655175bb85de9dbeb3a23f58612ef9e11f4f2cb63bcd59e."
+              }
+            ],
+            "summary": "The TestUserRules user-modify assertion was rewritten as a host-independent launch-contract check that passes with and without subuid/subgid entries (32 passed in all three simulated host configurations, 880 passed full suite) while still pinning the --pid/--fork/--kill-child flags and the quoted command payload, with only plugin/test_interruptor.py changed."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-8\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The regression test must pass with and without /etc/subuid and /etc/subgid entries while still asserting the required unshare PID/lifecycle flags and command payload; add no production behavior change.: (a) Host-independence: plugin/test_interruptor.py:2009 replaces the old host-derived `result.modified.startswith(f\"{unshare_prefix()}'\")` with `_assert_sandboxed_modify(result, \"danger-tool --wipe\")` (helper at :1837), which partitions on _LAUNCH_CONTRACT = \"--pid --fork --kill-child=SIGKILL bash -c \" (:1800) and accepts EITHER _LEGACY_LAUNCH_RE (:1802, ^unshare --user <contract>$) OR _MAPPED_LAUNCH_RE (:1806, ^unshare --user --map-users=65534:\\d+:1 --map-groups=65534:\\d+:1 -S 65534 -G 65534 <contract>$). Verified live: this host HAS subuid/subgid (kara:100000:65536 in both /etc/subuid and /etc/subgid) but unshare_prefix() returns the mapping-less form -> `.venv/bin/python -m pytest plugin/test_interruptor.py -k TestUserRules -q -p no:cacheprovider` => '32 passed'; monkeypatching userns.unshare_prefix to the mapped form => '32 passed'; forcing the legacy/no-subuid form => '32 passed'. Regexes checked directly against legacy, mapped(host 100000), mapped(DEFAULT_SUBID_START) and mapped(arbitrary 999999) prefixes -> all matched=True; bare 'unshare ' -> False. (b) Flags/payload still asserted: the contract pins --pid --fork --kill-child=SIGKILL presence, order and position immediately before the payload introducer, and the payload must equal exactly \"'\" + command + \"'\" (ONE quoted arg); rule_id provenance assertion kept at :1998. Mutation RED confirmed: legacy-only regex => 5 failed; weakening payload check to `command in payload` => 2 failed (unquoted/truncated payload negatives). (c) No production change: `git diff --name-only a3c8cd9~1 a3c8cd9` => only plugin/test_interruptor.py; `git diff a3c8cd9~1 a3c8cd9 -- plugin/terminal_jail/` is empty; working tree has no production edits. (d) Tests: full suite `.venv/bin/python -m pytest -q -p no:cacheprovider` => '880 passed, 5 skipped in 22.90s' exit 0; `ruff check plugin/test_interruptor.py` => 'All checks passed!' exit 0; LSP diagnostics empty. File restored to committed sha256 74ad01f960a061e0a655175bb85de9dbeb3a23f58612ef9e11f4f2cb63bcd59e.\nThe TestUserRules user-modify assertion was rewritten as a host-independent launch-contract check that passes with and without subuid/subgid entries (32 passed in all three simulated host configurations, 880 passed full suite) while still pinning the --pid/--fork/--kill-child flags and the quoted command payload, with only plugin/test_interruptor.py changed.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T06:59:43.111406",
+  "evidence": {
+    "collected_at": "2026-09-19T06:59:43.165848+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 17041,
+        "truncated": false,
+        "source": "git show a3c8cd9dc0d3"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 36936,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-8"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "tick_id": "terminal-jail-2026-09-19-19-40-59",
+  "tick_number": 298,
+  "project": "terminal-jail",
+  "base_sha": "e7bdc13",
+  "dispatched_at": "2026-09-19T14:52:00-05:00",
+  "wave_budget": 12,
+  "workers": [
+    {"task_id": "TJ-GAP-067", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-067", "branch": "wt/TJ-GAP-067", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["plugin/terminal_jail/interruptor/decider.py", "plugin/test_interruptor.py"]},
+    {"task_id": "TJ-GAP-063", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-063", "branch": "wt/TJ-GAP-063", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["specs/cli.md"]},
+    {"task_id": "DF-TERMINAL-JAIL-9", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-9", "branch": "wt/DF-TERMINAL-JAIL-9", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["README.md", "docs/quickstart.md", "docs/"]},
+    {"task_id": "DF-TERMINAL-JAIL-18", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-18", "branch": "wt/DF-TERMINAL-JAIL-18", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["scripts/pidns-capability-probe.py", "scripts/fs-isolation-probe.py"]},
+    {"task_id": "DF-TERMINAL-JAIL-24", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-24", "branch": "wt/DF-TERMINAL-JAIL-24", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["install.sh", "plugin/test_install.py"]},
+    {"task_id": "TJ-GAP-060", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-060", "branch": "wt/TJ-GAP-060", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["standalone/terminal-jail", "plugin/test_standalone_cli.py", "specs/threat-model.md"]}
+  ]
+}
