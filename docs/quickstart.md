@@ -393,7 +393,7 @@ sudo systemctl daemon-reload && sudo systemctl restart hermes-gateway
 The file itself contains the full rollback procedure.
 
 **Where are the rules defined?**
-54 built-in rules in the engine (31 blocklist + 13 auto-sandbox + 10 allow); user rules load from
+54 built-in rules in the engine (35 blocklist + 9 auto-sandbox + 10 allow); user rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). `./install.sh` ships the default rules file to
 `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
