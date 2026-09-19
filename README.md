@@ -60,7 +60,7 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging (command length). Does NOT wrap commands. |
 | Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd; selects an optional bubblewrap backend at runtime (`TERMINAL_JAIL_JAIL_BACKEND=auto\|bwrap\|unshare`, default `auto`) |
 | Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
-| Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 54 built-in rules, JSON bridge for CLI integration |
+| Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, the built-in rule set (see [docs/rule-catalog.md](docs/rule-catalog.md)), JSON bridge for CLI integration |
 
 ## Interruptor Bash Command Firewall (v1.1.0)
 
@@ -127,10 +127,17 @@ An explicit empty command (`{"command": ""}`) is valid input, not a schema error
 | **Pattern Matcher** | 9 match types | pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc |
 | **Decider** | Evaluate priority | Blocklist (first) → allowlist → auto-sandbox → user rules. First match wins |
 
-### Built-in Rules (54 total)
+### Built-in Rules
 
-Counts verified from the engine (`BUILTIN_BLOCKLIST` / `BUILTIN_SANDBOX` / `BUILTIN_ALLOWLIST` in
-`plugin/terminal_jail/interruptor/`): **35 critical blocklist, 9 auto-sandbox, 10 always-allow**.
+Counts are **derived, not hand-restated**: currently **35 critical blocklist,
+9 auto-sandbox, 10 always-allow** (engine constants `BUILTIN_BLOCKLIST` /
+`BUILTIN_SANDBOX` / `BUILTIN_ALLOWLIST` in `plugin/terminal_jail/interruptor/`,
+mirrored in `plugin/terminal_jail/rules/00-builtins.yaml`; the two must agree —
+`plugin/test_packaging.py` enforces it). The per-rule catalog —
+[docs/rule-catalog.md](docs/rule-catalog.md) — is *generated* from that rules
+file by `scripts/rule-catalog.py`, which also recounts the totals; `--check`
+exits 1 when the committed catalog drifts from the shipped rules. Do not
+hand-copy a count from here into a new document — link the catalog.
 Rule IDs are stable — tests assert behavior by ID.
 
 This list is the whole firewall on a fresh install. Optional per-host policy is
@@ -451,7 +458,10 @@ keeps prefix installs loading their rules).
 ### Rule packs (opt-in)
 
 The default rule set is deliberately lean and **identical on every host**: the
-same 54 built-in rules, nothing host-specific baked in. Niche policy — database
+built-in rule set shipped in `00-builtins.yaml` (cataloged in
+[docs/rule-catalog.md](docs/rule-catalog.md); regenerate the catalog after any
+rules change with `python3 scripts/rule-catalog.py`), nothing host-specific
+baked in. Niche policy — database
 abuse, cluster tooling, CI metadata, whatever a given host actually needs — ships
 as an **opt-in rule pack**: a curated rule file in the repository under
 `plugin/terminal_jail/rules/packs/`, installed only where you ask for it.
