@@ -256,8 +256,15 @@ does **not** wrap or modify commands — Hermes core has no pre-execution
 command-transform hook. Verify with the plugin test suite:
 
 ```bash
-python3 -m pytest plugin/test_plugin.py -q
+# From the repo root — creates .venv/ with PyYAML + pytest, then runs the suite
+uv sync --dev && uv run pytest plugin/test_plugin.py -q
 ```
+
+`uv` (or `pipx install uv`) is the interpreter manager this repo's test flow
+is pinned to: `uv sync --dev` creates a project-local `.venv/` with the
+runtime dependency (PyYAML) and the dev dependency group (`pytest`), and
+`uv run pytest ...` executes inside it. A bare `python3 -m pytest` fails on a
+stock host — the interpreter has neither PyYAML nor pytest.
 
 ### 3e. systemd drop-in (gateway hardening)
 
@@ -332,8 +339,9 @@ Check the mode: `TERMINAL_JAIL_INTERRUPTOR_MODE` (default `enforce`). In
 execution. `warn` relaxes only the **firewall** layer — the namespace layer
 still runs, so on hosts that deny `unshare` (see the EPERM item above) a
 warned command can still exit 2 unless you also pass `--user`. Also, only
-commands matching the 54 built-in rules are blocked — the interruptor is a
-pattern firewall, not a policy sandbox (see `specs/interruptor.md`).
+commands matching built-in rules are blocked — the interruptor is a
+pattern firewall, not a policy sandbox (catalog of every shipped rule id:
+[rule-catalog.md](rule-catalog.md); see `specs/interruptor.md`).
 
 **What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
 It fails **open**: the bridge expects one JSON object with a string `command` key
@@ -406,7 +414,10 @@ sudo systemctl daemon-reload && sudo systemctl restart hermes-gateway
 The file itself contains the full rollback procedure.
 
 **Where are the rules defined?**
-54 built-in rules in the engine (35 blocklist + 9 auto-sandbox + 10 allow); user rules load from
+The built-in rules ship in the engine and its YAML mirror — the authoritative,
+always-current catalog is [rule-catalog.md](rule-catalog.md) (generated from
+`00-builtins.yaml` by `scripts/rule-catalog.py`; its `--check` mode recounts
+and flags drift). User rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). `./install.sh` ships the default rules file to
 `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
