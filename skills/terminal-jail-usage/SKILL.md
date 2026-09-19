@@ -26,8 +26,16 @@ description: >-
   `rsync`/`scp` copies — are priority-1000 BLOCK rules now (they were
   auto-sandbox rules whose wrap never stopped the upload: a loopback collector
   received the payload; `plugin/test_egress_no_delivery.py` is the end-to-end
-  proof). Hosts that installed an older mirror must re-run ./install.sh).
-version: 1.7.0
+  proof). Hosts that installed an older mirror must re-run ./install.sh),
+  refreshed 2026-09-19 (rule packs: `--rule-pack` has never been used by a
+  real user until this run — it ABORTS the whole install on a machine without
+  PyYAML (fresh Debian: no pip either, so the user cannot fix it), and on a
+  prefix/custom-rules-dir install it writes the pack where the engine never
+  reads it, so the pack is silently inert while the Python-side built-ins
+  keep working; the db pack additionally blocks `sed`/`git commit`/read-only
+  SELECT of the statement text while `psql -f <file>` that really drops the
+  table is allowed — see pitfalls 8-9 and the pack-verification pattern).
+version: 1.8.0
 category: software-development
 ---
 
@@ -129,7 +137,7 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   `~/.config/terminal-jail/rules.d/` (user); install.sh ships
   `00-builtins.yaml` to the user dir (TJ-GAP-033).
 
-## Common pitfalls (current as of 2026-08-22)
+## Common pitfalls (current as of 2026-09-19)
 
 1. **World-writable `chmod` on ANY absolute path is BLOCKED** (TJ-DF-011
    fixed, verified live 2026-08-22; scope corrected and stated in the
@@ -196,8 +204,49 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
    a generic namespace failure. Bare mode for commands the firewall did NOT
    rewrite is unchanged: still fail-closed, `--user` still the explicit path
    there.
+8. **`--rule-pack` needs PyYAML and fails LOUDLY-but-fatal without it
+   (2026-09-19, DF-TERMINAL-JAIL-21)**: the installer shells out to
+   `scripts/rule-pack-tool.py`, which parses YAML with PyYAML and falls back to
+   `json` — so on a host without PyYAML a valid pack dies with
+   `cannot parse (JSONDecodeError: Expecting value: line 1 column 1 (char 0))`.
+   Because `install.sh` runs `set -eu`, that refusal ends the WHOLE install:
+   exit 2, **no wrapper installed at all**. Measured on fresh Debian 13
+   (python3.13.5, no PyYAML, **no pip**, `sudo` needs a password — the user
+   cannot repair it). Doc claim is only "installing a pack requires `python3`".
+   Check before opting in: `python3 -c "import yaml"`. If PyYAML is absent,
+   install WITHOUT `--rule-pack` (that path is unaffected) or add the pack by
+   hand after installing: copy `plugin/terminal_jail/rules/packs/<name>.yaml`
+   to `$HOME/.config/terminal-jail/rules.d/terminal-jail-pack-<name>.yaml`.
+9. **A pack is only live where the ENGINE reads rules — a prefix install
+   makes it silently inert (2026-09-19, DF-TERMINAL-JAIL-22)**: the engine
+   loads YAML only from `/etc/terminal-jail/rules.d` and
+   `$HOME/.config/terminal-jail/rules.d` (or
+   `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`); the 54 built-ins are Python-side
+   and always load. A non-default `TERMINAL_JAIL_INSTALL_DIR` writes the pack to
+   `<prefix>/config/terminal-jail/rules.d/`, which nothing reads — the installer
+   still prints `installed rule pack 'db' to …`, and the firewall still blocks
+   `rm -rf /`, so nothing looks wrong while the pack protects nothing.
+   `TERMINAL_JAIL_RULES_DIR` (the knob README/quickstart name) is
+   INSTALLER-side only; the engine-side name is documented only in
+   `specs/interruptor.md`. **Always verify a pack with the bridge probe below,
+   never by trusting the install output.**
 
 ## Right-way patterns
+
+- **Rule packs: verify the pack is LIVE before relying on it (2026-09-19).**
+  Install output is not evidence. Probe the installed engine directly (no
+  execution) and require a `pack-*` rule id:
+  `echo '{"command":"psql -c \"DROP DATABASE prod\""}' | python3
+  ~/.local/lib/terminal-jail/plugin/terminal_jail/interruptor_bridge.py` →
+  `{"action":"block","rule_id":"pack-db-drop-database",…}` = live;
+  `{"action":"allow","rule_id":null,…}` = inert (see pitfall 9). The pack's
+  block rules match the SQL shape *anywhere in the command string*, so expect
+  them to fire on text that is not an execution: `sed -i "s/DROP DATABASE/…/"`
+  and `git commit -am "… DROP DATABASE …"` block too (DF-TERMINAL-JAIL-23),
+  while `psql -f file.sql` — which really drops the table — is allowed (the
+  DF-TERMINAL-JAIL-10 file-body gap). Plan the workflow around the same-id
+  `action: warn` override (a `zz-local.yaml` that sorts after
+  `terminal-jail-pack-<name>.yaml`) rather than fighting the rule.
 
 - **NEVER trust `modify` on a host where uid mapping works — the mapped
   auto-sandbox cannot read your own files (2026-09-18, DF-TERMINAL-JAIL-15).**

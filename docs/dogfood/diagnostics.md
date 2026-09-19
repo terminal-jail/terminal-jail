@@ -127,3 +127,130 @@ during the dogfood run. This is explanation, not raw logs.*
    `/proc/self/status` → `Seccomp: 2` to confirm the filter is installed.
 5. **Never** trust README's rule tables without grepping the engine —
    they drifted twice already (TJ-DF-005, E2E-001-GAP-01).
+## 8. Errors hit during the 2026-09-19 dogfood run
+
+This run dogfooded the **rule-pack system** (TJ-GAP-061, `a33adf1`, ~6 h old) —
+the newest shippable surface — plus the install path a fresh user follows. Full
+narrative: `docs/dogfood/2026-09-19-integration.md`.
+
+### 8.1 Why `--rule-pack` can hand you nothing at all
+
+`install.sh` cannot parse YAML (it is POSIX `sh`), so the pack phase shells out to
+`scripts/rule-pack-tool.py`. That helper parses YAML with PyYAML and falls back to
+stdlib `json`. On a machine without PyYAML the fallback is a guaranteed failure:
+`json.loads` on YAML text raises `JSONDecodeError: Expecting value: line 1 column 1`.
+The helper then correctly refuses the pack — but `install.sh` runs `set -eu`, so
+the refusal ends the script **before the wrapper is installed**. Measured on a
+fresh Debian box (python3.13.5, no PyYAML, no pip): exit 2 and no
+`~/.local/bin/terminal-jail` at all. The same box without the flag installs fine.
+
+The lesson is not "PyYAML is missing" — it is that a **fail-closed check on an
+optional feature was given control of the mandatory one**. The right way is to
+decide the dependency up front (detect PyYAML before the pack phase, name the
+requirement and the remedy), and to let a pack refusal skip the pack rather than
+abort the install. Docs must state the requirement: today they say only
+"installing a pack requires `python3`".
+
+### 8.2 Where rules actually come from (the map that explains the silent pack)
+
+Reading `interruptor/config.py`, `decider.py` and `rules.py` gives the rule
+sources — worth internalising, because two of them are invisible in
+README/quickstart:
+
+| source | path | loaded by |
+|---|---|---|
+| system rules | `/etc/terminal-jail/rules.d` | `RuleLoader` |
+| user rules | `$HOME/.config/terminal-jail/rules.d`, or `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` | `RuleLoader` |
+| built-ins (54) | `blocklist.py` / `allowlist.py` / `sandbox.py` | **Python, always** |
+
+Two consequences that produce confusing symptoms:
+
+1. **Built-ins cannot be silenced by a missing rules dir.** On a prefix install
+   the wrapper still blocks `rm -rf /` and `sudo`, so the firewall *looks*
+   healthy while every YAML rule (packs, user overrides) is absent. "The firewall
+   works" and "my pack works" are different claims; test them separately.
+2. **The knob the docs name is not the knob the engine reads.**
+   `TERMINAL_JAIL_RULES_DIR` is installer-side (it decides where the file is
+   written); `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` is what the engine reads.
+   Setting only the former moves the file into a directory nothing loads. The
+   engine-side name appears in `specs/interruptor.md:573` and nowhere in
+   README/quickstart.
+
+The right way to check, every time, is a bridge probe against the installed tree
+(no execution):
+
+```bash
+echo '{"command":"psql -c \"DROP DATABASE prod\""}' \
+  | python3 ~/.local/lib/terminal-jail/plugin/terminal_jail/interruptor_bridge.py
+# block + pack-db-drop-database = live;      allow + rule_id null = inert
+```
+
+### 8.3 A shape rule in a DB pack stops the fix, not the destruction
+
+The pack's two block rules match the SQL shape anywhere in the command string
+(documented as deliberate, and reasonable for a revshell). In a database pack the
+practical result is inverted: the file-execution path that really destroys the
+data (`psql -f migrations/002_legacy.sql`) is **allowed** — the firewall only sees
+the top-level command string — while the commands a user runs to *remove* the
+statement are blocked, because the statement text appears inside a `sed`
+replacement or a `git commit -m` message. `psql -c "DROP TABLE users"` blocked and
+`sed -i 's/DROP DATABASE/...'` also blocked is not defence in depth; it is a
+remediation deadlock with no protection to show for it. Fixing it means matching
+**execution context** (client + non-select statement) and closing the file-body
+gap (DF-TERMINAL-JAIL-10) in the same wave.
+
+### 8.4 The three false findings I had to retract (measurement hygiene)
+
+The most reusable lesson of this run. Three "bugs" survived until they were
+measured a second way — all three were my instrumentation:
+
+1. **Shell re-parsing of a JSON payload.** Building a payload inside
+   `sh -c "… '$JSON' …"` where the JSON itself contains `'` quotes re-splits the
+   string; the bridge then received a mangled command. Sending the same payload
+   with `subprocess` (no shell) turned a suspected firewall evasion into
+   **0/10 divergence**. A firewall probe must never pass through a shell it is
+   not deliberately testing.
+2. **Env leakage across a long session.** An earlier `export
+   TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=…` persisted in the terminal session
+   and silently redirected later "default resolution" probes to a second rules
+   dir. That produced two phantom defects ("the same-id override is not honoured",
+   "the CLI blocks what the engine allows"). Both contracts held exactly as
+   documented once the probe ran under `env -u …`. **Probe defaults with the
+   variables unset, and always pair a finding with a control.**
+3. **Exit codes are not verdicts.** `psql -c …` returning `rc=2` looked like the
+   wrapper's namespace-failure exit; psql is installed on this box and `2` was its
+   own "database does not exist". A firewall verdict is the block box or `rc=126`
+   (and `rc=127` means the command was allowed and the binary was missing).
+
+Rule of thumb: before filing a finding, re-run it (a) without a shell, (b) with
+`env -u` on every rules/backend variable, (c) against a control that must produce
+the opposite result.
+
+### 8.5 Why the ephemeral bunker leg was skipped, mechanically
+
+`bunker spawn` failed on both hosts. The bunkerd logs explain it: the server
+performs the rootless-docker install synchronously (docker rootless setup script,
+~60-90 s on a cold box), while the **client deadline is shorter** (las-02 was
+cancelled at 29.9 s, las-03 at 45.4 s). The client cancel propagates into the
+server's install command (`signal: killed`, `context canceled`) *and* into the
+rollback, so the `userdel` never completes and every cancelled spawn leaks its
+user — 17 on las-03, 46 on las-02. On las-03 the install had actually
+*succeeded* (dockerd 29.8.1 up, `docker version` returning server info) before
+being discarded.
+
+The right way when the ephemeral leg is unavailable is neither to skip silently
+nor to widen access: run the project's documented install on a real second
+machine with existing access (here las-02 as a plain account in a scratch HOME)
+and record `SKIPPED-install-bunker` with the evidence, so the infra owner gets a
+findable row (`DF-TERMINAL-JAIL-26`).
+
+### 8.6 Scratch-dir hygiene (a credential left in /tmp)
+
+`/tmp/dogfood-tj/home/.bunker/config.yaml` — mode 644, mtime 2026-09-15, from a
+previous dogfood run that redirected `HOME` into the scratch tree — holds the
+**current** bunkerd token for las-03 (sha256 matches the live
+`/etc/bunkerd/config.yaml`). A scratch HOME that receives a credential file turns
+`/tmp` into a key store. Right way: keep scratch HOMEs at mode 0700, never let a
+tool write credentials into them (or point the tool's own config elsewhere), and
+destroy the tree at the end of the tick. Purge is not enough for a live token —
+rotate.
