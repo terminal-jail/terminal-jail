@@ -104,6 +104,62 @@ rules:
 | `timeout` | varies | Command wrapped in `timeout N` before execution |
 | `sandbox` | varies | Command prefixed with `unshare` + `--seccomp` |
 
+### 3.4 Rule Packs and the Precedence Contract (TJ-GAP-061)
+
+The default rule set is deliberately lean and identical on every host. Niche
+policy ships as an **opt-in rule pack** instead: a curated rule file at
+`plugin/terminal_jail/rules/packs/<name>.yaml`, installed per host by
+`./install.sh --rule-pack <name>` to
+`<resolved user rules dir>/terminal-jail-pack-<name>.yaml` (see `specs/cli.md`
+§8 for the resolution rule and the flag contract). Installing a pack writes that
+one file; `--unrule-pack <name>` removes that one file and touches nothing else.
+
+**Precedence: engine builtins < packs < user `rules.d` files.** Concretely:
+
+1. **Engine builtins first, in their own layers.** `builtin-*` / `auto-*` /
+   `allow-*` rules keep their layers: the critical blocklist (including the
+   decider's whole-command pass), then the always-allow list, then the
+   auto-sandbox tier. A pack rule carries a NEW id, so the decider places it in
+   its last layer (new-id user rules, priority order, first match wins) — after
+   every builtin layer. A pack therefore cannot reorder, weaken, or bypass a
+   builtin layer.
+2. **A pack id may NEVER equal a builtin id — install-time refusal, not silent
+   override.** `scripts/rule-pack-tool.py validate` refuses a pack (exit 2, one
+   reason line on stderr, nothing written) if any of its ids equals an id in the
+   engine's builtin set — derived at run time from
+   `terminal_jail.interruptor.{blocklist,sandbox,allowlist}` — or equals an id
+   carried by any rule file already installed in the target rules dir. Rationale:
+   a `rules.d` entry with a builtin id REPLACES that builtin in its layer
+   (same-id override), so without the refusal a pack could silently downgrade —
+   or resurrect — a builtin rule.
+3. **Packs load before the user's own files by filename.** Inside a rules dir
+   the loader reads `*.yaml`/`*.yml` in lexical filename order, and a same-id
+   rule replaces the earlier one (the user dir also overrides the system dir).
+   `00-builtins.yaml` < `terminal-jail-pack-<name>.yaml` < `zz-*.yaml`: a user
+   file sorting after a pack can same-id override any pack rule — that is the
+   escape hatch (override a pack rule to `warn`, or repoint its pattern at local
+   policy). The installer never relies on that filename order to resolve a
+   conflict silently: a collision it can see is refused *before* the copy.
+4. **Pack ids are namespaced `pack-<pack-name>-*`.** The validator builds the
+   accepted id set from the pack name the installer passes, so a pack can
+   neither impersonate another pack's ids nor carry an unprefixed id that would
+   compete in the builtin namespace.
+5. **Pack priorities sit between the builtin tiers:** 950 for pack `block`
+   rules, 650 for pack `sandbox` rules (builtin tiers: 1000 blocklist, 700
+   auto-sandbox, 500 always-allow). Those numbers order a pack's own rules —
+   and any user rule sharing the last layer — against each other. The layer
+   order in (1) is structural and is NOT affected by a priority value: a pack
+   `block` at 950 still evaluates after the builtin always-allow list.
+
+Verified by `plugin/test_rule_packs.py` (the shipped pack's ids fire through
+`intercept()`, benign controls stay default-allow) and `plugin/test_install.py`
+(install/uninstall, refusals write nothing).
+
+Residual, stated rather than implied: the installer only inspects the resolved
+USER rules dir (plus the engine's builtin set). A rule a root administrator
+dropped into `/etc/terminal-jail/rules.d/` carrying a `pack-*` id is not visible
+to it, and the user-dir pack would override that same-id system rule.
+
 ## 4. Built-in Default Rules
 
 These ship with the interruptor and CANNOT be removed (only overridden to `warn` level):

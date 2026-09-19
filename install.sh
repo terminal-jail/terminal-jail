@@ -21,6 +21,119 @@ TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 TERMINAL_JAIL_RULES_DIR="${TERMINAL_JAIL_RULES_DIR:-}"
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 
+# --- installer flags (TJ-GAP-061) --------------------------------------------
+# The installer stays env-var driven; these flags only add the opt-in rule-pack
+# knobs. Every flag is parsed BEFORE anything is created or written, so an
+# unknown flag, an unknown pack name, or a pack the validator refuses leaves the
+# filesystem untouched. Pack names are restricted to [a-z0-9-] so the derived
+# file name (terminal-jail-pack-<name>.yaml) can neither escape the rules
+# directory nor be read as a glob.
+RULE_PACKS=""
+UNRULE_PACKS=""
+LIST_RULE_PACKS=0
+
+valid_pack_name() {
+    case "$1" in
+        ""|-*) return 1 ;;
+        *[!a-z0-9-]*) return 1 ;;
+    esac
+    return 0
+}
+
+add_rule_pack() {
+    if ! valid_pack_name "$1"; then
+        echo "terminal-jail installer: --rule-pack: invalid pack name '$1' (expected [a-z0-9-]+)" >&2
+        exit 2
+    fi
+    case " $RULE_PACKS " in
+        *" $1 "*) ;; # already queued — installing a pack twice is a no-op
+        *) RULE_PACKS="${RULE_PACKS:+$RULE_PACKS }$1" ;;
+    esac
+}
+
+add_unrule_pack() {
+    if ! valid_pack_name "$1"; then
+        echo "terminal-jail installer: --unrule-pack: invalid pack name '$1' (expected [a-z0-9-]+)" >&2
+        exit 2
+    fi
+    case " $UNRULE_PACKS " in
+        *" $1 "*) ;;
+        *) UNRULE_PACKS="${UNRULE_PACKS:+$UNRULE_PACKS }$1" ;;
+    esac
+}
+
+usage() {
+    cat <<'USAGE'
+terminal-jail installer — POSIX sh
+
+Usage: install.sh [options]
+
+Options:
+  --rule-pack <name>    Install an opt-in rule pack from this repository
+                        checkout (repeatable, e.g. --rule-pack db). The pack is
+                        validated BEFORE anything is written: an unknown pack, a
+                        malformed or invalid pack, a rule id outside the
+                        pack-<name>-* namespace, or an id colliding with an
+                        engine builtin id or an already-installed rule file is
+                        refused (exit 2) with nothing written.
+  --unrule-pack <name>  Remove an installed rule pack. Only
+                        terminal-jail-pack-<name>.yaml is touched — the default
+                        rules file and every other pack are never modified.
+  --list-rule-packs     List the rule packs this checkout ships (exit 0).
+  -h, --help            Print this help and exit 0.
+
+Environment (all optional):
+  TERMINAL_JAIL_INSTALL_DIR    install directory (default: $HOME/.local/bin)
+  TERMINAL_JAIL_RULES_DIR      target rules directory; when set it always wins
+                               (default: derived from the install scope)
+  TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
+                               local checkout (rule packs need the checkout)
+  TERMINAL_JAIL_VERSION        version to install (default: 1.1.0)
+  TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --rule-pack)
+            if [ $# -lt 2 ]; then
+                echo "terminal-jail installer: --rule-pack requires a pack name" >&2
+                exit 2
+            fi
+            add_rule_pack "$2"
+            shift 2
+            ;;
+        --rule-pack=*)
+            add_rule_pack "${1#--rule-pack=}"
+            shift
+            ;;
+        --unrule-pack)
+            if [ $# -lt 2 ]; then
+                echo "terminal-jail installer: --unrule-pack requires a pack name" >&2
+                exit 2
+            fi
+            add_unrule_pack "$2"
+            shift 2
+            ;;
+        --unrule-pack=*)
+            add_unrule_pack "${1#--unrule-pack=}"
+            shift
+            ;;
+        --list-rule-packs)
+            LIST_RULE_PACKS=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "terminal-jail installer: unknown argument '$1' (see --help)" >&2
+            exit 2
+            ;;
+    esac
+done
+
 # --- source vs release mode --------------------------------------------------
 # When run from a repository checkout — invoked relatively (./install.sh or
 # install.sh) with standalone/terminal-jail present next to this script —
@@ -40,6 +153,15 @@ case "${0:-}" in
         fi
         ;;
 esac
+
+# Rule packs (TJ-GAP-061) ship in the repository checkout only: the pack files
+# and the YAML validator live next to install.sh. Release mode has no pack
+# source, so --rule-pack/--unrule-pack are refused there (see below) and
+# PACKS_SOURCE_DIR stays empty — every pack path is guarded on it.
+PACKS_SOURCE_DIR=""
+if [ -n "$SCRIPT_DIR" ] && [ -d "$SCRIPT_DIR/plugin/terminal_jail/rules/packs" ]; then
+    PACKS_SOURCE_DIR="$SCRIPT_DIR/plugin/terminal_jail/rules/packs"
+fi
 
 # --- preflight ---------------------------------------------------------------
 if [ -z "${HOME:-}" ]; then
@@ -66,6 +188,35 @@ if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ]; then
     echo "  To opt into release mode anyway, set TERMINAL_JAIL_USE_RELEASE=1" >&2
     echo "  (with TERMINAL_JAIL_BASE_URL if you host assets yourself)." >&2
     exit 1
+fi
+
+# --- rule packs need the checkout (TJ-GAP-061) -------------------------------
+# A pack is a repository artifact (rules/packs/<name>.yaml) validated by a
+# repository script, so both knobs are refused in release mode rather than
+# half-working: nothing is written.
+if [ -z "$LOCAL_WRAPPER" ]; then
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+        echo "terminal-jail installer: --rule-pack/--unrule-pack need the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
+        exit 2
+    fi
+fi
+
+# --- rule-pack listing (TJ-GAP-061) ------------------------------------------
+# Informational only: name the packs this checkout ships and exit 0 without
+# touching anything. A missing checkout/packs directory is refused loudly —
+# an empty list would read as "this project has no packs".
+if [ "$LIST_RULE_PACKS" -eq 1 ]; then
+    if [ -z "$PACKS_SOURCE_DIR" ]; then
+        echo "terminal-jail installer: --list-rule-packs needs a repository checkout (no plugin/terminal_jail/rules/packs next to ${0:-install.sh})" >&2
+        exit 2
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "terminal-jail installer: --list-rule-packs requires python3 (rule packs are YAML; the lister counts the rules)" >&2
+        exit 2
+    fi
+    echo "terminal-jail installer: rule packs available in this checkout (opt in with --rule-pack <name>):"
+    python3 "$SCRIPT_DIR/scripts/rule-pack-tool.py" list
+    exit 0
 fi
 
 # --- downloader / checksum verifier (release mode only) ----------------------
@@ -136,6 +287,102 @@ if ! command -v bwrap >/dev/null 2>&1; then
     echo "terminal-jail installer: NOTE — optional bubblewrap (bwrap) not found. The CLI will use the util-linux unshare backend, and installation continues normally. To enable the private-/proc bwrap backend, install the distro system package (Debian/Ubuntu: apt install bubblewrap, Fedora/RHEL: dnf install bubblewrap). bubblewrap is an external dependency — this installer never downloads, builds, or redistributes it."
 fi
 
+# --- rules target resolution (DF-TERMINAL-JAIL-8) ----------------------------
+# Resolved ONCE, here, so the shipped default rules file and any opt-in rule
+# pack land in the SAME directory: the installer has exactly one notion of
+# "rules dir". Assigns RESOLVED_RULES_DIR and RULES_SCOPE (plain call, never
+# via command substitution, so the assignments reach the rest of the script).
+resolve_user_rules_dir() {
+    #   explicit: TERMINAL_JAIL_RULES_DIR set -> used verbatim (caller opted in;
+    #             any path allowed, even outside the prefix)
+    #   live:     default install dir ($HOME/.local/bin) -> the live user rules
+    #             dir $HOME/.config/terminal-jail/rules.d (unchanged behavior;
+    #             the engine does NOT honor XDG_CONFIG_HOME)
+    #   prefix:   anything else -> <install prefix>/config/terminal-jail/
+    #             rules.d, with the parent resolved like LIB_DIR below
+    if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
+        RESOLVED_RULES_DIR="$TERMINAL_JAIL_RULES_DIR"
+        RULES_SCOPE="explicit"
+    elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
+        RESOLVED_RULES_DIR="$HOME/.config/terminal-jail/rules.d"
+        RULES_SCOPE="live"
+    else
+        rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
+        RESOLVED_RULES_DIR="${rules_prefix}/config/terminal-jail/rules.d"
+        RULES_SCOPE="prefix"
+    fi
+}
+resolve_user_rules_dir
+
+# --- opt-in rule packs (TJ-GAP-061) ------------------------------------------
+# Packs are per-host policy: the default rule set stays lean and a pack is
+# installed only when the operator asks for it (--rule-pack <name>), landing as
+# terminal-jail-pack-<name>.yaml in the SAME resolved rules dir as the default
+# rules file. This whole section runs BEFORE the install section's mkdir -p and
+# before the wrapper is copied, so a refusal — unknown pack, python3 missing,
+# validator refusal (bad schema, malformed YAML, id outside the pack namespace,
+# id collision) — leaves NOTHING behind: no directory, no file.
+# scripts/rule-pack-tool.py is authoritative for every check; packs are
+# validated one at a time IN THE ORDER REQUESTED, so a pack that collides with
+# one requested earlier in the same invocation is refused when it is reached
+# (the earlier pack stays installed — refusing cannot un-install it).
+if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+    pack_tool="$SCRIPT_DIR/scripts/rule-pack-tool.py"
+    if [ ! -f "$pack_tool" ]; then
+        echo "terminal-jail installer: rule packs need ${pack_tool}, which is missing from this checkout — nothing was written" >&2
+        exit 2
+    fi
+    if [ -n "$RULE_PACKS" ] && ! command -v python3 >/dev/null 2>&1; then
+        echo "terminal-jail installer: --rule-pack requires python3 to validate a pack BEFORE installing it, and python3 was not found — nothing was written" >&2
+        exit 2
+    fi
+
+    install_rule_pack() {
+        pack="$1"
+        pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
+        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
+        if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
+            if [ -n "$PACKS_SOURCE_DIR" ]; then
+                echo "terminal-jail installer: unknown rule pack '${pack}' (no ${pack_src}) — nothing was written" >&2
+            else
+                echo "terminal-jail installer: unknown rule pack '${pack}' (this checkout ships no plugin/terminal_jail/rules/packs directory) — nothing was written" >&2
+            fi
+            exit 2
+        fi
+        # FAIL CLOSED: validate before writing anything. The validator refuses
+        # invalid schema, malformed YAML, ids outside the pack's namespace, and
+        # id collisions (engine builtins / installed rule files).
+        if ! python3 "$pack_tool" validate "$pack_src" --pack-name "$pack" --rules-dir "$RESOLVED_RULES_DIR"; then
+            echo "terminal-jail installer: rule pack '${pack}' REFUSED — nothing was written (see the validator reason above)" >&2
+            exit 2
+        fi
+        mkdir -p "$RESOLVED_RULES_DIR"
+        cp "$pack_src" "$pack_dest"
+        echo "terminal-jail installer: installed rule pack '${pack}' to ${pack_dest}"
+    }
+
+    remove_rule_pack() {
+        pack="$1"
+        # Exactly one file: terminal-jail-pack-<name>.yaml. The default rules
+        # file and every other pack are never touched (the name is shell-safe:
+        # [a-z0-9-] only, quoted, never globbed).
+        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
+        if [ -f "$pack_dest" ]; then
+            rm -f "$pack_dest"
+            echo "terminal-jail installer: removed rule pack '${pack}' (${pack_dest})"
+        else
+            echo "terminal-jail installer: rule pack '${pack}' is not installed at ${pack_dest} — nothing was removed"
+        fi
+    }
+
+    for pack in $RULE_PACKS; do
+        install_rule_pack "$pack"
+    done
+    for pack in $UNRULE_PACKS; do
+        remove_rule_pack "$pack"
+    done
+fi
+
 # --- install -----------------------------------------------------------------
 mkdir -p "$TERMINAL_JAIL_INSTALL_DIR"
 
@@ -175,26 +422,11 @@ if [ -n "$LOCAL_WRAPPER" ]; then
     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
     # override path for root-managed deployments).
     if [ -f "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" ]; then
-        # DF-TERMINAL-JAIL-8: three-way rules-target resolution — the installer
-        # must never write user config outside the scope the caller selected.
-        #   explicit: TERMINAL_JAIL_RULES_DIR set -> used verbatim (caller
-        #             opted in; any path allowed, even outside the prefix)
-        #   live:     default install dir ($HOME/.local/bin) -> the live user
-        #             rules dir $HOME/.config/terminal-jail/rules.d (unchanged
-        #             behavior; the engine does NOT honor XDG_CONFIG_HOME)
-        #   prefix:   anything else -> <install prefix>/config/terminal-jail/
-        #             rules.d, with the parent resolved like LIB_DIR above
-        rules_scope="live"
-        if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
-            user_rules_dir="$TERMINAL_JAIL_RULES_DIR"
-            rules_scope="explicit"
-        elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
-            user_rules_dir="$HOME/.config/terminal-jail/rules.d"
-        else
-            rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
-            user_rules_dir="${rules_prefix}/config/terminal-jail/rules.d"
-            rules_scope="prefix"
-        fi
+        # DF-TERMINAL-JAIL-8: the three-way rules-target resolution lives in
+        # resolve_user_rules_dir() above, called ONCE before the install — the
+        # default rules file and any opt-in rule pack share that one answer.
+        user_rules_dir="$RESOLVED_RULES_DIR"
+        rules_scope="$RULES_SCOPE"
         if [ "$rules_scope" = "prefix" ]; then
             echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory."
         fi

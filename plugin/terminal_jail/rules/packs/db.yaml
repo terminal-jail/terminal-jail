@@ -1,0 +1,95 @@
+# terminal-jail OPT-IN rule pack: db — database-destructive shapes (TJ-GAP-061)
+#
+# This file is NOT part of the shipped default rule set. It is installed only
+# when the operator explicitly asks for it:
+#
+#     ./install.sh --rule-pack db
+#
+# and removed with:
+#
+#     ./install.sh --unrule-pack db
+#
+# On install it is byte-copied to
+#   <rules dir>/terminal-jail-pack-db.yaml
+# where <rules dir> is the SAME resolved rules directory the installer uses for
+# the default rules file (explicit TERMINAL_JAIL_RULES_DIR > live
+# ~/.config/terminal-jail/rules.d > <prefix>/config/terminal-jail/rules.d).
+# The engine loads it through the ordinary RuleLoader, so every rule here is
+# also a normal same-id-overridable user rule.
+#
+# PRIORITIES — deliberately BETWEEN the builtin tiers, never colliding with them:
+#   950 = pack block   (below the builtin critical blocklist tier 1000)
+#   650 = pack sandbox (below the builtin auto-sandbox tier 700, above the
+#                        builtin always-allow tier 500)
+# The gap matters because pack rule ids are NEW ids: the decider evaluates them
+# in Layer 4 (new-id rules) after the builtin blocklist/allowlist/sandbox
+# layers, in priority order — so 950/650 order the pack's own rules against
+# each other and against any user rule that shares Layer 4, while a builtin
+# still gets first refusal within its own layer. See specs/interruptor.md §3.4
+# for the precedence contract.
+#
+# ID CONTRACT — every rule id MUST be `pack-db-*`. install.sh runs
+# scripts/rule-pack-tool.py BEFORE writing anything and REFUSES the pack if any
+# id collides with an engine builtin id (`builtin-*`, `auto-*`, `allow-*`) or
+# with an id already installed in the target rules dir. A pack may never
+# shadow a builtin: a same-id rules.d entry replaces the builtin in its layer,
+# which is exactly the silent-override class this contract closes.
+#
+# SCOPE — these are SHAPE rules, in the same spirit as the builtin egress
+# family: they match the destructive statement anywhere in the command string
+# (a SQL client is not required), so a migration script pasted into an
+# interpreter is caught too, and a non-database command that merely carries the
+# text is caught as well. The BENIGN control vectors are the ordinary reads
+# (`psql -c 'SELECT 1'`, `mysql -e 'SELECT 1'`), which no rule here matches.
+# The wider catalogue (psql `\!` escape, mysql SHUTDOWN, redis CONFIG) is
+# TJ-GAP-062 and is deliberately NOT in this file — this pack exists to prove
+# the mechanism end-to-end.
+
+rules:
+  # ---------------------------------------------------------------------------
+  # DROP DATABASE — destroys a whole database, including every object in it.
+  # ---------------------------------------------------------------------------
+  - id: "pack-db-drop-database"
+    description: "DROP DATABASE statement (whole-database destruction)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a DROP DATABASE statement destroys an entire database. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it."
+    match:
+      type: pattern
+      # `DROP DATABASE` (and the optional `IF EXISTS` tail). Statement-shape
+      # match, case-insensitive via the matcher; `(?<![\w-])` is the
+      # token-start boundary so identifiers ending in the word (e.g.
+      # `xdrop database`) are not matched.
+      pattern: "(?<![\\w-])drop\\s+database\\b"
+
+  # ---------------------------------------------------------------------------
+  # DROP TABLE — destroys a table and its rows.
+  # ---------------------------------------------------------------------------
+  - id: "pack-db-drop-table"
+    description: "DROP TABLE statement (table destruction)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a DROP TABLE statement destroys a table and its contents. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it (a scratch/temp table drop included)."
+    match:
+      type: pattern
+      # `DROP TABLE` in its plain spelling; the `DROP TABLE IF EXISTS` form
+      # matches the same arm. Same token-start boundary as above.
+      pattern: "(?<![\\w-])drop\\s+table\\b"
+
+  # ---------------------------------------------------------------------------
+  # Bulk dump / restore tooling — dual use, so it is SANDBOXED, not blocked.
+  # ---------------------------------------------------------------------------
+  - id: "pack-db-dump-restore"
+    description: "Bulk database dump/restore tooling (namespace wrap, command still runs)"
+    priority: 650
+    action: sandbox
+    block_message: "Auto-sandboxed by the optional 'db' rule pack: bulk dump/restore tooling reads or rewrites a whole database."
+    match:
+      type: pattern
+      # pg_dump / pg_dumpall / pg_restore / mysqldump / mysqlimport. The
+      # namespace wrap does NOT restrict network or database access — it
+      # contains the filesystem view; the command still runs.
+      # Shape rule, so a capability probe (`pg_dump --version`) is wrapped
+      # too — exactly what the builtin auto-sandbox tier does for `make
+      # --version`. The command still runs and prints its version.
+      pattern: "(?<![\\w-])(?:pg_dump|pg_dumpall|pg_restore|mysqldump|mysqlimport)\\b"

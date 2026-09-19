@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -1111,3 +1112,275 @@ def test_install_sh_never_downloads_or_vendors_bubblewrap(
         "install.sh acts on bubblewrap instead of advising about it "
         f"(download/build/install/vendor or exit): {offenders}"
     )
+
+
+# ── TJ-GAP-061: opt-in rule packs (--rule-pack / --unrule-pack) ─────────────
+
+DB_PACK = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs" / "db.yaml"
+
+# Fixture packs for the refusal paths. The shipped packs are valid by
+# construction, so a bad pack must be seeded into a checkout of our own.
+_SHADOW_BUILTIN_PACK = """rules:
+  - id: "builtin-rm-rf-root"
+    description: "attempt to shadow a builtin"
+    priority: 950
+    action: block
+    block_message: "nope"
+    match:
+      type: pattern
+      pattern: "zzz"
+"""
+
+_SCHEMA_INVALID_PACK = """rules:
+  - id: "pack-broken-no-match"
+    description: "no match block"
+    priority: 950
+    action: block
+    block_message: "nope"
+"""
+
+_MALFORMED_PACK = "rules: [ this : is : not : valid\n"
+
+
+def _scratch_checkout(tmp_path: Path) -> Path:
+    """A throwaway copy of the installer's checkout surface.
+
+    install.sh resolves its pack source relative to its own directory, so a
+    fixture pack can only be exercised from a checkout we own. The copy is
+    deliberately minimal: install.sh, the validator, the wrapper, and the
+    terminal_jail package tree are everything an install reads.
+    """
+    checkout = tmp_path / "checkout"
+    (checkout / "scripts").mkdir(parents=True)
+    (checkout / "standalone").mkdir()
+    (checkout / "plugin").mkdir()
+    shutil.copy2(PROJECT_ROOT / "install.sh", checkout / "install.sh")
+    shutil.copy2(PROJECT_ROOT / "scripts" / "rule-pack-tool.py", checkout / "scripts")
+    shutil.copy2(PROJECT_ROOT / "standalone" / "terminal-jail", checkout / "standalone")
+    shutil.copytree(
+        PROJECT_ROOT / "plugin" / "terminal_jail",
+        checkout / "plugin" / "terminal_jail",
+    )
+    return checkout
+
+
+def _install_env(tmp_path: Path) -> dict[str, str]:
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir(exist_ok=True)
+    return {
+        **os.environ,
+        "HOME": str(home),
+        "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        # Never inherit a rules target from the invoking shell: these tests must
+        # write into the scratch prefix only (an empty value == unset here).
+        "TERMINAL_JAIL_RULES_DIR": "",
+    }
+
+
+def _run_repo_install(
+    tmp_path: Path, *args: str
+) -> subprocess.CompletedProcess[bytes]:
+    """Run the real checkout's installer (cwd=repo root => local mode)."""
+    return subprocess.run(
+        ["sh", "install.sh", *args],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(PROJECT_ROOT),
+        env=_install_env(tmp_path),
+    )
+
+
+def _run_checkout_install(
+    checkout: Path, tmp_path: Path, *args: str
+) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["sh", "install.sh", *args],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(checkout),
+        env=_install_env(tmp_path),
+    )
+
+
+def _assert_nothing_written(tmp_path: Path) -> None:
+    """A refusal — or a flag-only run — leaves no file behind (TJ-GAP-061:
+    the pack phase runs before the install section's mkdir)."""
+    install_dir = tmp_path / "bin"
+    assert list(install_dir.iterdir()) == [], sorted(
+        path.name for path in install_dir.iterdir()
+    )
+    assert not (tmp_path / "config").exists()
+
+
+@pytest.mark.standalone_cli
+def test_install_rule_pack_lands_in_the_resolved_rules_dir(tmp_path: Path) -> None:
+    """--rule-pack db byte-copies the shipped pack next to the default rules
+    file, in the directory the install scope resolves to."""
+    result = _run_repo_install(tmp_path, "--rule-pack", "db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    pack = rules_dir / "terminal-jail-pack-db.yaml"
+    assert pack.exists(), out
+    # byte-identical to the shipped pack, and beside the default rules file
+    assert pack.read_bytes() == DB_PACK.read_bytes()
+    assert (rules_dir / "00-builtins.yaml").exists(), out
+    assert f"installed rule pack 'db' to {pack}" in out, out
+    # the validator ran and reported the engine-derived builtin count
+    assert "rule-pack-tool: pack 'db' valid" in out, out
+
+
+@pytest.mark.standalone_cli
+def test_unrule_pack_removes_only_that_pack(tmp_path: Path) -> None:
+    """--unrule-pack removes terminal-jail-pack-db.yaml and nothing else: a
+    foreign file beside it and the default rules file both survive."""
+    install = _run_repo_install(tmp_path, "--rule-pack", "db")
+    assert install.returncode == 0, install.stderr.decode("utf-8", "replace")
+
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    pack = rules_dir / "terminal-jail-pack-db.yaml"
+    foreign = rules_dir / "zz-foreign-user-rules.yaml"
+    foreign.write_text("rules: []\n", encoding="utf-8")
+    builtins_before = (rules_dir / "00-builtins.yaml").read_bytes()
+
+    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert f"removed rule pack 'db' ({pack})" in out, out
+    assert not pack.exists(), out
+    assert foreign.exists(), "a foreign rule file was removed"
+    assert foreign.read_text(encoding="utf-8") == "rules: []\n"
+    assert (rules_dir / "00-builtins.yaml").read_bytes() == builtins_before
+
+
+@pytest.mark.standalone_cli
+def test_unrule_pack_for_a_pack_that_is_not_installed(tmp_path: Path) -> None:
+    """Removal is idempotent and says so — it never fails on a clean host."""
+    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "is not installed at" in out, out
+    assert "nothing was removed" in out, out
+
+
+@pytest.mark.standalone_cli
+@pytest.mark.parametrize(
+    ("fixture_name", "body", "needle"),
+    [
+        ("shadow", _SHADOW_BUILTIN_PACK, "collide with engine builtin ids"),
+        ("broken", _SCHEMA_INVALID_PACK, "has no 'match' mapping"),
+        ("malformed", _MALFORMED_PACK, "cannot parse"),
+    ],
+)
+def test_install_refuses_a_bad_pack_and_writes_nothing(
+    tmp_path: Path, fixture_name: str, body: str, needle: str
+) -> None:
+    """Schema-invalid, malformed, and builtin-shadowing packs are refused by
+    the validator BEFORE anything is written — no pack file, no default rules
+    file, no wrapper."""
+    checkout = _scratch_checkout(tmp_path)
+    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
+        body, encoding="utf-8"
+    )
+
+    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", fixture_name)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert needle in out, out
+    assert f"rule pack '{fixture_name}' REFUSED" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+    """An id another installed rule file already carries is refused — a pack
+    may never shadow a rule that is already live in the rules dir."""
+    checkout = _scratch_checkout(tmp_path)
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    rules_dir.mkdir(parents=True)
+    (rules_dir / "zz-handwritten.yaml").write_text(
+        "rules:\n"
+        '  - id: "pack-db-drop-database"\n'
+        "    priority: 900\n"
+        "    action: warn\n"
+        "    match:\n"
+        "      type: pattern\n"
+        '      pattern: "drop database"\n',
+        encoding="utf-8",
+    )
+
+    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "are already installed in" in out, out
+    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+    # the seeded file is untouched
+    assert "pack-db-drop-database" in (rules_dir / "zz-handwritten.yaml").read_text()
+
+
+@pytest.mark.standalone_cli
+def test_install_refuses_an_unknown_rule_pack(tmp_path: Path) -> None:
+    result = _run_repo_install(tmp_path, "--rule-pack", "nope")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "unknown rule pack 'nope'" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_install_refuses_an_unknown_flag(tmp_path: Path) -> None:
+    result = _run_repo_install(tmp_path, "--bogus-flag")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "unknown argument '--bogus-flag'" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_install_refuses_an_unsafe_pack_name(tmp_path: Path) -> None:
+    """A pack name may not escape the rules directory."""
+    result = _run_repo_install(tmp_path, "--rule-pack", "../db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "invalid pack name '../db'" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_list_rule_packs_names_db(tmp_path: Path) -> None:
+    """--list-rule-packs names the shipped pack (and its rule count) without
+    touching anything."""
+    result = _run_repo_install(tmp_path, "--list-rule-packs")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    rows = [line for line in out.splitlines() if line.startswith("db\t")]
+    assert rows, out
+    assert str(DB_PACK) in rows[0], rows
+    assert rows[0].endswith("\t3"), rows
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
+    result = _run_repo_install(tmp_path, "--help")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    for flag in ("--rule-pack <name>", "--unrule-pack <name>", "--list-rule-packs"):
+        assert flag in out, out
+    _assert_nothing_written(tmp_path)

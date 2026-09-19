@@ -133,6 +133,10 @@ Counts verified from the engine (`BUILTIN_BLOCKLIST` / `BUILTIN_SANDBOX` / `BUIL
 `plugin/terminal_jail/interruptor/`): **35 critical blocklist, 9 auto-sandbox, 10 always-allow**.
 Rule IDs are stable — tests assert behavior by ID.
 
+This list is the whole firewall on a fresh install. Optional per-host policy is
+shipped separately as opt-in rule packs (see Install → *Rule packs*) and never by
+growing this list — the default set stays lean and identical everywhere.
+
 - **35 Critical Blocklist** (priority 1000, evaluated first, cannot be removed — only overridden to `warn` by a same-ID user rule):
   - `builtin-kill-all` — mass process kill (`kill -9 -1`)
   - `builtin-killpg-pid1` — process-group kill targeting PID 1 or own process group (`os.killpg(0/1, …)`, `kill(-1/0, …)`)
@@ -439,6 +443,61 @@ file to `~/.config/terminal-jail/rules.d/00-builtins.yaml`, while a custom
 `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`, so the
 installer prints a warning for prefix installs). Set `TERMINAL_JAIL_RULES_DIR`
 to target the live rules directory explicitly — it always wins.
+
+### Rule packs (opt-in)
+
+The default rule set is deliberately lean and **identical on every host**: the
+same 54 built-in rules, nothing host-specific baked in. Niche policy — database
+abuse, cluster tooling, CI metadata, whatever a given host actually needs — ships
+as an **opt-in rule pack**: a curated rule file in the repository under
+`plugin/terminal_jail/rules/packs/`, installed only where you ask for it.
+
+```bash
+./install.sh --rule-pack db                 # opt in (repeatable, for more packs)
+./install.sh --unrule-pack db               # opt out
+./install.sh --list-rule-packs              # what this checkout ships
+```
+
+| Pack | Blocks | Sandboxes | Rules |
+|------|--------|-----------|------:|
+| `db` | `DROP DATABASE` (`pack-db-drop-database`), `DROP TABLE` (`pack-db-drop-table`) | bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 3 |
+
+A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
+rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`
+explicit, else the live `~/.config/terminal-jail/rules.d`, else
+`<prefix>/config/terminal-jail/rules.d`). Nothing else is written;
+`--unrule-pack` deletes that one file and never touches `00-builtins.yaml` or
+another pack.
+
+**Packs are validated before anything is written** (`scripts/rule-pack-tool.py`,
+run by the installer — POSIX `sh` cannot parse YAML):
+
+- schema: every rule needs `id` / `action` / `match` with a match type the engine
+  can dispatch, and a non-empty `pattern` for pattern rules;
+- ids must live in the pack's namespace `pack-<name>-*`;
+- **no id may collide** with an engine built-in id (`builtin-*`, `auto-*`,
+  `allow-*`) or with an id already installed in the target rules dir.
+
+A refusal is `exit 2`, one reason line on stderr, and **nothing written at all** —
+no pack file, no default rules file, no wrapper. The collision rule is the point
+of the whole mechanism: a `rules.d` entry whose id matches a built-in REPLACES
+that built-in in its layer, so a pack that reused a built-in id could silently
+downgrade (or resurrect) a built-in rule. Refusal at install time, never a silent
+override.
+
+Two practical notes: installing a pack requires `python3` (the installer refuses
+to copy an unvalidated pack; `--unrule-pack` needs no Python), and packs come
+from the repository checkout, so they are unavailable in release mode.
+
+**Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules
+carry new ids, so they are evaluated after the built-in blocklist, allow-list and
+auto-sandbox layers (they can tighten, never loosen, the default set). A user
+file that sorts after the pack file (say `zz-local.yaml`) can same-id override a
+pack rule — including overriding one to `warn`, the same escape hatch the
+built-ins offer. Pack rule priorities are 950 for blocks and 650 for sandboxes,
+sitting between the built-in tiers (1000 / 700 / 500); that orders pack rules
+against each other, it does not move them between engine layers. The full
+contract is `specs/interruptor.md` §3.4.
 
 Release-mode installs (downloading the wrapper from a published release plus
 its SHA-256 checksum, verified and atomically installed) are supported by

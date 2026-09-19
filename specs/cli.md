@@ -373,14 +373,61 @@ Release documentation must replace `<project-host>` with the canonical HTTPS hos
 
 ### Installer inputs and defaults
 
-| Variable | Default | Meaning |
+| Variable / flag | Default | Meaning |
 |---|---|---|
 | `TERMINAL_JAIL_VERSION` | Current stable release version | Optional pinned release version. `latest` is allowed only if project policy explicitly supports it. |
 | `TERMINAL_JAIL_INSTALL_DIR` | `$HOME/.local/bin` | Installation directory. |
-| `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
+| `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`) AND for every opt-in rule pack (`terminal-jail-pack-<name>.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
 | `TERMINAL_JAIL_BASE_URL` | Canonical release base URL | Release endpoint used to download the Bash wrapper and its checksum. |
+| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below); an unknown pack, a malformed/invalid pack, or an id collision exits `2` with nothing written. |
+| `--unrule-pack <name>` | off | Remove an installed rule pack. Deletes exactly `<rules dir>/terminal-jail-pack-<name>.yaml` — never `00-builtins.yaml` and never another pack. Idempotent: a pack that is not installed is reported and the install continues. |
+| `--list-rule-packs` | off | Print `<name>` TAB `<path>` TAB `<rule count>` for every pack in the checkout and exit `0` without writing anything. |
+| `-h`, `--help` | off | Print the installer usage (including the flags above) and exit `0`. |
+| any other argument | — | Unknown flags are refused: exit `2`, one message, nothing written. The installer never ignores an argument it does not understand. |
+
+Flags are parsed before any `mkdir` or write, so a refused flag (or a refused
+pack) leaves the filesystem untouched. Pack names are restricted to `[a-z0-9-]`
+so the derived file name cannot escape the rules directory.
 
 Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
+
+### Rule packs (`--rule-pack`, TJ-GAP-061)
+
+The default rule set stays lean and identical on every host; niche policy ships
+as an opt-in **rule pack**, selected per host at install time. A pack is a
+curated YAML rule file under `plugin/terminal_jail/rules/packs/<name>.yaml`,
+installed by byte-copy to `<resolved rules dir>/terminal-jail-pack-<name>.yaml`
+— the SAME directory the scope rule above resolves for `00-builtins.yaml`. There
+is exactly one notion of "rules dir" in the installer.
+
+Installation is **fail-closed, validated before any write**:
+
+1. POSIX `sh` cannot parse YAML, so the installer delegates every check to
+   `scripts/rule-pack-tool.py validate <pack> --pack-name <name> --rules-dir <dir>`
+   (the validator exits `0` with one summary line, or `2` with one reason line on
+   stderr).
+2. The validator parses the pack with the engine's own loader semantics, then
+   requires: a top-level `rules:` list; per rule an `id`, an `action` in
+   `{block, sandbox, allow, warn}`, a `match` mapping whose `type` the engine's
+   matcher can dispatch (derived from `interruptor/matcher.py` at run time), and a
+   non-empty `pattern`/`regex` for pattern rules; every id inside the pack's
+   namespace `pack-<name>-*`; no repeated id inside the pack.
+3. **Collision oracle:** an id equal to an ENGINE builtin id (derived at run time
+   from `terminal_jail.interruptor.{blocklist,sandbox,allowlist}`) or equal to an
+   id carried by any rule file already installed in the target rules dir is
+   refused. A pack may never shadow a builtin or another pack. The destination
+   file itself is exempt, so re-installing a pack is not a self-collision.
+4. `python3` is therefore required to install a pack: with no `python3` on
+   `PATH` the installer refuses the pack with a clear message instead of copying
+   it unvalidated. `--unrule-pack` needs no Python.
+5. Rule packs need the **repository checkout** (local mode) — release mode ships
+   no pack source, so both knobs are refused there (exit `2`, nothing written).
+6. Every refusal leaves **nothing** behind: the pack phase runs before the
+   install section's `mkdir` and before the wrapper is copied.
+
+Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
+contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)
+are specified in `specs/interruptor.md` §3.4.
 
 The script must reject an empty/unset `HOME` with a diagnostic; it must not fall back to `/` or a system location.
 
