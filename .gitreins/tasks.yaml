@@ -908,3 +908,12 @@ tasks:
   status: complete
   created_at: '2026-09-19T16:33:54.978164+00:00'
   completed_at: '2026-09-19T17:56:32.236565+00:00'
+- id: DF-TERMINAL-JAIL-22
+  title: Prefix install rule-pack target is inert
+  criteria:
+  - A custom-prefix install must place requested packs in a directory the engine actually
+    loads or emit an explicit non-success warning; tests and docs must prove the resolved
+    path, suite and lint green.
+  status: complete
+  created_at: '2026-09-19T18:35:18.521263+00:00'
+  completed_at: '2026-09-19T19:30:54.784202+00:00'
