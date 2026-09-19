@@ -885,3 +885,12 @@ tasks:
   status: complete
   created_at: '2026-09-19T04:43:40.905162+00:00'
   completed_at: '2026-09-19T05:02:48.807240+00:00'
+- id: QA-TERMINAL-JAIL-8
+  title: Make TestUserRules user-modify assertion independent of subordinate-ID mappings
+  criteria:
+  - The regression test must pass with and without /etc/subuid and /etc/subgid entries
+    while still asserting the required unshare PID/lifecycle flags and command payload;
+    add no production behavior change.
+  status: complete
+  created_at: '2026-09-19T06:46:49.298929+00:00'
+  completed_at: '2026-09-19T06:57:28.621545+00:00'
