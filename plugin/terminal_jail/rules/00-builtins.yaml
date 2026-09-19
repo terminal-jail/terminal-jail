@@ -3,8 +3,8 @@
 # ~/.config/terminal-jail/rules.d/00-builtins.yaml (user rules dir the engine
 # loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
-# These reflect the same 30 rules hardcoded in the Python engine
-# (12 blocklist / 8 sandbox / 10 allow). Rule ids AND pattern strings must stay
+# These reflect the same 50 rules hardcoded in the Python engine
+# (28 blocklist / 12 sandbox / 10 allow). Rule ids AND pattern strings must stay
 # byte-identical to the engine constants: install.sh copies this file into the
 # user rules dir, where same-id override REPLACES the builtin.
 
@@ -306,6 +306,39 @@ rules:
       type: pattern
       # Pipe target must be a shell; TLS-inspection pipelines stay allowed.
       pattern: "(?<![\\w.-])openssl\\s+s_client\\b[^|;&]*\\|\\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b"
+
+  # ---------------------------------------------------------------------------
+  # DF-TERMINAL-JAIL-16 raw-socket file exfiltration. TJ-GAP-058 blocked the
+  # shell-ATTACH shapes; these two cover the data-out half: a bare raw-socket
+  # client (nc/ncat/netcat/socat) that receives a LOCAL FILE payload. They are
+  # BLOCK rules, so the decider's whole-command pass settles them before the
+  # per-segment allowlist can approve a pipeline's `cat` source.
+  # ---------------------------------------------------------------------------
+  - id: "builtin-net-file-exfil-pipe"
+    description: "Local-file reader piped into a bare raw-socket client (file exfiltration)"
+    priority: 1000
+    action: block
+    block_message: "Raw-socket file exfiltration is blocked: a local-file reader (cat, dd, tar, gzip, base64, xxd, od, strings) piped into a bare raw-socket network client (nc, ncat, netcat, socat). The rule matches by SHAPE — it also fires on non-secret files — and it does not cover ssh/scp/rsync/git push, inline or command-generated payloads (echo ... | nc), or interpreter sockets."
+    match:
+      type: pattern
+      # <reader> <operand> (| stage)* | <raw client> <args>. Word-bounded reader
+      # set (concat/odd/substrings never match); the reader must carry a
+      # non-operator operand, so a bare `base64 | nc host port` is not matched.
+      # A command chain (`&&`, `;`, bare `&`) stops the match; an fd merge
+      # (`2>&1`) is tolerated; up to 3 pipes may sit between reader and client.
+      pattern: "(?<![\\w.-])(?:cat|dd|tar|gzip|base64|xxd|od|strings)\\s+[^\\s|;&](?:(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*\\|&?){0,3}(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s"
+
+  - id: "builtin-net-file-exfil-redirect"
+    description: "Bare raw-socket client fed a local file by an input redirect"
+    priority: 1000
+    action: block
+    block_message: "Raw-socket file exfiltration is blocked: a bare raw-socket network client (nc, ncat, netcat, socat) taking its payload from a local-file redirect (`< <file>`). The rule matches by SHAPE — it also fires on non-secret files; `/dev/null` and `/dev/stdin` sources are excluded — and it does not cover ssh/scp/rsync/git push, inline or command-generated payloads, or interpreter sockets."
+    match:
+      type: pattern
+      # <raw client> <args> < <file>. Plain `<` only (`<<` heredocs and `<&` fd
+      # duplications excluded); `/dev/null` and `/dev/stdin` sources excluded,
+      # so `nc host port < /dev/null` keeps its ALLOW verdict.
+      pattern: "(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s[^|;&]*(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))\\S"
 
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block

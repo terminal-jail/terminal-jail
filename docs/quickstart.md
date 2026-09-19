@@ -304,7 +304,7 @@ Check the mode: `TERMINAL_JAIL_INTERRUPTOR_MODE` (default `enforce`). In
 execution. `warn` relaxes only the **firewall** layer — the namespace layer
 still runs, so on hosts that deny `unshare` (see the EPERM item above) a
 warned command can still exit 2 unless you also pass `--user`. Also, only
-commands matching the 30 built-in rules are blocked — the interruptor is a
+commands matching the 50 built-in rules are blocked — the interruptor is a
 pattern firewall, not a policy sandbox (see `specs/interruptor.md`).
 
 **What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
@@ -378,7 +378,7 @@ sudo systemctl daemon-reload && sudo systemctl restart hermes-gateway
 The file itself contains the full rollback procedure.
 
 **Where are the rules defined?**
-30 built-in rules in the engine (12 blocklist + 8 auto-sandbox + 10 allow); user rules load from
+50 built-in rules in the engine (28 blocklist + 12 auto-sandbox + 10 allow); user rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). `./install.sh` ships the default rules file to
 `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
