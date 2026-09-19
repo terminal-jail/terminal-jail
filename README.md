@@ -478,16 +478,25 @@ run by the installer — POSIX `sh` cannot parse YAML):
 - **no id may collide** with an engine built-in id (`builtin-*`, `auto-*`,
   `allow-*`) or with an id already installed in the target rules dir.
 
-A refusal is `exit 2`, one reason line on stderr, and **nothing written at all** —
-no pack file, no default rules file, no wrapper. The collision rule is the point
-of the whole mechanism: a `rules.d` entry whose id matches a built-in REPLACES
-that built-in in its layer, so a pack that reused a built-in id could silently
-downgrade (or resurrect) a built-in rule. Refusal at install time, never a silent
-override.
+A refusal is a **loud skip, not an abort** (DF-TERMINAL-JAIL-21): the validator's
+verdict refuses only the pack itself — one reason line on stderr, and **nothing
+written for that pack** (no pack file, no rules entry) — but the base install
+(wrapper, lib tree, default rules file) always completes. The installer prints a
+final summary naming the installed wrapper and every skipped pack, and exits `2`
+so install automation notices. An unknown pack name is the same kind of skip and
+suggests `--list-rule-packs`. The collision rule is the point of the whole
+mechanism: a `rules.d` entry whose id matches a built-in REPLACES that built-in
+in its layer, so a pack that reused a built-in id could silently downgrade (or
+resurrect) a built-in rule. Refusal at install time, never a silent override.
 
-Two practical notes: installing a pack requires `python3` (the installer refuses
-to copy an unvalidated pack; `--unrule-pack` needs no Python), and packs come
-from the repository checkout, so they are unavailable in release mode.
+Two practical notes: installing a pack requires `python3`, and parsing a YAML
+pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`,
+Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`). On a host
+without PyYAML the installer skips YAML packs with a message naming the missing
+dependency and both remedies — it never aborts the base install, and a pack
+stored as plain JSON still installs through the validator's stdlib-JSON
+fallback. `--unrule-pack` needs no Python at all. Packs come from the repository
+checkout, so they are unavailable in release mode.
 
 **Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules
 carry new ids, so they are evaluated after the built-in blocklist, allow-list and

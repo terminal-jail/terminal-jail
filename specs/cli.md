@@ -379,7 +379,7 @@ Release documentation must replace `<project-host>` with the canonical HTTPS hos
 | `TERMINAL_JAIL_INSTALL_DIR` | `$HOME/.local/bin` | Installation directory. |
 | `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`) AND for every opt-in rule pack (`terminal-jail-pack-<name>.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
 | `TERMINAL_JAIL_BASE_URL` | Canonical release base URL | Release endpoint used to download the Bash wrapper and its checksum. |
-| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below); an unknown pack, a malformed/invalid pack, or an id collision exits `2` with nothing written. |
+| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below). DF-TERMINAL-JAIL-21: an unknown pack, a missing `python3`/PyYAML dependency, a malformed/invalid pack, or an id collision is a loud SKIP of that pack — the base install always completes, and the installer exits `2` at the end with a summary of what installed and what skipped. With every requested pack installed (or none requested) the exit is `0`, unchanged. |
 | `--unrule-pack <name>` | off | Remove an installed rule pack. Deletes exactly `<rules dir>/terminal-jail-pack-<name>.yaml` — never `00-builtins.yaml` and never another pack. Idempotent: a pack that is not installed is reported and the install continues. |
 | `--list-rule-packs` | off | Print `<name>` TAB `<path>` TAB `<rule count>` for every pack in the checkout and exit `0` without writing anything. |
 | `-h`, `--help` | off | Print the installer usage (including the flags above) and exit `0`. |
@@ -419,11 +419,31 @@ Installation is **fail-closed, validated before any write**:
    file itself is exempt, so re-installing a pack is not a self-collision.
 4. `python3` is therefore required to install a pack: with no `python3` on
    `PATH` the installer refuses the pack with a clear message instead of copying
-   it unvalidated. `--unrule-pack` needs no Python.
+   it unvalidated. Parsing a YAML pack additionally requires **PyYAML**: before
+   validating, the installer probes `import yaml`; on a host without it, a YAML
+   pack is skipped with a message naming the missing dependency and BOTH
+   remedies (the distro package `python3-yaml`, or `pip install pyyaml`) — a
+   pack that parses as plain JSON is NOT refused by this preflight and still
+   installs through the validator's stdlib-JSON fallback. `--unrule-pack` needs
+   no Python.
 5. Rule packs need the **repository checkout** (local mode) — release mode ships
    no pack source, so both knobs are refused there (exit `2`, nothing written).
-6. Every refusal leaves **nothing** behind: the pack phase runs before the
-   install section's `mkdir` and before the wrapper is copied.
+6. DF-TERMINAL-JAIL-21 — **skip, never abort:** every pack-level refusal above
+   (unknown name, missing `python3`/PyYAML, validator refusal) skips that pack
+   and NEVER aborts the base install. Each pack is attempted independently; a
+   skipped pack writes NOTHING for itself (fail-closed, validate-before-write
+   stays), the base install (wrapper, lib tree, default rules file) always
+   completes, and if any requested pack was skipped the installer prints a
+   final stderr summary
+
+   ```text
+   terminal-jail installer: SUMMARY — installed: wrapper at <install dir>/terminal-jail
+   terminal-jail installer: skipped: pack '<name>' — <reason>
+   terminal-jail installer: SUMMARY — at least one requested rule pack was skipped; base install completed
+   ```
+
+   and exits `2`. With all requested packs installed (or none requested), the
+   behavior and the `0` exit are unchanged from before this fix.
 
 Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
 contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)

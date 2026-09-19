@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Rule-pack failure skips instead of aborting the base install (DF-TERMINAL-JAIL-21)
+
+- **`install.sh` + `scripts/rule-pack-tool.py`**: a fresh Debian host without
+  PyYAML got `cannot parse (JSONDecodeError …)` → `exit 2` from
+  `./install.sh --rule-pack db` and **no wrapper installed at all** — the
+  opt-in pack phase ran before the base install and every pack-level refusal
+  ended the whole script under `set -eu`. The pack phase now never aborts the
+  base install: a new PyYAML preflight (probed as `python3 -c 'import yaml'`)
+  skips YAML packs the validator could not read on such a host, naming the
+  missing dependency and both remedies (distro `python3-yaml` /
+  `pip install pyyaml`); unknown packs, missing python3, and validator
+  refusals (bad schema, malformed YAML, id collision) also become loud per-pack
+  skips, each writing nothing for that pack (validate-before-write stays). The
+  base install (wrapper, lib tree, default rules) always completes, and if any
+  requested pack was skipped the installer prints a final stderr summary and
+  exits `2`; all-packs-installed and no-pack runs keep exit `0`. A pack stored
+  as plain JSON still installs on a PyYAML-less host through the validator's
+  stdlib-JSON fallback (pinned by a new test). The validator's parse error on a
+  missing-PyYAML host now names the dependency instead of surfacing a bare
+  JSONDecodeError on direct invocations. Regression cells cover the
+  no-PyYAML host (wrapper present, pack skipped, PyYAML + remedies named,
+  exit 2), the plain-JSON-pack exception, the no-python3 host, and the
+  malformed-pack-with-PyYAML case; earlier "refusal aborts everything"
+  expectations were deliberately updated (named in-test, DF-TERMINAL-JAIL-21).
+
 ### Local-file upload / whole-tree copy blocking — honest egress verdicts (DF-TERMINAL-JAIL-20)
 
 - **`plugin/terminal_jail/interruptor/sandbox.py` → `blocklist.py`**: the four local-file egress

@@ -24,10 +24,12 @@ TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindup
 # --- installer flags (TJ-GAP-061) --------------------------------------------
 # The installer stays env-var driven; these flags only add the opt-in rule-pack
 # knobs. Every flag is parsed BEFORE anything is created or written, so an
-# unknown flag, an unknown pack name, or a pack the validator refuses leaves the
-# filesystem untouched. Pack names are restricted to [a-z0-9-] so the derived
-# file name (terminal-jail-pack-<name>.yaml) can neither escape the rules
-# directory nor be read as a glob.
+# unknown flag leaves the filesystem untouched. A pack the validator refuses
+# (or an unknown pack name) writes nothing FOR THAT PACK, but no longer aborts
+# the base install — a skipped pack is reported and the script exits 2 at the
+# end (DF-TERMINAL-JAIL-21). Pack names are restricted to [a-z0-9-] so the
+# derived file name (terminal-jail-pack-<name>.yaml) can neither escape the
+# rules directory nor be read as a glob.
 RULE_PACKS=""
 UNRULE_PACKS=""
 LIST_RULE_PACKS=0
@@ -75,7 +77,10 @@ Options:
                         malformed or invalid pack, a rule id outside the
                         pack-<name>-* namespace, or an id colliding with an
                         engine builtin id or an already-installed rule file is
-                        refused (exit 2) with nothing written.
+                        SKIPPED (base install continues; exit 2 at the end).
+                        Installing a YAML pack requires python3 + PyYAML (a
+                        plain-JSON pack needs PyYAML only if the validator
+                        would fall back to json — see README).
   --unrule-pack <name>  Remove an installed rule pack. Only
                         terminal-jail-pack-<name>.yaml is touched — the default
                         rules file and every other pack are never modified.
@@ -314,47 +319,77 @@ resolve_user_rules_dir() {
 }
 resolve_user_rules_dir
 
-# --- opt-in rule packs (TJ-GAP-061) ------------------------------------------
+# --- opt-in rule packs (TJ-GAP-061, DF-TERMINAL-JAIL-21) ----------------------
 # Packs are per-host policy: the default rule set stays lean and a pack is
 # installed only when the operator asks for it (--rule-pack <name>), landing as
 # terminal-jail-pack-<name>.yaml in the SAME resolved rules dir as the default
-# rules file. This whole section runs BEFORE the install section's mkdir -p and
-# before the wrapper is copied, so a refusal — unknown pack, python3 missing,
-# validator refusal (bad schema, malformed YAML, id outside the pack namespace,
-# id collision) — leaves NOTHING behind: no directory, no file.
+# rules file.
+# DF-TERMINAL-JAIL-21: a pack-level failure is a loud SKIP, never an abort of
+# the base install. Every requested pack is attempted independently; an unknown
+# name, a missing python3, a missing PyYAML, or a validator refusal (bad
+# schema, malformed YAML, id outside the pack namespace, id collision) skips
+# that pack with a one-line reason on stderr and writes NOTHING for it — while
+# the base install (wrapper, lib tree, default rules) always completes. If any
+# requested pack was skipped, the installer prints a final summary at the very
+# end and exits 2; with all requested packs installed (or none requested) the
+# behavior and exit 0 are unchanged.
 # scripts/rule-pack-tool.py is authoritative for every check; packs are
 # validated one at a time IN THE ORDER REQUESTED, so a pack that collides with
 # one requested earlier in the same invocation is refused when it is reached
-# (the earlier pack stays installed — refusing cannot un-install it).
+# (the earlier pack stays installed — skipping cannot un-install it).
+PACK_FAILURES=""
+
+skip_rule_pack() {
+    # DF-TERMINAL-JAIL-21: print the skip reason now and remember it (one line
+    # per skipped pack) for the end-of-run summary.
+    echo "$1" >&2
+    PACK_FAILURES="${PACK_FAILURES:+$PACK_FAILURES
+}$1"
+}
+
 if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
     pack_tool="$SCRIPT_DIR/scripts/rule-pack-tool.py"
     if [ ! -f "$pack_tool" ]; then
-        echo "terminal-jail installer: rule packs need ${pack_tool}, which is missing from this checkout — nothing was written" >&2
-        exit 2
-    fi
-    if [ -n "$RULE_PACKS" ] && ! command -v python3 >/dev/null 2>&1; then
-        echo "terminal-jail installer: --rule-pack requires python3 to validate a pack BEFORE installing it, and python3 was not found — nothing was written" >&2
-        exit 2
-    fi
-
+        # DF-TERMINAL-JAIL-21: a checkout missing its validator skips every
+        # requested pack instead of aborting the install.
+        for pack in $RULE_PACKS; do
+            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — rule packs need ${pack_tool}, which is missing from this checkout"
+        done
+    else
     install_rule_pack() {
         pack="$1"
         pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
         pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
         if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
             if [ -n "$PACKS_SOURCE_DIR" ]; then
-                echo "terminal-jail installer: unknown rule pack '${pack}' (no ${pack_src}) — nothing was written" >&2
+                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — unknown pack name (no ${pack_src}); run --list-rule-packs to list the packs this checkout ships"
             else
-                echo "terminal-jail installer: unknown rule pack '${pack}' (this checkout ships no plugin/terminal_jail/rules/packs directory) — nothing was written" >&2
+                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — unknown pack name (this checkout ships no plugin/terminal_jail/rules/packs directory); run --list-rule-packs to list the packs this checkout ships"
             fi
-            exit 2
+            return 0
+        fi
+        if ! command -v python3 >/dev/null 2>&1; then
+            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — python3 is required to validate a pack BEFORE installing it and was not found; install python3 and re-run this installer"
+            return 0
+        fi
+        # DF-TERMINAL-JAIL-21 PyYAML preflight: without PyYAML the validator
+        # can only parse plain JSON (its stdlib json fallback), so a YAML pack
+        # would be refused with a misleading JSONDecodeError. Name the missing
+        # dependency and both remedies instead, and skip without running the
+        # validator. A pack that parses as plain JSON is NOT refused here: the
+        # validator's json fallback handles it and the pack installs normally.
+        if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+            if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$pack_src" >/dev/null 2>&1; then
+                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer"
+                return 0
+            fi
         fi
         # FAIL CLOSED: validate before writing anything. The validator refuses
         # invalid schema, malformed YAML, ids outside the pack's namespace, and
         # id collisions (engine builtins / installed rule files).
         if ! python3 "$pack_tool" validate "$pack_src" --pack-name "$pack" --rules-dir "$RESOLVED_RULES_DIR"; then
-            echo "terminal-jail installer: rule pack '${pack}' REFUSED — nothing was written (see the validator reason above)" >&2
-            exit 2
+            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — REFUSED by the validator, nothing was written (see the validator reason above)"
+            return 0
         fi
         mkdir -p "$RESOLVED_RULES_DIR"
         cp "$pack_src" "$pack_dest"
@@ -378,6 +413,7 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
     for pack in $RULE_PACKS; do
         install_rule_pack "$pack"
     done
+    fi
     for pack in $UNRULE_PACKS; do
         remove_rule_pack "$pack"
     done
@@ -520,3 +556,15 @@ SHELLRC
 esac
 
 echo "terminal-jail installer: done."
+
+# --- DF-TERMINAL-JAIL-21 exit-code contract ----------------------------------
+# The base install has completed. If any requested rule pack was skipped, print
+# the final summary (what installed, what skipped and why) and exit 2 — the
+# summary is the last thing the operator reads, and the nonzero exit keeps
+# install automation honest without ever aborting the base install.
+if [ -n "$PACK_FAILURES" ]; then
+    echo "terminal-jail installer: SUMMARY — installed: wrapper at ${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail" >&2
+    printf '%s\n' "$PACK_FAILURES" >&2
+    echo "terminal-jail installer: SUMMARY — at least one requested rule pack was skipped; base install completed" >&2
+    exit 2
+fi

@@ -38,7 +38,20 @@ PID-namespace containment for everything Hermes runs → deploy shim
 git clone https://github.com/totalwindupflightsystems/terminal-jail.git
 cd terminal-jail
 ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
+
+# Optional: opt in to a curated rule pack (repeat --rule-pack for more)
+./install.sh --rule-pack db         # optional; see the README *Rule packs* section
+./install.sh --list-rule-packs      # what this checkout ships
 ```
+
+Rule packs are validated before anything is written. Installing a YAML pack
+needs `python3` with **PyYAML** — on a bare host install the distro package
+(`apt install python3-yaml`, `dnf install python3-yaml`) or run
+`pip install pyyaml` first. A pack that cannot be validated (missing python3 or
+PyYAML, malformed/invalid pack, or an id collision) is a **skip, not a
+failure**: the wrapper and default rules still install, the skip is printed
+with its reason, and the installer exits `2` at the end with a summary
+(`--unrule-pack` needs no Python at all).
 
 Release-mode downloads (wrapper + SHA-256 from a published release) are
 **opt-in only**: set `TERMINAL_JAIL_USE_RELEASE=1` (with

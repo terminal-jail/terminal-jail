@@ -1209,13 +1209,28 @@ def _run_checkout_install(
 
 
 def _assert_nothing_written(tmp_path: Path) -> None:
-    """A refusal — or a flag-only run — leaves no file behind (TJ-GAP-061:
-    the pack phase runs before the install section's mkdir)."""
+    """A parse-time refusal (unknown flag, unsafe pack name) — or a flag-only
+    run — leaves no file behind (TJ-GAP-061: flag parsing precedes the install
+    section's mkdir). DF-TERMINAL-JAIL-21: a PACK-level refusal is no longer
+    covered here — a refused pack is now a loud skip and the base install
+    completes; those tests assert the wrapper + rules dir instead."""
     install_dir = tmp_path / "bin"
     assert list(install_dir.iterdir()) == [], sorted(
         path.name for path in install_dir.iterdir()
     )
     assert not (tmp_path / "config").exists()
+
+
+def _assert_base_install_completed(tmp_path: Path, out: str) -> None:
+    """DF-TERMINAL-JAIL-21 invariant: no matter what happened to a requested
+    pack, the base install always completes — wrapper, lib tree, default
+    rules file."""
+    install_dir = tmp_path / "bin"
+    assert (install_dir / "terminal-jail").exists(), out
+    lib_tree = install_dir.parent / "lib" / "terminal-jail" / "plugin"
+    assert lib_tree.is_dir(), out
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    assert (rules_dir / "00-builtins.yaml").exists(), out
 
 
 @pytest.mark.standalone_cli
@@ -1281,12 +1296,14 @@ def test_unrule_pack_for_a_pack_that_is_not_installed(tmp_path: Path) -> None:
         ("malformed", _MALFORMED_PACK, "cannot parse"),
     ],
 )
-def test_install_refuses_a_bad_pack_and_writes_nothing(
+def test_install_skips_a_bad_pack_but_still_installs_the_base(
     tmp_path: Path, fixture_name: str, body: str, needle: str
 ) -> None:
-    """Schema-invalid, malformed, and builtin-shadowing packs are refused by
-    the validator BEFORE anything is written — no pack file, no default rules
-    file, no wrapper."""
+    """DF-TERMINAL-JAIL-21 (deliberate expectation change from the pre-DF-21
+    'refusal aborts everything' semantics): schema-invalid, malformed, and
+    builtin-shadowing packs are refused by the validator and NOTHING is written
+    for the pack itself — but the base install (wrapper, lib tree, default
+    rules) always completes, the skip is loud, and the run exits 2."""
     checkout = _scratch_checkout(tmp_path)
     (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
         body, encoding="utf-8"
@@ -1297,14 +1314,23 @@ def test_install_refuses_a_bad_pack_and_writes_nothing(
 
     assert result.returncode == 2, out
     assert needle in out, out
-    assert f"rule pack '{fixture_name}' REFUSED" in out, out
-    _assert_nothing_written(tmp_path)
+    assert f"skipped: pack '{fixture_name}' — REFUSED by the validator, nothing was written" in out, out
+    # the pack file itself was never written (fail-closed, validate-before-write)
+    assert not (
+        tmp_path / "config" / "terminal-jail" / "rules.d" / f"terminal-jail-pack-{fixture_name}.yaml"
+    ).exists(), out
+    # ...but the base install completed
+    _assert_base_install_completed(tmp_path, out)
+    # the end-of-run summary names what installed and what skipped
+    assert f"installed: wrapper at {tmp_path / 'bin' / 'terminal-jail'}" in out, out
+    assert "base install completed" in out, out
 
 
 @pytest.mark.standalone_cli
 def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
     """An id another installed rule file already carries is refused — a pack
-    may never shadow a rule that is already live in the rules dir."""
+    may never shadow a rule that is already live in the rules dir.
+    DF-TERMINAL-JAIL-21: the refusal is a loud skip; the base install completes."""
     checkout = _scratch_checkout(tmp_path)
     rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
     rules_dir.mkdir(parents=True)
@@ -1324,19 +1350,33 @@ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
 
     assert result.returncode == 2, out
     assert "are already installed in" in out, out
+    assert "skipped: pack 'db'" in out, out
     assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
     # the seeded file is untouched
     assert "pack-db-drop-database" in (rules_dir / "zz-handwritten.yaml").read_text()
+    # the base install completed despite the pack skip (DF-TERMINAL-JAIL-21)
+    _assert_base_install_completed(tmp_path, out)
 
 
 @pytest.mark.standalone_cli
-def test_install_refuses_an_unknown_rule_pack(tmp_path: Path) -> None:
+def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
+    tmp_path: Path,
+) -> None:
+    """DF-TERMINAL-JAIL-21 (deliberate expectation change: previously exit 2
+    with nothing written) — an unknown pack name is a loud skip that suggests
+    --list-rule-packs, and the base install completes (exit 2 at the end)."""
     result = _run_repo_install(tmp_path, "--rule-pack", "nope")
     out = (result.stdout + result.stderr).decode("utf-8", "replace")
 
     assert result.returncode == 2, out
-    assert "unknown rule pack 'nope'" in out, out
-    _assert_nothing_written(tmp_path)
+    assert "skipped: pack 'nope'" in out, out
+    assert "unknown pack name" in out, out
+    assert "--list-rule-packs" in out, out
+    # the unknown pack wrote nothing, but the base install completed
+    assert not (
+        tmp_path / "config" / "terminal-jail" / "rules.d" / "terminal-jail-pack-nope.yaml"
+    ).exists(), out
+    _assert_base_install_completed(tmp_path, out)
 
 
 @pytest.mark.standalone_cli
@@ -1384,3 +1424,171 @@ def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
     for flag in ("--rule-pack <name>", "--unrule-pack <name>", "--list-rule-packs"):
         assert flag in out, out
     _assert_nothing_written(tmp_path)
+
+
+# ── DF-TERMINAL-JAIL-21: pack failure skips instead of aborting the install ──
+
+_PYAML_SHADOW_YAML_BODY = (
+    'raise ImportError("PyYAML intentionally shadowed for DF-TERMINAL-JAIL-21 test")\n'
+)
+
+
+def _env_with_shadowed_pyyaml(env: dict[str, str], tmp_path: Path) -> dict[str, str]:
+    """Put a fake `python3` shim first on PATH that execs the real python3 with
+    PYTHONPATH pointing at a directory whose `yaml.py` raises ImportError —
+    `import yaml` then fails deterministically inside the preflight AND inside
+    the validator, simulating a fresh host without PyYAML (the dogfood
+    scenario: python3.13.5, no PyYAML, no pip). Mirrors the curated-PATH
+    fixture style used for the bwrap tests."""
+    shadow_dir = tmp_path / "pyyaml-shadow"
+    shadow_dir.mkdir(exist_ok=True)
+    (shadow_dir / "yaml.py").write_text(
+        _PYAML_SHADOW_YAML_BODY, encoding="utf-8"
+    )
+    python3 = shutil.which("python3")
+    assert python3, "the test host has no real python3 to shim"
+    shim = shadow_dir / "python3"
+    shim.write_text(
+        "#!/bin/sh\n"
+        f'PYTHONPATH="{shadow_dir}${{PYTHONPATH:+:$PYTHONPATH}}" \\\n'
+        f'  exec "{python3}" "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    return {**env, "PATH": f"{shadow_dir}{os.pathsep}{env.get('PATH', '')}"}
+
+
+def _env_with_no_python3(env: dict[str, str], tmp_path: Path) -> dict[str, str]:
+    """PATH curated to the installer's coreutils with NO python3 at all."""
+    bindir = tmp_path / "toolbin-no-python3"
+    bindir.mkdir(exist_ok=True)
+    _link_tools(bindir, *_INSTALL_TOOLS)
+    missing = sorted(t for t in _INSTALL_TOOLS if not (bindir / t).exists())
+    assert not missing, f"host lacks tools the curated PATH needs: {missing}"
+    return {**env, "PATH": str(bindir)}
+
+
+_JQ_JSON_PACK_BODY = (  # plain JSON on disk (the .yaml suffix is just the name)
+    '{"rules": [{"id": "pack-json-pack-ok", "priority": 950, "action": "block",'
+    ' "block_message": "no", "match": {"type": "pattern", "pattern": "zzz"}}]}\n'
+)
+
+
+@pytest.mark.standalone_cli
+def test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base(
+    tmp_path: Path,
+) -> None:
+    """DF-TERMINAL-JAIL-21 regression lock (the dogfood scenario): a fresh host
+    WITHOUT PyYAML must still get the base install; the YAML pack is skipped
+    loudly, naming PyYAML and both remedies, and the run exits 2. Nothing is
+    written for the skipped pack — not even the pack file."""
+    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
+    result = subprocess.run(
+        ["sh", "install.sh", "--rule-pack", "db"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(PROJECT_ROOT),
+        env=extra_env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "PyYAML is required to parse YAML rule packs and was not found" in out, out
+    assert "python3-yaml" in out, out
+    assert "pip install pyyaml" in out, out
+    assert "base install completed" in out, out
+    # the base install completed: wrapper, lib tree, default rules
+    _assert_base_install_completed(tmp_path, out)
+    # the skipped pack wrote NOTHING to the rules dir (fail-closed preflight:
+    # the validator never even ran, so no pack file exists)
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+    # the validator (whose JSONDecodeError caused the original dogfood failure)
+    # never produced a refusal for this pack
+    assert "cannot parse" not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
+    tmp_path: Path,
+) -> None:
+    """The PyYAML preflight must NOT refuse a pack the validator can actually
+    read: a pack that parses as plain JSON goes through the validator's stdlib
+    json fallback and installs normally — exit 0, wrapper installed."""
+    checkout = _scratch_checkout(tmp_path)
+    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "json-pack.yaml").write_text(
+        _JQ_JSON_PACK_BODY, encoding="utf-8"
+    )
+    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
+    result = subprocess.run(
+        ["sh", "install.sh", "--rule-pack", "json-pack"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(checkout),
+        env=extra_env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    pack = rules_dir / "terminal-jail-pack-json-pack.yaml"
+    assert pack.exists(), out
+    assert pack.read_bytes() == _JQ_JSON_PACK_BODY.encode("utf-8"), out
+    assert (rules_dir / "00-builtins.yaml").exists(), out
+    assert "installed rule pack 'json-pack'" in out, out
+    assert "PyYAML" not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_install_with_no_python3_skips_the_pack_but_installs_the_base(
+    tmp_path: Path,
+) -> None:
+    """No python3 at all (bare distro host): the requested pack skips with a
+    specific message naming python3, and the base install completes (exit 2).
+    Validating before writing stays the invariant — the pack is never copied
+    unvalidated (DF-TERMINAL-JAIL-21)."""
+    extra_env = _env_with_no_python3(_install_env(tmp_path), tmp_path)
+    result = subprocess.run(
+        ["sh", "install.sh", "--rule-pack", "db"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(PROJECT_ROOT),
+        env=extra_env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "python3 is required to validate a pack BEFORE installing it" in out, out
+    assert "install python3" in out, out
+    assert "base install completed" in out, out
+    _assert_base_install_completed(tmp_path, out)
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base(
+    tmp_path: Path,
+) -> None:
+    """PyYAML present but the pack is malformed: the validator refuses (nothing
+    written for the pack), but the base install completes (exit 2) — the
+    same skip-not-abort semantics as the no-PyYAML path."""
+    checkout = _scratch_checkout(tmp_path)
+    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "malformed.yaml").write_text(
+        _MALFORMED_PACK, encoding="utf-8"
+    )
+    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "malformed")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "cannot parse" in out, out
+    assert "skipped: pack 'malformed'" in out, out
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    assert not (rules_dir / "terminal-jail-pack-malformed.yaml").exists(), out
+    _assert_base_install_completed(tmp_path, out)

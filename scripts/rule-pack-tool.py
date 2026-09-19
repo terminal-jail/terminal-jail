@@ -128,18 +128,32 @@ def _load_document(path: Path) -> Any:
     available, else ``safe_load``) and falls back to stdlib ``json`` only when
     PyYAML is missing. Mirrored here so a pack that the engine could load is
     never refused for a parsing difference.
+
+    DF-TERMINAL-JAIL-21: when PyYAML is missing AND the document is not plain
+    JSON, the error names the missing dependency instead of surfacing a bare
+    ``JSONDecodeError`` — the installer's preflight skips such packs before the
+    validator ever runs, so this message is only seen on direct invocations.
     """
     with open(path) as handle:  # engine opens without an explicit encoding
         content = handle.read()
 
     try:
         import yaml
+    except ImportError:
+        yaml = None
 
+    if yaml is not None:
         if hasattr(yaml, "CSafeLoader"):
             return yaml.load(content, Loader=yaml.CSafeLoader)
         return yaml.safe_load(content)
-    except ImportError:
+
+    try:
         return json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise PackParseError(
+            "PyYAML is not installed, so only plain-JSON rule documents can be "
+            f"read ({exc})"
+        ) from exc
 
 
 def _load_rule_entries(path: Path, *, require_rules_key: bool) -> list[Any]:
