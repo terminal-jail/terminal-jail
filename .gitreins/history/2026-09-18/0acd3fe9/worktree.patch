@@ -1,0 +1,60 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 1cfa7aa..2bbd364 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -776,3 +776,12 @@ tasks:
+   status: complete
+   created_at: '2026-09-18T08:42:36.949469+00:00'
+   completed_at: '2026-09-18T08:54:44.423708+00:00'
++- id: TJ-GAP-066
++  title: Preserve shell pipeline operators in auto-sandbox reconstruction
++  criteria:
++  - For every sandboxed pipeline, preserve the original segment count and operator
++    sequence in the modified command, preserve rule provenance, add regression tests,
++    and keep the full suite green.
++  status: complete
++  created_at: '2026-09-18T14:09:11.487558+00:00'
++  completed_at: '2026-09-18T14:19:39.187857+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 0f7f7dd..e50b830 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -34,3 +34,4 @@
+ {"ts": 1789721780.6753387, "tokens_in": 675119, "tokens_out": 7208, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789733554.5718024, "tokens_in": 993488, "tokens_out": 8960, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789735111.676105, "tokens_in": 376636, "tokens_out": 4210, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789741307.9216335, "tokens_in": 950476, "tokens_out": 8703, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..d6ef3d9 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,29 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_escape_waves.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_escape_waves.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_escape_waves.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_escape_waves.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_escape_waves.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}

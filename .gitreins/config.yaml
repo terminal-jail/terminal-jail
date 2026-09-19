@@ -5,6 +5,13 @@ guards:
   test_mode: diff
   test_command: pytest -x --tb=short
   static_analysis: true
+  # TRUST-001 default for a repo whose ticks commit board data (.coding-hermes/**)
+  # and harness records only: a DEGENERATE run (no gradable staged file, so lint
+  # and tests legitimately skip) exits 0 instead of blocking the commit. A gate
+  # that RUNS and fails is unaffected — gitreins only honours this for a degraded
+  # result (cli.py: exit 1 when `result.degraded and not allow_skips`), and CI
+  # plus `gitreins guard --full` still grade the whole tree on every push.
+  allow_skips: true
 evaluator:
   max_iterations: 100
   max_time: 30m

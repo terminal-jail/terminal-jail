@@ -1,0 +1,141 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-15",
+  "task_title": "Transparent auto-sandbox must not rewrite commands into a launch that cannot read the caller's files",
+  "task_criteria": [
+    "userns.unshare_prefix() selects a launch that passed a runtime file-access property preflight (payload reads a caller-owned mode-600 probe file AND writes in the caller's cwd), not merely namespace creation",
+    "plugin/test_userns.py covers both branches (ns-creation OK + property FAIL -> legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix code",
+    "Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py semantics intact",
+    "Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline 588 passed / 5 skipped) plus uvx ruff check . -> All checks passed",
+    "README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not claim filesystem isolation for transparent auto-sandbox"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "90483703ef6304c6d98ff51107422445f9f2e51f",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T000153.521357Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n7:01PM INF scanned ~3681967 bytes (3.68 MB) in 376ms\n7:01PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 117 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T000153.521357Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.12.1\ncollected 606 items\n\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  6%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n............................                                             [ 18%]\nplugin/test_install.py ............................                      [ 23%]\nplugin/test_interruptor.py ............................................. [ 30%]\n........................................................................ [ 42%]\n........................................................................ [ 54%]\n........................................................................ [ 66%]\n....................                                                     [ 69%]\nplugin/test_interruptor_integration.py .............s................... [ 74%]\n...                                                                      [ 75%]\nplugin/test_metrics_export.py .....................                      [ 78%]\nplugin/test_packaging.py ..........                                      [ 80%]\nplugin/test_plugin.py ................                                   [ 83%]\nplugin/test_seccomp.py .........................................sss      [ 90%]\nplugin/test_standalone_cli.py ...................                        [ 93%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 601 passed, 5 skipped in 13.27s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T000153.521357Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 userns.unshare_prefix() selects a launch that passed a runtime file-access property preflight (payload reads a caller-owned mode-600 probe file AND writes in the caller's cwd), not merely namespace creation: userns.py unshare_prefix() (lines 340-363) returns the mapped prefix only when `observed == _PROPERTY_MARKER` ('read_rc=0 write_rc=0'), where observed = _property_observation() run after mapped_launch_ok(). _property_payload (line ~211) does `cat <secret> >/dev/null` on a caller-created mode-600 file (os.chmod(secret, 0o600), line ~250) AND `echo ... > <target>` where target is in the caller's cwd (workdir=os.getcwd()). Both halves required; timeout/OSError/non-zero exit fail closed. Namespace creation alone (mapped_launch_ok) is explicitly insufficient.\n  \u2713 plugin/test_userns.py covers both branches (ns-creation OK + property FAIL -> legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix code: TestFileAccessPreflight::test_capable_host_without_file_access_falls_back_to_legacy (ns OK + property FAIL -> legacy prefix, exactly ONE 'no filesystem isolation' warning naming TERMINAL_JAIL_UID_MAP=0 and DF-TERMINAL-JAIL-15) and test_property_pass_selects_the_mapped_prefix (property OK -> mapped prefix, no warning). RED-proven: swapping in pre-fix userns.py (e22a3c1^) makes all 11 TestFileAccessPreflight tests FAIL \u2014 behavioural core fails by assertion ('unshare --user --map-users=...' returned on creation alone). Restored cleanly (git status clean).\n  \u2713 Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py semantics intact: Engine uid_map_disabled() (userns.py:128-134) checked at line 353; wrapper standalone/terminal-jail case 0|off|false -> legacy (lines 361-365). `git show --stat e22a3c1 9048370 -- standalone/terminal-jail scripts/fs-isolation-probe.py` is empty \u2014 neither file modified, so the --user creation-only preflight and probe semantics are intact. scripts/fs-isolation-probe.py runs and exits 0 (prints DEGRADED + cause). Tests test_uid_map_disabled_env, test_unshare_prefix_forced_off, test_uid_map_off_forces_legacy_with_warning, TestDegradedFallback pass.\n  \u2713 Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline 588 passed / 5 skipped) plus uvx ruff check . -> All checks passed: `.venv/bin/python -m pytest -q` -> exit 0, '601 passed, 5 skipped in 13.46s' (baseline 588 passed/5 skipped; +13 new tests). `uvx ruff check .` -> exit 0, 'All checks passed!'. LSP diagnostics: 0 findings.\n  \u2713 README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not claim filesystem isolation for transparent auto-sandbox: README.md:158-159 states the rule (mapped only when host can create it AND payload can read caller mode-600 file + write in caller cwd) and 'It never claims filesystem isolation it does not have: the mapped launch stays the explicit hard-isolation path'. specs/cli.md new bullet 'Transparent auto-sandbox / modify wrap selection' states the rule and 'The auto-sandbox therefore makes no filesystem-isolation claim'. CHANGELOG.md Unreleased section states the rule and 'neither claims filesystem isolation for the transparent auto-sandbox'. specs/interruptor.md stale creation-only contract also corrected.\nAll 5 criteria pass: unshare_prefix() now selects the mapped launch only on a proven file-access property preflight, tests cover both branches and are RED-proven against pre-fix code, the explicit --user path is untouched, the suite is green (601 passed/5 skipped, ruff clean), and all docs state the new rule without claiming filesystem isolation for the transparent auto-sandbox.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 userns.unshare_prefix() selects a launch that passed a runtime file-access property preflight (payload reads a caller-owned mode-600 probe file AND writes in the caller's cwd), not merely namespace creation: userns.py unshare_prefix() (lines 340-363) returns the mapped prefix only when `observed == _PROPERTY_MARKER` ('read_rc=0 write_rc=0'), where observed = _property_observation() run after mapped_launch_ok(). _property_payload (line ~211) does `cat <secret> >/dev/null` on a caller-created mode-600 file (os.chmod(secret, 0o600), line ~250) AND `echo ... > <target>` where target is in the caller's cwd (workdir=os.getcwd()). Both halves required; timeout/OSError/non-zero exit fail closed. Namespace creation alone (mapped_launch_ok) is explicitly insufficient.\n  \u2713 plugin/test_userns.py covers both branches (ns-creation OK + property FAIL -> legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix code: TestFileAccessPreflight::test_capable_host_without_file_access_falls_back_to_legacy (ns OK + property FAIL -> legacy prefix, exactly ONE 'no filesystem isolation' warning naming TERMINAL_JAIL_UID_MAP=0 and DF-TERMINAL-JAIL-15) and test_property_pass_selects_the_mapped_prefix (property OK -> mapped prefix, no warning). RED-proven: swapping in pre-fix userns.py (e22a3c1^) makes all 11 TestFileAccessPreflight tests FAIL \u2014 behavioural core fails by assertion ('unshare --user --map-users=...' returned on creation alone). Restored cleanly (git status clean).\n  \u2713 Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py semantics intact: Engine uid_map_disabled() (userns.py:128-134) checked at line 353; wrapper standalone/terminal-jail case 0|off|false -> legacy (lines 361-365). `git show --stat e22a3c1 9048370 -- standalone/terminal-jail scripts/fs-isolation-probe.py` is empty \u2014 neither file modified, so the --user creation-only preflight and probe semantics are intact. scripts/fs-isolation-probe.py runs and exits 0 (prints DEGRADED + cause). Tests test_uid_map_disabled_env, test_unshare_prefix_forced_off, test_uid_map_off_forces_legacy_with_warning, TestDegradedFallback pass.\n  \u2713 Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline 588 passed / 5 skipped) plus uvx ruff check . -> All checks passed: `.venv/bin/python -m pytest -q` -> exit 0, '601 passed, 5 skipped in 13.46s' (baseline 588 passed/5 skipped; +13 new tests). `uvx ruff check .` -> exit 0, 'All checks passed!'. LSP diagnostics: 0 findings.\n  \u2713 README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not claim filesystem isolation for transparent auto-sandbox: README.md:158-159 states the rule (mapped only when host can create it AND payload can read caller mode-600 file + write in caller cwd) and 'It never claims filesystem isolation it does not have: the mapped launch stays the explicit hard-isolation path'. specs/cli.md new bullet 'Transparent auto-sandbox / modify wrap selection' states the rule and 'The auto-sandbox therefore makes no filesystem-isolation claim'. CHANGELOG.md Unreleased section states the rule and 'neither claims filesystem isolation for the transparent auto-sandbox'. specs/interruptor.md stale creation-only contract also corrected.\nAll 5 criteria pass: unshare_prefix() now selects the mapped launch only on a proven file-access property preflight, tests cover both branches and are RED-proven against pre-fix code, the explicit --user path is untouched, the suite is green (601 passed/5 skipped, ruff clean), and all docs state the new rule without claiming filesystem isolation for the transparent auto-sandbox.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "userns.unshare_prefix() selects a launch that passed a runtime file-access property preflight (payload reads a caller-owned mode-600 probe file AND writes in the caller's cwd), not merely namespace creation",
+                "status": "PASS",
+                "detail": "userns.py unshare_prefix() (lines 340-363) returns the mapped prefix only when `observed == _PROPERTY_MARKER` ('read_rc=0 write_rc=0'), where observed = _property_observation() run after mapped_launch_ok(). _property_payload (line ~211) does `cat <secret> >/dev/null` on a caller-created mode-600 file (os.chmod(secret, 0o600), line ~250) AND `echo ... > <target>` where target is in the caller's cwd (workdir=os.getcwd()). Both halves required; timeout/OSError/non-zero exit fail closed. Namespace creation alone (mapped_launch_ok) is explicitly insufficient."
+              },
+              {
+                "criterion": "plugin/test_userns.py covers both branches (ns-creation OK + property FAIL -> legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix code",
+                "status": "PASS",
+                "detail": "TestFileAccessPreflight::test_capable_host_without_file_access_falls_back_to_legacy (ns OK + property FAIL -> legacy prefix, exactly ONE 'no filesystem isolation' warning naming TERMINAL_JAIL_UID_MAP=0 and DF-TERMINAL-JAIL-15) and test_property_pass_selects_the_mapped_prefix (property OK -> mapped prefix, no warning). RED-proven: swapping in pre-fix userns.py (e22a3c1^) makes all 11 TestFileAccessPreflight tests FAIL \u2014 behavioural core fails by assertion ('unshare --user --map-users=...' returned on creation alone). Restored cleanly (git status clean)."
+              },
+              {
+                "criterion": "Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py semantics intact",
+                "status": "PASS",
+                "detail": "Engine uid_map_disabled() (userns.py:128-134) checked at line 353; wrapper standalone/terminal-jail case 0|off|false -> legacy (lines 361-365). `git show --stat e22a3c1 9048370 -- standalone/terminal-jail scripts/fs-isolation-probe.py` is empty \u2014 neither file modified, so the --user creation-only preflight and probe semantics are intact. scripts/fs-isolation-probe.py runs and exits 0 (prints DEGRADED + cause). Tests test_uid_map_disabled_env, test_unshare_prefix_forced_off, test_uid_map_off_forces_legacy_with_warning, TestDegradedFallback pass."
+              },
+              {
+                "criterion": "Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline 588 passed / 5 skipped) plus uvx ruff check . -> All checks passed",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest -q` -> exit 0, '601 passed, 5 skipped in 13.46s' (baseline 588 passed/5 skipped; +13 new tests). `uvx ruff check .` -> exit 0, 'All checks passed!'. LSP diagnostics: 0 findings."
+              },
+              {
+                "criterion": "README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not claim filesystem isolation for transparent auto-sandbox",
+                "status": "PASS",
+                "detail": "README.md:158-159 states the rule (mapped only when host can create it AND payload can read caller mode-600 file + write in caller cwd) and 'It never claims filesystem isolation it does not have: the mapped launch stays the explicit hard-isolation path'. specs/cli.md new bullet 'Transparent auto-sandbox / modify wrap selection' states the rule and 'The auto-sandbox therefore makes no filesystem-isolation claim'. CHANGELOG.md Unreleased section states the rule and 'neither claims filesystem isolation for the transparent auto-sandbox'. specs/interruptor.md stale creation-only contract also corrected."
+              }
+            ],
+            "summary": "All 5 criteria pass: unshare_prefix() now selects the mapped launch only on a proven file-access property preflight, tests cover both branches and are RED-proven against pre-fix code, the explicit --user path is untouched, the suite is green (601 passed/5 skipped, ruff clean), and all docs state the new rule without claiming filesystem isolation for the transparent auto-sandbox."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-15\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 userns.unshare_prefix() selects a launch that passed a runtime file-access property preflight (payload reads a caller-owned mode-600 probe file AND writes in the caller's cwd), not merely namespace creation: userns.py unshare_prefix() (lines 340-363) returns the mapped prefix only when `observed == _PROPERTY_MARKER` ('read_rc=0 write_rc=0'), where observed = _property_observation() run after mapped_launch_ok(). _property_payload (line ~211) does `cat <secret> >/dev/null` on a caller-created mode-600 file (os.chmod(secret, 0o600), line ~250) AND `echo ... > <target>` where target is in the caller's cwd (workdir=os.getcwd()). Both halves required; timeout/OSError/non-zero exit fail closed. Namespace creation alone (mapped_launch_ok) is explicitly insufficient.\n  \u2713 plugin/test_userns.py covers both branches (ns-creation OK + property FAIL -> legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix code: TestFileAccessPreflight::test_capable_host_without_file_access_falls_back_to_legacy (ns OK + property FAIL -> legacy prefix, exactly ONE 'no filesystem isolation' warning naming TERMINAL_JAIL_UID_MAP=0 and DF-TERMINAL-JAIL-15) and test_property_pass_selects_the_mapped_prefix (property OK -> mapped prefix, no warning). RED-proven: swapping in pre-fix userns.py (e22a3c1^) makes all 11 TestFileAccessPreflight tests FAIL \u2014 behavioural core fails by assertion ('unshare --user --map-users=...' returned on creation alone). Restored cleanly (git status clean).\n  \u2713 Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py semantics intact: Engine uid_map_disabled() (userns.py:128-134) checked at line 353; wrapper standalone/terminal-jail case 0|off|false -> legacy (lines 361-365). `git show --stat e22a3c1 9048370 -- standalone/terminal-jail scripts/fs-isolation-probe.py` is empty \u2014 neither file modified, so the --user creation-only preflight and probe semantics are intact. scripts/fs-isolation-probe.py runs and exits 0 (prints DEGRADED + cause). Tests test_uid_map_disabled_env, test_unshare_prefix_forced_off, test_uid_map_off_forces_legacy_with_warning, TestDegradedFallback pass.\n  \u2713 Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline 588 passed / 5 skipped) plus uvx ruff check . -> All checks passed: `.venv/bin/python -m pytest -q` -> exit 0, '601 passed, 5 skipped in 13.46s' (baseline 588 passed/5 skipped; +13 new tests). `uvx ruff check .` -> exit 0, 'All checks passed!'. LSP diagnostics: 0 findings.\n  \u2713 README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not claim filesystem isolation for transparent auto-sandbox: README.md:158-159 states the rule (mapped only when host can create it AND payload can read caller mode-600 file + write in caller cwd) and 'It never claims filesystem isolation it does not have: the mapped launch stays the explicit hard-isolation path'. specs/cli.md new bullet 'Transparent auto-sandbox / modify wrap selection' states the rule and 'The auto-sandbox therefore makes no filesystem-isolation claim'. CHANGELOG.md Unreleased section states the rule and 'neither claims filesystem isolation for the transparent auto-sandbox'. specs/interruptor.md stale creation-only contract also corrected.\nAll 5 criteria pass: unshare_prefix() now selects the mapped launch only on a proven file-access property preflight, tests cover both branches and are RED-proven against pre-fix code, the explicit --user path is untouched, the suite is green (601 passed/5 skipped, ruff clean), and all docs state the new rule without claiming filesystem isolation for the transparent auto-sandbox.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T00:03:43.328986",
+  "evidence": {
+    "collected_at": "2026-09-19T00:03:43.343318+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 11572,
+        "truncated": false,
+        "source": "git show 90483703ef63"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 8365,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-15"
+  }
+}

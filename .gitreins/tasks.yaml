@@ -776,3 +776,23 @@ tasks:
   status: complete
   created_at: '2026-09-18T08:42:36.949469+00:00'
   completed_at: '2026-09-18T08:54:44.423708+00:00'
+- id: DF-TERMINAL-JAIL-15
+  title: Transparent auto-sandbox must not rewrite commands into a launch that cannot
+    read the caller's files
+  criteria:
+  - userns.unshare_prefix() selects a launch that passed a runtime file-access property
+    preflight (payload reads a caller-owned mode-600 probe file AND writes in the
+    caller's cwd), not merely namespace creation
+  - plugin/test_userns.py covers both branches (ns-creation OK + property FAIL ->
+    legacy prefix + loud warning; property OK -> mapped prefix) and fails on the pre-fix
+    code
+  - 'Explicit hard-isolation path unchanged: TERMINAL_JAIL_UID_MAP=0|off|false forces
+    legacy; standalone/terminal-jail --user mapped preflight and scripts/fs-isolation-probe.py
+    semantics intact'
+  - 'Suite green on the final tree: .venv/bin/python -m pytest -q (pre-fix baseline
+    588 passed / 5 skipped) plus uvx ruff check . -> All checks passed'
+  - README.md + specs/cli.md + CHANGELOG.md state the new selection rule and do not
+    claim filesystem isolation for transparent auto-sandbox
+  status: complete
+  created_at: '2026-09-18T23:45:28.437315+00:00'
+  completed_at: '2026-09-19T00:01:57.517525+00:00'
