@@ -6,10 +6,11 @@ and the top-level intercept() entry point.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
-from terminal_jail.interruptor import Action, intercept
+from terminal_jail.interruptor import Action, intercept, userns
 from terminal_jail.interruptor.config import Config
 from terminal_jail.interruptor.output import format_blocked, format_sandbox_notice
 from terminal_jail.interruptor.parser import (
@@ -1772,6 +1773,104 @@ def _write_user_rules(tmp_path, yaml_text: str):
     )
 
 
+# ── Sandbox launch contract (QA-TERMINAL-JAIL-8) ───────────────────────────
+#
+# A MODIFY rewrite is always "<launch prefix><shell-quoted command>". The
+# prefix has exactly TWO legitimate spellings, and which one a host emits is
+# HOST STATE, not a property of the rewrite contract:
+#
+#   mapping-less : unshare --user --pid --fork --kill-child=SIGKILL bash -c
+#   uid-mapped   : unshare --user --map-users=<n>:<n>:1
+#                  --map-groups=<n>:<n>:1 -S <n> -G <n>
+#                  --pid --fork --kill-child=SIGKILL bash -c
+#
+# userns.unshare_prefix() selects the mapped form only when /etc/subuid and
+# /etc/subgid carry a range for the caller AND the file-access preflight
+# proves it usable (DF-TERMINAL-JAIL-15). Asserting ONE literal prefix is
+# therefore an assertion about the machine the suite runs on: it is green
+# where no subordinate range exists and red on every host that has one (the
+# reported QA failure — a capable host produced
+# `unshare --user --map-users=65534:493216:1 … -S 65534 -G 65534 --pid …`).
+#
+# The subordinate-ID NUMBERS are deliberately NOT pinned here — they are
+# read from /etc/subuid|/etc/subgid and change per host. What IS pinned is
+# everything that is not host state: the `--pid --fork --kill-child=SIGKILL`
+# flags, their order, and their position immediately before the `bash -c`
+# payload introducer.
+_LAUNCH_CONTRACT = "--pid --fork --kill-child=SIGKILL bash -c "
+
+_LEGACY_LAUNCH_RE = re.compile(
+    rf"^unshare --user {re.escape(_LAUNCH_CONTRACT)}$"
+)
+
+_MAPPED_LAUNCH_RE = re.compile(
+    rf"^unshare --user"
+    rf" --map-users={userns.NOBODY_UID}:\d+:1"
+    rf" --map-groups={userns.NOBODY_GID}:\d+:1"
+    rf" -S {userns.NOBODY_UID} -G {userns.NOBODY_GID}"
+    rf" {re.escape(_LAUNCH_CONTRACT)}$"
+)
+
+
+# Arbitrary subordinate-ID starts used as fixtures. NONE of them is this
+# host's /etc/subuid value: the point of the fix is that no assertion depends
+# on which range a machine happens to allocate (DEFAULT_SUBID_START is the
+# documented fallback for users with no allocation at all).
+_MAPPED_SUBID_FIXTURES = (userns.DEFAULT_SUBID_START, 493216, 1803936)
+
+
+def _mapped_launch_prefix(subid_start: int) -> str:
+    """A uid-mapped launch prefix for an ARBITRARY subordinate-ID start.
+
+    The start value is a parameter on purpose: a real host's value comes from
+    /etc/subuid and must never be baked into an assertion or a fixture.
+    """
+    return (
+        "unshare --user"
+        f" --map-users={userns.NOBODY_UID}:{subid_start}:1"
+        f" --map-groups={userns.NOBODY_GID}:{subid_start}:1"
+        f" -S {userns.NOBODY_UID} -G {userns.NOBODY_GID}"
+        f" {_LAUNCH_CONTRACT}"
+    )
+
+
+def _assert_sandboxed_modify(result: InterceptResult, command: str) -> str:
+    """Assert a MODIFY rewrite carries a legitimate sandbox launch + payload.
+
+    Host-independent by construction: BOTH launch spellings are accepted, so
+    the assertion holds on a host that selects the uid-mapped launch (subuid/
+    subgid ranges present, QA-TERMINAL-JAIL-8) and on one that cannot map at
+    all. The parts that are NOT host state are pinned strictly — the
+    `--pid --fork --kill-child=SIGKILL bash -c` contract and its order, its
+    position immediately before the payload, and the payload being the
+    ORIGINAL command as ONE shell-quoted argument (a missing/incorrect
+    contract or an unquoted payload is refused).
+
+    Returns the accepted launch prefix so callers can inspect it.
+    """
+    modified = result.modified
+    assert modified is not None, "MODIFY verdict carries no rewritten payload"
+    launch_prefix, contract, payload = modified.partition(_LAUNCH_CONTRACT)
+    assert contract == _LAUNCH_CONTRACT, (
+        f"the rewrite must carry the stable launch contract "
+        f"{_LAUNCH_CONTRACT!r} immediately before its payload — got "
+        f"{modified!r}"
+    )
+    launch = launch_prefix + contract
+    matched = _LEGACY_LAUNCH_RE.match(launch) or _MAPPED_LAUNCH_RE.match(launch)
+    assert matched is not None, (
+        "the rewrite launched an unexpected unshare prefix — expected either "
+        "the mapping-less or the uid-mapped form (shapes pinned, subordinate "
+        f"IDs not): {launch!r}"
+    )
+    expected_payload = "'" + command + "'"
+    assert payload == expected_payload, (
+        f"the rewrite must carry the original command as ONE quoted argument: "
+        f"expected {expected_payload!r}, got {payload!r}"
+    )
+    return launch
+
+
 class TestUserRules:
     """User-defined rules loaded from rules.d are evaluated (TJ-DF-004).
 
@@ -1899,11 +1998,175 @@ rules:
         assert result.rule_id == "user-modify-danger-tool", (
             f"aggregate MODIFY lost its provenance: {result.rule_id!r}"
         )
-        assert result.modified.startswith(f"{unshare_prefix()}'"), (
-            f"modified payload should carry the unshare prefix, "
-            f"got {result.modified!r}"
+        # QA-TERMINAL-JAIL-8: assert the launch CONTRACT, not this host's
+        # prefix. userns.unshare_prefix() legitimately emits
+        # --map-users/--map-groups/-S/-G when /etc/subuid + /etc/subgid carry
+        # a range for the caller, so pinning ONE literal prefix is an
+        # assertion about the test machine, not about the rewrite. The helper
+        # accepts both spellings and pins what is not host state: the
+        # `--pid --fork --kill-child=SIGKILL bash -c` flags (presence, order,
+        # position) and the original command as ONE quoted payload.
+        _assert_sandboxed_modify(result, "danger-tool --wipe")
+
+    # ── QA-TERMINAL-JAIL-8: the launch contract is host-independent ────────
+
+    @staticmethod
+    def _rewrite(prefix: str, command: str = "danger-tool --wipe") -> InterceptResult:
+        """A MODIFY result whose payload is the (quote-free) command wrap."""
+        return InterceptResult(
+            action=Action.MODIFY,
+            command=command,
+            modified=f"{prefix}'{command}'",
+            rule_id="user-modify-danger-tool",
         )
-        assert "danger-tool --wipe" in result.modified
+
+    @staticmethod
+    def _rewrite_for(modified: str) -> InterceptResult:
+        return InterceptResult(
+            action=Action.MODIFY,
+            command="danger-tool --wipe",
+            modified=modified,
+            rule_id="user-modify-danger-tool",
+        )
+
+    def test_contract_accepts_the_mapping_less_launch(self) -> None:
+        """The historical launch (no /etc/subuid entry) still matches."""
+        prefix = f"unshare --user {_LAUNCH_CONTRACT}"
+        assert (
+            _assert_sandboxed_modify(self._rewrite(prefix), "danger-tool --wipe")
+            == prefix
+        )
+
+    @pytest.mark.parametrize("subid_start", _MAPPED_SUBID_FIXTURES)
+    def test_contract_accepts_the_uid_mapped_launch(self, subid_start: int) -> None:
+        """A host WITH subuid/subgid allocation must pass (the reported red)."""
+        prefix = _mapped_launch_prefix(subid_start)
+        assert prefix != f"unshare --user {_LAUNCH_CONTRACT}", (
+            "fixture is not representative: the mapped prefix must differ "
+            "from the mapping-less one"
+        )
+        assert (
+            _assert_sandboxed_modify(self._rewrite(prefix), "danger-tool --wipe")
+            == prefix
+        )
+
+    def test_contract_accepts_this_hosts_own_launch(self) -> None:
+        """Whichever launch this host selects, plus both built from userns."""
+        for prefix in (
+            unshare_prefix(),
+            f"unshare {userns.LEGACY_USER_FLAGS} bash -c ",
+            f"unshare {userns.mapped_user_flags()} bash -c ",
+        ):
+            assert (
+                _assert_sandboxed_modify(self._rewrite(prefix), "danger-tool --wipe")
+                == prefix
+            ), f"contract rejected a legitimate launch: {prefix!r}"
+
+    def test_the_pre_fix_literal_prefix_is_not_required(self) -> None:
+        """Regression pin: the reported defect must not be reintroduced.
+
+        The pre-fix assertion was ``modified.startswith("unshare --user
+        --pid --fork --kill-child=SIGKILL bash -c ")``, which is red on any
+        host that selects the uid-mapped prefix. The contract assertion must
+        accept exactly that mapped rewrite.
+        """
+        literal_legacy = f"unshare --user {_LAUNCH_CONTRACT}"
+        prefix = _mapped_launch_prefix(493216)
+        assert not prefix.startswith(literal_legacy), (
+            "fixture is not representative: the mapped rewrite must NOT match "
+            "the literal mapping-less prefix the pre-fix assertion required"
+        )
+        assert (
+            _assert_sandboxed_modify(self._rewrite(prefix), "danger-tool --wipe")
+            == prefix
+        )
+
+    @pytest.mark.parametrize(
+        "label,modified",
+        (
+            (
+                "dropped --pid",
+                "unshare --user --fork --kill-child=SIGKILL"
+                " bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "dropped --fork",
+                "unshare --user --pid --kill-child=SIGKILL"
+                " bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "dropped --kill-child",
+                "unshare --user --pid --fork bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "reordered --fork --pid",
+                "unshare --user --fork --pid --kill-child=SIGKILL"
+                " bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "missing bash -c introducer",
+                "unshare --user --pid --fork --kill-child=SIGKILL"
+                " 'danger-tool --wipe'",
+            ),
+            (
+                "bare unshare",
+                "unshare 'danger-tool --wipe'",
+            ),
+            (
+                "unquoted payload",
+                "unshare --user --pid --fork --kill-child=SIGKILL"
+                " bash -c danger-tool --wipe",
+            ),
+            (
+                "truncated payload",
+                "unshare --user --pid --fork --kill-child=SIGKILL"
+                " bash -c 'danger-tool --wipe",
+            ),
+            (
+                "payload is a different command",
+                "unshare --user --pid --fork --kill-child=SIGKILL"
+                " bash -c 'other-tool --wipe'",
+            ),
+            (
+                "mapped without -S/-G",
+                "unshare --user --map-users=65534:424242:1"
+                " --map-groups=65534:424242:1"
+                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+            ),
+            (
+                "mapped with -S/-G swapped",
+                "unshare --user --map-users=65534:424242:1"
+                " --map-groups=65534:424242:1 -G 65534 -S 65534"
+                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+            ),
+            (
+                "mapped -S/-G not the nobody IDs",
+                "unshare --user --map-users=65534:424242:1"
+                " --map-groups=65534:424242:1 -S 0 -G 0"
+                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+            ),
+            (
+                "mapped to more than one subordinate ID",
+                "unshare --user --map-users=65534:424242:65536"
+                " --map-groups=65534:424242:65536 -S 65534 -G 65534"
+                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+            ),
+        ),
+    )
+    def test_contract_rejects_a_broken_launch(self, label: str, modified: str) -> None:
+        """A missing/incorrect launch contract is still refused."""
+        with pytest.raises(AssertionError):
+            _assert_sandboxed_modify(self._rewrite_for(modified), "danger-tool --wipe")
+
+    def test_contract_rejects_a_modify_without_a_payload(self) -> None:
+        """No rewritten payload at all must not read as a valid launch."""
+        result = InterceptResult(
+            action=Action.MODIFY,
+            command="danger-tool --wipe",
+            rule_id="user-modify-danger-tool",
+        )
+        with pytest.raises(AssertionError):
+            _assert_sandboxed_modify(result, "danger-tool --wipe")
 
     def test_same_id_override_builtin_blocklist(self, tmp_path) -> None:
         """T-I38: a same-ID user allow rule replaces a builtin block rule.
