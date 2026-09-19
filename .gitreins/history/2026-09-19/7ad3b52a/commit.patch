@@ -1,0 +1,692 @@
+commit 18eafc4447f4781c75b12726167fd0c2f8986f84
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Sep 19 12:50:34 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Sep 19 12:50:34 2026 -0500
+
+    fix(install): DF-TERMINAL-JAIL-21 — rule-pack failure skips instead of aborting the base install
+    
+    On a fresh Debian host without PyYAML, `./install.sh --rule-pack db` printed
+    `cannot parse (JSONDecodeError ...)` and exited 2 with NO wrapper installed:
+    the opt-in pack phase ran before the base install's mkdir/cp and every
+    pack-level refusal ended the whole script under `set -eu`.
+    
+    New contract — a pack-level failure is a loud SKIP, never an abort:
+    
+    - PyYAML preflight: when the installed python3 lacks PyYAML, a YAML pack is
+      skipped WITHOUT running the validator, naming the missing dependency and
+      both remedies (distro python3-yaml / pip install pyyaml). A pack that
+      parses as plain JSON still installs through the validator's stdlib-JSON
+      fallback — pinned by a new test. Missing python3 entirely: same skip with
+      a specific message. The base install (wrapper, lib tree, default rules)
+      always completes.
+    - Unknown pack name / validator refusal (bad schema, malformed YAML, id
+      collision): per-pack loud skip (unknown names suggest --list-rule-packs)
+      instead of `exit 2` mid-script. Nothing is written for the skipped pack
+      (validate-before-write stays).
+    - Exit-code contract: any skipped pack -> final stderr summary (installed:
+      wrapper at <path>; skipped entries) and exit 2 at the END. All packs
+      installed or none requested: unchanged behavior, exit 0.
+    - `--unrule-pack`, POSIX sh, `set -eu`, and fail-closed invariants all kept.
+    - rule-pack-tool.py: a no-PyYAML parse failure now names the missing
+      dependency instead of surfacing a bare JSONDecodeError (path reachable on
+      direct invocations; the installer preflight shows the remedy message).
+    
+    New battery cells: no-PyYAML host (wrapper present, PyYAML + remedies
+    named, no pack file, exit 2), plain-JSON pack installs with PyYAML absent
+    (exit 0), no-python3 host, malformed pack with PyYAML present (refused
+    pack, wrapper installed, exit 2). Existing "refusal -> exit 2 -> nothing
+    installed" expectations deliberately updated to skip-not-abort semantics —
+    each marked DF-TERMINAL-JAIL-21 in-test.
+    
+    Docs: README rule-packs section, docs/quickstart.md, and specs/cli.md
+    (installer table + Rule packs section) now document the PyYAML requirement,
+    the skip-not-abort behavior, and the exit-code contract.
+    
+    Addresses DF-TERMINAL-JAIL-21.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ CHANGELOG.md              |  25 +++++
+ README.md                 |  29 ++++--
+ docs/quickstart.md        |  13 +++
+ install.sh                |  96 ++++++++++++++-----
+ plugin/test_install.py    | 232 +++++++++++++++++++++++++++++++++++++++++++---
+ scripts/rule-pack-tool.py |  16 +++-
+ specs/cli.md              |  28 +++++-
+ 7 files changed, 388 insertions(+), 51 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 607d5c6..e8beaed 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,31 @@
+ 
+ ## [Unreleased]
+ 
++### Rule-pack failure skips instead of aborting the base install (DF-TERMINAL-JAIL-21)
++
++- **`install.sh` + `scripts/rule-pack-tool.py`**: a fresh Debian host without
++  PyYAML got `cannot parse (JSONDecodeError …)` → `exit 2` from
++  `./install.sh --rule-pack db` and **no wrapper installed at all** — the
++  opt-in pack phase ran before the base install and every pack-level refusal
++  ended the whole script under `set -eu`. The pack phase now never aborts the
++  base install: a new PyYAML preflight (probed as `python3 -c 'import yaml'`)
++  skips YAML packs the validator could not read on such a host, naming the
++  missing dependency and both remedies (distro `python3-yaml` /
++  `pip install pyyaml`); unknown packs, missing python3, and validator
++  refusals (bad schema, malformed YAML, id collision) also become loud per-pack
++  skips, each writing nothing for that pack (validate-before-write stays). The
++  base install (wrapper, lib tree, default rules) always completes, and if any
++  requested pack was skipped the installer prints a final stderr summary and
++  exits `2`; all-packs-installed and no-pack runs keep exit `0`. A pack stored
++  as plain JSON still installs on a PyYAML-less host through the validator's
++  stdlib-JSON fallback (pinned by a new test). The validator's parse error on a
++  missing-PyYAML host now names the dependency instead of surfacing a bare
++  JSONDecodeError on direct invocations. Regression cells cover the
++  no-PyYAML host (wrapper present, pack skipped, PyYAML + remedies named,
++  exit 2), the plain-JSON-pack exception, the no-python3 host, and the
++  malformed-pack-with-PyYAML case; earlier "refusal aborts everything"
++  expectations were deliberately updated (named in-test, DF-TERMINAL-JAIL-21).
++
+ ### Local-file upload / whole-tree copy blocking — honest egress verdicts (DF-TERMINAL-JAIL-20)
+ 
+ - **`plugin/terminal_jail/interruptor/sandbox.py` → `blocklist.py`**: the four local-file egress
+diff --git a/README.md b/README.md
+index a43f989..4643eab 100644
+--- a/README.md
++++ b/README.md
+@@ -478,16 +478,25 @@ run by the installer — POSIX `sh` cannot parse YAML):
+ - **no id may collide** with an engine built-in id (`builtin-*`, `auto-*`,
+   `allow-*`) or with an id already installed in the target rules dir.
+ 
+-A refusal is `exit 2`, one reason line on stderr, and **nothing written at all** —
+-no pack file, no default rules file, no wrapper. The collision rule is the point
+-of the whole mechanism: a `rules.d` entry whose id matches a built-in REPLACES
+-that built-in in its layer, so a pack that reused a built-in id could silently
+-downgrade (or resurrect) a built-in rule. Refusal at install time, never a silent
+-override.
+-
+-Two practical notes: installing a pack requires `python3` (the installer refuses
+-to copy an unvalidated pack; `--unrule-pack` needs no Python), and packs come
+-from the repository checkout, so they are unavailable in release mode.
++A refusal is a **loud skip, not an abort** (DF-TERMINAL-JAIL-21): the validator's
++verdict refuses only the pack itself — one reason line on stderr, and **nothing
++written for that pack** (no pack file, no rules entry) — but the base install
++(wrapper, lib tree, default rules file) always completes. The installer prints a
++final summary naming the installed wrapper and every skipped pack, and exits `2`
++so install automation notices. An unknown pack name is the same kind of skip and
++suggests `--list-rule-packs`. The collision rule is the point of the whole
++mechanism: a `rules.d` entry whose id matches a built-in REPLACES that built-in
++in its layer, so a pack that reused a built-in id could silently downgrade (or
++resurrect) a built-in rule. Refusal at install time, never a silent override.
++
++Two practical notes: installing a pack requires `python3`, and parsing a YAML
++pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`,
++Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`). On a host
++without PyYAML the installer skips YAML packs with a message naming the missing
++dependency and both remedies — it never aborts the base install, and a pack
++stored as plain JSON still installs through the validator's stdlib-JSON
++fallback. `--unrule-pack` needs no Python at all. Packs come from the repository
++checkout, so they are unavailable in release mode.
+ 
+ **Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules
+ carry new ids, so they are evaluated after the built-in blocklist, allow-list and
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index 52c88b4..ae07c75 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -38,8 +38,21 @@ PID-namespace containment for everything Hermes runs → deploy shim
+ git clone https://github.com/totalwindupflightsystems/terminal-jail.git
+ cd terminal-jail
+ ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
++
++# Optional: opt in to a curated rule pack (repeat --rule-pack for more)
++./install.sh --rule-pack db         # optional; see the README *Rule packs* section
++./install.sh --list-rule-packs      # what this checkout ships
+ ```
+ 
++Rule packs are validated before anything is written. Installing a YAML pack
++needs `python3` with **PyYAML** — on a bare host install the distro package
++(`apt install python3-yaml`, `dnf install python3-yaml`) or run
++`pip install pyyaml` first. A pack that cannot be validated (missing python3 or
++PyYAML, malformed/invalid pack, or an id collision) is a **skip, not a
++failure**: the wrapper and default rules still install, the skip is printed
++with its reason, and the installer exits `2` at the end with a summary
++(`--unrule-pack` needs no Python at all).
++
+ Release-mode downloads (wrapper + SHA-256 from a published release) are
+ **opt-in only**: set `TERMINAL_JAIL_USE_RELEASE=1` (with
+ `TERMINAL_JAIL_BASE_URL` if you host assets yourself). Without the flag the
+diff --git a/install.sh b/install.sh
+index d067ad9..c1ec7db 100755
+--- a/install.sh
++++ b/install.sh
+@@ -24,10 +24,12 @@ TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindup
+ # --- installer flags (TJ-GAP-061) --------------------------------------------
+ # The installer stays env-var driven; these flags only add the opt-in rule-pack
+ # knobs. Every flag is parsed BEFORE anything is created or written, so an
+-# unknown flag, an unknown pack name, or a pack the validator refuses leaves the
+-# filesystem untouched. Pack names are restricted to [a-z0-9-] so the derived
+-# file name (terminal-jail-pack-<name>.yaml) can neither escape the rules
+-# directory nor be read as a glob.
++# unknown flag leaves the filesystem untouched. A pack the validator refuses
++# (or an unknown pack name) writes nothing FOR THAT PACK, but no longer aborts
++# the base install — a skipped pack is reported and the script exits 2 at the
++# end (DF-TERMINAL-JAIL-21). Pack names are restricted to [a-z0-9-] so the
++# derived file name (terminal-jail-pack-<name>.yaml) can neither escape the
++# rules directory nor be read as a glob.
+ RULE_PACKS=""
+ UNRULE_PACKS=""
+ LIST_RULE_PACKS=0
+@@ -75,7 +77,10 @@ Options:
+                         malformed or invalid pack, a rule id outside the
+                         pack-<name>-* namespace, or an id colliding with an
+                         engine builtin id or an already-installed rule file is
+-                        refused (exit 2) with nothing written.
++                        SKIPPED (base install continues; exit 2 at the end).
++                        Installing a YAML pack requires python3 + PyYAML (a
++                        plain-JSON pack needs PyYAML only if the validator
++                        would fall back to json — see README).
+   --unrule-pack <name>  Remove an installed rule pack. Only
+                         terminal-jail-pack-<name>.yaml is touched — the default
+                         rules file and every other pack are never modified.
+@@ -314,47 +319,77 @@ resolve_user_rules_dir() {
+ }
+ resolve_user_rules_dir
+ 
+-# --- opt-in rule packs (TJ-GAP-061) ------------------------------------------
++# --- opt-in rule packs (TJ-GAP-061, DF-TERMINAL-JAIL-21) ----------------------
+ # Packs are per-host policy: the default rule set stays lean and a pack is
+ # installed only when the operator asks for it (--rule-pack <name>), landing as
+ # terminal-jail-pack-<name>.yaml in the SAME resolved rules dir as the default
+-# rules file. This whole section runs BEFORE the install section's mkdir -p and
+-# before the wrapper is copied, so a refusal — unknown pack, python3 missing,
+-# validator refusal (bad schema, malformed YAML, id outside the pack namespace,
+-# id collision) — leaves NOTHING behind: no directory, no file.
++# rules file.
++# DF-TERMINAL-JAIL-21: a pack-level failure is a loud SKIP, never an abort of
++# the base install. Every requested pack is attempted independently; an unknown
++# name, a missing python3, a missing PyYAML, or a validator refusal (bad
++# schema, malformed YAML, id outside the pack namespace, id collision) skips
++# that pack with a one-line reason on stderr and writes NOTHING for it — while
++# the base install (wrapper, lib tree, default rules) always completes. If any
++# requested pack was skipped, the installer prints a final summary at the very
++# end and exits 2; with all requested packs installed (or none requested) the
++# behavior and exit 0 are unchanged.
+ # scripts/rule-pack-tool.py is authoritative for every check; packs are
+ # validated one at a time IN THE ORDER REQUESTED, so a pack that collides with
+ # one requested earlier in the same invocation is refused when it is reached
+-# (the earlier pack stays installed — refusing cannot un-install it).
++# (the earlier pack stays installed — skipping cannot un-install it).
++PACK_FAILURES=""
++
++skip_rule_pack() {
++    # DF-TERMINAL-JAIL-21: print the skip reason now and remember it (one line
++    # per skipped pack) for the end-of-run summary.
++    echo "$1" >&2
++    PACK_FAILURES="${PACK_FAILURES:+$PACK_FAILURES
++}$1"
++}
++
+ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+     pack_tool="$SCRIPT_DIR/scripts/rule-pack-tool.py"
+     if [ ! -f "$pack_tool" ]; then
+-        echo "terminal-jail installer: rule packs need ${pack_tool}, which is missing from this checkout — nothing was written" >&2
+-        exit 2
+-    fi
+-    if [ -n "$RULE_PACKS" ] && ! command -v python3 >/dev/null 2>&1; then
+-        echo "terminal-jail installer: --rule-pack requires python3 to validate a pack BEFORE installing it, and python3 was not found — nothing was written" >&2
+-        exit 2
+-    fi
+-
++        # DF-TERMINAL-JAIL-21: a checkout missing its validator skips every
++        # requested pack instead of aborting the install.
++        for pack in $RULE_PACKS; do
++            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — rule packs need ${pack_tool}, which is missing from this checkout"
++        done
++    else
+     install_rule_pack() {
+         pack="$1"
+         pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
+         pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
+         if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
+             if [ -n "$PACKS_SOURCE_DIR" ]; then
+-                echo "terminal-jail installer: unknown rule pack '${pack}' (no ${pack_src}) — nothing was written" >&2
++                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — unknown pack name (no ${pack_src}); run --list-rule-packs to list the packs this checkout ships"
+             else
+-                echo "terminal-jail installer: unknown rule pack '${pack}' (this checkout ships no plugin/terminal_jail/rules/packs directory) — nothing was written" >&2
++                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — unknown pack name (this checkout ships no plugin/terminal_jail/rules/packs directory); run --list-rule-packs to list the packs this checkout ships"
++            fi
++            return 0
++        fi
++        if ! command -v python3 >/dev/null 2>&1; then
++            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — python3 is required to validate a pack BEFORE installing it and was not found; install python3 and re-run this installer"
++            return 0
++        fi
++        # DF-TERMINAL-JAIL-21 PyYAML preflight: without PyYAML the validator
++        # can only parse plain JSON (its stdlib json fallback), so a YAML pack
++        # would be refused with a misleading JSONDecodeError. Name the missing
++        # dependency and both remedies instead, and skip without running the
++        # validator. A pack that parses as plain JSON is NOT refused here: the
++        # validator's json fallback handles it and the pack installs normally.
++        if ! python3 -c 'import yaml' >/dev/null 2>&1; then
++            if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$pack_src" >/dev/null 2>&1; then
++                skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer"
++                return 0
+             fi
+-            exit 2
+         fi
+         # FAIL CLOSED: validate before writing anything. The validator refuses
+         # invalid schema, malformed YAML, ids outside the pack's namespace, and
+         # id collisions (engine builtins / installed rule files).
+         if ! python3 "$pack_tool" validate "$pack_src" --pack-name "$pack" --rules-dir "$RESOLVED_RULES_DIR"; then
+-            echo "terminal-jail installer: rule pack '${pack}' REFUSED — nothing was written (see the validator reason above)" >&2
+-            exit 2
++            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — REFUSED by the validator, nothing was written (see the validator reason above)"
++            return 0
+         fi
+         mkdir -p "$RESOLVED_RULES_DIR"
+         cp "$pack_src" "$pack_dest"
+@@ -378,6 +413,7 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+     for pack in $RULE_PACKS; do
+         install_rule_pack "$pack"
+     done
++    fi
+     for pack in $UNRULE_PACKS; do
+         remove_rule_pack "$pack"
+     done
+@@ -520,3 +556,15 @@ SHELLRC
+ esac
+ 
+ echo "terminal-jail installer: done."
++
++# --- DF-TERMINAL-JAIL-21 exit-code contract ----------------------------------
++# The base install has completed. If any requested rule pack was skipped, print
++# the final summary (what installed, what skipped and why) and exit 2 — the
++# summary is the last thing the operator reads, and the nonzero exit keeps
++# install automation honest without ever aborting the base install.
++if [ -n "$PACK_FAILURES" ]; then
++    echo "terminal-jail installer: SUMMARY — installed: wrapper at ${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail" >&2
++    printf '%s\n' "$PACK_FAILURES" >&2
++    echo "terminal-jail installer: SUMMARY — at least one requested rule pack was skipped; base install completed" >&2
++    exit 2
++fi
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index acb418f..5f542a4 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -1209,8 +1209,11 @@ def _run_checkout_install(
+ 
+ 
+ def _assert_nothing_written(tmp_path: Path) -> None:
+-    """A refusal — or a flag-only run — leaves no file behind (TJ-GAP-061:
+-    the pack phase runs before the install section's mkdir)."""
++    """A parse-time refusal (unknown flag, unsafe pack name) — or a flag-only
++    run — leaves no file behind (TJ-GAP-061: flag parsing precedes the install
++    section's mkdir). DF-TERMINAL-JAIL-21: a PACK-level refusal is no longer
++    covered here — a refused pack is now a loud skip and the base install
++    completes; those tests assert the wrapper + rules dir instead."""
+     install_dir = tmp_path / "bin"
+     assert list(install_dir.iterdir()) == [], sorted(
+         path.name for path in install_dir.iterdir()
+@@ -1218,6 +1221,18 @@ def _assert_nothing_written(tmp_path: Path) -> None:
+     assert not (tmp_path / "config").exists()
+ 
+ 
++def _assert_base_install_completed(tmp_path: Path, out: str) -> None:
++    """DF-TERMINAL-JAIL-21 invariant: no matter what happened to a requested
++    pack, the base install always completes — wrapper, lib tree, default
++    rules file."""
++    install_dir = tmp_path / "bin"
++    assert (install_dir / "terminal-jail").exists(), out
++    lib_tree = install_dir.parent / "lib" / "terminal-jail" / "plugin"
++    assert lib_tree.is_dir(), out
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    assert (rules_dir / "00-builtins.yaml").exists(), out
++
++
+ @pytest.mark.standalone_cli
+ def test_install_rule_pack_lands_in_the_resolved_rules_dir(tmp_path: Path) -> None:
+     """--rule-pack db byte-copies the shipped pack next to the default rules
+@@ -1281,12 +1296,14 @@ def test_unrule_pack_for_a_pack_that_is_not_installed(tmp_path: Path) -> None:
+         ("malformed", _MALFORMED_PACK, "cannot parse"),
+     ],
+ )
+-def test_install_refuses_a_bad_pack_and_writes_nothing(
++def test_install_skips_a_bad_pack_but_still_installs_the_base(
+     tmp_path: Path, fixture_name: str, body: str, needle: str
+ ) -> None:
+-    """Schema-invalid, malformed, and builtin-shadowing packs are refused by
+-    the validator BEFORE anything is written — no pack file, no default rules
+-    file, no wrapper."""
++    """DF-TERMINAL-JAIL-21 (deliberate expectation change from the pre-DF-21
++    'refusal aborts everything' semantics): schema-invalid, malformed, and
++    builtin-shadowing packs are refused by the validator and NOTHING is written
++    for the pack itself — but the base install (wrapper, lib tree, default
++    rules) always completes, the skip is loud, and the run exits 2."""
+     checkout = _scratch_checkout(tmp_path)
+     (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
+         body, encoding="utf-8"
+@@ -1297,14 +1314,23 @@ def test_install_refuses_a_bad_pack_and_writes_nothing(
+ 
+     assert result.returncode == 2, out
+     assert needle in out, out
+-    assert f"rule pack '{fixture_name}' REFUSED" in out, out
+-    _assert_nothing_written(tmp_path)
++    assert f"skipped: pack '{fixture_name}' — REFUSED by the validator, nothing was written" in out, out
++    # the pack file itself was never written (fail-closed, validate-before-write)
++    assert not (
++        tmp_path / "config" / "terminal-jail" / "rules.d" / f"terminal-jail-pack-{fixture_name}.yaml"
++    ).exists(), out
++    # ...but the base install completed
++    _assert_base_install_completed(tmp_path, out)
++    # the end-of-run summary names what installed and what skipped
++    assert f"installed: wrapper at {tmp_path / 'bin' / 'terminal-jail'}" in out, out
++    assert "base install completed" in out, out
+ 
+ 
+ @pytest.mark.standalone_cli
+ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+     """An id another installed rule file already carries is refused — a pack
+-    may never shadow a rule that is already live in the rules dir."""
++    may never shadow a rule that is already live in the rules dir.
++    DF-TERMINAL-JAIL-21: the refusal is a loud skip; the base install completes."""
+     checkout = _scratch_checkout(tmp_path)
+     rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     rules_dir.mkdir(parents=True)
+@@ -1324,19 +1350,33 @@ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+ 
+     assert result.returncode == 2, out
+     assert "are already installed in" in out, out
++    assert "skipped: pack 'db'" in out, out
+     assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+     # the seeded file is untouched
+     assert "pack-db-drop-database" in (rules_dir / "zz-handwritten.yaml").read_text()
++    # the base install completed despite the pack skip (DF-TERMINAL-JAIL-21)
++    _assert_base_install_completed(tmp_path, out)
+ 
+ 
+ @pytest.mark.standalone_cli
+-def test_install_refuses_an_unknown_rule_pack(tmp_path: Path) -> None:
++def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
++    tmp_path: Path,
++) -> None:
++    """DF-TERMINAL-JAIL-21 (deliberate expectation change: previously exit 2
++    with nothing written) — an unknown pack name is a loud skip that suggests
++    --list-rule-packs, and the base install completes (exit 2 at the end)."""
+     result = _run_repo_install(tmp_path, "--rule-pack", "nope")
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 2, out
+-    assert "unknown rule pack 'nope'" in out, out
+-    _assert_nothing_written(tmp_path)
++    assert "skipped: pack 'nope'" in out, out
++    assert "unknown pack name" in out, out
++    assert "--list-rule-packs" in out, out
++    # the unknown pack wrote nothing, but the base install completed
++    assert not (
++        tmp_path / "config" / "terminal-jail" / "rules.d" / "terminal-jail-pack-nope.yaml"
++    ).exists(), out
++    _assert_base_install_completed(tmp_path, out)
+ 
+ 
+ @pytest.mark.standalone_cli
+@@ -1384,3 +1424,171 @@ def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
+     for flag in ("--rule-pack <name>", "--unrule-pack <name>", "--list-rule-packs"):
+         assert flag in out, out
+     _assert_nothing_written(tmp_path)
++
++
++# ── DF-TERMINAL-JAIL-21: pack failure skips instead of aborting the install ──
++
++_PYAML_SHADOW_YAML_BODY = (
++    'raise ImportError("PyYAML intentionally shadowed for DF-TERMINAL-JAIL-21 test")\n'
++)
++
++
++def _env_with_shadowed_pyyaml(env: dict[str, str], tmp_path: Path) -> dict[str, str]:
++    """Put a fake `python3` shim first on PATH that execs the real python3 with
++    PYTHONPATH pointing at a directory whose `yaml.py` raises ImportError —
++    `import yaml` then fails deterministically inside the preflight AND inside
++    the validator, simulating a fresh host without PyYAML (the dogfood
++    scenario: python3.13.5, no PyYAML, no pip). Mirrors the curated-PATH
++    fixture style used for the bwrap tests."""
++    shadow_dir = tmp_path / "pyyaml-shadow"
++    shadow_dir.mkdir(exist_ok=True)
++    (shadow_dir / "yaml.py").write_text(
++        _PYAML_SHADOW_YAML_BODY, encoding="utf-8"
++    )
++    python3 = shutil.which("python3")
++    assert python3, "the test host has no real python3 to shim"
++    shim = shadow_dir / "python3"
++    shim.write_text(
++        "#!/bin/sh\n"
++        f'PYTHONPATH="{shadow_dir}${{PYTHONPATH:+:$PYTHONPATH}}" \\\n'
++        f'  exec "{python3}" "$@"\n',
++        encoding="utf-8",
++    )
++    shim.chmod(0o755)
++    return {**env, "PATH": f"{shadow_dir}{os.pathsep}{env.get('PATH', '')}"}
++
++
++def _env_with_no_python3(env: dict[str, str], tmp_path: Path) -> dict[str, str]:
++    """PATH curated to the installer's coreutils with NO python3 at all."""
++    bindir = tmp_path / "toolbin-no-python3"
++    bindir.mkdir(exist_ok=True)
++    _link_tools(bindir, *_INSTALL_TOOLS)
++    missing = sorted(t for t in _INSTALL_TOOLS if not (bindir / t).exists())
++    assert not missing, f"host lacks tools the curated PATH needs: {missing}"
++    return {**env, "PATH": str(bindir)}
++
++
++_JQ_JSON_PACK_BODY = (  # plain JSON on disk (the .yaml suffix is just the name)
++    '{"rules": [{"id": "pack-json-pack-ok", "priority": 950, "action": "block",'
++    ' "block_message": "no", "match": {"type": "pattern", "pattern": "zzz"}}]}\n'
++)
++
++
++@pytest.mark.standalone_cli
++def test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base(
++    tmp_path: Path,
++) -> None:
++    """DF-TERMINAL-JAIL-21 regression lock (the dogfood scenario): a fresh host
++    WITHOUT PyYAML must still get the base install; the YAML pack is skipped
++    loudly, naming PyYAML and both remedies, and the run exits 2. Nothing is
++    written for the skipped pack — not even the pack file."""
++    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
++    result = subprocess.run(
++        ["sh", "install.sh", "--rule-pack", "db"],
++        capture_output=True,
++        text=False,
++        check=False,
++        timeout=30,
++        cwd=str(PROJECT_ROOT),
++        env=extra_env,
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "PyYAML is required to parse YAML rule packs and was not found" in out, out
++    assert "python3-yaml" in out, out
++    assert "pip install pyyaml" in out, out
++    assert "base install completed" in out, out
++    # the base install completed: wrapper, lib tree, default rules
++    _assert_base_install_completed(tmp_path, out)
++    # the skipped pack wrote NOTHING to the rules dir (fail-closed preflight:
++    # the validator never even ran, so no pack file exists)
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
++    # the validator (whose JSONDecodeError caused the original dogfood failure)
++    # never produced a refusal for this pack
++    assert "cannot parse" not in out, out
++
++
++@pytest.mark.standalone_cli
++def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
++    tmp_path: Path,
++) -> None:
++    """The PyYAML preflight must NOT refuse a pack the validator can actually
++    read: a pack that parses as plain JSON goes through the validator's stdlib
++    json fallback and installs normally — exit 0, wrapper installed."""
++    checkout = _scratch_checkout(tmp_path)
++    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "json-pack.yaml").write_text(
++        _JQ_JSON_PACK_BODY, encoding="utf-8"
++    )
++    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
++    result = subprocess.run(
++        ["sh", "install.sh", "--rule-pack", "json-pack"],
++        capture_output=True,
++        text=False,
++        check=False,
++        timeout=30,
++        cwd=str(checkout),
++        env=extra_env,
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    pack = rules_dir / "terminal-jail-pack-json-pack.yaml"
++    assert pack.exists(), out
++    assert pack.read_bytes() == _JQ_JSON_PACK_BODY.encode("utf-8"), out
++    assert (rules_dir / "00-builtins.yaml").exists(), out
++    assert "installed rule pack 'json-pack'" in out, out
++    assert "PyYAML" not in out, out
++
++
++@pytest.mark.standalone_cli
++def test_install_with_no_python3_skips_the_pack_but_installs_the_base(
++    tmp_path: Path,
++) -> None:
++    """No python3 at all (bare distro host): the requested pack skips with a
++    specific message naming python3, and the base install completes (exit 2).
++    Validating before writing stays the invariant — the pack is never copied
++    unvalidated (DF-TERMINAL-JAIL-21)."""
++    extra_env = _env_with_no_python3(_install_env(tmp_path), tmp_path)
++    result = subprocess.run(
++        ["sh", "install.sh", "--rule-pack", "db"],
++        capture_output=True,
++        text=False,
++        check=False,
++        timeout=30,
++        cwd=str(PROJECT_ROOT),
++        env=extra_env,
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "python3 is required to validate a pack BEFORE installing it" in out, out
++    assert "install python3" in out, out
++    assert "base install completed" in out, out
++    _assert_base_install_completed(tmp_path, out)
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
++
++
++@pytest.mark.standalone_cli
++def test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base(
++    tmp_path: Path,
++) -> None:
++    """PyYAML present but the pack is malformed: the validator refuses (nothing
++    written for the pack), but the base install completes (exit 2) — the
++    same skip-not-abort semantics as the no-PyYAML path."""
++    checkout = _scratch_checkout(tmp_path)
++    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "malformed.yaml").write_text(
++        _MALFORMED_PACK, encoding="utf-8"
++    )
++    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "malformed")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "cannot parse" in out, out
++    assert "skipped: pack 'malformed'" in out, out
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    assert not (rules_dir / "terminal-jail-pack-malformed.yaml").exists(), out
++    _assert_base_install_completed(tmp_path, out)
+diff --git a/scripts/rule-pack-tool.py b/scripts/rule-pack-tool.py
+index c47dffa..9e048ca 100755
+--- a/scripts/rule-pack-tool.py
++++ b/scripts/rule-pack-tool.py
+@@ -128,18 +128,32 @@ def _load_document(path: Path) -> Any:
+     available, else ``safe_load``) and falls back to stdlib ``json`` only when
+     PyYAML is missing. Mirrored here so a pack that the engine could load is
+     never refused for a parsing difference.
++
++    DF-TERMINAL-JAIL-21: when PyYAML is missing AND the document is not plain
++    JSON, the error names the missing dependency instead of surfacing a bare
++    ``JSONDecodeError`` — the installer's preflight skips such packs before the
++    validator ever runs, so this message is only seen on direct invocations.
+     """
+     with open(path) as handle:  # engine opens without an explicit encoding
+         content = handle.read()
+ 
+     try:
+         import yaml
++    except ImportError:
++        yaml = None
+ 
++    if yaml is not None:
+         if hasattr(yaml, "CSafeLoader"):
+             return yaml.load(content, Loader=yaml.CSafeLoader)
+         return yaml.safe_load(content)
+-    except ImportError:
++
++    try:
+         return json.loads(content)
++    except json.JSONDecodeError as exc:
++        raise PackParseError(
++            "PyYAML is not installed, so only plain-JSON rule documents can be "
++            f"read ({exc})"
++        ) from exc
+ 
+ 
+ def _load_rule_entries(path: Path, *, require_rules_key: bool) -> list[Any]:
+diff --git a/specs/cli.md b/specs/cli.md
+index 5224df2..cce75c5 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -379,7 +379,7 @@ Release documentation must replace `<project-host>` with the canonical HTTPS hos
+ | `TERMINAL_JAIL_INSTALL_DIR` | `$HOME/.local/bin` | Installation directory. |
+ | `TERMINAL_JAIL_RULES_DIR` | Derived from the install scope (see below) | Target directory for the shipped default rules file (`00-builtins.yaml`) AND for every opt-in rule pack (`terminal-jail-pack-<name>.yaml`). A non-empty value is used verbatim and wins over any derivation, even outside the install prefix. |
+ | `TERMINAL_JAIL_BASE_URL` | Canonical release base URL | Release endpoint used to download the Bash wrapper and its checksum. |
+-| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below); an unknown pack, a malformed/invalid pack, or an id collision exits `2` with nothing written. |
++| `--rule-pack <name>` | off | Install an opt-in rule pack from the repository checkout (repeatable, e.g. `--rule-pack db`). Validated BEFORE anything is written (see *Rule packs* below). DF-TERMINAL-JAIL-21: an unknown pack, a missing `python3`/PyYAML dependency, a malformed/invalid pack, or an id collision is a loud SKIP of that pack — the base install always completes, and the installer exits `2` at the end with a summary of what installed and what skipped. With every requested pack installed (or none requested) the exit is `0`, unchanged. |
+ | `--unrule-pack <name>` | off | Remove an installed rule pack. Deletes exactly `<rules dir>/terminal-jail-pack-<name>.yaml` — never `00-builtins.yaml` and never another pack. Idempotent: a pack that is not installed is reported and the install continues. |
+ | `--list-rule-packs` | off | Print `<name>` TAB `<path>` TAB `<rule count>` for every pack in the checkout and exit `0` without writing anything. |
+ | `-h`, `--help` | off | Print the installer usage (including the flags above) and exit `0`. |
+@@ -419,11 +419,31 @@ Installation is **fail-closed, validated before any write**:
+    file itself is exempt, so re-installing a pack is not a self-collision.
+ 4. `python3` is therefore required to install a pack: with no `python3` on
+    `PATH` the installer refuses the pack with a clear message instead of copying
+-   it unvalidated. `--unrule-pack` needs no Python.
++   it unvalidated. Parsing a YAML pack additionally requires **PyYAML**: before
++   validating, the installer probes `import yaml`; on a host without it, a YAML
++   pack is skipped with a message naming the missing dependency and BOTH
++   remedies (the distro package `python3-yaml`, or `pip install pyyaml`) — a
++   pack that parses as plain JSON is NOT refused by this preflight and still
++   installs through the validator's stdlib-JSON fallback. `--unrule-pack` needs
++   no Python.
+ 5. Rule packs need the **repository checkout** (local mode) — release mode ships
+    no pack source, so both knobs are refused there (exit `2`, nothing written).
+-6. Every refusal leaves **nothing** behind: the pack phase runs before the
+-   install section's `mkdir` and before the wrapper is copied.
++6. DF-TERMINAL-JAIL-21 — **skip, never abort:** every pack-level refusal above
++   (unknown name, missing `python3`/PyYAML, validator refusal) skips that pack
++   and NEVER aborts the base install. Each pack is attempted independently; a
++   skipped pack writes NOTHING for itself (fail-closed, validate-before-write
++   stays), the base install (wrapper, lib tree, default rules file) always
++   completes, and if any requested pack was skipped the installer prints a
++   final stderr summary
++
++   ```text
++   terminal-jail installer: SUMMARY — installed: wrapper at <install dir>/terminal-jail
++   terminal-jail installer: skipped: pack '<name>' — <reason>
++   terminal-jail installer: SUMMARY — at least one requested rule pack was skipped; base install completed
++   ```
++
++   and exits `2`. With all requested packs installed (or none requested), the
++   behavior and the `0` exit are unchanged from before this fix.
+ 
+ Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
+ contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)

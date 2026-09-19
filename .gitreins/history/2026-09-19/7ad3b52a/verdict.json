@@ -1,0 +1,135 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-21",
+  "task_title": "install.sh --rule-pack aborts entire install without PyYAML",
+  "task_criteria": [
+    "Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed with the pack skipped, stderr names PyYAML plus remedy, exit 2",
+    "PyYAML-present host installs the db pack to the resolved rules dir with exit 0 unchanged",
+    "README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort contract",
+    "pytest plugin/test_install.py plugin/test_rule_packs.py green including the new no-PyYAML regression cells"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "18eafc4447f4781c75b12726167fd0c2f8986f84",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T175615.802113Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n12:56PM INF scanned ~3973735 bytes (3.97 MB) in 287ms\n12:56PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 124 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T175615.802113Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 889 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [ 10%]\n........................................................................ [ 18%]\n............................................................             [ 24%]\nplugin/test_install.py ............................................      [ 29%]\nplugin/test_interruptor.py ............................................. [ 34%]\n........................................................................ [ 43%]\n........................................................................ [ 51%]\n........................................................................ [ 59%]\n........................................................................ [ 67%]\n........................................................................ [ 75%]\n                                                                         [ 75%]\nplugin/test_interruptor_integration.py .............s................... [ 79%]\n...                                                                      [ 79%]\nplugin/test_metrics_export.py .....................                      [ 81%]\nplugin/test_modify_preflight.py ......                                   [ 82%]\nplugin/test_packaging.py ..........                                      [ 83%]\nplugin/test_plugin.py ................                                   [ 85%]\nplugin/test_rule_packs.py ...........................                    [ 88%]\nplugin/test_seccomp.py .........................................sss      [ 93%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 884 passed, 5 skipped in 22.76s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T175615.802113Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed with the pack skipped, stderr names PyYAML plus remedy, exit 2: Live reproduction: shadowed `yaml.py` (raises ImportError) on PATH, HOME=/tmp/tj21, `sh install.sh --rule-pack db` -> EXIT=2; /tmp/tj21/home/.local/bin/terminal-jail exists (26683 bytes) and 00-builtins.yaml installed; no terminal-jail-pack-db.yaml written; stderr: \"terminal-jail installer: skipped: pack 'db' \u2014 PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer\" plus \"SUMMARY \u2014 at least one requested rule pack was skipped; base install completed\". Code: install.sh:355-365 (PyYAML preflight -> skip_rule_pack, return 0), install.sh:561-570 (end-of-run summary + exit 2).\n  \u2713 PyYAML-present host installs the db pack to the resolved rules dir with exit 0 unchanged: Live run with real PyYAML, HOME=/tmp/tj21b: `sh install.sh --rule-pack db` -> EXIT=0, stderr empty, stdout \"installed rule pack 'db' to /tmp/tj21b/home/.config/terminal-jail/rules.d/terminal-jail-pack-db.yaml\"; `cmp` against plugin/terminal_jail/rules/packs/db.yaml -> IDENTICAL; 00-builtins.yaml also present in the same resolved rules dir (install.sh:396-397, resolve_user_rules_dir at install.sh:270-290).\n  \u2713 README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort contract: README.md:484-497 \u2014 \"A refusal is a loud skip, not an abort (DF-TERMINAL-JAIL-21) ... exits `2`\" and \"parsing a YAML pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`, Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`) ... it never aborts the base install\". docs/quickstart.md:47-54 \u2014 \"needs `python3` with **PyYAML** ... is a **skip, not a failure**: the wrapper and default rules still install ... exits `2`\". specs/cli.md:382 (flag table: \"loud SKIP ... base install always completes, and the installer exits `2`\") and specs/cli.md:422-432 (preflight probe `import yaml`, both remedies, JSON fallback, \"skip, never abort\").\n  \u2713 pytest plugin/test_install.py plugin/test_rule_packs.py green including the new no-PyYAML regression cells: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_rule_packs.py -q --tb=short -p no:cacheprovider` -> exit_code 0, \"71 passed in 4.07s\". New regression cells collected and passing: test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base (plugin/test_install.py:1478-1507), test_install_with_no_pyyaml_still_installs_a_plain_json_pack (:1514-1543), test_install_with_no_python3_skips_the_pack_but_installs_the_base (:1546-1572), test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base (:1576-1594); targeted run `-k \"no_pyyaml or no_python3 or malformed\"` -> \"6 passed, 65 deselected\". LSP diagnostics: 0 findings.\nAll four criteria verified with live installer runs (no-PyYAML host exits 2 with wrapper installed and pack skipped; PyYAML host exits 0 with the db pack byte-identical in the resolved rules dir), documentation in README/quickstart/specs/cli.md, and 71/71 pytest green including the new no-PyYAML regression cells.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed with the pack skipped, stderr names PyYAML plus remedy, exit 2: Live reproduction: shadowed `yaml.py` (raises ImportError) on PATH, HOME=/tmp/tj21, `sh install.sh --rule-pack db` -> EXIT=2; /tmp/tj21/home/.local/bin/terminal-jail exists (26683 bytes) and 00-builtins.yaml installed; no terminal-jail-pack-db.yaml written; stderr: \"terminal-jail installer: skipped: pack 'db' \u2014 PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer\" plus \"SUMMARY \u2014 at least one requested rule pack was skipped; base install completed\". Code: install.sh:355-365 (PyYAML preflight -> skip_rule_pack, return 0), install.sh:561-570 (end-of-run summary + exit 2).\n  \u2713 PyYAML-present host installs the db pack to the resolved rules dir with exit 0 unchanged: Live run with real PyYAML, HOME=/tmp/tj21b: `sh install.sh --rule-pack db` -> EXIT=0, stderr empty, stdout \"installed rule pack 'db' to /tmp/tj21b/home/.config/terminal-jail/rules.d/terminal-jail-pack-db.yaml\"; `cmp` against plugin/terminal_jail/rules/packs/db.yaml -> IDENTICAL; 00-builtins.yaml also present in the same resolved rules dir (install.sh:396-397, resolve_user_rules_dir at install.sh:270-290).\n  \u2713 README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort contract: README.md:484-497 \u2014 \"A refusal is a loud skip, not an abort (DF-TERMINAL-JAIL-21) ... exits `2`\" and \"parsing a YAML pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`, Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`) ... it never aborts the base install\". docs/quickstart.md:47-54 \u2014 \"needs `python3` with **PyYAML** ... is a **skip, not a failure**: the wrapper and default rules still install ... exits `2`\". specs/cli.md:382 (flag table: \"loud SKIP ... base install always completes, and the installer exits `2`\") and specs/cli.md:422-432 (preflight probe `import yaml`, both remedies, JSON fallback, \"skip, never abort\").\n  \u2713 pytest plugin/test_install.py plugin/test_rule_packs.py green including the new no-PyYAML regression cells: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_rule_packs.py -q --tb=short -p no:cacheprovider` -> exit_code 0, \"71 passed in 4.07s\". New regression cells collected and passing: test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base (plugin/test_install.py:1478-1507), test_install_with_no_pyyaml_still_installs_a_plain_json_pack (:1514-1543), test_install_with_no_python3_skips_the_pack_but_installs_the_base (:1546-1572), test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base (:1576-1594); targeted run `-k \"no_pyyaml or no_python3 or malformed\"` -> \"6 passed, 65 deselected\". LSP diagnostics: 0 findings.\nAll four criteria verified with live installer runs (no-PyYAML host exits 2 with wrapper installed and pack skipped; PyYAML host exits 0 with the db pack byte-identical in the resolved rules dir), documentation in README/quickstart/specs/cli.md, and 71/71 pytest green including the new no-PyYAML regression cells.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed with the pack skipped, stderr names PyYAML plus remedy, exit 2",
+                "status": "PASS",
+                "detail": "Live reproduction: shadowed `yaml.py` (raises ImportError) on PATH, HOME=/tmp/tj21, `sh install.sh --rule-pack db` -> EXIT=2; /tmp/tj21/home/.local/bin/terminal-jail exists (26683 bytes) and 00-builtins.yaml installed; no terminal-jail-pack-db.yaml written; stderr: \"terminal-jail installer: skipped: pack 'db' \u2014 PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer\" plus \"SUMMARY \u2014 at least one requested rule pack was skipped; base install completed\". Code: install.sh:355-365 (PyYAML preflight -> skip_rule_pack, return 0), install.sh:561-570 (end-of-run summary + exit 2)."
+              },
+              {
+                "criterion": "PyYAML-present host installs the db pack to the resolved rules dir with exit 0 unchanged",
+                "status": "PASS",
+                "detail": "Live run with real PyYAML, HOME=/tmp/tj21b: `sh install.sh --rule-pack db` -> EXIT=0, stderr empty, stdout \"installed rule pack 'db' to /tmp/tj21b/home/.config/terminal-jail/rules.d/terminal-jail-pack-db.yaml\"; `cmp` against plugin/terminal_jail/rules/packs/db.yaml -> IDENTICAL; 00-builtins.yaml also present in the same resolved rules dir (install.sh:396-397, resolve_user_rules_dir at install.sh:270-290)."
+              },
+              {
+                "criterion": "README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort contract",
+                "status": "PASS",
+                "detail": "README.md:484-497 \u2014 \"A refusal is a loud skip, not an abort (DF-TERMINAL-JAIL-21) ... exits `2`\" and \"parsing a YAML pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`, Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`) ... it never aborts the base install\". docs/quickstart.md:47-54 \u2014 \"needs `python3` with **PyYAML** ... is a **skip, not a failure**: the wrapper and default rules still install ... exits `2`\". specs/cli.md:382 (flag table: \"loud SKIP ... base install always completes, and the installer exits `2`\") and specs/cli.md:422-432 (preflight probe `import yaml`, both remedies, JSON fallback, \"skip, never abort\")."
+              },
+              {
+                "criterion": "pytest plugin/test_install.py plugin/test_rule_packs.py green including the new no-PyYAML regression cells",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest plugin/test_install.py plugin/test_rule_packs.py -q --tb=short -p no:cacheprovider` -> exit_code 0, \"71 passed in 4.07s\". New regression cells collected and passing: test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base (plugin/test_install.py:1478-1507), test_install_with_no_pyyaml_still_installs_a_plain_json_pack (:1514-1543), test_install_with_no_python3_skips_the_pack_but_installs_the_base (:1546-1572), test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base (:1576-1594); targeted run `-k \"no_pyyaml or no_python3 or malformed\"` -> \"6 passed, 65 deselected\". LSP diagnostics: 0 findings."
+              }
+            ],
+            "summary": "All four criteria verified with live installer runs (no-PyYAML host exits 2 with wrapper installed and pack skipped; PyYAML host exits 0 with the db pack byte-identical in the resolved rules dir), documentation in README/quickstart/specs/cli.md, and 71/71 pytest green including the new no-PyYAML regression cells."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-21\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed with the pack skipped, stderr names PyYAML plus remedy, exit 2: Live reproduction: shadowed `yaml.py` (raises ImportError) on PATH, HOME=/tmp/tj21, `sh install.sh --rule-pack db` -> EXIT=2; /tmp/tj21/home/.local/bin/terminal-jail exists (26683 bytes) and 00-builtins.yaml installed; no terminal-jail-pack-db.yaml written; stderr: \"terminal-jail installer: skipped: pack 'db' \u2014 PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer\" plus \"SUMMARY \u2014 at least one requested rule pack was skipped; base install completed\". Code: install.sh:355-365 (PyYAML preflight -> skip_rule_pack, return 0), install.sh:561-570 (end-of-run summary + exit 2).\n  \u2713 PyYAML-present host installs the db pack to the resolved rules dir with exit 0 unchanged: Live run with real PyYAML, HOME=/tmp/tj21b: `sh install.sh --rule-pack db` -> EXIT=0, stderr empty, stdout \"installed rule pack 'db' to /tmp/tj21b/home/.config/terminal-jail/rules.d/terminal-jail-pack-db.yaml\"; `cmp` against plugin/terminal_jail/rules/packs/db.yaml -> IDENTICAL; 00-builtins.yaml also present in the same resolved rules dir (install.sh:396-397, resolve_user_rules_dir at install.sh:270-290).\n  \u2713 README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort contract: README.md:484-497 \u2014 \"A refusal is a loud skip, not an abort (DF-TERMINAL-JAIL-21) ... exits `2`\" and \"parsing a YAML pack additionally requires **PyYAML** (Debian/Ubuntu: `apt install python3-yaml`, Fedora/RHEL: `dnf install python3-yaml`, or `pip install pyyaml`) ... it never aborts the base install\". docs/quickstart.md:47-54 \u2014 \"needs `python3` with **PyYAML** ... is a **skip, not a failure**: the wrapper and default rules still install ... exits `2`\". specs/cli.md:382 (flag table: \"loud SKIP ... base install always completes, and the installer exits `2`\") and specs/cli.md:422-432 (preflight probe `import yaml`, both remedies, JSON fallback, \"skip, never abort\").\n  \u2713 pytest plugin/test_install.py plugin/test_rule_packs.py green including the new no-PyYAML regression cells: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_rule_packs.py -q --tb=short -p no:cacheprovider` -> exit_code 0, \"71 passed in 4.07s\". New regression cells collected and passing: test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base (plugin/test_install.py:1478-1507), test_install_with_no_pyyaml_still_installs_a_plain_json_pack (:1514-1543), test_install_with_no_python3_skips_the_pack_but_installs_the_base (:1546-1572), test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base (:1576-1594); targeted run `-k \"no_pyyaml or no_python3 or malformed\"` -> \"6 passed, 65 deselected\". LSP diagnostics: 0 findings.\nAll four criteria verified with live installer runs (no-PyYAML host exits 2 with wrapper installed and pack skipped; PyYAML host exits 0 with the db pack byte-identical in the resolved rules dir), documentation in README/quickstart/specs/cli.md, and 71/71 pytest green including the new no-PyYAML regression cells.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T17:57:40.836512",
+  "evidence": {
+    "collected_at": "2026-09-19T17:57:40.853158+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 38102,
+        "truncated": false,
+        "source": "git show 18eafc4447f4"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6862,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-21"
+  }
+}

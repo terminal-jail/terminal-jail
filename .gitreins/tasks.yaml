@@ -894,3 +894,17 @@ tasks:
   status: complete
   created_at: '2026-09-19T06:46:49.298929+00:00'
   completed_at: '2026-09-19T06:57:28.621545+00:00'
+- id: DF-TERMINAL-JAIL-21
+  title: install.sh --rule-pack aborts entire install without PyYAML
+  criteria:
+  - 'Simulated no-PyYAML host: install.sh --rule-pack db leaves the wrapper installed
+    with the pack skipped, stderr names PyYAML plus remedy, exit 2'
+  - PyYAML-present host installs the db pack to the resolved rules dir with exit 0
+    unchanged
+  - README, quickstart and specs/cli.md document the PyYAML requirement and the skip-not-abort
+    contract
+  - pytest plugin/test_install.py plugin/test_rule_packs.py green including the new
+    no-PyYAML regression cells
+  status: complete
+  created_at: '2026-09-19T16:33:54.978164+00:00'
+  completed_at: '2026-09-19T17:56:32.236565+00:00'
