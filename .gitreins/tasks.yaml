@@ -835,3 +835,14 @@ tasks:
   status: complete
   created_at: '2026-09-19T01:44:36.844516+00:00'
   completed_at: '2026-09-19T01:54:06.179700+00:00'
+- id: DF-TERMINAL-JAIL-20
+  title: Convert egress MODIFY uploads into real containment or document and enforce
+    the security intent
+  criteria:
+  - curl file-upload MODIFY verdict must not deliver a local secret to a local collector;
+    add a regression proving the collector receives no secret, preserve legitimate
+    upload controls or document deliberate changes, update docs and YAML parity, full
+    suite and guard green
+  status: complete
+  created_at: '2026-09-19T03:25:33.852366+00:00'
+  completed_at: '2026-09-19T03:49:59.897715+00:00'
