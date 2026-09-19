@@ -4,7 +4,7 @@
 # loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
 # These reflect the same 54 rules hardcoded in the Python engine
-# (35 blocklist / 9 sandbox / 10 allow). Rule ids AND pattern strings must stay
+# (31 blocklist / 13 sandbox / 10 allow). Rule ids AND pattern strings must stay
 # byte-identical to the engine constants: install.sh copies this file into the
 # user rules dir, where same-id override REPLACES the builtin.
 
@@ -385,73 +385,6 @@ rules:
       # (`json={...}`, `data=b'...'`) stay allowed.
       pattern: "(?=[\\s\\S]*(?:urlopen\\s*\\(|requests\\s*\\.\\s*(?:post|put|patch)\\s*\\(|httpx\\s*\\.\\s*(?:post|put|patch)\\s*\\(|http\\s*\\.\\s*client\\s*\\.|urllib\\s*\\.\\s*request\\s*\\.\\s*Request\\s*\\(|\\.request\\s*\\(\\s*['\\\"](?:POST|PUT|PATCH)['\\\"]))(?=[\\s\\S]*(?:open\\s*\\([^)]*\\)\\s*\\.read(?:lines)?\\s*\\(|open\\s*\\([^)]*,\\s*['\\\"][rb]{1,2}['\\\"]|read_bytes\\s*\\(|read_text\\s*\\())"
 
-  # ---------------------------------------------------------------------------
-  # DF-TERMINAL-JAIL-20 local-file upload / whole-tree copy. These four were
-  # priority-700 auto-sandbox rules described as "staged exfil" coverage; the
-  # namespace wrap does not restrict network access (a sandboxed `curl -T`
-  # still reached a live collector), so they are BLOCK rules now and the
-  # decider's whole-command pass settles them before any per-segment layer.
-  # Verdict change: these shapes were `modify`, they are now `block`.
-  # Patterns are byte-identical to the engine constants (gated by
-  # scripts/yaml-mirror-parity-probe.py).
-  # ---------------------------------------------------------------------------
-  - id: "builtin-net-curl-upload"
-    description: "curl upload of a local file (file exfiltration)"
-    priority: 1000
-    action: block
-    block_message: "Blocked: curl sending a LOCAL FILE out as the request body (`-T`/`--upload-file`/`-sT`, `-d`/`--data`/`--data-binary`/`--data-raw`/`--data-urlencode` reading a `@file`). The rule matches by SHAPE — it also fires on non-secret files and on any destination, URL or not — and it does not cover a payload that never exists on disk (inline `-d '{...}'`, `--data-binary '{...}'`, a helper script that assembles the body, or curl reading a config file). Inline bodies and plain downloads keep their ALLOW verdict; override to warn level if a legitimate workflow uploads files."
-    match:
-      type: pattern
-      # -T/--upload-file in the bare, clustered (-sT), attached (-T/path) and
-      # `=`-joined spellings; --data/--data-binary/--data-raw/--data-urlencode
-      # (+ --data-ascii) with `@file`; a clustered short data flag with `@file`;
-      # and --data-urlencode's named `name@file` form.
-      # The quote-aware gap `(?:[^|;&]|'[^']*'|"[^"]*")*?` spans a QUOTED
-      # `&` (a URL query string) but still stops at an unquoted operator.
-      # Inline bodies (`-d '{...}'`, `--data-binary '{...}'`) are not matched.
-      pattern: "(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?:(?<![\\w-])-[A-Za-z]*T\\b|--upload-file\\b)|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?--data(?:-binary|-raw|-urlencode|-ascii)?[= ]@\\S+|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?<![\\w-])-[A-Za-z]*d\\b\\s*@\\S+|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?--data-urlencode\\s+[^\\s@|=]+@\\S+"
-
-  - id: "builtin-net-wget-post-file"
-    description: "wget POST of a local file (file exfiltration)"
-    priority: 1000
-    action: block
-    block_message: "Blocked: wget posting a LOCAL FILE as the request body (`--post-file=<file>` / `--body-file=<file>`, space- or `=`-joined). The rule matches by SHAPE — it also fires on non-secret files and on any destination — and it does not cover wget's inline `--post-data`, plain downloads (`wget <url>`, `wget -O <path> <url>`), or a body assembled by a helper script. Override to warn level if a legitimate workflow posts files."
-    match:
-      type: pattern
-      # wget's file-body POST: `--post-file=<path>` / `--body-file=<path>`
-      # (space form accepted too). Inline `--post-data` is not matched.
-      pattern: "(?<![\\w.-])wget\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?<![\\w-])--(?:post-file|body-file)[= ]\\S+"
-
-  - id: "builtin-net-curl-form-upload"
-    description: "curl multipart form upload of a local file (file exfiltration)"
-    priority: 1000
-    action: block
-    block_message: "Blocked: curl sending a LOCAL FILE as a multipart form field (`-F`/`--form` with a `name=@file` upload or a content-only `name=<file` body). The rule matches by SHAPE — it also fires on non-secret files and on any destination — and it does not cover inline fields (`curl -F 'name=value'`), curl's literal `--form-string`, or a payload assembled by a helper script. Inline multipart keeps its ALLOW verdict; override to warn level if a legitimate workflow uploads files as form fields."
-    match:
-      type: pattern
-      # -F/--form (separated, `=`-joined, attached or clustered as in `-sF`)
-      # whose field value carries a curl file-payload sigil: `name=@path`
-      # (upload with filename) or `name=<path` (content-only). Inline fields
-      # (`-F 'name=value'`, `--form-string 'f=@notafile'`) are not matched.
-      # Two deliberate choices: `(?-i:-[A-Za-z]*F\b)` keeps the short flag
-      # case-sensitive under the matcher's re.IGNORECASE (so `curl -fsSL` is
-      # never read as a form upload), and the quote-aware gap (see the
-      # curl-upload entry) spans a quoted `&` without crossing a real operator.
-      pattern: "(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?:(?-i:-[A-Za-z]*F\\b)|--form)(?![-\\w])(?:=|\\s+)?[^|;&\\s]*=(?:@|<)\\S+"
-
-  - id: "builtin-net-remote-tree-copy"
-    description: "Whole-tree remote copy (root filesystem source to a remote host)"
-    priority: 1000
-    action: block
-    block_message: "Blocked: whole-tree copy to a remote host — `rsync`/`scp` whose SOURCE is the filesystem root (a bare `/` token in the `//`, `/*`, `/.` spellings, and the `~/` whole-home spelling a trailing-slash token also produces) with a `host:path` destination. The rule matches by SHAPE — it also fires on non-secret trees and on any remote destination, including a legitimate backup host — and it does not cover a scoped directory copy (`rsync -a /srv/data/ host:/srv/backup/`, `scp file host:/srv/file`, a root-to-LOCAL copy). Override to warn level if a backup workflow needs a whole-tree copy."
-    match:
-      type: pattern
-      # <rsync|scp> <flags> <root source> ... <host:path>: the SOURCE must be a
-      # standalone root token (`/`, `//`, `/*`, `/.` — and `~/`, a
-      # trailing-slash token that matches the same arm), the destination a
-      # remote `host:path`. Scoped copies keep their plain ALLOW verdict.
-      pattern: "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/])(?:/{1,2})(?![\\w/])[^|;&]*\\s[^\\s|;&]+:"
-
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block
   # =============================================================================
@@ -528,11 +461,7 @@ rules:
       pattern: "\\./(.+\\.(sh|py|rb|zsh|bash|ksh)|[^/]+\\.(sh|py|rb|zsh|bash|ksh))|\\b(bash|sh|dash|zsh|python3?|ksh)\\s+[^\\s|;&]+\\.(sh|py|rb|zsh|bash|ksh)"
 
   # ---------------------------------------------------------------------------
-  # TJ-GAP-058 network egress. The fetch-pipe companion below stays a
-  # namespace-wrap rule (it is a download-execute shape, not a data-out one).
-  # Container-neutral for egress: the wrap does NOT restrict network access
-  # and is not claimed to prevent exfiltration (see the DF-TERMINAL-JAIL-20
-  # block rules below for the upload shapes).
+  # TJ-GAP-058 network egress (dual-use shapes -> namespace wrap, not block).
   # ---------------------------------------------------------------------------
   - id: "builtin-net-fetch-pipe-qualified"
     description: "Fetch pipeline into a path-qualified or wrapped interpreter"
@@ -545,6 +474,54 @@ rules:
       # interpreter form `curl <url> | sh`. Path-qualified / wrapped
       # interpreters stay in the dual-use tier and get the namespace wrap.
       pattern: "^\\s*(?:(?:env|busybox|setsid|xargs)\\s+(?:-{1,2}[A-Za-z0-9-]+\\s+)*)?(?:/usr)?/bin/(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-{1,2}[A-Za-z0-9-]+|\\d?>&?\\d+))*\\s*$|^\\s*(?:env|busybox|setsid|xargs)\\s+(?:-{1,2}[A-Za-z0-9-]+\\s+)*(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-{1,2}[A-Za-z0-9-]+|\\d?>&?\\d+))*\\s*$|(?<![\\w.-])(?:curl|wget)\\b[^|;&]*\\|\\s*(?:(?:env|busybox|setsid|xargs)\\s+)?(?:/usr)?/bin/(?:bash|sh|dash|zsh|ksh)\\b|(?<![\\w.-])(?:curl|wget)\\b[^|;&]*\\|\\s*(?:env|busybox|setsid|xargs)\\s+(?:bash|sh|dash|zsh|ksh)\\b"
+
+  - id: "builtin-net-curl-upload"
+    description: "curl upload of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: curl sending a local payload out (-T/--upload-file, -d/--data-binary @file) in isolated namespace."
+    match:
+      type: pattern
+      # Local-file payloads only (-T/--upload-file, --data* @file, -d @file).
+      # Inline bodies (`curl -X POST -d '{...}'`) keep their ALLOW verdict.
+      pattern: "(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])(?:-T|--upload-file)\\b|(?<![\\w.-])curl\\b[^|;&]*--data(?:-binary|-raw|-urlencode)?[= ]@\\S+|(?<![\\w.-])curl\\b[^|;&]*(?<![\\w-])-d\\s*@\\S+"
+
+  - id: "builtin-net-curl-form-upload"
+    description: "curl multipart form upload of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: curl sending a local file as a multipart form field (-F/--form with an @file or <file payload) in isolated namespace. The namespace wrap contains the filesystem view, not the socket — it is not an egress control (only a block rule stops an upload)."
+    match:
+      type: pattern
+      # Multipart file payloads only: `name=@path` (upload with filename)
+      # and `name=<path` (content-only). Inline fields (`-F 'name=value'`)
+      # and `--form-string` keep their ALLOW verdict. `(?-i:-F)` keeps the
+      # short flag case-sensitive under the matcher's re.IGNORECASE, so
+      # `curl -fsSL <url>` is never read as a form upload; `[\s\S]*?`
+      # (instead of the usual `[^|;&]*`) spans a quoted URL that carries
+      # `&` before the flag — a sandbox over-match only costs a wrap.
+      pattern: "(?<![\\w.-])curl\\b[\\s\\S]*?(?:(?-i:-F)|--form)(?![-\\w])(?:=|\\s+)?[^|;&\\s]*=(?:@|<)\\S+"
+
+  - id: "builtin-net-wget-post-file"
+    description: "wget POST of a local file (staged exfil)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: wget posting a local file body (--post-file/--body-file) in isolated namespace."
+    match:
+      type: pattern
+      # wget file-body POST: --post-file / --body-file.
+      pattern: "(?<![\\w.-])wget\\b[^|;&]*(?<![\\w-])--(?:post-file|body-file)[= ]\\S+"
+
+  - id: "builtin-net-remote-tree-copy"
+    description: "Whole-tree remote copy (root filesystem source to a remote host)"
+    priority: 700
+    action: sandbox
+    block_message: "Auto-sandboxed: whole-tree copy (rsync/scp with a root '/' source) to a remote host in isolated namespace."
+    match:
+      type: pattern
+      # Source must be a standalone `/` token AND the destination a remote
+      # host:path, so scoped copies keep their plain ALLOW verdict.
+      pattern: "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/])/(?![\\w/])[^|;&]*\\s[^\\s|;&]+:"
 
   # =============================================================================
   # Always-Allow (priority 500) — never block, never sandbox
