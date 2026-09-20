@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-069",
+  "task_title": "rules-drift-probe reports silent same-id mirror downgrades",
+  "task_criteria": [
+    "classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift exits non-zero; unit tests for drift + clean; docs updated"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9af1ea3fcd2a1dfb1960c398ab3a5a205b7b80b0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n10:03AM INF scanned ~4226955 bytes (4.23 MB) in 285ms\n10:03AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 139 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1109 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  8%]\ns.s..                                                                    [  8%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 19%]\n............................................................             [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.....                                                                    [ 37%]\nplugin/test_interruptor.py ............................................. [ 41%]\n........................................................................ [ 47%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 67%]\n........................................................................ [ 73%]\n..............................................                           [ 77%]\nplugin/test_interruptor_integration.py ...............s................. [ 80%]\n.....                                                                    [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 83%]\nplugin/test_packaging.py ..........                                      [ 84%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...................................            [ 89%]\nplugin/test_rules_drift_probe.py .................                       [ 90%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1102 passed, 7 skipped in 27.28s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift exits non-zero; unit tests for drift + clean; docs updated: scripts/rules-drift-probe.py:139-146 emits `DRIFT: <id>: engine action=<a> installed action=<b> (<direction>)` plus both file paths (shipped mirror + installed copy). Live run with a downgraded tmp user dir printed 'DRIFT: builtin-kill-all: engine action=block installed action=sandbox (weaker)' + shipped mirror path + installed copy path + 'RESULT: drift=1'. Exit codes live: bare run on drift rc=0; `--fail-on-drift` on drift rc=1; `--fail-on-drift` clean/absent dirs rc=0 with 'OK: no installed override ... RESULT: drift=0'. Tests: plugin/test_rules_drift_probe.py (17 cases) covers drift (row content, bare rc 0, --fail-on-drift rc 1, stronger-direction) and clean (absent/empty dirs, full-parity mirror drift=0, --fail-on-drift rc 0) plus not-drift scopes; `.venv/bin/python -m pytest plugin/test_rules_drift_probe.py -q -p no:cacheprovider` -> '17 passed in 0.87s', EXIT=0; full suite `.venv/bin/python -m pytest -x --tb=short` -> '1102 passed, 7 skipped in 44.86s' (no failures). LSP diagnostics: 0. Docs: README.md:288-291, specs/cli.md:400-401, docs/quickstart.md:66-67, CHANGELOG.md:3-23.\nThe rules-drift-probe prints DRIFT rows with id/engine-vs-installed actions/both file paths, --fail-on-drift exits 1 on drift and 0 when clean, 17 hermetic drift+clean unit tests pass (full suite 1102 passed), and README/specs/quickstart/CHANGELOG are updated.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift exits non-zero; unit tests for drift + clean; docs updated: scripts/rules-drift-probe.py:139-146 emits `DRIFT: <id>: engine action=<a> installed action=<b> (<direction>)` plus both file paths (shipped mirror + installed copy). Live run with a downgraded tmp user dir printed 'DRIFT: builtin-kill-all: engine action=block installed action=sandbox (weaker)' + shipped mirror path + installed copy path + 'RESULT: drift=1'. Exit codes live: bare run on drift rc=0; `--fail-on-drift` on drift rc=1; `--fail-on-drift` clean/absent dirs rc=0 with 'OK: no installed override ... RESULT: drift=0'. Tests: plugin/test_rules_drift_probe.py (17 cases) covers drift (row content, bare rc 0, --fail-on-drift rc 1, stronger-direction) and clean (absent/empty dirs, full-parity mirror drift=0, --fail-on-drift rc 0) plus not-drift scopes; `.venv/bin/python -m pytest plugin/test_rules_drift_probe.py -q -p no:cacheprovider` -> '17 passed in 0.87s', EXIT=0; full suite `.venv/bin/python -m pytest -x --tb=short` -> '1102 passed, 7 skipped in 44.86s' (no failures). LSP diagnostics: 0. Docs: README.md:288-291, specs/cli.md:400-401, docs/quickstart.md:66-67, CHANGELOG.md:3-23.\nThe rules-drift-probe prints DRIFT rows with id/engine-vs-installed actions/both file paths, --fail-on-drift exits 1 on drift and 0 when clean, 17 hermetic drift+clean unit tests pass (full suite 1102 passed), and README/specs/quickstart/CHANGELOG are updated.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift exits non-zero; unit tests for drift + clean; docs updated",
+                "status": "PASS",
+                "detail": "scripts/rules-drift-probe.py:139-146 emits `DRIFT: <id>: engine action=<a> installed action=<b> (<direction>)` plus both file paths (shipped mirror + installed copy). Live run with a downgraded tmp user dir printed 'DRIFT: builtin-kill-all: engine action=block installed action=sandbox (weaker)' + shipped mirror path + installed copy path + 'RESULT: drift=1'. Exit codes live: bare run on drift rc=0; `--fail-on-drift` on drift rc=1; `--fail-on-drift` clean/absent dirs rc=0 with 'OK: no installed override ... RESULT: drift=0'. Tests: plugin/test_rules_drift_probe.py (17 cases) covers drift (row content, bare rc 0, --fail-on-drift rc 1, stronger-direction) and clean (absent/empty dirs, full-parity mirror drift=0, --fail-on-drift rc 0) plus not-drift scopes; `.venv/bin/python -m pytest plugin/test_rules_drift_probe.py -q -p no:cacheprovider` -> '17 passed in 0.87s', EXIT=0; full suite `.venv/bin/python -m pytest -x --tb=short` -> '1102 passed, 7 skipped in 44.86s' (no failures). LSP diagnostics: 0. Docs: README.md:288-291, specs/cli.md:400-401, docs/quickstart.md:66-67, CHANGELOG.md:3-23."
+              }
+            ],
+            "summary": "The rules-drift-probe prints DRIFT rows with id/engine-vs-installed actions/both file paths, --fail-on-drift exits 1 on drift and 0 when clean, 17 hermetic drift+clean unit tests pass (full suite 1102 passed), and README/specs/quickstart/CHANGELOG are updated."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-069\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift exits non-zero; unit tests for drift + clean; docs updated: scripts/rules-drift-probe.py:139-146 emits `DRIFT: <id>: engine action=<a> installed action=<b> (<direction>)` plus both file paths (shipped mirror + installed copy). Live run with a downgraded tmp user dir printed 'DRIFT: builtin-kill-all: engine action=block installed action=sandbox (weaker)' + shipped mirror path + installed copy path + 'RESULT: drift=1'. Exit codes live: bare run on drift rc=0; `--fail-on-drift` on drift rc=1; `--fail-on-drift` clean/absent dirs rc=0 with 'OK: no installed override ... RESULT: drift=0'. Tests: plugin/test_rules_drift_probe.py (17 cases) covers drift (row content, bare rc 0, --fail-on-drift rc 1, stronger-direction) and clean (absent/empty dirs, full-parity mirror drift=0, --fail-on-drift rc 0) plus not-drift scopes; `.venv/bin/python -m pytest plugin/test_rules_drift_probe.py -q -p no:cacheprovider` -> '17 passed in 0.87s', EXIT=0; full suite `.venv/bin/python -m pytest -x --tb=short` -> '1102 passed, 7 skipped in 44.86s' (no failures). LSP diagnostics: 0. Docs: README.md:288-291, specs/cli.md:400-401, docs/quickstart.md:66-67, CHANGELOG.md:3-23.\nThe rules-drift-probe prints DRIFT rows with id/engine-vs-installed actions/both file paths, --fail-on-drift exits 1 on drift and 0 when clean, 17 hermetic drift+clean unit tests pass (full suite 1102 passed), and README/specs/quickstart/CHANGELOG are updated.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-20T15:08:17.104975",
+  "evidence": {
+    "collected_at": "2026-09-20T15:08:17.127156+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 95771,
+        "truncated": false,
+        "source": "git show 9af1ea3fcd2a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6702,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-069"
+  }
+}

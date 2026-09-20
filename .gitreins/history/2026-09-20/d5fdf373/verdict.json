@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-065",
+  "task_title": "install.sh PATH hint follows actual TERMINAL_JAIL_INSTALL_DIR",
+  "task_criteria": [
+    "custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming configured; default install unchanged; scratch-HOME proof + automated test"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9af1ea3fcd2a1dfb1960c398ab3a5a205b7b80b0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n10:02AM INF scanned ~4226955 bytes (4.23 MB) in 293ms\n10:02AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 139 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1109 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  8%]\ns.s..                                                                    [  8%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 19%]\n............................................................             [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.....                                                                    [ 37%]\nplugin/test_interruptor.py ............................................. [ 41%]\n........................................................................ [ 47%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 67%]\n........................................................................ [ 73%]\n..............................................                           [ 77%]\nplugin/test_interruptor_integration.py ...............s................. [ 80%]\n.....                                                                    [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 83%]\nplugin/test_packaging.py ..........                                      [ 84%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...................................            [ 89%]\nplugin/test_rules_drift_probe.py .................                       [ 90%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1102 passed, 7 skipped in 27.20s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T145923.849008Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming configured; default install unchanged; scratch-HOME proof + automated test: install.sh:663-675 (commit 66a68bc) adds a custom-prefix branch that appends `export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:$PATH\"` via printf (variable expanded at write time) and only prints 'added PATH entry to <file>' after a real write; the hardcoded `$HOME/.local/bin` heredoc is now confined to the default branch (install.sh:643-660), which is byte-identical to the pre-fix behavior. Scratch-HOME proof (manual, real run): `HOME=/tmp/tj065/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj065/bin sh install.sh` -> rc got `export PATH=\"/tmp/tj065/bin:$PATH\"`, binary at /tmp/tj065/bin/terminal-jail, and /tmp/tj065/home/.local/bin/terminal-jail does NOT exist; re-run adds no duplicate (1 marker). Default install proof: `HOME=/tmp/tj065d/home TERMINAL_JAIL_INSTALL_DIR= sh install.sh` -> classic `export PATH=\"$HOME/.local/bin:$PATH\"` in ~/.profile, binary at ~/.local/bin/terminal-jail, rerun prints 0 'added PATH entry' and keeps 1 marker. Already-on-PATH case prints the honest 'is already on PATH' and writes nothing. Automated tests: plugin/test_install.py:1564-1700 (test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_custom_install_dir_appends_despite_stale_default_block, test_default_install_keeps_classic_path_behavior) -> `.venv/bin/python -m pytest plugin/test_install.py -k 'custom_install_dir or default_install_keeps'` = '4 passed, 50 deselected'. Full suite per .gitreins/config.yaml test_command `.venv/bin/python -m pytest -x --tb=short` -> exit_code 0, '1102 passed, 7 skipped in 28.89s'.\nCustom-prefix installs now append a PATH line naming the actual TERMINAL_JAIL_INSTALL_DIR (never the hardcoded $HOME/.local/bin) and only claim success after writing, default installs are unchanged and idempotent, and both scratch-HOME manual runs and 4 new automated tests plus the full 1102-test suite pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming configured; default install unchanged; scratch-HOME proof + automated test: install.sh:663-675 (commit 66a68bc) adds a custom-prefix branch that appends `export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:$PATH\"` via printf (variable expanded at write time) and only prints 'added PATH entry to <file>' after a real write; the hardcoded `$HOME/.local/bin` heredoc is now confined to the default branch (install.sh:643-660), which is byte-identical to the pre-fix behavior. Scratch-HOME proof (manual, real run): `HOME=/tmp/tj065/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj065/bin sh install.sh` -> rc got `export PATH=\"/tmp/tj065/bin:$PATH\"`, binary at /tmp/tj065/bin/terminal-jail, and /tmp/tj065/home/.local/bin/terminal-jail does NOT exist; re-run adds no duplicate (1 marker). Default install proof: `HOME=/tmp/tj065d/home TERMINAL_JAIL_INSTALL_DIR= sh install.sh` -> classic `export PATH=\"$HOME/.local/bin:$PATH\"` in ~/.profile, binary at ~/.local/bin/terminal-jail, rerun prints 0 'added PATH entry' and keeps 1 marker. Already-on-PATH case prints the honest 'is already on PATH' and writes nothing. Automated tests: plugin/test_install.py:1564-1700 (test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_custom_install_dir_appends_despite_stale_default_block, test_default_install_keeps_classic_path_behavior) -> `.venv/bin/python -m pytest plugin/test_install.py -k 'custom_install_dir or default_install_keeps'` = '4 passed, 50 deselected'. Full suite per .gitreins/config.yaml test_command `.venv/bin/python -m pytest -x --tb=short` -> exit_code 0, '1102 passed, 7 skipped in 28.89s'.\nCustom-prefix installs now append a PATH line naming the actual TERMINAL_JAIL_INSTALL_DIR (never the hardcoded $HOME/.local/bin) and only claim success after writing, default installs are unchanged and idempotent, and both scratch-HOME manual runs and 4 new automated tests plus the full 1102-test suite pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming configured; default install unchanged; scratch-HOME proof + automated test",
+                "status": "PASS",
+                "detail": "install.sh:663-675 (commit 66a68bc) adds a custom-prefix branch that appends `export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:$PATH\"` via printf (variable expanded at write time) and only prints 'added PATH entry to <file>' after a real write; the hardcoded `$HOME/.local/bin` heredoc is now confined to the default branch (install.sh:643-660), which is byte-identical to the pre-fix behavior. Scratch-HOME proof (manual, real run): `HOME=/tmp/tj065/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj065/bin sh install.sh` -> rc got `export PATH=\"/tmp/tj065/bin:$PATH\"`, binary at /tmp/tj065/bin/terminal-jail, and /tmp/tj065/home/.local/bin/terminal-jail does NOT exist; re-run adds no duplicate (1 marker). Default install proof: `HOME=/tmp/tj065d/home TERMINAL_JAIL_INSTALL_DIR= sh install.sh` -> classic `export PATH=\"$HOME/.local/bin:$PATH\"` in ~/.profile, binary at ~/.local/bin/terminal-jail, rerun prints 0 'added PATH entry' and keeps 1 marker. Already-on-PATH case prints the honest 'is already on PATH' and writes nothing. Automated tests: plugin/test_install.py:1564-1700 (test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_custom_install_dir_appends_despite_stale_default_block, test_default_install_keeps_classic_path_behavior) -> `.venv/bin/python -m pytest plugin/test_install.py -k 'custom_install_dir or default_install_keeps'` = '4 passed, 50 deselected'. Full suite per .gitreins/config.yaml test_command `.venv/bin/python -m pytest -x --tb=short` -> exit_code 0, '1102 passed, 7 skipped in 28.89s'."
+              }
+            ],
+            "summary": "Custom-prefix installs now append a PATH line naming the actual TERMINAL_JAIL_INSTALL_DIR (never the hardcoded $HOME/.local/bin) and only claim success after writing, default installs are unchanged and idempotent, and both scratch-HOME manual runs and 4 new automated tests plus the full 1102-test suite pass."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-065\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming configured; default install unchanged; scratch-HOME proof + automated test: install.sh:663-675 (commit 66a68bc) adds a custom-prefix branch that appends `export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:$PATH\"` via printf (variable expanded at write time) and only prints 'added PATH entry to <file>' after a real write; the hardcoded `$HOME/.local/bin` heredoc is now confined to the default branch (install.sh:643-660), which is byte-identical to the pre-fix behavior. Scratch-HOME proof (manual, real run): `HOME=/tmp/tj065/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj065/bin sh install.sh` -> rc got `export PATH=\"/tmp/tj065/bin:$PATH\"`, binary at /tmp/tj065/bin/terminal-jail, and /tmp/tj065/home/.local/bin/terminal-jail does NOT exist; re-run adds no duplicate (1 marker). Default install proof: `HOME=/tmp/tj065d/home TERMINAL_JAIL_INSTALL_DIR= sh install.sh` -> classic `export PATH=\"$HOME/.local/bin:$PATH\"` in ~/.profile, binary at ~/.local/bin/terminal-jail, rerun prints 0 'added PATH entry' and keeps 1 marker. Already-on-PATH case prints the honest 'is already on PATH' and writes nothing. Automated tests: plugin/test_install.py:1564-1700 (test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_custom_install_dir_appends_despite_stale_default_block, test_default_install_keeps_classic_path_behavior) -> `.venv/bin/python -m pytest plugin/test_install.py -k 'custom_install_dir or default_install_keeps'` = '4 passed, 50 deselected'. Full suite per .gitreins/config.yaml test_command `.venv/bin/python -m pytest -x --tb=short` -> exit_code 0, '1102 passed, 7 skipped in 28.89s'.\nCustom-prefix installs now append a PATH line naming the actual TERMINAL_JAIL_INSTALL_DIR (never the hardcoded $HOME/.local/bin) and only claim success after writing, default installs are unchanged and idempotent, and both scratch-HOME manual runs and 4 new automated tests plus the full 1102-test suite pass.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-20T15:03:34.526293",
+  "evidence": {
+    "collected_at": "2026-09-20T15:03:34.547419+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 95771,
+        "truncated": false,
+        "source": "git show 9af1ea3fcd2a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6238,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-065"
+  }
+}
