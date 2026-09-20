@@ -440,17 +440,30 @@ rules:
       pattern: "(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?:(?-i:-[A-Za-z]*F\\b)|--form)(?![-\\w])(?:=|\\s+)?[^|;&\\s]*=(?:@|<)\\S+"
 
   - id: "builtin-net-remote-tree-copy"
-    description: "Whole-tree remote copy (root filesystem source to a remote host)"
+    description: "Whole-tree or secret-source remote copy (root / secret-bearing source to a remote host)"
     priority: 1000
     action: block
-    block_message: "Blocked: whole-tree copy to a remote host — `rsync`/`scp` whose SOURCE is the filesystem root (a bare `/` token in the `//`, `/*`, `/.` spellings, and the `~/` whole-home spelling a trailing-slash token also produces) with a `host:path` destination. The rule matches by SHAPE — it also fires on non-secret trees and on any remote destination, including a legitimate backup host — and it does not cover a scoped directory copy (`rsync -a /srv/data/ host:/srv/backup/`, `scp file host:/srv/file`, a root-to-LOCAL copy). Override to warn level if a backup workflow needs a whole-tree copy."
+    block_message: "Blocked: `rsync`/`scp` remote copy of (a) the WHOLE TREE — a source that is the filesystem root (a bare `/` token in the `//`, `/*`, `/.` spellings) — or (b) a SECRET-BEARING SOURCE — any source path containing a `~`, `.ssh`/`.gnupg`/`.aws`/`.config`/`.env` component, or an `id_rsa`/`id_ed25519`/`known_hosts`/`credentials` file name (bare, relative, or inside an absolute path) — sent to a `host:path` / `host::module` destination. The rule matches by SHAPE — it also fires on non-secret trees and on any remote destination, including a legitimate backup host — and it does not cover a scoped non-secret directory copy (`rsync -a /srv/data/ host:/srv/backup/`, `scp file host:/srv/file`, a root-to-LOCAL or secret-to-LOCAL copy) nor a `=`-joined option VALUE that merely mentions a secret path (`-o IdentityFile=~/.ssh/id_rsa`). Override to warn level if a backup workflow needs one of these shapes."
     match:
       type: pattern
-      # <rsync|scp> <flags> <root source> ... <host:path>: the SOURCE must be a
-      # standalone root token (`/`, `//`, `/*`, `/.` — and `~/`, a
-      # trailing-slash token that matches the same arm), the destination a
-      # remote `host:path`. Scoped copies keep their plain ALLOW verdict.
-      pattern: "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/])(?:/{1,2})(?![\\w/])[^|;&]*\\s[^\\s|;&]+:"
+      # Two arms (patterns are byte-identical to the engine constants — gated
+      # by scripts/yaml-mirror-parity-probe.py):
+      # ARM 1 — whole tree: <rsync|scp> <flags> <root source> ... <host:path>;
+      # the SOURCE is a standalone root token (`/`, `//`, `/*`, `/.` — a `/`
+      # preceded by `~` does NOT arm it: source lookbehind `(?<![\\w/~])`),
+      # the destination a remote `host:path`. The `~/` whole-home spelling
+      # and every secret-bearing HOME source arm through ARM 2 below.
+      # ARM 2 — secret source (DF-TERMINAL-JAIL-29): <rsync|scp> <flags>
+      # <source containing a secret component> ... <remote dest>: a bare `~`
+      # whole-home token, a `.ssh`/`.gnupg`/`.aws`/`.config`/`.env` component
+      # (dot-relative, `~/`-prefixed, or inside an absolute path), or the key
+      # file names `id_rsa`/`id_ed25519`/`known_hosts`/`credentials` (bare or
+      # path-embedded, never a longer name). The `=`-guard keeps
+      # `-o IdentityFile=~/.ssh/id_rsa` (option VALUE) out of the arm; the
+      # destination must be remote (`something:` non-empty, no `/`, not a bare
+      # `~` — bracketed IPv6 `[...]:` and rsync `host::module` included), so a
+      # secret-to-LOCAL copy stays ALLOW.
+      pattern: "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/~])(?:/{1,2})(?![\\w/])[^|;&]*\\s[^\\s|;&]+:|(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*\\s[^=\\s|;&]*(?:~(?![\\w./+-])|~/(?![\\w.])|/~?\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w./+-=])\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w])/?(?:id_rsa|id_ed25519|known_hosts|credentials)(?![\\w-]))[^|;&]*\\s(?:\\[[^\\]\\s|;&]+\\]|[^\\s/|;&]+):"
 
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block

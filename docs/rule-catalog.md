@@ -59,7 +59,7 @@ Verdict on match: block.
 | `builtin-net-curl-upload` | curl upload of a local file (file exfiltration) |
 | `builtin-net-wget-post-file` | wget POST of a local file (file exfiltration) |
 | `builtin-net-curl-form-upload` | curl multipart form upload of a local file (file exfiltration) |
-| `builtin-net-remote-tree-copy` | Whole-tree remote copy (root filesystem source to a remote host) |
+| `builtin-net-remote-tree-copy` | Whole-tree or secret-source remote copy (root / secret-bearing source to a remote host) — DF-TERMINAL-JAIL-29 |
 
 ### Auto-Sandbox (`sandbox`, priority 700)
 
