@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-062",
+  "task_title": "First rule pack db (FULL catalogue): psql escape, mysql SHUTDOWN, redis, mongosh, data-dir recursive-delete, dump exfil",
+  "task_criteria": [
+    "Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py, full suite green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "f05dfbe11425f33981365a80069b4521a933e9ed",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:10PM INF scanned ~4377075 bytes (4.38 MB) in 429ms\n4:10PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 142 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1355 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  8%]\ns.s..                                                                    [  8%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.....                                                                    [ 35%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 77%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 87%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 91%]\nplugin/test_rules_drift_probe.py .................                       [ 92%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 97%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n================== 1348 passed, 7 skipped in 60.84s (0:01:00) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py, full suite green: db.yaml now carries 14 rules (yaml load: rules:14 block:11 sandbox:3): pack-db-psql-meta-shell, pack-db-drop-database, pack-db-truncate-cascade, pack-db-admin-shutdown, pack-db-redis-config, pack-db-redis-module, pack-db-redis-flush, pack-db-mongosh-drop, pack-db-mongosh-shutdown, pack-db-data-dir-delete, pack-db-dump-exfil (block@950); pack-db-drop-table, pack-db-truncate, pack-db-dump-restore (sandbox@650). Live intercept() probe with the pack installed into a scratch rules dir: psql -c '\\! id' -> block pack-db-psql-meta-shell; psql -c 'DROP DATABASE prod' -> block pack-db-drop-database; mysqladmin shutdown -> block pack-db-admin-shutdown; redis-cli CONFIG SET dir /tmp -> block pack-db-redis-config; redis-cli MODULE LOAD -> block pack-db-redis-module; redis-cli FLUSHALL -> block pack-db-redis-flush; mongosh --eval 'db.dropDatabase()' -> block pack-db-mongosh-drop; mongosh --eval 'db.adminCommand({shutdown:1})' -> block pack-db-mongosh-shutdown; rm -rf /var/lib/postgresql/16/main -> block pack-db-data-dir-delete; 'pg_dump' 'db' '|' 'nc' 'h' 'p' -> block pack-db-dump-exfil. Gray shapes at modify: psql -c 'DROP TABLE users' -> modify pack-db-drop-table (modified=True, unshare wrap); psql -c 'TRUNCATE users' -> modify pack-db-truncate; pg_dump mydb / pg_restore -> modify pack-db-dump-restore. Legit pins allow: psql -c 'SELECT 1', psql -f migrations/002_legacy.sql, sqlite3 state.db 'INSERT ...', alembic upgrade head, python -c 'import sqlalchemy', redis-cli GET/SET/CONFIG GET, mysqladmin status all -> allow rule=None; pg_dump mydb -> modify pack-db-dump-restore. False-positive contexts (sed/git-commit/grep/echo) -> no pack-* attribution. plugin/test_rule_pack_db.py shipped (524 lines, 108 tests PASS). Full suite: `.venv/bin/python -m pytest -q` -> '1348 passed, 7 skipped in 31.95s' (exit 0); baseline at 5d79ff5^ -> '1226 passed, 7 skipped' => +122 tests, zero regressions. ruff check on both test files: 'All checks passed!'. scripts/rule-pack-tool.py validate: 'pack db valid \u2014 14 rule(s) (11 block, 3 sandbox)' with no id collisions. LSP diagnostics: none.\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py, full suite green: db.yaml now carries 14 rules (yaml load: rules:14 block:11 sandbox:3): pack-db-psql-meta-shell, pack-db-drop-database, pack-db-truncate-cascade, pack-db-admin-shutdown, pack-db-redis-config, pack-db-redis-module, pack-db-redis-flush, pack-db-mongosh-drop, pack-db-mongosh-shutdown, pack-db-data-dir-delete, pack-db-dump-exfil (block@950); pack-db-drop-table, pack-db-truncate, pack-db-dump-restore (sandbox@650). Live intercept() probe with the pack installed into a scratch rules dir: psql -c '\\! id' -> block pack-db-psql-meta-shell; psql -c 'DROP DATABASE prod' -> block pack-db-drop-database; mysqladmin shutdown -> block pack-db-admin-shutdown; redis-cli CONFIG SET dir /tmp -> block pack-db-redis-config; redis-cli MODULE LOAD -> block pack-db-redis-module; redis-cli FLUSHALL -> block pack-db-redis-flush; mongosh --eval 'db.dropDatabase()' -> block pack-db-mongosh-drop; mongosh --eval 'db.adminCommand({shutdown:1})' -> block pack-db-mongosh-shutdown; rm -rf /var/lib/postgresql/16/main -> block pack-db-data-dir-delete; 'pg_dump' 'db' '|' 'nc' 'h' 'p' -> block pack-db-dump-exfil. Gray shapes at modify: psql -c 'DROP TABLE users' -> modify pack-db-drop-table (modified=True, unshare wrap); psql -c 'TRUNCATE users' -> modify pack-db-truncate; pg_dump mydb / pg_restore -> modify pack-db-dump-restore. Legit pins allow: psql -c 'SELECT 1', psql -f migrations/002_legacy.sql, sqlite3 state.db 'INSERT ...', alembic upgrade head, python -c 'import sqlalchemy', redis-cli GET/SET/CONFIG GET, mysqladmin status all -> allow rule=None; pg_dump mydb -> modify pack-db-dump-restore. False-positive contexts (sed/git-commit/grep/echo) -> no pack-* attribution. plugin/test_rule_pack_db.py shipped (524 lines, 108 tests PASS). Full suite: `.venv/bin/python -m pytest -q` -> '1348 passed, 7 skipped in 31.95s' (exit 0); baseline at 5d79ff5^ -> '1226 passed, 7 skipped' => +122 tests, zero regressions. ruff check on both test files: 'All checks passed!'. scripts/rule-pack-tool.py validate: 'pack db valid \u2014 14 rule(s) (11 block, 3 sandbox)' with no id collisions. LSP diagnostics: none.\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py, full suite green",
+                "status": "PASS",
+                "detail": "db.yaml now carries 14 rules (yaml load: rules:14 block:11 sandbox:3): pack-db-psql-meta-shell, pack-db-drop-database, pack-db-truncate-cascade, pack-db-admin-shutdown, pack-db-redis-config, pack-db-redis-module, pack-db-redis-flush, pack-db-mongosh-drop, pack-db-mongosh-shutdown, pack-db-data-dir-delete, pack-db-dump-exfil (block@950); pack-db-drop-table, pack-db-truncate, pack-db-dump-restore (sandbox@650). Live intercept() probe with the pack installed into a scratch rules dir: psql -c '\\! id' -> block pack-db-psql-meta-shell; psql -c 'DROP DATABASE prod' -> block pack-db-drop-database; mysqladmin shutdown -> block pack-db-admin-shutdown; redis-cli CONFIG SET dir /tmp -> block pack-db-redis-config; redis-cli MODULE LOAD -> block pack-db-redis-module; redis-cli FLUSHALL -> block pack-db-redis-flush; mongosh --eval 'db.dropDatabase()' -> block pack-db-mongosh-drop; mongosh --eval 'db.adminCommand({shutdown:1})' -> block pack-db-mongosh-shutdown; rm -rf /var/lib/postgresql/16/main -> block pack-db-data-dir-delete; 'pg_dump' 'db' '|' 'nc' 'h' 'p' -> block pack-db-dump-exfil. Gray shapes at modify: psql -c 'DROP TABLE users' -> modify pack-db-drop-table (modified=True, unshare wrap); psql -c 'TRUNCATE users' -> modify pack-db-truncate; pg_dump mydb / pg_restore -> modify pack-db-dump-restore. Legit pins allow: psql -c 'SELECT 1', psql -f migrations/002_legacy.sql, sqlite3 state.db 'INSERT ...', alembic upgrade head, python -c 'import sqlalchemy', redis-cli GET/SET/CONFIG GET, mysqladmin status all -> allow rule=None; pg_dump mydb -> modify pack-db-dump-restore. False-positive contexts (sed/git-commit/grep/echo) -> no pack-* attribution. plugin/test_rule_pack_db.py shipped (524 lines, 108 tests PASS). Full suite: `.venv/bin/python -m pytest -q` -> '1348 passed, 7 skipped in 31.95s' (exit 0); baseline at 5d79ff5^ -> '1226 passed, 7 skipped' => +122 tests, zero regressions. ruff check on both test files: 'All checks passed!'. scripts/rule-pack-tool.py validate: 'pack db valid \u2014 14 rule(s) (11 block, 3 sandbox)' with no id collisions. LSP diagnostics: none."
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-062\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py, full suite green: db.yaml now carries 14 rules (yaml load: rules:14 block:11 sandbox:3): pack-db-psql-meta-shell, pack-db-drop-database, pack-db-truncate-cascade, pack-db-admin-shutdown, pack-db-redis-config, pack-db-redis-module, pack-db-redis-flush, pack-db-mongosh-drop, pack-db-mongosh-shutdown, pack-db-data-dir-delete, pack-db-dump-exfil (block@950); pack-db-drop-table, pack-db-truncate, pack-db-dump-restore (sandbox@650). Live intercept() probe with the pack installed into a scratch rules dir: psql -c '\\! id' -> block pack-db-psql-meta-shell; psql -c 'DROP DATABASE prod' -> block pack-db-drop-database; mysqladmin shutdown -> block pack-db-admin-shutdown; redis-cli CONFIG SET dir /tmp -> block pack-db-redis-config; redis-cli MODULE LOAD -> block pack-db-redis-module; redis-cli FLUSHALL -> block pack-db-redis-flush; mongosh --eval 'db.dropDatabase()' -> block pack-db-mongosh-drop; mongosh --eval 'db.adminCommand({shutdown:1})' -> block pack-db-mongosh-shutdown; rm -rf /var/lib/postgresql/16/main -> block pack-db-data-dir-delete; 'pg_dump' 'db' '|' 'nc' 'h' 'p' -> block pack-db-dump-exfil. Gray shapes at modify: psql -c 'DROP TABLE users' -> modify pack-db-drop-table (modified=True, unshare wrap); psql -c 'TRUNCATE users' -> modify pack-db-truncate; pg_dump mydb / pg_restore -> modify pack-db-dump-restore. Legit pins allow: psql -c 'SELECT 1', psql -f migrations/002_legacy.sql, sqlite3 state.db 'INSERT ...', alembic upgrade head, python -c 'import sqlalchemy', redis-cli GET/SET/CONFIG GET, mysqladmin status all -> allow rule=None; pg_dump mydb -> modify pack-db-dump-restore. False-positive contexts (sed/git-commit/grep/echo) -> no pack-* attribution. plugin/test_rule_pack_db.py shipped (524 lines, 108 tests PASS). Full suite: `.venv/bin/python -m pytest -q` -> '1348 passed, 7 skipped in 31.95s' (exit 0); baseline at 5d79ff5^ -> '1226 passed, 7 skipped' => +122 tests, zero regressions. ruff check on both test files: 'All checks passed!'. scripts/rule-pack-tool.py validate: 'pack db valid \u2014 14 rule(s) (11 block, 3 sandbox)' with no id collisions. LSP diagnostics: none.\n\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-20T21:17:30.531134",
+  "evidence": {
+    "collected_at": "2026-09-20T21:17:30.551011+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 5889,
+        "truncated": false,
+        "source": "git show f05dfbe11425"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 84689,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-062"
+  }
+}

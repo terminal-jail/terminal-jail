@@ -19,7 +19,13 @@ guards:
   allow_skips: true
 evaluator:
   max_iterations: 200
-  max_time: 45m
+  max_time: 60m
+  # TIME RUNG (tick #302): the DF-TERMINAL-JAIL-31 tier2 judge hit `Time cap (45m)
+  # exceeded (45m5s elapsed)` -> INCOMPLETE with 4/5 criteria PASS, but that run
+  # was executed CONCURRENTLY with the DF-TERMINAL-JAIL-23 judge on the same box
+  # (two judges, one repo, plus the fleet load) — wall-clock starvation, not a
+  # criteria cost problem. Raise the rung to the fleet-proven 60m AND run judge
+  # jobs SERIALLY in this repo; never parallelize `gitreins judge --async`.
   # RUNG (tick #289): the DF-TERMINAL-JAIL-16 tier2 judge starved at the OLD 2M
   # rung — `Cap exceeded: Input token budget (2.0M) exceeded (2.0M used)`, verdict
   # 933b300c INCOMPLETE, tier1 PASS (usage.jsonl tier2 row: 2,035,763 tokens_in).

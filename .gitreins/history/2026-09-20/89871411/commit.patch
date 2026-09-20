@@ -1,0 +1,16 @@
+commit dffbe29f4b7460565ffb8a1d753ef6c0df68656a
+Merge: 940ccf4 6b6d7e7
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 14:17:46 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 14:17:46 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-25 — carry matched rule block_message through the warn downgrade path
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ plugin/terminal_jail/interruptor/decider.py |  13 +-
+ plugin/terminal_jail/interruptor/rules.py   |  64 ++++++++-
+ plugin/test_interruptor.py                  | 211 ++++++++++++++++++++++++++++
+ plugin/test_interruptor_integration.py      | 118 ++++++++++++++++
+ 4 files changed, 397 insertions(+), 9 deletions(-)

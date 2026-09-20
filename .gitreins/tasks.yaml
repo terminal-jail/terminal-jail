@@ -1087,12 +1087,28 @@ tasks:
   created_at: '2026-09-20T14:28:20.085797+00:00'
   completed_at: '2026-09-20T15:49:20.367770+00:00'
 - id: DF-TERMINAL-JAIL-23
-  title: db pack rules match execution context not bare phrase
+  title: db pack block rules match DROP statements in execution context, not bare
+    statement text
   criteria:
-  - 'six regression shapes: destructive psql/mysql client statements still block;
-    sed/git-commit/quoted-SELECT-of-phrase allow; suite green'
-  status: in_progress
-  created_at: '2026-09-20T14:28:20.387676+00:00'
+  - 'plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database
+    and pack-db-drop-table block rules to a SQL execution context: each is a composite/and
+    rule requiring a SQL client token plus the statement in execution position'
+  - Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP
+    TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-*
+    rule id
+  - Through intercept() with the pack installed, the four documented false-positive
+    shapes (sed -i substitution text, git commit -m message text, a read-only SELECT
+    whose quoted literal merely contains the phrase, and echo redirecting the phrase
+    to a file) return no pack-db-* attribution
+  - plugin/test_rule_packs.py carries a regression class exercising the block and
+    allow shapes with the installed-pack fixture, and the full suite passes with only
+    the new tests added (zero regressions)
+  - 'CHANGELOG.md and the pack header document the accepted residuals: the -f file
+    body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client
+    interpreter is no longer caught'
+  status: complete
+  created_at: '2026-09-20T17:46:45.411159+00:00'
+  completed_at: '2026-09-20T17:46:45.740665+00:00'
 - id: TJ-GAP-069
   title: rules-drift-probe reports silent same-id mirror downgrades
   criteria:
@@ -1101,3 +1117,67 @@ tasks:
   status: complete
   created_at: '2026-09-20T14:28:20.698168+00:00'
   completed_at: '2026-09-20T15:03:34.939663+00:00'
+- id: TJ-GAP-068
+  title: AGENTS.md guard invocation falsely FAILs the tests lane (gitreins venv pytest
+    shadows the repo interpreter)
+  criteria:
+  - AGENTS.md's GitReins section documents plain gitreins guard via the pipx shim
+    with NO PATH prefix naming the gitreins-poc venv, and explicitly warns that putting
+    that venv on PATH makes the tests lane falsely FAIL (its Python 3.10 pytest shadows
+    the repo interpreter and dies on import tomllib on Python 3.11+)
+  - The section documents that the tests lane is interpreter-pinned via .gitreins/config.yaml
+    test_command (.venv/bin/python -m pytest -x --tb=short), independent of PATH ordering
+  - A bare gitreins guard --full in the repo root runs green (all four lanes) under
+    the fixed invocation
+  status: complete
+  created_at: '2026-09-20T16:59:27.592150+00:00'
+  completed_at: '2026-09-20T17:32:56.871401+00:00'
+- id: DF-TERMINAL-JAIL-31
+  title: Pin scoped-secret-source egress shapes in the regression suite
+  criteria:
+  - plugin/test_egress_no_delivery.py contains regression tests asserting BLOCK with
+    rule id builtin-net-remote-tree-copy for scp -r and rsync -a of a scoped secret
+    source (~/.ssh, ~/.aws, ~/.gnupg) to a remote sink
+  - plugin/test_egress_no_delivery.py contains a regression test asserting BLOCK with
+    rule id builtin-net-file-exfil-ssh for the tar cf - <scoped source> | ssh remote-write
+    shape
+  - A dogfood checklist item exists requiring at least one shape the rule deliberately
+    does not target to be probed before a closure claims a rule class
+  - CHANGELOG.md carries an Unreleased entry naming DF-TERMINAL-JAIL-31
+  - The full suite passes from the repo root (before/after counts reported) and ruff
+    check on the touched test file reports no issues
+  status: complete
+  created_at: '2026-09-20T17:16:27.381949+00:00'
+  completed_at: '2026-09-20T17:16:27.698276+00:00'
+- id: TJ-GAP-062
+  title: 'First rule pack db (FULL catalogue): psql escape, mysql SHUTDOWN, redis,
+    mongosh, data-dir recursive-delete, dump exfil'
+  criteria:
+  - Extend plugin/terminal_jail/rules/packs/db.yaml with the full pack-db-* catalogue
+    (psql meta-shell escape, SQL destruction literals in execution context, mysqladmin
+    shutdown, redis CONFIG/MODULE/FLUSHALL, mongosh dropDatabase/shutdown, recursive-delete
+    on live data dirs, dump-to-network exfil), keep destructive-but-gray shapes at
+    action=modify, keep all documented legit pins allow/modify with tests, ship plugin/test_rule_pack_db.py,
+    full suite green
+  status: complete
+  created_at: '2026-09-20T18:47:13.913757+00:00'
+  completed_at: '2026-09-20T21:10:28.848739+00:00'
+- id: DF-TERMINAL-JAIL-25
+  title: Same-id warn downgrade loses the rule's block_message
+  criteria:
+  - Carry the matched rule's block_message through the warn path instead of the generic
+    placeholder, add a bridge test asserting the downgraded rule's message appears
+    in reason, full suite green
+  status: complete
+  created_at: '2026-09-20T18:47:14.216369+00:00'
+  completed_at: '2026-09-20T19:18:47.202263+00:00'
+- id: DF-TERMINAL-JAIL-10
+  title: Document the script-body exemption in specs and quickstart
+  criteria:
+  - specs/interruptor.md + README quickstart state explicitly that the rules engine
+    evaluates only the top-level command string, script bodies are covered by namespace/seccomp
+    layers not the firewall, with a short do-not-over-credit warning for bridge callers;
+    docs-only change, no engine code
+  status: complete
+  created_at: '2026-09-20T18:47:14.519043+00:00'
+  completed_at: '2026-09-20T20:19:22.452279+00:00'

@@ -1,0 +1,42 @@
+{
+  "tick_id": "terminal-jail-2026-09-20-16-34-14-w2",
+  "created_utc": "2026-09-20T18:49:46Z",
+  "wave_budget": 12,
+  "workers_dispatched": 3,
+  "base_sha": "7573df5",
+  "base_ref": "origin/main",
+  "model": "glm-5.3-flash",
+  "provider": "zai-glm-default",
+  "independence_verified": "TJ-GAP-062 (rules/packs/db.yaml + test_rule_pack_db.py), DF-25 (engine warn path + bridge test), DF-10 (specs/README docs only) — disjoint file scopes; no depends_on edges between the rows",
+  "workers": [
+    {
+      "task_id": "TJ-GAP-062",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-062",
+      "branch": "wt/TJ-GAP-062",
+      "brief": "/tmp/tj302a-TJ-GAP-062.md",
+      "log": "/tmp/tj302a-TJ-GAP-062.log"
+    },
+    {
+      "task_id": "DF-TERMINAL-JAIL-25",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-25",
+      "branch": "wt/DF-TERMINAL-JAIL-25",
+      "brief": "/tmp/tj302a-DF-TERMINAL-JAIL-25.md",
+      "log": "/tmp/tj302a-DF-TERMINAL-JAIL-25.log"
+    },
+    {
+      "task_id": "DF-TERMINAL-JAIL-10",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-10",
+      "branch": "wt/DF-TERMINAL-JAIL-10",
+      "brief": "/tmp/tj302a-DF-TERMINAL-JAIL-10.md",
+      "log": "/tmp/tj302a-DF-TERMINAL-JAIL-10.log"
+    }
+  ],
+  "note": "new-work wave composed AFTER recovery of terminal-jail-2026-09-20-14-02-08 completed in this same tick",
+  "finished_at": "2026-09-20T16:35:00Z",
+  "result": "recovered tick #303: 0/3 workers alive at tick start (state.db session rows stale 96-116 min, api_call_count frozen, no procs); all 3 rows landed + merged + judged; 3 board rows closed; 3 worktrees reaped; 3 wt/ branches deleted",
+  "judges": {
+    "TJ-GAP-062": "af564ead PASS (tier1+tier2)",
+    "DF-TERMINAL-JAIL-25": "89871411 tier1 PASS / tier2 INCOMPLETE (1h TIME cap, 0 failed criteria); serial re-judge launched this tick",
+    "DF-TERMINAL-JAIL-10": "8ae1dc15 PASS"
+  }
+}
