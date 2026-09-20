@@ -118,6 +118,15 @@ enforce mode exits 126 with a `COMMAND BLOCKED` box. If you need malformed input
 validate the payload yourself and treat any `reason` beginning `[bridge-error]` as a denial.
 An explicit empty command (`{"command": ""}`) is valid input, not a schema error.
 
+**Scope: the firewall rules on the command string only.** Every verdict above — allow,
+block, or modify — is a decision about the top-level command string. Script bodies are
+never inspected: `./script.sh` or `bash script.sh` is judged as one opaque invocation,
+and a `sudo` inside the script produces no rule verdict at all (it is contained — or
+not — by the namespace layers: `--user` uid-mapped launch, the optional `--seccomp`
+filter, PID namespace; see `specs/interruptor.md` §1.1). If you call the bridge, do not
+over-credit an ALLOW: "the firewall checked my command" never implies the script's
+contents were ruled on.
+
 ### Architecture
 
 | Layer | Role | Mechanism |
