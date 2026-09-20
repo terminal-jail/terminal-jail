@@ -1,5 +1,15 @@
 ## [Unreleased]
 
+### The firewall's scope is documented: top-level command string only (DF-TERMINAL-JAIL-10)
+
+- **Docs only** (`specs/interruptor.md` §1.1, README bridge Quick Start): the
+  rules engine evaluates only the top-level command string; script bodies are
+  never inspected and are covered by the namespace layers (`--user` /
+  seccomp), not the blocklist. Dogfood evidence: a `sudo` inside a script run
+  through the jail was never ruled on — it failed only because the user
+  namespace broke setuid. Bridge callers are warned not to read an ALLOW as
+  "the firewall ruled on my script's contents."
+
 ### Scoped-secret-source egress shapes pinned in the regression suite (DF-TERMINAL-JAIL-31)
 
 - **Tests only** (`plugin/test_egress_no_delivery.py`, 18 new cases): the

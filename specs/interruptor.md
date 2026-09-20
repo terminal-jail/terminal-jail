@@ -10,6 +10,20 @@ The interruptor complements the PID namespace jail (S01-S04). The jail *contains
 radius; the interruptor *prevents* dangerous execution at parse time. Together they form
 defense-in-depth.
 
+### 1.1 Scope and Limits (DF-TERMINAL-JAIL-10)
+
+The rules engine evaluates **only the top-level command string** the caller hands the
+wrapper. It never opens a file to rule on its contents: whatever a script body executes
+— `./deploy.sh`, `bash setup.sh`, a Makefile recipe, the source of `python3 script.py` —
+is invisible to every rule in §3–§4, including the critical blocklist. Dogfood evidence:
+a `sudo` call inside a script run through the jail was never ruled on by the rules
+engine; it failed only because the user namespace broke setuid. Script contents are
+covered by the namespace layers (`--user` uid-mapped launch, the optional `--seccomp`
+filter, PID-namespace containment), NOT by this firewall — the interruptor *prevents*
+dangerous command strings, the jail *contains* whatever actually runs. §5.1's heredoc
+and command-substitution scans do not change this: they read text embedded in the
+command string itself, never file contents.
+
 ## 2. Architecture
 
 ```
