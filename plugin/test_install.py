@@ -1549,6 +1549,143 @@ def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
     _assert_nothing_written(tmp_path)
 
 
+# ── TJ-GAP-065: the PATH hint follows the ACTUAL install dir ────────────────
+
+
+def _scratch_rc(home: Path) -> Path:
+    """A scratch startup file with content the installer must not disturb."""
+    home.mkdir(parents=True, exist_ok=True)
+    rc = home / ".profile"  # first candidate in the installer's search order
+    rc.write_text("# scratch rc\n", encoding="utf-8")
+    return rc
+
+
+@pytest.mark.standalone_cli
+def test_custom_install_dir_path_entry_points_at_actual_dir(tmp_path: Path) -> None:
+    """TJ-GAP-065: with a non-default TERMINAL_JAIL_INSTALL_DIR the installer
+    must never report "added PATH entry" while appending the hardcoded
+    $HOME/.local/bin line — the binary is not there, so the shell would still
+    say "command not found" after relogin. It appends a line naming the
+    ACTUAL install dir instead and never touches $HOME/.local/bin."""
+    env = _install_env(tmp_path)
+    home = tmp_path / "home"
+    rc = _scratch_rc(home)
+    install_dir = tmp_path / "bin"
+
+    result = _run_repo_install(tmp_path, extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    text = rc.read_text(encoding="utf-8")
+    # the appended line names the ACTUAL dir ...
+    assert f'export PATH="{install_dir}:$PATH"' in text, text
+    # ... and the hardcoded default line is gone from this scope
+    assert 'export PATH="$HOME/.local/bin:$PATH"' not in text, text
+    # exactly one marker block, and the honest message names the rc file
+    assert text.count("# terminal-jail") == 1, text
+    assert f"added PATH entry to {rc}" in out, out
+    # the binary really is where the PATH line points (and nowhere else)
+    assert (install_dir / "terminal-jail").exists(), out
+    assert not (home / ".local" / "bin" / "terminal-jail").exists(), out
+    _assert_base_install_completed(tmp_path, out)
+
+
+@pytest.mark.standalone_cli
+def test_custom_install_dir_path_entry_is_idempotent(tmp_path: Path) -> None:
+    """TJ-GAP-065: re-running a custom-prefix install must not duplicate the
+    PATH block — the idempotency check greps the exact rendered line."""
+    env = _install_env(tmp_path)
+    rc = _scratch_rc(tmp_path / "home")
+
+    first = _run_repo_install(tmp_path, extra_env=env)
+    out1 = (first.stdout + first.stderr).decode("utf-8", "replace")
+    assert first.returncode == 0, out1
+    assert "added PATH entry" in out1, out1
+
+    second = _run_repo_install(tmp_path, extra_env=env)
+    out2 = (second.stdout + second.stderr).decode("utf-8", "replace")
+    assert second.returncode == 0, out2
+    text = rc.read_text(encoding="utf-8")
+    assert text.count("# terminal-jail") == 1, text
+    assert "added PATH entry" not in out2, out2
+
+
+@pytest.mark.standalone_cli
+def test_custom_install_dir_appends_despite_stale_default_block(
+    tmp_path: Path,
+) -> None:
+    """TJ-GAP-065: a scratch rc carrying an OLD default-scope block (marker +
+    $HOME/.local/bin line, e.g. from a previous default install or the pre-fix
+    bug) must not swallow the custom-prefix entry: the marker grep stays
+    scoped to the default branch, so the correct line is still appended."""
+    env = _install_env(tmp_path)
+    rc = _scratch_rc(tmp_path / "home")
+    rc.write_text(
+        "# scratch rc\n\n# terminal-jail\nexport PATH=\"$HOME/.local/bin:$PATH\"\n",
+        encoding="utf-8",
+    )
+
+    result = _run_repo_install(tmp_path, extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    install_dir = tmp_path / "bin"
+    text = rc.read_text(encoding="utf-8")
+    assert f'export PATH="{install_dir}:$PATH"' in text, text
+    assert "added PATH entry" in out, out
+
+
+@pytest.mark.standalone_cli
+def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
+    """TJ-GAP-065: the default install (no TERMINAL_JAIL_INSTALL_DIR override,
+    resolving to $HOME/.local/bin) behaves exactly as before: the classic
+    ``export PATH="$HOME/.local/bin:$PATH"`` block is appended when missing,
+    and a re-run is idempotent (no duplicate block, no second message)."""
+    home = tmp_path / "home"
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        # Defend against ambient knobs of the invoking shell (mirrors
+        # _install_env): empty == unset for both defaults.
+        "TERMINAL_JAIL_INSTALL_DIR": "",
+        "TERMINAL_JAIL_RULES_DIR": "",
+    }
+
+    first = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(PROJECT_ROOT),
+        env=env,
+    )
+    out1 = (first.stdout + first.stderr).decode("utf-8", "replace")
+    assert first.returncode == 0, out1
+
+    rc = home / ".profile"  # created by the installer when no rc exists
+    text = rc.read_text(encoding="utf-8")
+    assert 'export PATH="$HOME/.local/bin:$PATH"' in text, text
+    assert f"added PATH entry to {rc}" in out1, out1
+    assert text.count("# terminal-jail") == 1, text
+    assert (home / ".local" / "bin" / "terminal-jail").exists(), out1
+
+    second = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(PROJECT_ROOT),
+        env=env,
+    )
+    out2 = (second.stdout + second.stderr).decode("utf-8", "replace")
+    assert second.returncode == 0, out2
+    text2 = rc.read_text(encoding="utf-8")
+    assert text2.count("# terminal-jail") == 1, text2
+    assert "added PATH entry" not in out2, out2
+
+
 # ── DF-TERMINAL-JAIL-21: pack failure skips instead of aborting the install ──
 
 _PYAML_SHADOW_YAML_BODY = (
