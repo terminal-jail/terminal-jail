@@ -1,0 +1,115 @@
+{
+  "task_id": "VERSION-002",
+  "task_title": "Load-hygiene: bridge integration tests run in-process, real-exec parity seam kept",
+  "task_criteria": [
+    "Bridge verdict assertions run in-process: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for every bridge-verdict assertion; the file contains exactly 2 real subprocess.run call sites - the _run_cli helper used by CLI-level tests (there the process boundary IS the subject, by design) and the single real spawn inside test_bridge_real_exec_parity, which runs the real python3 interruptor_bridge.py and asserts byte-identical stdout and equal rc against the in-process path across the BRIDGE_PARITY_INPUTS set (allow, block, modify, empty-schema, null). A third grep hit for the literal string subprocess.run is a docstring mention, not a call site.",
+    "Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow; it warms the engine import explicitly so isolated and -k runs behave like full-file runs",
+    "Measured: file wall time 7.8s before vs 4.1s after; full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests)",
+    "ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645 or later",
+    "CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "39e78cfb2c3344364a5967c202c244763f9b7c66",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n6:32AM INF scanned ~4113173 bytes (4.11 MB) in 321ms\n6:32AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 132 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1025 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 20%]\n............................................................             [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 33%]\n.                                                                        [ 33%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 59%]\n........................................................................ [ 66%]\n........................................................................ [ 73%]\n..............................................                           [ 77%]\nplugin/test_interruptor_integration.py ...............s................. [ 80%]\n.....                                                                    [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...................................            [ 90%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1018 passed, 7 skipped in 29.97s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nEvaluator returned empty response.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nEvaluator returned empty response.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Evaluator returned empty response."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: VERSION-002\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n\nEvaluator returned empty response.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-20T12:09:06.112575",
+  "evidence": {
+    "collected_at": "2026-09-20T12:09:06.143427+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show 39e78cfb2c33"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2075,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "VERSION-002"
+  }
+}

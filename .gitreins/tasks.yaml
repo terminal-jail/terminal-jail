@@ -1036,3 +1036,21 @@ tasks:
   status: complete
   created_at: '2026-09-20T11:32:02.189241+00:00'
   completed_at: '2026-09-20T11:32:11.042606+00:00'
+- id: TJ-GAP-059
+  title: 'GTFOBins-sweep harness: machine-readable catalog to per-function-class verdict
+    matrix'
+  criteria:
+  - scripts/gtfobins-sweep.py runs --help and a seed-catalog sweep exits 0, printing
+    a per-function-class verdict matrix and a coverage summary line
+  - plugin/test_gtfobins_sweep.py covers verdict computation against the live engine
+    via intercept(), coverage math, seed-catalog integrity, and the malformed-catalog
+    error path; full plugin suite shows no new failures vs the 821 passed/5 skipped
+    baseline
+  - malformed or missing catalog exits non-zero with a clear error naming the path
+  - CI runs the sweep in seed mode on every push and the coverage percentage appears
+    in the CI job output
+  - 'no engine or rule files change: blocklist.py and rules/*.yaml stay untouched;
+    diff scope is scripts/gtfobins*, plugin/test_gtfobins*, ci.yml'
+  status: complete
+  created_at: '2026-09-20T12:40:39.267170+00:00'
+  completed_at: '2026-09-20T13:21:18.135315+00:00'

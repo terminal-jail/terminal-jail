@@ -1,0 +1,24 @@
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 73fe313..fdae673 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -56,3 +56,4 @@
+ {"ts": 1789902952.5761354, "tokens_in": 2436960, "tokens_out": 10306, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789903856.5989096, "tokens_in": 976188, "tokens_out": 8614, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789905228.8357158, "tokens_in": 365752, "tokens_out": 7303, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789906146.0943227, "tokens_in": 3827330, "tokens_out": 10592, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..fe4cd78 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,10 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:contextlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:unittest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:importlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor_integration.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
