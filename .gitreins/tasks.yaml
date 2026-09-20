@@ -1083,8 +1083,9 @@ tasks:
   criteria:
   - tar/cat piped into ssh/scp with remote write is blocked by a new builtin rule;
     benign ssh/tar shapes stay allow; regression tests
-  status: in_progress
+  status: complete
   created_at: '2026-09-20T14:28:20.085797+00:00'
+  completed_at: '2026-09-20T15:49:20.367770+00:00'
 - id: DF-TERMINAL-JAIL-23
   title: db pack rules match execution context not bare phrase
   criteria:
