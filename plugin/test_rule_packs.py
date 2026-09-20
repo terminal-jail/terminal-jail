@@ -30,6 +30,28 @@ PACKS_DIR = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs"
 DB_PACK = PACKS_DIR / "db.yaml"
 PACK_TOOL = PROJECT_ROOT / "scripts" / "rule-pack-tool.py"
 
+# DF-TERMINAL-JAIL-28: documented stderr banners the validator's process may
+# emit BESIDES its one refusal line. The tool imports the engine builtins, and
+# importing any terminal_jail.interruptor submodule first runs the package
+# __init__, whose decider import evaluates ``userns.unshare_prefix()`` at
+# import time; on a subuid host whose mapped uid launch is creatable but not
+# file-access preserving that prints the DF-TERMINAL-JAIL-15 degradation
+# warning to stderr BEFORE the refusal:
+#     terminal-jail: WARNING: no filesystem isolation — the transparent
+#     auto-sandbox fell back to the mapping-less PID namespace (...)
+# That behavior is correct per DF-TERMINAL-JAIL-15, so the test contract
+# asserts refusal PRESENCE (not an exact stderr line count) and tolerates
+# exactly these banners, each at most once. Registered by STABLE PREFIX —
+# future documented banners register here in one place. Any other stderr
+# line is a hard failure: arbitrary output is never swallowed.
+DOCUMENTED_SANDBOX_BANNERS = (
+    "terminal-jail: WARNING: no filesystem isolation",
+)
+
+# Every validator refusal is emitted by ``rule-pack-tool.py::_refuse`` as this
+# single line prefix; the helper asserts refusal PRESENCE by anchoring on it.
+REFUSAL_PREFIX = "rule-pack-tool: refused:"
+
 ENGINE_BUILTIN_COUNT = len(BUILTIN_BLOCKLIST) + len(BUILTIN_SANDBOX) + len(BUILTIN_ALLOWLIST)
 
 # The pack's positive vectors: one per rule id, with the verdict the engine
@@ -225,15 +247,49 @@ class TestValidatorAccepts:
 
 
 class TestValidatorRefusals:
-    """Every refusal: exit 2, nothing written, ONE reason line on stderr."""
+    """Every refusal: exit 2 and its ONE reason line present on stderr.
+
+    DF-TERMINAL-JAIL-28: the refusal is asserted by PRESENCE, not by an exact
+    stderr line count — on subuid hosts whose mapped uid launch is creatable
+    but not file-access preserving, the engine import emits the documented
+    DF-TERMINAL-JAIL-15 degradation warning BEFORE the refusal (that behavior
+    is correct). Any stderr line that is neither the refusal nor a documented
+    banner (``DOCUMENTED_SANDBOX_BANNERS``) is still a hard failure.
+    """
 
     def _assert_refused(
         self, result: subprocess.CompletedProcess[str], needle: str
     ) -> None:
+        """Refusal contract: exit 2 and the ONE-LINE refusal reason present.
+
+        The refusal must be the validator's own ``rule-pack-tool: refused:``
+        line; the only other stderr lines tolerated are the
+        DOCUMENTED_SANDBOX_BANNERS (the DF-TERMINAL-JAIL-15 degradation
+        warning, at most once per prefix — it precedes the refusal on subuid
+        hosts whose mapped uid launch is creatable but not file-access
+        preserving). Anything else is a hard failure, so arbitrary output can
+        never hide under this assertion.
+        """
         assert result.returncode == 2, (result.stdout, result.stderr)
-        assert needle in result.stderr, result.stderr
-        stderr_lines = [line for line in result.stderr.splitlines() if line.strip()]
-        assert len(stderr_lines) == 1, stderr_lines
+        lines = [line for line in result.stderr.splitlines() if line.strip()]
+        refusal_lines = [line for line in lines if line.startswith(REFUSAL_PREFIX)]
+        assert len(refusal_lines) == 1, lines
+        assert needle in refusal_lines[0], result.stderr
+        seen_banners: set[str] = set()
+        for line in lines:
+            if line.startswith(REFUSAL_PREFIX):
+                continue
+            for banner in DOCUMENTED_SANDBOX_BANNERS:
+                if line.startswith(banner):
+                    assert banner not in seen_banners, (banner, lines)
+                    seen_banners.add(banner)
+                    break
+            else:
+                raise AssertionError(
+                    "stderr line matches neither the refusal nor a documented "
+                    f"sandbox banner (expected at most {DOCUMENTED_SANDBOX_BANNERS}): "
+                    f"{line!r} in {lines}"
+                )
 
     def test_builtin_id_collision_is_refused(self, tmp_path: Path) -> None:
         pack = _write_pack(
@@ -433,6 +489,73 @@ class TestValidatorRefusals:
 
         self._assert_refused(result, "installed rule file")
         assert "cannot be read" in result.stderr, result.stderr
+
+
+class TestAssertRefusedContract:
+    """Self-tests for the refusal helper itself (DF-TERMINAL-JAIL-28).
+
+    These drive ``_assert_refused`` with CONSTRUCTED stderr shapes, so the
+    contract is proven on every host — including hosts where the degraded-FS
+    warning never fires naturally (the dev host is one).
+    """
+
+    APPROVED = "collide with engine builtin ids"
+
+    @staticmethod
+    def _result(stderr: str, returncode: int = 2) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
+
+    def _assert(self, stderr: str, returncode: int = 2) -> None:
+        TestValidatorRefusals()._assert_refused(
+            self._result(stderr, returncode), self.APPROVED
+        )
+
+    def test_bare_refusal_passes(self) -> None:
+        self._assert(f"{REFUSAL_PREFIX} ids collide with engine builtin ids\n")
+
+    def test_refusal_plus_df15_warning_passes(self) -> None:
+        """The degraded-host shape: the DF-15 banner precedes the refusal."""
+        banner = (
+            "terminal-jail: WARNING: no filesystem isolation — the transparent "
+            "auto-sandbox fell back to the mapping-less PID namespace "
+            "(--user --map-root-user): this host CAN create the uid-mapped "
+            "launch (...) (DF-TERMINAL-JAIL-15). Set TERMINAL_JAIL_UID_MAP=0 ..."
+        )
+        self._assert(f"{banner}\n{REFUSAL_PREFIX} ids {self.APPROVED}\n")
+
+    def test_unexpected_line_beside_the_refusal_fails(self) -> None:
+        with pytest.raises(AssertionError, match="neither the refusal nor"):
+            self._assert(
+                f"{REFUSAL_PREFIX} ids {self.APPROVED}\nTraceback (most recent call last):\n"
+            )
+
+    def test_wrong_exit_code_fails(self) -> None:
+        with pytest.raises(AssertionError):
+            self._assert(f"{REFUSAL_PREFIX} ids {self.APPROVED}\n", returncode=0)
+
+    def test_missing_refusal_line_fails(self) -> None:
+        with pytest.raises(AssertionError):
+            self._assert("terminal-jail: WARNING: no filesystem isolation x\n")
+
+    def test_refusal_without_the_expected_reason_fails(self) -> None:
+        with pytest.raises(AssertionError):
+            self._assert(f"{REFUSAL_PREFIX} pack file not found\n")
+
+    def test_repeated_banner_fails(self) -> None:
+        warning = "terminal-jail: WARNING: no filesystem isolation once"
+        with pytest.raises(AssertionError):
+            self._assert(
+                f"{warning}\n{warning}\n{REFUSAL_PREFIX} ids {self.APPROVED}\n"
+            )
+
+    def test_near_miss_line_that_merely_contains_a_banner_fails(self) -> None:
+        """A line carrying arbitrary content before the banner prefix must
+        not pass just because the banner text occurs inside it."""
+        with pytest.raises(AssertionError, match="neither the refusal nor"):
+            self._assert(
+                f"prefix noise | terminal-jail: WARNING: no filesystem isolation\n"
+                f"{REFUSAL_PREFIX} ids {self.APPROVED}\n"
+            )
 
 
 class TestValidatorList:

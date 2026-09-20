@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Validator-refusal tests tolerate documented sandbox banners (DF-TERMINAL-JAIL-28)
+
+- **`plugin/test_rule_packs.py`** (test-contract fix, no engine change):
+  `TestValidatorRefusals` asserted exactly one stderr line, which broke all 11
+  refusal tests on subuid hosts where the DF-TERMINAL-JAIL-15 degradation
+  warning (`WARNING: no filesystem isolation`) precedes the refusal. The
+  helper now asserts refusal PRESENCE (the `rule-pack-tool: refused:` line,
+  exactly once, carrying the expected reason) and permits only the
+  `DOCUMENTED_SANDBOX_BANNERS`, each at most once; any other stderr line
+  still fails. New `TestAssertRefusedContract` self-tests prove both shapes,
+  enabling green runs on degraded-FS hosts with no env overrides.
+
 ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
 
 - **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
