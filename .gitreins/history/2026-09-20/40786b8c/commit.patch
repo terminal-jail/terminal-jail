@@ -1,0 +1,72 @@
+commit fb29d58e194fffb398eac65f8dfe1876af66cc91
+Merge: fe5922e 9a2ef88
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 05:06:39 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 05:06:39 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-29 — scoped secret-source scp/rsync remote-copy block (worker salvage 9a2ef88)
+    
+    # Conflicts:
+    #       CHANGELOG.md
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                                  | 26 +++++++-
+ README.md                                     |  4 +-
+ docs/rule-catalog.md                          |  2 +-
+ plugin/terminal_jail/interruptor/blocklist.py | 89 ++++++++++++++++++++++++---
+ plugin/terminal_jail/rules/00-builtins.yaml   | 35 +++++++----
+ plugin/test_interruptor.py                    | 56 +++++++++++++++++
+ specs/interruptor.md                          |  4 +-
+ 7 files changed, 190 insertions(+), 26 deletions(-)
+
+diff --cc CHANGELOG.md
+index a9bf4e7,e4b52c8..cd4a745
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@@ -1,20 -1,31 +1,42 @@@
+--# Changelog
+--
+  ## [Unreleased]
+  
++ ### Scoped secret-source scp/rsync to remote hosts now blocks (DF-TERMINAL-JAIL-29)
++ 
++ - **Rule** (`builtin-net-remote-tree-copy`, engine + byte-identical YAML mirror):
++   the whole-tree arm previously left every scoped secret-bearing source
++   (`scp ~/.env host:`, `scp id_rsa host:`, `rsync /home/kara/.ssh host:/x`,
++   `scp -r ~ host:/x`) on default-allow — the exfil matrix had a hole exactly at
++   the ssh-family copy tools. A second pattern arm now blocks an rsync/scp whose
++   SOURCE carries a `~`, a `.ssh`/`.gnupg`/`.aws`/`.config`/`.env` component, or
++   an `id_rsa`/`id_ed25519`/`known_hosts`/`credentials` name when the
++   DESTINATION is remote (`host:path`, bracketed IPv6 `[...]:`, `host::module`);
++   the `~/` whole-home spelling moved from the root arm into this arm
++   (`~/(?![\w.])`), and the root arm's source lookbehind tightened
++   `(?<![\w/])` → `(?<![\w/~])` so a `/` after `~` can no longer impersonate the
++   root token (that lookbehind tolerated the `/` inside `~/.ssh`-style paths,
++   over-blocking two shapes the no-false-positive gate pins: the
++   `-o IdentityFile=~/.ssh/id_rsa` option value and `scp ~/.sshx host:/x`).
++   Plain scoped copies (`scp -r ~/proj host:/srv/`, `rsync -av ~/proj/ host:…`,
++   non-secret names, secret-to-LOCAL copies, `=`-joined option values) keep
++   their ALLOW verdict. 23 new block vectors + 17 new allow controls in
++   `plugin/test_interruptor.py` (all fail against the pre-fix engine).
++ - **Docs**: README rule list + verdict table, `specs/interruptor.md` rule table
++   + verdict table, `docs/rule-catalog.md` row reworded to the new shape.
++ 
+ +### Validator-refusal tests tolerate documented sandbox banners (DF-TERMINAL-JAIL-28)
+ +
+ +- **`plugin/test_rule_packs.py`** (test-contract fix, no engine change):
+ +  `TestValidatorRefusals` asserted exactly one stderr line, which broke all 11
+ +  refusal tests on subuid hosts where the DF-TERMINAL-JAIL-15 degradation
+ +  warning (`WARNING: no filesystem isolation`) precedes the refusal. The
+ +  helper now asserts refusal PRESENCE (the `rule-pack-tool: refused:` line,
+ +  exactly once, carrying the expected reason) and permits only the
+ +  `DOCUMENTED_SANDBOX_BANNERS`, each at most once; any other stderr line
+ +  still fails. New `TestAssertRefusedContract` self-tests prove both shapes,
+ +  enabling green runs on degraded-FS hosts with no env overrides.
+ +
+ +### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
++ ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
+  
+  - **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
+    rules-dir override, the resolved rules dir (`<prefix>/config/terminal-jail/rules.d`)

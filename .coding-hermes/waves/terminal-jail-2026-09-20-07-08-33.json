@@ -1,0 +1,39 @@
+{
+  "scheduler_tick_id": "terminal-jail-2026-09-20-07-08-33",
+  "base_sha": "cd0c732",
+  "workers": [
+    {
+      "task_id": "DF-TERMINAL-JAIL-29",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-29",
+      "branch": "wt/DF-TERMINAL-JAIL-29",
+      "brief": "/tmp/wave-brief-DF-TERMINAL-JAIL-29.txt",
+      "worker_died_midflight": true,
+      "salvaged_by_tick": "terminal-jail-2026-09-20-09-41-14",
+      "salvage_commit": "9a2ef88",
+      "merge": "fb29d58",
+      "judge": "PASS e7750f99",
+      "final": "merged"
+    },
+    {
+      "task_id": "VERSION-002",
+      "worktree": "/home/kara/worktrees/terminal-jail-VERSION-002",
+      "branch": "wt/VERSION-002",
+      "brief": "/tmp/wave-brief-VERSION-002.txt",
+      "worker_died_midflight": true,
+      "salvaged_by_tick": "terminal-jail-2026-09-20-09-41-14",
+      "salvage_commit": "6f6c2e6",
+      "merge": "ec3e645",
+      "judge": "started this tick (log /tmp/tj-ver2-judge.log)",
+      "final": "merged"
+    },
+    {
+      "task_id": "DF-TERMINAL-JAIL-28",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-28",
+      "branch": "wt/DF-TERMINAL-JAIL-28",
+      "brief": "/tmp/wave-brief-DF-TERMINAL-JAIL-28.txt",
+      "note": "work merged by the 07:08 foreman itself (7eaf8e0, merge fe5922e); row closed by salvage tick with CI evidence",
+      "final": "merged"
+    }
+  ],
+  "recovery_note": "All three branches merged to main, rows closed, worktrees removed, branches deleted by recovery tick terminal-jail-2026-09-20-09-41-14 (tick #299). Wave 2026-09-19-19-40-59 was already fully closed by tick 2026-09-20-03-17-05; its modified-flag residue is folded into this tick's board commit."
+}

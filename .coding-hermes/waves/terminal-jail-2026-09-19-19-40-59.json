@@ -5,12 +5,22 @@
   "base_sha": "e7bdc13",
   "dispatched_at": "2026-09-19T14:52:00-05:00",
   "wave_budget": 12,
+  "finished_at": "2026-09-20T03:30:00-05:00",
+  "closed_by_tick": "terminal-jail-2026-09-20-03-17-05",
+  "closure_note": "Recovery sweep found this wave ALREADY fully landed by tick #298 (its own tick): all 6 branches merged to main, all 6 board rows status=complete with commit_hash, worktrees removed, merged branches deleted. Recovery therefore reduced to re-verifying the gates on the merged tree, confirming board truth, and closing this manifest. No rework, no fixup workers, no new merges were needed.",
+  "gate_evidence": {
+    "suite": "969 passed, 7 skipped (plugin/, HEAD cd0c732)",
+    "guard_full": "Tier 1 PASS 4/4 (secrets/lint/tests/static_analysis) whole tree",
+    "board_id_guard": "163 rows, 163 unique ids, rc=0",
+    "pidns_probe": "FULL",
+    "fs_isolation_probe": "DEGRADED (AppArmor unprivileged_userns; host-level, not a repo defect)"
+  },
   "workers": [
-    {"task_id": "TJ-GAP-067", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-067", "branch": "wt/TJ-GAP-067", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["plugin/terminal_jail/interruptor/decider.py", "plugin/test_interruptor.py"]},
-    {"task_id": "TJ-GAP-063", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-063", "branch": "wt/TJ-GAP-063", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["specs/cli.md"]},
-    {"task_id": "DF-TERMINAL-JAIL-9", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-9", "branch": "wt/DF-TERMINAL-JAIL-9", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["README.md", "docs/quickstart.md", "docs/"]},
-    {"task_id": "DF-TERMINAL-JAIL-18", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-18", "branch": "wt/DF-TERMINAL-JAIL-18", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["scripts/pidns-capability-probe.py", "scripts/fs-isolation-probe.py"]},
-    {"task_id": "DF-TERMINAL-JAIL-24", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-24", "branch": "wt/DF-TERMINAL-JAIL-24", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["install.sh", "plugin/test_install.py"]},
-    {"task_id": "TJ-GAP-060", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-060", "branch": "wt/TJ-GAP-060", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["standalone/terminal-jail", "plugin/test_standalone_cli.py", "specs/threat-model.md"]}
+    {"task_id": "TJ-GAP-067", "branch": "wt/TJ-GAP-067", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-067", "sha": "6394299", "merge": "453dcb6", "judge": "PASS", "final": "merged"},
+    {"task_id": "TJ-GAP-063", "branch": "wt/TJ-GAP-063", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-063", "sha": "5d08996", "merge": "f3806fb", "judge": "PASS", "final": "merged"},
+    {"task_id": "DF-TERMINAL-JAIL-9", "branch": "wt/DF-TERMINAL-JAIL-9", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-9", "sha": "8acff67", "merge": "70fe624", "judge": "PASS", "final": "merged"},
+    {"task_id": "DF-TERMINAL-JAIL-18", "branch": "wt/DF-TERMINAL-JAIL-18", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-18", "sha": "41e39c6", "merge": "045e656", "judge": "PASS", "final": "merged"},
+    {"task_id": "DF-TERMINAL-JAIL-24", "branch": "wt/DF-TERMINAL-JAIL-24", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-24", "sha": "4a34035", "merge": "a0321c7", "judge": "PASS", "final": "merged"},
+    {"task_id": "TJ-GAP-060", "branch": "wt/TJ-GAP-060", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-060", "sha": "249edcc", "merge": "2e3941f", "judge": "PASS 8aaf93d6", "final": "merged"}
   ]
 }

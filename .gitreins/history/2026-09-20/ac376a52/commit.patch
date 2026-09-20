@@ -1,0 +1,56 @@
+commit f70120087c1cc36ffe3756afb6bc01bc31f85c67
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 05:29:25 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 05:29:25 2026 -0500
+
+    fix(VERSION-002): seam test warms engine import - isolated runs failed (judge 8cb32a96)
+    
+    The Tier-2 judge (verdict 8cb32a96, criterion 2 FAIL) proved
+    test_bridge_in_process_path_never_spawns_a_process passed only by
+    import-caching accident: in the full file another test had already
+    imported terminal_jail.interruptor, but in isolation the patched window
+    covered the cold import, and decider.py computes _UNSHARE_PREFIX =
+    unshare_prefix() at MODULE-IMPORT time (userns.py runs a real
+    unshare ... true probe). The seam test now warms the engine import
+    explicitly and its docstring documents why the one-time preflight is
+    excluded from the no-spawn contract - it is production cost every real
+    bridge process pays, not the per-assertion seam.
+    
+    Verified in all orders: isolated 1 passed; -k "never_spawns or
+    real_exec_parity" 2 passed; full file 37 passed, 1 skipped; full plugin
+    suite 1018 passed, 7 skipped; ruff clean.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ plugin/test_interruptor_integration.py | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/plugin/test_interruptor_integration.py b/plugin/test_interruptor_integration.py
+index fca4506..b2f9237 100644
+--- a/plugin/test_interruptor_integration.py
++++ b/plugin/test_interruptor_integration.py
+@@ -353,10 +353,20 @@ def test_bridge_in_process_path_never_spawns_a_process() -> None:
+     """VERSION-002 load-hygiene contract: the bridge assertion helpers must not
+     create a process.
+ 
+-    Pins the seam structurally so a future edit that reintroduces a
+-    ``subprocess.run`` per assertion (84 spawns before this task) fails here
+-    instead of silently coming back.
++    The engine import itself is EXCLUDED, explicitly: a cold ``main()`` pays
++    the engine's module-level unshare preflight once (``decider.py`` computes
++    ``_UNSHARE_PREFIX`` at import time — every real production bridge process
++    pays it too), and that one-time preflight is not the per-assertion seam
++    this test pins. Warming the import here makes the exclusion deterministic
++    instead of relying on another test having imported the package first
++    (the isolated-run failure the VERSION-002 judge caught, verdict 8cb32a96).
++    With the import out of the way, a reintroduced ``subprocess.run`` per
++    assertion fails here instead of silently coming back.
+     """
++    import importlib
++
++    importlib.import_module("terminal_jail.interruptor")
++
+     with mock.patch.object(
+         subprocess, "run", side_effect=AssertionError("spawned a process")
+     ):
