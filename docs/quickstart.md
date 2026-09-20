@@ -59,6 +59,20 @@ Release-mode downloads (wrapper + SHA-256 from a published release) are
 installer refuses rather than hitting the dead default release URL — release
 assets are not published yet.
 
+After installing or upgrading, verify the installed rules mirror against the
+engine in one command (TJ-GAP-069):
+
+```bash
+python3 scripts/rules-drift-probe.py        # classifier: always exits 0
+python3 scripts/rules-drift-probe.py --fail-on-drift   # CI/gate: exit 1 on drift
+```
+
+A host that upgraded the repo but kept an older installed mirror
+(`~/.config/terminal-jail/rules.d/00-builtins.yaml`) learns it here: a same-ID
+installed entry replaces the builtin, so an outdated mirror silently keeps the
+OLD action — the probe prints one `DRIFT` row per mismatched id, naming the
+engine action, the installed action, and both file paths.
+
 **Step 1 — classify the host** (the probe always exits 0):
 
 ```bash

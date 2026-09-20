@@ -395,6 +395,16 @@ Flags are parsed before any `mkdir` or write, so a refused flag (or a refused
 pack) leaves the filesystem untouched. Pack names are restricted to `[a-z0-9-]`
 so the derived file name cannot escape the rules directory.
 
+Post-install verification (TJ-GAP-069): every install/upgrade flow that copies
+the shipped default rules file (00-builtins.yaml) MUST be followed by the
+rules-drift probe — `python3 scripts/rules-drift-probe.py` (a bare run is a
+classifier and always exits 0; `--fail-on-drift` exits 1 for CI/gate use).
+The installed copy lives in the USER rules dir where a same-id entry replaces
+the builtin, so a mirror left over from an older release silently keeps the
+OLD action after an upgrade; the probe prints one `DRIFT` row per mismatched
+builtin id (engine action, installed action, both file paths) instead of
+leaving that drift silent.
+
 Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. With a custom prefix, an exported `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` (the engine's own user-rules variable, read verbatim at run time) resolves the installer's rules directory to exactly that value — the one prefix channel whose target the engine actually loads. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
 
 ### Rule packs (`--rule-pack`, TJ-GAP-061)

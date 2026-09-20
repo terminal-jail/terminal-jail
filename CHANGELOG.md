@@ -1,5 +1,33 @@
 ## [Unreleased]
 
+### Installed rule-mirror drift is no longer silent — scripts/rules-drift-probe.py (TJ-GAP-069)
+
+- **Probe** (`scripts/rules-drift-probe.py`, new): a host whose installed
+  mirror (`~/.config/terminal-jail/rules.d/00-builtins.yaml`) carries a
+  same-id copy with a different ACTION keeps enforcing the old, weaker action
+  after the repo is upgraded — live evidence, tick #292 on kara-lair: an
+  upload returned MODIFY/builtin-net-curl-upload (the payload left the host)
+  because the pre-DF-20 mirror still said `action: sandbox`, and nothing on
+  the host reported it. The probe loads the RESOLVED rule dirs (the engine's
+  env vars, then the documented defaults), compares every builtin rule id
+  installed there against the engine constant, and prints one `DRIFT` row per
+  mismatched id (engine action, installed action, drift direction, shipped
+  mirror path, installed file path). Same-id override stays a documented
+  feature — the probe makes it visible, it does not weaken it. Bare run is a
+  classifier and ALWAYS exits 0 (pidns/fs-probe pattern); `--fail-on-drift`
+  exits 1 for CI/gate use. Non-builtin ids (rule packs, user catch-alls) are
+  informational, never drift; corrupt YAML is a WARNING (the engine's loader
+  fails open, so the builtin stays live).
+- **Tests** (`plugin/test_rules_drift_probe.py`, 17 offline/hermetic cases):
+  deliberately-downgraded temp-dir fixture asserts the DRIFT row + exit
+  contract (bare 0, `--fail-on-drift` 1), clean/absent dirs assert OK
+  ("no installed override"), full-parity mirror asserts drift=0, and the
+  not-drift scopes are pinned (same action, non-builtin ids, corrupt YAML,
+  non-YAML files, user-dir-wins resolution naming the user file).
+- **Docs** (README upgrade note, docs/quickstart.md §3, specs/cli.md §8):
+  install/upgrade flows now name the probe as the one-command post-install
+  verification.
+
 ### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)
 
 - **`plugin/test_interruptor_integration.py`** (load-hygiene, no coverage loss):
