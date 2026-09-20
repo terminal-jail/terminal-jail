@@ -170,7 +170,11 @@ blocked from editing, committing or querying the phrase while the file-execution
 path that actually destroys the data (`psql -f`, redirect, script) sails through
 — the file-body gap is the pre-existing `DF-TERMINAL-JAIL-10`. Remediation of the
 pack's own target is the workflow that breaks, which is a strictly worse
-cost/benefit than the two blocks it buys.
+cost/benefit than the two blocks it buys. *(DF-TERMINAL-JAIL-23 closed the
+false-positive half of this: the shipped block rules now match execution
+context only, so the sed/git/quoted-literal rows above no longer block; the
+`psql -f` gap remains DF-TERMINAL-JAIL-10's. This dogfood record describes the
+pre-fix pack.)*
 
 ## 6. Install leg on an ephemeral bunker: SKIPPED (fleet-wide)
 
