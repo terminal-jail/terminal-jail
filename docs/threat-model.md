@@ -263,7 +263,7 @@ Terminal-jail consists of three independently deployable layers:
 | Zero-day in Hermes core | If Hermes itself is compromised before command execution, the plugin may never see the command. |
 | Timing side channels | PID namespace and systemd hardening do not prevent timing-based information leaks between processes. |
 | Resource exhaustion below configured limits | TasksMax=256 still permits 256 processes. A determined attacker can consume all 256 slots with idle processes, denying service to legitimate work. |
-| Data exfiltration via permitted channels | If network access is required (AF_INET enabled), data can be exfiltrated over HTTP/DNS/ICMP. Terminal-jail does not inspect or filter network traffic. |
+| Data exfiltration via permitted channels | If network access is required (AF_INET enabled), data can be exfiltrated over HTTP/DNS/ICMP. Terminal-jail does not inspect or filter network traffic. The Interruptor's egress rules are a **shape** firewall over the command string — they block the named upload/exfil shapes (raw-socket payloads, interpreter sockets/HTTP, curl/wget file bodies, whole-tree and secret-source `rsync`/`scp`, and the `ssh`/`scp`/`sftp` transport, DF-TERMINAL-JAIL-30) but they do not sniff the wire, and an un-named shape (an alias/wrapper, a helper-script payload, a client binary outside the sets) still gets through. |
 
 ### 6.2 Current Gap: Plugin Cannot Wrap Commands
 
@@ -282,7 +282,7 @@ The most significant current limitation is structural: Hermes core has no pre-ex
 | Privilege escalation (setuid) | Low | Critical | **Low** | NoNewPrivileges=true + empty CapabilityBoundingSet blocks userspace escalation |
 | /proc snooping | Medium | Medium | **Low** | ProtectProc=invisible is kernel-enforced |
 | Filesystem tampering | Medium | High | **Medium** | ProtectSystem=strict limits writes to 3 paths; those paths could still be abused |
-| Network escape | Medium | High | **Medium-High** | If gateway needs AF_INET, this protection is removed; depends on external firewall |
+| Network escape | Medium | High | **Medium-High** | If gateway needs AF_INET, this protection is removed; depends on external firewall. The Interruptor blocks named exfil shapes only (see §6.1) — shape matching, not wire inspection |
 | Plugin bypass (loss of observability) | Low | Low | **Low** | Plugin is observability-only today; loss of metrics is low impact |
 | CLI not used for manual commands | High | High | **High** | This is the weakest link — operator discipline required |
 | Kernel exploit | Very Low | Critical | **Critical** | No mitigation at terminal-jail level |

@@ -10,12 +10,12 @@ This catalog is **generated** by `scripts/rule-catalog.py` from the shipped defa
 
 | Layer | Action | Priority | Rules |
 |---|---|---|---:|
-| Critical Blocklist | `block` | 1000 | 35 |
+| Critical Blocklist | `block` | 1000 | 36 |
 | Auto-Sandbox | `sandbox` | 700 | 9 |
 | Always-Allow | `allow` | 500 | 10 |
-| **Total** | | | **54** |
+| **Total** | | | **55** |
 
-**54 built-in rules — 35 block + 9 sandbox + 10 allow.** To recount at any time: `python3 scripts/rule-catalog.py --check` re-derives these numbers from the rules file and exits 1 if the committed catalog has drifted from it.
+**55 built-in rules — 36 block + 9 sandbox + 10 allow.** To recount at any time: `python3 scripts/rule-catalog.py --check` re-derives these numbers from the rules file and exits 1 if the committed catalog has drifted from it.
 
 ## Rules by layer
 
@@ -53,13 +53,14 @@ Verdict on match: block.
 | `builtin-net-openssl-pipe-shell` | openssl s_client piped into a shell |
 | `builtin-net-file-exfil-pipe` | Local-file reader piped into a bare raw-socket client (file exfiltration) |
 | `builtin-net-file-exfil-redirect` | Bare raw-socket client fed a local file by an input redirect |
+| `builtin-net-file-exfil-ssh` | Local-file reader piped into an ssh/scp/sftp transport, or an ssh/scp/sftp fed a secret local file by an input redirect (file exfiltration over ssh) |
 | `builtin-interp-egress-socket-shell` | Interpreter socket reverse shell (socket connect + fd duplication / pty) |
 | `builtin-interp-egress-socket-file` | Interpreter raw-socket send of a local file (file exfiltration) |
 | `builtin-interp-egress-http-file` | Interpreter HTTP upload of a local file (file exfiltration) |
 | `builtin-net-curl-upload` | curl upload of a local file (file exfiltration) |
 | `builtin-net-wget-post-file` | wget POST of a local file (file exfiltration) |
 | `builtin-net-curl-form-upload` | curl multipart form upload of a local file (file exfiltration) |
-| `builtin-net-remote-tree-copy` | Whole-tree or secret-source remote copy (root / secret-bearing source to a remote host) — DF-TERMINAL-JAIL-29 |
+| `builtin-net-remote-tree-copy` | Whole-tree or secret-source remote copy (root / secret-bearing source to a remote host) |
 
 ### Auto-Sandbox (`sandbox`, priority 700)
 

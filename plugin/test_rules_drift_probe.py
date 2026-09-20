@@ -196,7 +196,9 @@ class TestOkCases:
         )
         assert result.returncode == 0, result.stdout
         assert "DRIFT" not in result.stdout
-        assert "RESULT: drift=0 overridden=54" in result.stdout
+        # Derive the expected count from the engine rather than pinning a
+        # literal: a newly added builtin rule must not break this case.
+        assert f"RESULT: drift=0 overridden={len(probe_mod.ENGINE_RULES)}" in result.stdout
 
     def test_fail_on_drift_exits_zero_when_clean(self, tmp_path: Path) -> None:
         result = run_probe(
@@ -349,6 +351,18 @@ class TestProbeInProcess:
     def test_engine_covers_all_builtin_layers(self) -> None:
         # Guard the engine-constant aggregation: every blocklist/sandbox/
         # allowlist id must be present exactly once in the compared set.
-        assert len(probe_mod.ENGINE_RULES) == 54
+        # Count the layers rather than pinning a literal — adding a builtin
+        # rule (e.g. DF-TERMINAL-JAIL-30's ssh-transport egress rule) must not
+        # break this guard.
+        from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
+        from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
+        from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+
+        expected = (
+            len(list(BUILTIN_BLOCKLIST))
+            + len(list(BUILTIN_SANDBOX))
+            + len(list(BUILTIN_ALLOWLIST))
+        )
+        assert len(probe_mod.ENGINE_RULES) == expected
         assert DOWNGRADED_ID in probe_mod.ENGINE_RULES
         assert probe_mod.ENGINE_RULES[DOWNGRADED_ID].action == ENGINE_ACTION
