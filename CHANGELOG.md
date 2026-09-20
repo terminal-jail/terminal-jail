@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)
+
+- **`plugin/test_interruptor_integration.py`** (load-hygiene, no coverage loss):
+  the bridge assertions drove `python3 interruptor_bridge.py` per assertion —
+  one interpreter spawn + full rule-layer rebuild each, ~105 ms apiece, while
+  the verdict/JSON envelope was the only thing under test. They now call
+  `interruptor_bridge.main()` in-process at the patched stream boundary; the
+  process boundary stays pinned by `test_bridge_real_exec_parity` (real spawn,
+  byte-identical stdout/rc across allow/block/modify/fail-open inputs) and a
+  structural no-spawn guard test. File wall time 7.8s → 4.1s; suite total
+  -3.7s. CLI-level tests are unchanged — there the process IS the subject.
+
 ### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
 
 - **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
