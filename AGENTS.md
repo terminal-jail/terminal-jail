@@ -28,8 +28,16 @@ These rules are given to agentic coding agents operating in this repo.
 
 ## GitReins Quality Harness
 ```bash
-PATH="$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH" gitreins guard
+gitreins guard
 ```
+- `gitreins` resolves through the pipx shim (`~/.local/bin/gitreins`). Do NOT put
+  `$HOME/gitreins-poc/.venv/bin` on PATH for this: that venv is Python 3.10, and its
+  `pytest` shadows the repo interpreter — the tests lane then dies at collection on
+  `import tomllib` (3.11+) and falsely FAILs on a clean tree (observed 2026-09-19,
+  guard log guard-20260919T005837).
+- The tests lane is interpreter-pinned in `.gitreins/config.yaml`
+  (`test_command: .venv/bin/python -m pytest -x --tb=short`), so it is independent
+  of PATH ordering.
 - secrets guard BLOCKS on fail — no exceptions.
 - lint and tests BLOCKS on fail.
 - Never commit with `--no-verify` for code changes.
