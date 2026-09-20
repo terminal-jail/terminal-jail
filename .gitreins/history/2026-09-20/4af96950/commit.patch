@@ -1,0 +1,15 @@
+commit 01226bc10bac628c25b5fb3a84c40e9efe4b8bd5
+Merge: 4063c06 33c2c59
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 12:15:49 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 12:15:49 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-31 — pin scoped-secret-source scp/rsync/tar-ssh egress shapes
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                      |  19 ++++++
+ docs/dogfood/checklist.md         |   9 +++
+ plugin/test_egress_no_delivery.py | 128 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 156 insertions(+)

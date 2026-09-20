@@ -1,0 +1,82 @@
+commit 7573df5d4a0b7a8f261f7508bc3cdecc9f6ee544
+Merge: f7019f6 d2151d3
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 12:45:48 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 12:45:48 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-23 — db pack block rules match DROP statements in execution context only
+    
+    CHANGELOG [Unreleased] conflict resolved keeping both entries (DF-31 egress pins
+    and DF-23 pack scope fix); both are additive prose blocks under the same heading.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                             | 31 ++++++++++++
+ README.md                                |  2 +-
+ docs/dogfood/2026-09-19-integration.md   |  6 ++-
+ docs/dogfood/diagnostics.md              | 10 ++++
+ plugin/terminal_jail/rules/packs/db.yaml | 83 ++++++++++++++++++++++++++------
+ plugin/test_rule_packs.py                | 71 ++++++++++++++++++++++++++-
+ 6 files changed, 184 insertions(+), 19 deletions(-)
+
+diff --cc CHANGELOG.md
+index edfdcf1,bc15f46..6b19c44
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@@ -1,24 -1,36 +1,55 @@@
+  ## [Unreleased]
+  
+ +### Scoped-secret-source egress shapes pinned in the regression suite (DF-TERMINAL-JAIL-31)
+ +
+ +- **Tests only** (`plugin/test_egress_no_delivery.py`, 18 new cases): the
+ +  remote-copy/exfil rules were pinned end-to-end only with root-level
+ +  sources, so a future pattern "cleanup" could silently reopen the
+ +  scoped-source hole — the exact mechanism that let the DF-TERMINAL-JAIL-17
+ +  residual through (closure claimed the rule class was covered; no probe
+ +  ever tried a scoped source). New pins cover `scp -r` / `rsync -a` of
+ +  `~/.ssh`, `~/.aws`, `~/.gnupg` to a remote sink (BLOCK,
+ +  `builtin-net-remote-tree-copy`) and `tar cf - <scoped source> | ssh`
+ +  (BLOCK, `builtin-net-file-exfil-ssh`, zero bytes observed at the loopback
+ +  sink), plus the same nine shapes at the engine seam. Engine verdicts were
+ +  probed live at the base commit before writing: every shape already BLOCKS
+ +  with the exact ids asserted.
+ +- **Dogfood checklist** (`docs/dogfood/checklist.md`, new): closures that
+ +  claim a rule CLASS is covered must probe at least one shape the rule
+ +  deliberately does not target (scoped source, different client, quoted
+ +  form) before closing.
+ +
++ ### The optional 'db' pack's block rules match execution context only (DF-TERMINAL-JAIL-23)
++ 
++ - **Scope fix** (`plugin/terminal_jail/rules/packs/db.yaml`): the two block
++   rules (`pack-db-drop-database`, `pack-db-drop-table`) were bare statement-
++   shape patterns — they fired anywhere the words appeared, so the commands
++   that *remove* the statement were blocked while the file-execution path that
++   really destroys the data sailed through (the remediation deadlock measured
++   in the 2026-09-19 dogfood). Both rules are now a composite AND: a SQL
++   client (psql, mysql, mariadb, sqlite3, mysqladmin, sqlplus) plus the DROP
++   statement in an execution position — immediately after the client's
++   `-c`/`-e`/`--command`/`--execute` flag, after a semicolon or a closed quoted
++   literal inside that flag string (multi-statement strings), or positionally
++   quoted after sqlite3/sqlplus. `sed -i "s/DROP DATABASE/…"`,
++   `git commit -am "park the DROP DATABASE migration"`, and read-only strings
++   whose words sit inside a quoted data literal
++   (`psql -c "SELECT … WHERE msg = 'drop database retry'"`) are no longer
++   blocked; `psql -c "DROP TABLE users"` still is.
++ - **Known residuals** (documented in the pack header, deliberately not fixed):
++   (a) SQL inside a file passed with `-f` remains invisible to the firewall —
++   that is DF-TERMINAL-JAIL-10 and is still open; (b) destructive SQL pasted
++   into a NON-SQL-client interpreter (`python3 -c` and friends) is no longer
++   caught — the accepted cost of requiring an execution context; (c) the
++   semicolon/closed-literal arms stop at the first quote or semicolon inside
++   the flag string, and the sqlite3/sqlplus positional arm is best-effort.
++ - **Tests** (`plugin/test_rule_packs.py`,
++   `TestDbPackBlockRulesMatchExecutionContext`): the 9-shape regression matrix
++   through the live engine — 5 block vectors (the 3 mandated + the B1/C arms)
++   and 6 allow vectors (the remediation pair, the quoted-literal read, and
++   echo/grep/`psql -f` carriers) — plus the no-pack control. RED-proven
++   against the old pack: exactly the three false-positive allow vectors fail.
++ 
+  ### Installed rule-mirror drift is no longer silent — scripts/rules-drift-probe.py (TJ-GAP-069)
+  
+  - **Probe** (`scripts/rules-drift-probe.py`, new): a host whose installed

@@ -1,0 +1,93 @@
+{
+  "task_id": "TJ-GAP-068",
+  "task_title": "AGENTS.md guard invocation falsely FAILs the tests lane (gitreins venv pytest shadows the repo interpreter)",
+  "task_criteria": [
+    "AGENTS.md's GitReins section documents plain gitreins guard via the pipx shim with NO PATH prefix naming the gitreins-poc venv, and explicitly warns that putting that venv on PATH makes the tests lane falsely FAIL (its Python 3.10 pytest shadows the repo interpreter and dies on import tomllib on Python 3.11+)",
+    "The section documents that the tests lane is interpreter-pinned via .gitreins/config.yaml test_command (.venv/bin/python -m pytest -x --tb=short), independent of PATH ordering",
+    "A bare gitreins guard --full in the repo root runs green (all four lanes) under the fixed invocation"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "f7019f627192e8077eda4208865a0e50551e9ce2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T173253.351369Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n12:32PM INF scanned ~5063768 bytes (5.06 MB) in 443ms\n12:32PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 140 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T173253.351369Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1221 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 25%]\n.................................                                        [ 27%]\nplugin/test_gtfobins_sweep.py .......................................... [ 31%]\n.....................                                                    [ 33%]\nplugin/test_host_probes.py ......................                        [ 34%]\nplugin/test_install.py ................................................. [ 38%]\n.....                                                                    [ 39%]\nplugin/test_interruptor.py ............................................. [ 42%]\n........................................................................ [ 48%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 66%]\n........................................................................ [ 72%]\n........................................................................ [ 78%]\n...................                                                      [ 79%]\nplugin/test_interruptor_integration.py ...............s................. [ 82%]\n.....                                                                    [ 83%]\nplugin/test_metrics_export.py .....................                      [ 84%]\nplugin/test_modify_preflight.py ......                                   [ 85%]\nplugin/test_packaging.py ..........                                      [ 86%]\nplugin/test_plugin.py ................                                   [ 87%]\nplugin/test_rule_packs.py ...................................            [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1214 passed, 7 skipped in 33.41s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T173253.351369Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-068\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-20T17:33:30.617737",
+  "evidence": {
+    "collected_at": "2026-09-20T17:33:30.636574+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 553,
+        "truncated": false,
+        "source": "git show f7019f627192"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 8163,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-068"
+  }
+}

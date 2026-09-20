@@ -1,0 +1,13 @@
+commit f7019f627192e8077eda4208865a0e50551e9ce2
+Merge: 01226bc 845e56f
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 12:32:14 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 12:32:14 2026 -0500
+
+    merge: TJ-GAP-068 — AGENTS.md guard invocation fix (gitreins venv pytest shadowed the repo interpreter)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ AGENTS.md | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)

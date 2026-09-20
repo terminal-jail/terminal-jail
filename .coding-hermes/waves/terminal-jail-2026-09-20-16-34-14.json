@@ -1,0 +1,50 @@
+{
+  "tick_id": "terminal-jail-2026-09-20-16-34-14",
+  "tick_number": 302,
+  "recovered_from": "terminal-jail-2026-09-20-14-02-08",
+  "recovery_note": "5/6 workers of the unfinished wave were already landed+merged+judged in tick #301 (events id 393). DF-TERMINAL-JAIL-23 failed dispatch twice on provider failover (zero diff) \u2014 re-dispatched here. Its worktree branch wt/DF-TERMINAL-JAIL-23 was fast-forwarded to the current main tip before re-dispatch.",
+  "created_utc": "2026-09-20T17:10:00Z",
+  "wave_budget": 12,
+  "workers_dispatched": 2,
+  "foreman_direct": 1,
+  "base_sha": "4063c06",
+  "base_ref": "origin/main",
+  "model": "glm-5.3-flash",
+  "provider": "zai-glm-default",
+  "independence_verified": "DF-23 (rules/packs/db.yaml + test_rule_packs.py), DF-31 (test_egress_no_delivery.py + docs/dogfood/checklist.md), TJ-GAP-068 (AGENTS.md) \u2014 disjoint file scopes; no depends_on edges between the rows",
+  "workers": [
+    {
+      "task_id": "DF-TERMINAL-JAIL-23",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-23",
+      "branch": "wt/DF-TERMINAL-JAIL-23",
+      "session": "coding-hermes-worker",
+      "brief": "/tmp/tj302a-DF-TERMINAL-JAIL-23.md",
+      "log": "/tmp/tj302a-DF-TERMINAL-JAIL-23.log"
+    },
+    {
+      "task_id": "DF-TERMINAL-JAIL-31",
+      "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-31",
+      "branch": "wt/DF-TERMINAL-JAIL-31",
+      "session": "coding-hermes-worker",
+      "brief": "/tmp/tj302a-DF-TERMINAL-JAIL-31.md",
+      "log": "/tmp/tj302a-DF-TERMINAL-JAIL-31.log"
+    }
+  ],
+  "foreman_direct_tasks": [
+    {
+      "task_id": "TJ-GAP-068",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-068",
+      "branch": "wt/TJ-GAP-068"
+    }
+  ],
+  "excluded_independent_rows": [
+    "TJ-GAP-062 (fuller db pack catalogue \u2014 same pack file as DF-23, not independent; serial after DF-23 merges)",
+    "TJ-GAP-056 (bwrap parity battery \u2014 battery-class foreman work, needs bwrap-capable env, not a repo worker task)",
+    "E2E-001 (recurring battery row, window not due this tick)",
+    "QA-TERMINAL-JAIL-9 / DF-TERMINAL-JAIL-19 / DF-TERMINAL-JAIL-26 (external/bunker infra owners, not this repo)",
+    "QA-TERMINAL-JAIL-11 (harness-side upgrade-channel fix)",
+    "DF-TERMINAL-JAIL-32 (dogfood evidence record \u2014 bookkeeping closure, no repo work)"
+  ],
+  "finished_at": "2026-09-20T18:43:07Z",
+  "finish_note": "recovery complete; DF-23 re-dispatch landed (merge 7573df5, judge PASS); DF-31 + TJ-GAP-068 landed foreman-direct, judge PASS; rows backfilled"
+}
