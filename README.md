@@ -284,7 +284,11 @@ same-ID user rule that overrides it to `warn` (the blocklist contract is "overri
 removable"). **Upgrading:** re-run `./install.sh` so the installed mirror
 (`~/.config/terminal-jail/rules.d/00-builtins.yaml`) carries the BLOCK actions — a mirror installed
 before DF-TERMINAL-JAIL-20 still lists these four ids at `action: sandbox`, and a same-ID user entry
-replaces the builtin in its layer.
+replaces the builtin in its layer. After re-running the installer, verify the installed mirror in
+one command (TJ-GAP-069): `.venv/bin/python scripts/rules-drift-probe.py` — it compares every
+builtin rule id present in the host's resolved rules dirs against the engine constant and prints a
+`DRIFT` row (id, engine action, installed action, both file paths) for each mismatch; the bare run
+is a classifier and always exits 0, and CI can pass `--fail-on-drift` to fail on any drift row.
 
 **2. SANDBOXED (namespace wrap) — NOT network-contained.** The auto-sandbox tier is build/test and
 download-execute tooling (`pytest`, `npm test`, `go test`, `make`, `pip install`, `cargo`, `gcc`,
