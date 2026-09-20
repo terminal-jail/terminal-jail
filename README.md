@@ -377,8 +377,8 @@ Configuration via environment variables:
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Enable/disable plugin (`true`/`false`/`1`/`0`) |
 | `HERMES_TERMINAL_JAIL_COMMAND` | `unshare` | Path to `unshare` binary |
 | `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Reserved — not yet read by the plugin |
-| `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Python logging level |
-| `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Enable user namespace isolation (`true`/`false`/`1`/`0`) |
+| `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Reserved — not yet read by the plugin (plugin logging is fixed; no level knob exists) |
+| `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Reserved — not yet read by the plugin (namespace isolation comes from the CLI `--user` / `TERMINAL_JAIL_UID_MAP`) |
 | `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable seccomp BPF filter (`1`/`true`/`yes`/`on`) — **only honored when the CLI is also invoked with `--seccomp`; the env var alone does not activate the filter.** **Note:** does not use `HERMES_TERMINAL_JAIL_` prefix — legacy naming from pre-plugin seccomp module. |
 
 ### systemd Hardening (LIGHTWEIGHT — 4 active directives)
@@ -631,10 +631,11 @@ uv sync --dev && uv run pytest plugin -q
 
 `uv sync --dev` creates `.venv/` with the runtime dependency (`PyYAML`) plus
 the `dev` dependency group (`pytest`); `uv run pytest plugin -q` then runs
-the suite (~300 passed on this host — the skips are environment-gated:
-SIGHUP reload, seccomp requiring CAP_SYS_ADMIN, and namespace
-integration tests). `pyproject.toml` sets `pythonpath = ["."]`, so
-`plugin/` imports resolve without extra configuration.
+the suite (the skips are environment-gated: SIGHUP reload, seccomp requiring
+CAP_SYS_ADMIN, and namespace integration tests). The exact pass/skip counts
+depend on the host environment, so this document deliberately hardcodes none —
+run the command above for the live number. `pyproject.toml` sets
+`pythonpath = ["."]`, so `plugin/` imports resolve without extra configuration.
 
 ## License
 
