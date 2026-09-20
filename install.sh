@@ -640,20 +640,39 @@ case ":${PATH}:" in
         fi
 
         if [ -n "$startup_file" ]; then
-            # Check for existing marker or equivalent PATH entry.
-            if grep -qF '# terminal-jail' "$startup_file" 2>/dev/null; then
-                : # already present
-            elif grep -qF "PATH=\"$HOME/.local/bin:\$PATH\"" "$startup_file" 2>/dev/null; then
-                : # equivalent entry exists
-            elif grep -qF "export PATH=\"$HOME/.local/bin:\$PATH\"" "$startup_file" 2>/dev/null; then
-                : # equivalent entry exists
-            else
-                cat >> "$startup_file" <<'SHELLRC'
+            if [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
+                # Default install dir: the historical behavior, unchanged
+                # (TJ-GAP-065 criterion: default installs keep appending the
+                # $HOME/.local/bin entry, idempotently).
+                if grep -qF '# terminal-jail' "$startup_file" 2>/dev/null; then
+                    : # already present
+                elif grep -qF "PATH=\"$HOME/.local/bin:\$PATH\"" "$startup_file" 2>/dev/null; then
+                    : # equivalent entry exists
+                elif grep -qF "export PATH=\"$HOME/.local/bin:\$PATH\"" "$startup_file" 2>/dev/null; then
+                    : # equivalent entry exists
+                else
+                    cat >> "$startup_file" <<'SHELLRC'
 
 # terminal-jail
 export PATH="$HOME/.local/bin:$PATH"
 SHELLRC
-                echo "terminal-jail installer: added PATH entry to ${startup_file}"
+                    echo "terminal-jail installer: added PATH entry to ${startup_file}"
+                fi
+            else
+                # TJ-GAP-065: a non-default install dir must never grow the
+                # hardcoded $HOME/.local/bin entry — the binary is not there,
+                # so that line leaves "command not found" after relogin while
+                # the installer claims it configured PATH. Append (once) a
+                # line pointing at the ACTUAL dir; the idempotency check greps
+                # the exact rendered line, so re-runs never duplicate even
+                # when an old marker or a stale default-scope block exists.
+                path_line="export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:\$PATH\""
+                if grep -qF "$path_line" "$startup_file" 2>/dev/null; then
+                    : # correct entry already present
+                else
+                    printf '\n# terminal-jail\n%s\n' "$path_line" >> "$startup_file"
+                    echo "terminal-jail installer: added PATH entry to ${startup_file}"
+                fi
             fi
             echo "terminal-jail installer: to use immediately, run: export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:\$PATH\""
         else
