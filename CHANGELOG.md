@@ -1,5 +1,24 @@
 ## [Unreleased]
 
+### Scoped-secret-source egress shapes pinned in the regression suite (DF-TERMINAL-JAIL-31)
+
+- **Tests only** (`plugin/test_egress_no_delivery.py`, 18 new cases): the
+  remote-copy/exfil rules were pinned end-to-end only with root-level
+  sources, so a future pattern "cleanup" could silently reopen the
+  scoped-source hole — the exact mechanism that let the DF-TERMINAL-JAIL-17
+  residual through (closure claimed the rule class was covered; no probe
+  ever tried a scoped source). New pins cover `scp -r` / `rsync -a` of
+  `~/.ssh`, `~/.aws`, `~/.gnupg` to a remote sink (BLOCK,
+  `builtin-net-remote-tree-copy`) and `tar cf - <scoped source> | ssh`
+  (BLOCK, `builtin-net-file-exfil-ssh`, zero bytes observed at the loopback
+  sink), plus the same nine shapes at the engine seam. Engine verdicts were
+  probed live at the base commit before writing: every shape already BLOCKS
+  with the exact ids asserted.
+- **Dogfood checklist** (`docs/dogfood/checklist.md`, new): closures that
+  claim a rule CLASS is covered must probe at least one shape the rule
+  deliberately does not target (scoped source, different client, quoted
+  form) before closing.
+
 ### Installed rule-mirror drift is no longer silent — scripts/rules-drift-probe.py (TJ-GAP-069)
 
 - **Probe** (`scripts/rules-drift-probe.py`, new): a host whose installed
