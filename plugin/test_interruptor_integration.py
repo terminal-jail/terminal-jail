@@ -10,19 +10,46 @@ Tests T-I37 through T-I40 from the S05 Interruptor spec:
 Tests that exercise the CLI's interruptor integration (--interruptor/--no-interruptor
 flags, TERMINAL_JAIL_INTERRUPTOR_MODE) are written to be runnable on any Linux
 host with bash installed. Tests that require unshare are gated on availability.
+
+VERSION-002 LOAD-HYGIENE
+------------------------
+``interruptor_bridge.py`` is a THIN stdin-JSON → stdout-JSON wrapper over the
+same ``terminal_jail.interruptor.intercept()`` engine these tests import
+directly. The bridge-level assertions below are about the VERDICT and the JSON
+envelope, not about process creation — so they drive
+``interruptor_bridge.main()`` in-process. Spawning one interpreter per
+assertion cost ~105 ms of interpreter start-up each (84 spawns in this file
+alone) and bought no fidelity: every spawn re-built the same rule layers from
+scratch, which is exactly what ``intercept()`` does per call.
+
+The process boundary is NOT abandoned: ``test_bridge_real_exec_parity`` still
+spawns the real ``python3 interruptor_bridge.py`` over a representative input
+set and asserts byte-identical responses to the in-process path, and
+``test_bridge_in_process_path_never_spawns_a_process`` pins the seam
+structurally. A boundary change in the shipped script therefore still fails
+here.
+
+The CLI-level tests (``_run_cli``) spawn the real wrapper on purpose — there
+the process boundary IS the subject under test.
 """
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
+from terminal_jail import interruptor_bridge as bridge_module
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
+BRIDGE_SCRIPT = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +76,53 @@ def _run_cli(
         check=False,
         timeout=10,
         input=input_data,
+    )
+
+
+# ── Bridge invocation seam (VERSION-002: in-process) ─────────────────────────
+
+
+def _bridge_main_inproc(
+    stdin_line: str, extra_env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[bytes]:
+    """Drive ``interruptor_bridge.main()`` in-process; return a proc-shaped record.
+
+    ``main()`` is patched at the stream boundary (stdin/stdout/stderr/argv) so
+    every branch under test runs for real — the schema gate, the lazy engine
+    import, ``intercept()``, and the fail-open envelope — while the interpreter
+    start-up is not paid. The returned ``subprocess.CompletedProcess`` is a
+    plain data record (no process was created) carrying exactly the facts the
+    fail-open contract asserts: returncode, stdout bytes, stderr bytes.
+
+    Env plumbing is preserved: ``extra_env`` is overlaid onto ``os.environ``
+    for the duration of the call, which is what the subprocess form did by
+    copying ``os.environ`` into the child. The engine reads the env through
+    ``Config.from_environ()`` on every ``intercept()`` call, so the overlay is
+    observed the same way.
+    """
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    argv = [str(BRIDGE_SCRIPT)]
+    env_overlay = (
+        mock.patch.dict(os.environ, extra_env) if extra_env else contextlib.nullcontext()
+    )
+    with (
+        env_overlay,
+        mock.patch.object(sys, "argv", argv),
+        mock.patch.object(sys, "stdin", io.StringIO(stdin_line + "\n")),
+        mock.patch.object(sys, "stdout", stdout),
+        mock.patch.object(sys, "stderr", stderr),
+    ):
+        returncode = 0
+        try:
+            bridge_module.main()
+        except SystemExit as exc:  # pragma: no cover - main() has no exit path
+            returncode = exc.code if isinstance(exc.code, int) else 1
+    return subprocess.CompletedProcess(
+        args=argv,
+        returncode=returncode,
+        stdout=stdout.getvalue().encode(),
+        stderr=stderr.getvalue().encode(),
     )
 
 
@@ -207,36 +281,17 @@ def test_interruptor_safe_command_passes(cli_path: Path) -> None:
 
 @pytest.mark.standalone_cli
 def test_interruptor_json_bridge_direct() -> None:
-    """Test the JSON bridge directly via python3."""
-    bridge_path = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
-    assert bridge_path.exists(), f"Bridge not found: {bridge_path}"
+    """Test the JSON bridge directly (in-process: the verdict is the subject)."""
+    assert BRIDGE_SCRIPT.exists(), f"Bridge not found: {BRIDGE_SCRIPT}"
 
     # Test allow
-    result = subprocess.run(
-        ["python3", str(bridge_path)],
-        input=b'{"command": "echo hello"}\n',
-        capture_output=True,
-        text=False,
-        check=False,
-        timeout=10,
-        cwd=str(PROJECT_ROOT),
-    )
+    result = _bridge_main_inproc('{"command": "echo hello"}')
     assert result.returncode == 0
-    import json
-
     response = json.loads(result.stdout.decode("utf-8"))
     assert response["action"] == "allow"
 
     # Test block
-    result = subprocess.run(
-        ["python3", str(bridge_path)],
-        input=b'{"command": "rm -rf /"}\n',
-        capture_output=True,
-        text=False,
-        check=False,
-        timeout=10,
-        cwd=str(PROJECT_ROOT),
-    )
+    result = _bridge_main_inproc('{"command": "rm -rf /"}')
     assert result.returncode == 0
     response = json.loads(result.stdout.decode("utf-8"))
     assert response["action"] == "block"
@@ -244,27 +299,85 @@ def test_interruptor_json_bridge_direct() -> None:
     assert response["reason"] is not None
 
 
+# ── Bridge process-boundary parity (VERSION-002) ────────────────────────────
+
+
+# Representative input set for the parity check: allow, block, modify, and the
+# two fail-open schema-error classes — every response path the bridge can take.
+BRIDGE_PARITY_INPUTS: tuple[tuple[str, dict[str, str] | None], ...] = (
+    ('{"command": "echo hello"}', None),
+    ('{"command": "rm -rf /"}', None),
+    ('{"command": "\'pytest\' \'--version\'"}', None),
+    ("{}", None),
+    ("null", None),
+)
+
+
+@pytest.mark.standalone_cli
+def test_bridge_real_exec_parity() -> None:
+    """The REAL ``python3 interruptor_bridge.py`` process must agree, byte-for-byte,
+    with the in-process path this suite now uses for its bridge assertions.
+
+    This is the one place the process boundary is deliberately exercised, so a
+    change to the shipped script's wire behaviour (or to its path bootstrap,
+    which only a real spawn proves) cannot slip past the in-process tests.
+    """
+    for stdin_line, extra_env in BRIDGE_PARITY_INPUTS:
+        env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
+        proc = subprocess.run(
+            [sys.executable, str(BRIDGE_SCRIPT)],
+            input=(stdin_line + "\n").encode(),
+            capture_output=True,
+            text=False,
+            check=False,
+            timeout=30,
+            cwd=str(PROJECT_ROOT),
+            env=env,
+        )
+        inproc = _bridge_main_inproc(stdin_line, extra_env)
+        assert proc.returncode == inproc.returncode == 0, (
+            f"real exec rc={proc.returncode} vs in-process rc={inproc.returncode} "
+            f"for {stdin_line!r}"
+        )
+        assert proc.stdout == inproc.stdout, (
+            f"wire drift for {stdin_line!r}:\n"
+            f"  real exec : {proc.stdout!r}\n"
+            f"  in-process: {inproc.stdout!r}"
+        )
+
+
+@pytest.mark.standalone_cli
+def test_bridge_in_process_path_never_spawns_a_process() -> None:
+    """VERSION-002 load-hygiene contract: the bridge assertion helpers must not
+    create a process.
+
+    Pins the seam structurally so a future edit that reintroduces a
+    ``subprocess.run`` per assertion (84 spawns before this task) fails here
+    instead of silently coming back.
+    """
+    with mock.patch.object(
+        subprocess, "run", side_effect=AssertionError("spawned a process")
+    ):
+        response = json.loads(
+            _bridge_main_inproc('{"command": "echo hello"}').stdout.decode("utf-8")
+        )
+    assert response["action"] == "allow"
+    assert response["command"] == "echo hello"
+
+
 # ── T-I38/T-I39: Custom user rules (Decider Layer 4 — TJ-DF-004) ────────────
 
 
 def _bridge_call_env(command: str, extra_env: dict[str, str]) -> dict:
-    """Invoke the bridge with extra environment (user rules dir plumbing)."""
-    import json
+    """Invoke the bridge with extra environment (user rules dir plumbing).
 
-    bridge_path = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
-    payload = json.dumps({"command": command}) + "\n"
-    env = os.environ.copy()
-    env.update(extra_env)
-    proc = subprocess.run(
-        ["python3", str(bridge_path)],
-        input=payload.encode(),
-        capture_output=True,
-        text=False,
-        check=False,
-        timeout=10,
-        cwd=str(PROJECT_ROOT),
-        env=env,
-    )
+    In-process (VERSION-002): the env overlay reproduces what the subprocess
+    form did by copying ``os.environ`` into the child, and the engine reads it
+    through ``Config.from_environ()`` on every ``intercept()`` call.
+    """
+    proc = _bridge_main_inproc(json.dumps({"command": command}), extra_env)
     assert proc.returncode == 0, (
         f"bridge failed (rc={proc.returncode}): "
         f"{proc.stderr.decode('utf-8', errors='replace')}"
@@ -436,20 +549,8 @@ def test_rule_hot_reload() -> None:
 
 
 def _bridge_call(command: str) -> dict:
-    """Invoke the interruptor JSON bridge on a single command."""
-    import json
-
-    bridge_path = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
-    payload = json.dumps({"command": command}) + "\n"
-    proc = subprocess.run(
-        ["python3", str(bridge_path)],
-        input=payload.encode(),
-        capture_output=True,
-        text=False,
-        check=False,
-        timeout=10,
-        cwd=str(PROJECT_ROOT),
-    )
+    """Invoke the bridge JSON protocol on a single command (in-process)."""
+    proc = _bridge_main_inproc(json.dumps({"command": command}))
     assert proc.returncode == 0, (
         f"bridge failed (rc={proc.returncode}): "
         f"{proc.stderr.decode('utf-8', errors='replace')}"
@@ -602,26 +703,19 @@ def test_cli_enforce_mode_blocks_quoted_rm_rf_root(cli_path: Path) -> None:
         )
 
 
-# ── DF-TERMINAL-JAIL-6: bridge JSON schema contract (subprocess) ─────────────
+# ── DF-TERMINAL-JAIL-6: bridge JSON schema contract ─────────────────────────
 
 
 def _run_bridge_raw(stdin_line: str) -> tuple[dict, "subprocess.CompletedProcess[bytes]"]:
-    """Feed one raw line to the bridge subprocess; return (response, proc).
+    """Feed one raw line to the bridge (in-process); return (response, record).
 
     Asserts the invariants every schema error must keep: exactly one
     valid JSON object on stdout, exit code 0, and no Python traceback on
-    stderr.
+    stderr. Nothing in this contract is about process creation, so the
+    in-process path is the same subject — the real spawn is covered once by
+    ``test_bridge_real_exec_parity`` (VERSION-002).
     """
-    bridge_path = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
-    proc = subprocess.run(
-        ["python3", str(bridge_path)],
-        input=(stdin_line + "\n").encode(),
-        capture_output=True,
-        text=False,
-        check=False,
-        timeout=10,
-        cwd=str(PROJECT_ROOT),
-    )
+    proc = _bridge_main_inproc(stdin_line)
     stderr = proc.stderr.decode("utf-8", errors="replace")
     assert proc.returncode == 0, (
         f"bridge must exit 0 (fail-open contract), got rc={proc.returncode}: {stderr!r}"
