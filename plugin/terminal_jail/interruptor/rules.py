@@ -5,6 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+# The placeholder shown when a rule declares no block_message of its own. It is
+# deliberately generic, so it must never REPLACE a message that names the shape
+# and scope of a policy — see ``inherit_override_message``.
+DEFAULT_BLOCK_MESSAGE = "Command blocked by security policy."
+
 
 class Rule:
     """A single rule in the interruptor rule engine.
@@ -16,6 +21,7 @@ class Rule:
     __slots__ = (
         "action",
         "block_message",
+        "block_message_explicit",
         "description",
         "id",
         "match",
@@ -29,7 +35,7 @@ class Rule:
         description: str = "",
         priority: int = 50,
         action: str = "block",
-        block_message: str = "Command blocked by security policy.",
+        block_message: str | None = None,
         match: dict[str, Any] | None = None,
         modify: dict[str, Any] | None = None,
     ) -> None:
@@ -37,21 +43,32 @@ class Rule:
         self.description = description
         self.priority = priority
         self.action = action
-        self.block_message = block_message
+        self.block_message = (
+            block_message if block_message is not None else DEFAULT_BLOCK_MESSAGE
+        )
+        # Whether the caller/YAML supplied a message at all — distinct from the
+        # message's value, since a rule may legitimately declare the placeholder
+        # verbatim. A same-id override that declared none inherits the message
+        # of the rule it replaces (DF-TERMINAL-JAIL-25).
+        self.block_message_explicit = block_message is not None
         self.match = match or {}
         self.modify = modify
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Rule:
-        """Create a Rule from a YAML-derived dict."""
+        """Create a Rule from a YAML-derived dict.
+
+        An omitted ``block_message`` stays DISTINGUISHABLE from one that was
+        supplied: the key is passed through as ``None`` so a same-id override
+        can inherit the overridden rule's message instead of silently
+        reverting to the generic placeholder (DF-TERMINAL-JAIL-25).
+        """
         return cls(
             rule_id=data.get("id", "unknown"),
             description=data.get("description", ""),
             priority=data.get("priority", 50),
             action=data.get("action", "block"),
-            block_message=data.get(
-                "block_message", "Command blocked by security policy."
-            ),
+            block_message=data.get("block_message"),
             match=data.get("match"),
             modify=data.get("modify"),
         )
@@ -103,6 +120,32 @@ class RuleSet:
         return f"RuleSet({len(self._rules)} rules)"
 
 
+def inherit_override_message(override: Rule, replaced: Rule | None) -> Rule:
+    """Carry ``replaced``'s block_message onto ``override`` when it declared none.
+
+    A same-id rule REPLACES the rule it shadows in its layer, so the replaced
+    rule's message is the only description of the policy that is left. Before
+    this, an override that supplied no ``block_message`` fell back to the
+    generic placeholder — which is what the warn path then printed, so a
+    downgraded verdict read::
+
+        terminal-jail: WARNING - would have blocked: Command blocked by
+        security policy.
+
+    and told the operator nothing about which policy it was deciding on. The
+    loss was at the MERGE, not on the warn path: the same omission also
+    produced the generic text on a plain ``action: block`` override.
+
+    Mutates and returns ``override`` (rules are per-layer objects built once
+    per Decider, never shared with the built-in constant). ``replaced`` is
+    ``None`` when no rule carried that id, in which case there is nothing to
+    inherit and the rule keeps its own message.
+    """
+    if replaced is not None and not override.block_message_explicit:
+        override.block_message = replaced.block_message
+    return override
+
+
 class RuleLoader:
     """Loads rules from YAML files in one or more directories.
 
@@ -132,10 +175,17 @@ class RuleLoader:
         for directory in [self.system_dir, self.user_dir]:
             directory_rules = self._load_directory(directory)
             for rule in directory_rules:
+                replaced: Rule | None = None
                 if rule.id in seen_ids:
                     # Override: replace existing rule
+                    replaced = next((r for r in rules if r.id == rule.id), None)
                     rules = [r for r in rules if r.id != rule.id]
-                rules.append(rule)
+                # A later file's same-id rule shadows the earlier one, so an
+                # omitted block_message would otherwise erase the only
+                # description of the policy (DF-TERMINAL-JAIL-25) — this is the
+                # seam the documented remedy uses (a pack rule overridden by a
+                # later-sorting zz-local.yaml).
+                rules.append(inherit_override_message(rule, replaced))
                 seen_ids.add(rule.id)
 
         return RuleSet(rules)
