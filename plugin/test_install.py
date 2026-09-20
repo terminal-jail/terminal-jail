@@ -1534,7 +1534,7 @@ def test_list_rule_packs_names_db(tmp_path: Path) -> None:
     rows = [line for line in out.splitlines() if line.startswith("db\t")]
     assert rows, out
     assert str(DB_PACK) in rows[0], rows
-    assert rows[0].endswith("\t3"), rows
+    assert rows[0].endswith("\t14"), rows
     _assert_nothing_written(tmp_path)
 
 

