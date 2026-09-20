@@ -166,8 +166,11 @@ one file; `--unrule-pack <name>` removes that one file and touches nothing else.
    `block` at 950 still evaluates after the builtin always-allow list.
 
 Verified by `plugin/test_rule_packs.py` (the shipped pack's ids fire through
-`intercept()`, benign controls stay default-allow) and `plugin/test_install.py`
-(install/uninstall, refusals write nothing).
+`intercept()`, benign controls stay default-allow), `plugin/test_rule_pack_db.py`
+(the `db` pack's FULL catalogue — one vector per rule id, the false-positive
+contexts un-attributed, the legit pins holding, the gray shapes coming out
+`modify`) and `plugin/test_install.py` (install/uninstall, refusals write
+nothing).
 
 Residual, stated rather than implied: the installer only inspects the resolved
 USER rules dir (plus the engine's builtin set). A rule a root administrator

@@ -240,12 +240,17 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   ~/.local/lib/terminal-jail/plugin/terminal_jail/interruptor_bridge.py` →
   `{"action":"block","rule_id":"pack-db-drop-database",…}` = live;
   `{"action":"allow","rule_id":null,…}` = inert (see pitfall 9). The pack's
-  block rules match the SQL shape *anywhere in the command string*, so expect
-  them to fire on text that is not an execution: `sed -i "s/DROP DATABASE/…/"`
-  and `git commit -am "… DROP DATABASE …"` block too (DF-TERMINAL-JAIL-23),
-  while `psql -f file.sql` — which really drops the table — is allowed (the
-  DF-TERMINAL-JAIL-10 file-body gap). Plan the workflow around the same-id
-  `action: warn` override (a `zz-local.yaml` that sorts after
+  SQL rules match **execution context only** (DF-TERMINAL-JAIL-23): a SQL
+  client at command position AND the statement after its `-c`/`-e`/`--command`/
+  `--execute` flag, in a multi-statement flag string, or positionally after
+  sqlite3/sqlplus. So the text shapes stay allowed — `sed -i "s/DROP DATABASE/…/"`,
+  `git commit -am "… DROP DATABASE …"` and a quoted data literal all run — while
+  `psql -f file.sql`, which really drops the table, is allowed too (the
+  DF-TERMINAL-JAIL-10 file-body gap). **Gray vs hard (TJ-GAP-062):** a
+  single-table `DROP TABLE` and a bare `TRUNCATE` come back `modify` (the
+  namespace wrap — the command still RUNS); `DROP DATABASE`/`DROP SCHEMA` come
+  back `block`. Read the verdict, not just the id. Plan the workflow around the
+  same-id `action: warn` override (a `zz-local.yaml` that sorts after
   `terminal-jail-pack-<name>.yaml`) rather than fighting the rule.
 
 - **NEVER trust `modify` on a host where uid mapping works — the mapped

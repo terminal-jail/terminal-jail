@@ -55,14 +55,17 @@ REFUSAL_PREFIX = "rule-pack-tool: refused:"
 ENGINE_BUILTIN_COUNT = len(BUILTIN_BLOCKLIST) + len(BUILTIN_SANDBOX) + len(BUILTIN_ALLOWLIST)
 
 # The pack's positive vectors: one per rule id, with the verdict the engine
-# must produce when the pack is installed.
+# must produce when the pack is installed. TJ-GAP-062 landed the FULL catalogue
+# and moved a single-table DROP to the GRAY zone, so `pack-db-drop-table` is
+# asserted as MODIFY here (see plugin/test_rule_pack_db.py for the exhaustive
+# per-rule matrix, which is the authoritative surface for this pack).
 DB_PACK_POSITIVES = (
     (
         'psql -h db.internal -c "DROP DATABASE prod_app"',
         Action.BLOCK,
         "pack-db-drop-database",
     ),
-    ('mysql -e "DROP TABLE customers"', Action.BLOCK, "pack-db-drop-table"),
+    ('psql -c "DROP TABLE customers"', Action.MODIFY, "pack-db-drop-table"),
     ("pg_dump mydb > /tmp/dump.sql", Action.MODIFY, "pack-db-dump-restore"),
 )
 
@@ -125,15 +128,27 @@ def empty_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 # The 9-shape regression matrix from the task, through the live engine with
 # the pack installed. BLOCK side: the destructive SQL sits in a real SQL
 # execution position (immediately after the client's -c/-e flag — arm A).
-# The first three are the task's mandated blocks; the last two pin the
-# additional arms the pack header documents (after a semicolon inside the
-# -c string — arm B1; positional after sqlite3 — arm C).
+# The first entry is the task's mandated block; the rest pin the additional
+# arms the pack header documents (after a semicolon inside the -c string —
+# arm B1; positional after sqlite3 — arm C). TJ-GAP-062: a DROP TABLE is a GRAY
+# shape now (single-table, scoped), so it is asserted as MODIFY — the doctrine
+# lives in the pack header and the matrix in plugin/test_rule_pack_db.py.
 DB_PACK_EXECUTION_CONTEXT_BLOCKS = (
-    ('psql -c "DROP DATABASE prod"', "pack-db-drop-database"),
+    ('psql -c "DROP DATABASE prod"', Action.BLOCK, "pack-db-drop-database"),
+    ('psql -c "DROP SCHEMA public CASCADE"', Action.BLOCK, "pack-db-drop-database"),
+    ('mysql -e "drop database prod;"', Action.BLOCK, "pack-db-drop-database"),
+    ('psql -c "SELECT 1; DROP DATABASE x"', Action.BLOCK, "pack-db-drop-database"),
+    ('sqlite3 app.db "DROP DATABASE x"', Action.BLOCK, "pack-db-drop-database"),
+)
+
+# GRAY shapes: the statement sits in a real execution position (so the pack DO
+# match it), but a single-table DROP/TRUNCATE is destructive-but-scoped, so the
+# verdict is MODIFY (auto-sandbox), NOT block.
+DB_PACK_EXECUTION_CONTEXT_GRAY = (
     ('psql -c "DROP TABLE users"', "pack-db-drop-table"),
     ('mysql -e "DROP TABLE users;"', "pack-db-drop-table"),
-    ('psql -c "SELECT 1; DROP TABLE x"', "pack-db-drop-table"),
     ('sqlite3 app.db "DROP TABLE legacy"', "pack-db-drop-table"),
+    ('psql -c "TRUNCATE users"', "pack-db-truncate"),
 )
 
 # ALLOW side: the statement TEXT is present but NOT in an execution position,
@@ -153,18 +168,33 @@ DB_PACK_EXECUTION_CONTEXT_ALLOWS = (
 
 
 class TestDbPackBlockRulesMatchExecutionContext:
-    """DF-TERMINAL-JAIL-23: the pack's two block rules require a SQL client
-    AND the statement in an execution position — a destructive statement
-    carried as plain text (sed replacement, commit message, quoted data
-    literal, grep argument) is no longer blocked."""
+    """DF-TERMINAL-JAIL-23: the pack's SQL rules require a SQL client AND the
+    statement in an execution position — a destructive statement carried as
+    plain text (sed replacement, commit message, quoted data literal, grep
+    argument) is not matched. TJ-GAP-062 kept that contract and moved a
+    single-table DROP/TRUNCATE to the GRAY (auto-sandbox) zone."""
 
-    @pytest.mark.parametrize(("command", "rule_id"), DB_PACK_EXECUTION_CONTEXT_BLOCKS)
+    @pytest.mark.parametrize(
+        ("command", "action", "rule_id"), DB_PACK_EXECUTION_CONTEXT_BLOCKS
+    )
     def test_destructive_sql_in_execution_context_blocks(
-        self, installed_pack: Path, command: str, rule_id: str
+        self, installed_pack: Path, command: str, action: Action, rule_id: str
     ) -> None:
         result = intercept(command)
 
-        assert result.action == Action.BLOCK, result
+        assert result.action == action, result
+        assert result.rule_id == rule_id, (command, result)
+
+    @pytest.mark.parametrize(
+        ("command", "rule_id"), DB_PACK_EXECUTION_CONTEXT_GRAY
+    )
+    def test_single_table_destruction_is_sandboxed_not_blocked(
+        self, installed_pack: Path, command: str, rule_id: str
+    ) -> None:
+        """Gray-zone doctrine: scoped destruction is wrapped, not refused."""
+        result = intercept(command)
+
+        assert result.action == Action.MODIFY, (command, result)
         assert result.rule_id == rule_id, (command, result)
 
     @pytest.mark.parametrize("command", DB_PACK_EXECUTION_CONTEXT_ALLOWS)
@@ -179,9 +209,13 @@ class TestDbPackBlockRulesMatchExecutionContext:
     def test_block_vectors_are_unattributed_without_the_pack(
         self, empty_rules: Path
     ) -> None:
-        """Control: with no pack installed none of the block vectors is a
-        pack attribution (they ride on the engine's own defaults)."""
-        for command, rule_id in DB_PACK_EXECUTION_CONTEXT_BLOCKS:
+        """Control: with no pack installed none of the vectors is a pack
+        attribution (they ride on the engine's own defaults)."""
+        for command, _action, rule_id in DB_PACK_EXECUTION_CONTEXT_BLOCKS:
+            result = intercept(command)
+            assert result.rule_id != rule_id, (command, result)
+            assert not str(result.rule_id or "").startswith("pack-"), (command, result)
+        for command, rule_id in DB_PACK_EXECUTION_CONTEXT_GRAY:
             result = intercept(command)
             assert result.rule_id != rule_id, (command, result)
             assert not str(result.rule_id or "").startswith("pack-"), (command, result)
@@ -234,7 +268,11 @@ class TestShippedDbPack:
 
     def test_pack_file_loads_through_the_engine_loader(self, installed_pack: Path) -> None:
         """The pack is an ordinary rules.d file: the engine's own loader reads
-        all three rules under the installer's file name."""
+        every catalogued rule under the installer's file name.
+
+        The id set is the TJ-GAP-062 FULL catalogue (14 rules); the exhaustive
+        per-rule behaviour matrix is plugin/test_rule_pack_db.py.
+        """
         loaded = RuleLoader(
             system_dir=str(installed_pack.parent / "empty-system-rules.d"),
             user_dir=str(installed_pack),
@@ -242,8 +280,19 @@ class TestShippedDbPack:
 
         ids = {rule.id for rule in loaded.rules}
         assert ids == {
+            "pack-db-psql-meta-shell",
             "pack-db-drop-database",
+            "pack-db-truncate-cascade",
+            "pack-db-admin-shutdown",
+            "pack-db-redis-config",
+            "pack-db-redis-module",
+            "pack-db-redis-flush",
+            "pack-db-mongosh-drop",
+            "pack-db-mongosh-shutdown",
+            "pack-db-data-dir-delete",
+            "pack-db-dump-exfil",
             "pack-db-drop-table",
+            "pack-db-truncate",
             "pack-db-dump-restore",
         }, ids
 
@@ -262,7 +311,7 @@ class TestValidatorAccepts:
 
         assert result.returncode == 0, result.stderr
         assert "pack 'db' valid" in result.stdout
-        assert "3 rule(s)" in result.stdout
+        assert "14 rule(s)" in result.stdout
         assert f"{ENGINE_BUILTIN_COUNT} engine builtin ids" in result.stdout, result.stdout
 
     def test_engine_match_types_are_derived_from_the_engine(self, tmp_path: Path) -> None:
@@ -638,7 +687,7 @@ class TestValidatorList:
         name, path, count = by_name["db"]
         assert name == "db"
         assert Path(path) == DB_PACK
-        assert count == "3"
+        assert count == "14"
 
     def test_list_rejects_arguments(self) -> None:
         result = _run_tool("list", "extra")

