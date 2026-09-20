@@ -36,6 +36,9 @@ jobs:
       - name: Validate canonical board task IDs
         run: python scripts/board_id_guard.py
 
+      - name: GTFOBins sweep (posture coverage + drift guard)
+        run: python scripts/gtfobins-sweep.py --check
+
   lint:
     name: Lint (ruff)
     runs-on: ubuntu-latest

