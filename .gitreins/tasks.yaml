@@ -1054,3 +1054,45 @@ tasks:
   status: complete
   created_at: '2026-09-20T12:40:39.267170+00:00'
   completed_at: '2026-09-20T13:21:18.135315+00:00'
+- id: QA-TERMINAL-JAIL-10
+  title: builtin-id-collision refusal test tolerates sandbox-fallback WARNING
+  criteria:
+  - test_builtin_id_collision_is_refused asserts the refusal line and rc without failing
+    when the mapping-less-PID-namespace WARNING precedes it; full suite green
+  status: in_progress
+  created_at: '2026-09-20T14:28:08.122566+00:00'
+- id: TJ-GAP-064
+  title: README de-rot test count + reserve phantom env rows
+  criteria:
+  - README no longer carries a rotting hardcoded test count; LOG_LEVEL and USER_NS
+    env rows removed or marked Reserved - not yet read; greps prove it
+  status: in_progress
+  created_at: '2026-09-20T14:28:08.476417+00:00'
+- id: TJ-GAP-065
+  title: install.sh PATH hint follows actual TERMINAL_JAIL_INSTALL_DIR
+  criteria:
+  - custom-prefix install no longer appends hardcoded HOME/.local/bin PATH while claiming
+    configured; default install unchanged; scratch-HOME proof + automated test
+  status: in_progress
+  created_at: '2026-09-20T14:28:19.773334+00:00'
+- id: DF-TERMINAL-JAIL-30
+  title: block local-reader pipe into ssh/scp remote write
+  criteria:
+  - tar/cat piped into ssh/scp with remote write is blocked by a new builtin rule;
+    benign ssh/tar shapes stay allow; regression tests
+  status: in_progress
+  created_at: '2026-09-20T14:28:20.085797+00:00'
+- id: DF-TERMINAL-JAIL-23
+  title: db pack rules match execution context not bare phrase
+  criteria:
+  - 'six regression shapes: destructive psql/mysql client statements still block;
+    sed/git-commit/quoted-SELECT-of-phrase allow; suite green'
+  status: in_progress
+  created_at: '2026-09-20T14:28:20.387676+00:00'
+- id: TJ-GAP-069
+  title: rules-drift-probe reports silent same-id mirror downgrades
+  criteria:
+  - classifier probe prints DRIFT rows (id, engine vs host action, files); --fail-on-drift
+    exits non-zero; unit tests for drift + clean; docs updated
+  status: in_progress
+  created_at: '2026-09-20T14:28:20.698168+00:00'

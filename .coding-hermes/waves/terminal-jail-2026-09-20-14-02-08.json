@@ -1,0 +1,21 @@
+{
+  "tick_id": "terminal-jail-2026-09-20-14-02-08",
+  "created_utc": "2026-09-20T14:12:00Z",
+  "wave_budget": 12,
+  "workers_dispatched": 6,
+  "base_sha": "5914dd6",
+  "base_ref": "origin/main",
+  "model": "glm-5.3-flash",
+  "provider": "zai-glm-default",
+  "independence_verified": "no depends_on edges between picked rows; deps TJ-GAP-054/061/063 all terminal (complete/completed)",
+  "workers": [
+    {"task_id": "QA-TERMINAL-JAIL-10", "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-10", "branch": "wt/QA-TERMINAL-JAIL-10", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-QA-TERMINAL-JAIL-10.md", "log": "/tmp/tj20260920a-QA-TERMINAL-JAIL-10.log"},
+    {"task_id": "TJ-GAP-064", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-064", "branch": "wt/TJ-GAP-064", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-TJ-GAP-064.md", "log": "/tmp/tj20260920a-TJ-GAP-064.log"},
+    {"task_id": "TJ-GAP-065", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-065", "branch": "wt/TJ-GAP-065", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-TJ-GAP-065.md", "log": "/tmp/tj20260920a-TJ-GAP-065.log"},
+    {"task_id": "DF-TERMINAL-JAIL-30", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-30", "branch": "wt/DF-TERMINAL-JAIL-30", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-DF-TERMINAL-JAIL-30.md", "log": "/tmp/tj20260920a-DF-TERMINAL-JAIL-30.log"},
+    {"task_id": "DF-TERMINAL-JAIL-23", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-23", "branch": "wt/DF-TERMINAL-JAIL-23", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-DF-TERMINAL-JAIL-23.md", "log": "/tmp/tj20260920a-DF-TERMINAL-JAIL-23.log"},
+    {"task_id": "TJ-GAP-069", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-069", "branch": "wt/TJ-GAP-069", "session": "coding-hermes-worker", "brief": "/tmp/tj20260920a-TJ-GAP-069.md", "log": "/tmp/tj20260920a-TJ-GAP-069.log"}
+  ],
+  "excluded_independent_rows": ["QA-TERMINAL-JAIL-9 (harness-owned, fix is in qa battery not this repo)", "DF-TERMINAL-JAIL-27 (infra/dogfood protocol, owner not this repo)", "TJ-GAP-056 (battery needs bwrap-capable env, heavier than one worker tick)", "TJ-GAP-068 (P3 docs fix, guard-behavior repro needed first)", "DF-TERMINAL-JAIL-25 (P3, queued for next tick)", "DF-TERMINAL-JAIL-31 (process/test-suite change, queued for next tick)"],
+  "host_load_at_dispatch": "11.86 (gate 12) — wave sized 6 not 12 deliberately"
+}
