@@ -2700,6 +2700,217 @@ rules:
 
 
 # =============================================================================
+# Same-id override keeps the policy's message (DF-TERMINAL-JAIL-25)
+# =============================================================================
+
+
+class TestSameIdOverrideMessageInheritance:
+    """DF-TERMINAL-JAIL-25 (P3): an override that declares no block_message
+    inherits the message of the rule it replaces.
+
+    A same-id user rule REPLACES the rule it shadows in its layer, so the
+    replaced rule's ``block_message`` is the only surviving description of the
+    policy. ``Rule.from_dict`` used to substitute the generic placeholder
+    ("Command blocked by security policy.") for an omitted ``block_message``,
+    which the warn path then printed verbatim::
+
+        terminal-jail: WARNING — would have blocked: Command blocked by
+        security policy.
+
+    so a downgraded verdict named neither the policy nor what it protects —
+    and warn mode exists precisely so an operator can decide whether the
+    downgrade is safe.
+
+    The loss is at the MERGE, not on the warn path, and these tests pin that:
+    the identical omission under ``action: block`` produces the same generic
+    text (``test_omitted_message_is_lost_on_the_block_path_too``). Two seams
+    perform a same-id merge and both are covered: the user rule → builtin
+    constant merge in ``Decider._build_layers``, and the file → file merge in
+    ``RuleLoader.load_all`` (the pack → ``zz-local.yaml`` remedy from
+    ``docs/dogfood/2026-09-19-integration.md``).
+    """
+
+    # The message builtin-fdisk ships with (blocklist.py). Pinned as a literal
+    # so a drift in the builtin's own wording fails here instead of silently
+    # weakening the assertion.
+    FDISK_MESSAGE = "Partition manipulation (fdisk, parted, gdisk) is blocked."
+    GENERIC = "Command blocked by security policy."
+
+    def _override_yaml(self, action: str, message_line: str = "") -> str:
+        """A same-id builtin-fdisk override; ``message_line`` optional."""
+        return (
+            "rules:\n"
+            "  - id: builtin-fdisk\n"
+            "    description: User override of builtin-fdisk\n"
+            "    priority: 100\n"
+            f"    action: {action}\n"
+            f"{message_line}"
+            "    match:\n"
+            "      type: pattern\n"
+            "      pattern: 'fdisk'\n"
+        )
+
+    def test_warn_override_inherits_the_builtin_message(self, tmp_path) -> None:
+        """The filed defect: a warn downgrade names the policy it downgraded."""
+        config = _write_user_rules(tmp_path, self._override_yaml("warn"))
+        result = intercept("fdisk -l", config=config)
+
+        assert result.action == Action.ALLOW, (
+            f"a warn override runs the command, got {result.action}"
+        )
+        assert result.rule_id == "builtin-fdisk"
+        assert result.reason == f"would have blocked: {self.FDISK_MESSAGE}", (
+            f"the downgraded rule's own message must reach the reason, "
+            f"got {result.reason!r}"
+        )
+        assert self.GENERIC not in result.reason, (
+            f"the generic placeholder replaced the rule's own message: "
+            f"{result.reason!r}"
+        )
+
+    def test_omitted_message_is_lost_on_the_block_path_too(self, tmp_path) -> None:
+        """The loss is at the MERGE — a block override loses it identically.
+
+        This is the test that refuses the mis-targeted fix: patching only the
+        warn branch would leave ``action: block`` printing the placeholder, so
+        the fix has to sit where the same-id replacement happens.
+        """
+        config = _write_user_rules(tmp_path, self._override_yaml("block"))
+        result = intercept("fdisk -l", config=config)
+
+        assert result.action == Action.BLOCK, (
+            f"a block override still blocks, got {result.action}"
+        )
+        assert result.reason == self.FDISK_MESSAGE, (
+            f"a block-action override must keep the replaced rule's message, "
+            f"got {result.reason!r}"
+        )
+
+    def test_explicit_message_still_wins(self, tmp_path) -> None:
+        """Inheritance must not shadow an explicitly declared message."""
+        config = _write_user_rules(
+            tmp_path,
+            self._override_yaml("warn", "    block_message: Operator rationale.\n"),
+        )
+        result = intercept("fdisk -l", config=config)
+
+        assert result.action == Action.ALLOW
+        assert result.reason == "would have blocked: Operator rationale.", (
+            f"an explicit block_message must win, got {result.reason!r}"
+        )
+        assert self.FDISK_MESSAGE not in result.reason
+
+    @pytest.mark.parametrize("action", ["warn", "block"])
+    def test_explicit_generic_placeholder_is_still_a_choice(
+        self, tmp_path, action: str
+    ) -> None:
+        """Declaring the placeholder verbatim is a CHOICE, not an omission.
+
+        Presence is the contract: a rule that literally says "Command blocked
+        by security policy." must keep it rather than silently acquiring the
+        replaced rule's wording. Only an ABSENT key inherits.
+        """
+        config = _write_user_rules(
+            tmp_path,
+            self._override_yaml(
+                action, f"    block_message: {self.GENERIC}\n"
+            ),
+        )
+        result = intercept("fdisk -l", config=config)
+
+        assert result.reason.endswith(self.GENERIC), (
+            f"an explicitly declared placeholder must be preserved, "
+            f"got {result.reason!r}"
+        )
+
+    def test_new_id_rule_without_a_message_keeps_the_placeholder(
+        self, tmp_path
+    ) -> None:
+        """A brand-new id has nothing to inherit — the placeholder stays."""
+        yaml_text = (
+            "rules:\n"
+            "  - id: user-no-message\n"
+            "    description: New id, no message\n"
+            "    priority: 100\n"
+            "    action: block\n"
+            "    match:\n"
+            "      type: pattern\n"
+            "      pattern: 'frobnicate'\n"
+        )
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("frobnicate", config=config)
+
+        assert result.action == Action.BLOCK
+        assert result.reason == self.GENERIC, (
+            f"a new id has no message to inherit, got {result.reason!r}"
+        )
+
+    def test_file_over_file_override_inherits_across_the_pack_seam(
+        self, tmp_path
+    ) -> None:
+        """The second merge seam: a later file's same-id rule shadows an earlier one.
+
+        This is the documented remedy shape — a rule pack installs an id and a
+        later-sorting ``zz-local.yaml`` downgrades it to warn without restating
+        the message.
+        """
+        pack_like = (
+            "rules:\n"
+            "  - id: pack-db-drop-database\n"
+            "    description: Pack rule\n"
+            "    priority: 900\n"
+            "    action: block\n"
+            f"    block_message: {self.FDISK_MESSAGE}\n"
+            "    match:\n"
+            "      type: pattern\n"
+            "      pattern: 'drop\\s+database'\n"
+        )
+        override = (
+            "rules:\n"
+            "  - id: pack-db-drop-database\n"
+            "    description: Operator downgrade to warn\n"
+            "    priority: 100\n"
+            "    action: warn\n"
+            "    match:\n"
+            "      type: pattern\n"
+            "      pattern: 'drop\\s+database'\n"
+        )
+        rules_dir = tmp_path / "user-rules.d"
+        rules_dir.mkdir()
+        (rules_dir / "terminal-jail-pack-db.yaml").write_text(pack_like)
+        (rules_dir / "zz-local.yaml").write_text(override)
+        system_dir = tmp_path / "system-rules.d"
+        system_dir.mkdir()
+        config = Config(
+            system_rules_dir=str(system_dir),
+            user_rules_dir=str(rules_dir),
+        )
+        result = intercept('psql -c "DROP DATABASE prod"', config=config)
+
+        assert result.action == Action.ALLOW, (
+            f"the warn override runs the command, got {result.action}"
+        )
+        assert result.rule_id == "pack-db-drop-database"
+        assert result.reason == f"would have blocked: {self.FDISK_MESSAGE}", (
+            f"a later file's override must inherit the earlier rule's message, "
+            f"got {result.reason!r}"
+        )
+
+    def test_builtin_messages_are_unchanged_by_the_inheritance(self, tmp_path) -> None:
+        """No override at all: the builtin's own verdicts are untouched.
+
+        Guards the fix's blast radius — the inheritance must only fire for an
+        override that omitted its message, never on the built-in constants.
+        """
+        config = _write_user_rules(tmp_path, "rules: []\n")
+        result = intercept("fdisk -l", config=config)
+
+        assert result.action == Action.BLOCK
+        assert result.rule_id == "builtin-fdisk"
+        assert result.reason == self.FDISK_MESSAGE
+
+
+# =============================================================================
 # Allow-verdict provenance + default-allow posture (DF-TERMINAL-JAIL-12)
 # =============================================================================
 

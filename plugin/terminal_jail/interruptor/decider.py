@@ -22,7 +22,7 @@ from .parser import (
     segment_texts,
     structure_preserved,
 )
-from .rules import Rule, RuleLoader, RuleSet
+from .rules import Rule, RuleLoader, RuleSet, inherit_override_message
 from .sandbox import BUILTIN_SANDBOX
 from .types import Action, InterceptResult
 from .userns import unshare_prefix
@@ -78,12 +78,21 @@ class Decider:
         built-in is removed and the user rule is evaluated in its place).
         User rules with new ids are collected into the Layer 4 list,
         already sorted by priority descending (RuleSet order is preserved).
+
+        An overriding rule that declares no ``block_message`` inherits the
+        replaced rule's message, so a downgrade to ``warn`` still tells the
+        operator which policy it is deciding on (DF-TERMINAL-JAIL-25).
         """
         user_by_id = {r.id for r in user_rules.rules}
 
         def effective(builtins: list[Rule], layer_ids: set[str]) -> list[Rule]:
+            replaced_by_id = {r.id: r for r in builtins if r.id in user_by_id}
             rules = [r for r in builtins if r.id not in user_by_id]
-            rules.extend(r for r in user_rules.rules if r.id in layer_ids)
+            rules.extend(
+                inherit_override_message(r, replaced_by_id.get(r.id))
+                for r in user_rules.rules
+                if r.id in layer_ids
+            )
             rules.sort(key=lambda r: r.priority, reverse=True)
             return rules
 

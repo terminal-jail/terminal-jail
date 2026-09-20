@@ -228,6 +228,124 @@ def test_cli_surfaces_user_rule_warn_override(cli_path: Path, tmp_path: Path) ->
     )
 
 
+# ── DF-TERMINAL-JAIL-25: a downgrade keeps the policy's own message ─────────
+
+
+# The message builtin-fdisk ships with. A same-id override that declares no
+# block_message must NOT be able to replace it with the generic placeholder —
+# that placeholder is what the warn path then printed, leaving the operator
+# with nothing to judge the downgrade by. Asserted as a literal so the test
+# fails if the builtin's own wording ever drifts.
+FDISK_BUILTIN_MESSAGE = "Partition manipulation (fdisk, parted, gdisk) is blocked."
+GENERIC_PLACEHOLDER = "Command blocked by security policy."
+
+
+@pytest.mark.standalone_cli
+def test_bridge_warn_override_keeps_the_rules_own_message(tmp_path: Path) -> None:
+    """DF-TERMINAL-JAIL-25 (P3): the downgraded rule's own message must reach `reason`.
+
+    A same-id override with ``action: warn`` REPLACES ``builtin-fdisk`` in its
+    layer. The override in this test declares NO ``block_message`` — the shape
+    the dogfood run used — and the bridge used to answer::
+
+        {"reason": "would have blocked: Command blocked by security policy."}
+
+    The generic placeholder replaced the rule's own message, so the CLI printed
+    ``WARNING — would have blocked: Command blocked by security policy.`` and
+    said nothing about WHICH policy was downgraded or what it protects. Warn
+    mode exists precisely so an operator can decide whether a downgrade is
+    safe, and the engine already emitted the right rule_id.
+
+    The loss was at the same-id MERGE, not on the warn path: the identical
+    omission under ``action: block`` also produced the generic text, which is
+    why the fix carries the replaced rule's message at merge time (see
+    ``plugin/test_interruptor.py::TestSameIdOverrideMessageInheritance``).
+    """
+    rules_dir = tmp_path / "user-rules.d"
+    rules_dir.mkdir()
+    (rules_dir / "99-warn.yaml").write_text(
+        "rules:\n"
+        "  - id: builtin-fdisk\n"
+        "    description: User override — warn on fdisk (no block_message)\n"
+        "    priority: 100\n"
+        "    action: warn\n"
+        "    match:\n"
+        "      type: pattern\n"
+        "      pattern: 'fdisk'\n"
+    )
+    system_dir = tmp_path / "system-rules.d"
+    system_dir.mkdir()
+
+    result = _bridge_main_inproc(
+        json.dumps({"command": "fdisk -l"}),
+        extra_env={
+            "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+            "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(system_dir),
+        },
+    )
+    assert result.returncode == 0
+    response = json.loads(result.stdout.decode("utf-8"))
+
+    assert response["action"] == "allow", (
+        f"a warn override runs the command; got {response['action']!r}"
+    )
+    assert response["rule_id"] == "builtin-fdisk", (
+        f"expected the downgraded rule's id, got {response['rule_id']!r}"
+    )
+    reason = response["reason"]
+    assert reason.startswith("would have blocked: "), (
+        f"expected a would-have-blocked reason, got {reason!r}"
+    )
+    assert FDISK_BUILTIN_MESSAGE in reason, (
+        f"the downgraded rule's own message is missing from the reason: {reason!r}"
+        " — an operator cannot judge a downgrade that does not name the policy"
+    )
+    assert reason != f"would have blocked: {GENERIC_PLACEHOLDER}", (
+        f"the generic placeholder replaced the rule's own message: {reason!r}"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_bridge_warn_override_with_explicit_message_wins(tmp_path: Path) -> None:
+    """An override that DOES declare a block_message keeps its own wording.
+
+    The inheritance above must not make an explicit message unreachable: the
+    operator's replacement text is the point of declaring one.
+    """
+    rules_dir = tmp_path / "user-rules.d"
+    rules_dir.mkdir()
+    (rules_dir / "99-warn.yaml").write_text(
+        "rules:\n"
+        "  - id: builtin-fdisk\n"
+        "    description: User override — warn with an operator message\n"
+        "    priority: 100\n"
+        "    action: warn\n"
+        "    block_message: Operator-supplied downgrade rationale.\n"
+        "    match:\n"
+        "      type: pattern\n"
+        "      pattern: 'fdisk'\n"
+    )
+    system_dir = tmp_path / "system-rules.d"
+    system_dir.mkdir()
+
+    result = _bridge_main_inproc(
+        json.dumps({"command": "fdisk -l"}),
+        extra_env={
+            "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+            "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(system_dir),
+        },
+    )
+    response = json.loads(result.stdout.decode("utf-8"))
+    assert response["action"] == "allow"
+    assert "Operator-supplied downgrade rationale." in response["reason"], (
+        f"an explicit block_message must win over the inherited one: "
+        f"{response['reason']!r}"
+    )
+    assert FDISK_BUILTIN_MESSAGE not in response["reason"], (
+        "the builtin's message must not leak into an explicit override"
+    )
+
+
 @pytest.mark.standalone_cli
 def test_interruptor_disabled_mode_bypasses(cli_path: Path) -> None:
     """Disabled mode bypasses the interruptor entirely."""
