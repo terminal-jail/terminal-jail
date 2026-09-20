@@ -119,7 +119,76 @@ def empty_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# the shipped pack, through the live engine
+# DF-TERMINAL-JAIL-23: the two block rules match EXECUTION CONTEXT only
+# ---------------------------------------------------------------------------
+
+# The 9-shape regression matrix from the task, through the live engine with
+# the pack installed. BLOCK side: the destructive SQL sits in a real SQL
+# execution position (immediately after the client's -c/-e flag — arm A).
+# The first three are the task's mandated blocks; the last two pin the
+# additional arms the pack header documents (after a semicolon inside the
+# -c string — arm B1; positional after sqlite3 — arm C).
+DB_PACK_EXECUTION_CONTEXT_BLOCKS = (
+    ('psql -c "DROP DATABASE prod"', "pack-db-drop-database"),
+    ('psql -c "DROP TABLE users"', "pack-db-drop-table"),
+    ('mysql -e "DROP TABLE users;"', "pack-db-drop-table"),
+    ('psql -c "SELECT 1; DROP TABLE x"', "pack-db-drop-table"),
+    ('sqlite3 app.db "DROP TABLE legacy"', "pack-db-drop-table"),
+)
+
+# ALLOW side: the statement TEXT is present but NOT in an execution position,
+# so no pack rule may block (and none may attribute): sed/git are the
+# remediation deadlock the reshaping closes, the psql SELECT literal is the
+# read-only string whose words sit INSIDE a closed literal, echo/grep merely
+# carry the text, and `psql -f` is the file-body gap that belongs to
+# DF-TERMINAL-JAIL-10 (kept allowing here on purpose).
+DB_PACK_EXECUTION_CONTEXT_ALLOWS = (
+    'sed -i "s/DROP DATABASE/-- DROP DATABASE/" migrations/003_shard.sql',
+    'git commit -am "park the DROP DATABASE migration"',
+    'psql -c "SELECT msg FROM t WHERE msg = \'drop database retry\'"',
+    'echo "DROP TABLE users" > build/rollback.sql',
+    'psql -f migrations/002_legacy.sql',
+    'grep -rn "DROP TABLE" migrations/',
+)
+
+
+class TestDbPackBlockRulesMatchExecutionContext:
+    """DF-TERMINAL-JAIL-23: the pack's two block rules require a SQL client
+    AND the statement in an execution position — a destructive statement
+    carried as plain text (sed replacement, commit message, quoted data
+    literal, grep argument) is no longer blocked."""
+
+    @pytest.mark.parametrize(("command", "rule_id"), DB_PACK_EXECUTION_CONTEXT_BLOCKS)
+    def test_destructive_sql_in_execution_context_blocks(
+        self, installed_pack: Path, command: str, rule_id: str
+    ) -> None:
+        result = intercept(command)
+
+        assert result.action == Action.BLOCK, result
+        assert result.rule_id == rule_id, (command, result)
+
+    @pytest.mark.parametrize("command", DB_PACK_EXECUTION_CONTEXT_ALLOWS)
+    def test_statement_text_outside_execution_context_is_not_attributed(
+        self, installed_pack: Path, command: str
+    ) -> None:
+        result = intercept(command)
+
+        assert result.action != Action.BLOCK, (command, result)
+        assert not str(result.rule_id or "").startswith("pack-"), (command, result)
+
+    def test_block_vectors_are_unattributed_without_the_pack(
+        self, empty_rules: Path
+    ) -> None:
+        """Control: with no pack installed none of the block vectors is a
+        pack attribution (they ride on the engine's own defaults)."""
+        for command, rule_id in DB_PACK_EXECUTION_CONTEXT_BLOCKS:
+            result = intercept(command)
+            assert result.rule_id != rule_id, (command, result)
+            assert not str(result.rule_id or "").startswith("pack-"), (command, result)
+
+
+# ---------------------------------------------------------------------------
+# the installer's validator
 # ---------------------------------------------------------------------------
 
 

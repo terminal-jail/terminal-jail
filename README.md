@@ -507,7 +507,7 @@ as an **opt-in rule pack**: a curated rule file in the repository under
 
 | Pack | Blocks | Sandboxes | Rules |
 |------|--------|-----------|------:|
-| `db` | `DROP DATABASE` (`pack-db-drop-database`), `DROP TABLE` (`pack-db-drop-table`) | bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 3 |
+| `db` | `DROP DATABASE` (`pack-db-drop-database`), `DROP TABLE` (`pack-db-drop-table`) — blocked only in a SQL-execution context (a SQL client + the statement after its `-c`/`-e` flag, in a multi-statement flag string, or positionally after sqlite3/sqlplus; not bare statement text) | bulk dump/restore tooling — `pg_dump`, `pg_dumpall`, `pg_restore`, `mysqldump`, `mysqlimport` (`pack-db-dump-restore`) | 3 |
 
 A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
 rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`

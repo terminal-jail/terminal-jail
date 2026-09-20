@@ -19,6 +19,37 @@
   deliberately does not target (scoped source, different client, quoted
   form) before closing.
 
+### The optional 'db' pack's block rules match execution context only (DF-TERMINAL-JAIL-23)
+
+- **Scope fix** (`plugin/terminal_jail/rules/packs/db.yaml`): the two block
+  rules (`pack-db-drop-database`, `pack-db-drop-table`) were bare statement-
+  shape patterns — they fired anywhere the words appeared, so the commands
+  that *remove* the statement were blocked while the file-execution path that
+  really destroys the data sailed through (the remediation deadlock measured
+  in the 2026-09-19 dogfood). Both rules are now a composite AND: a SQL
+  client (psql, mysql, mariadb, sqlite3, mysqladmin, sqlplus) plus the DROP
+  statement in an execution position — immediately after the client's
+  `-c`/`-e`/`--command`/`--execute` flag, after a semicolon or a closed quoted
+  literal inside that flag string (multi-statement strings), or positionally
+  quoted after sqlite3/sqlplus. `sed -i "s/DROP DATABASE/…"`,
+  `git commit -am "park the DROP DATABASE migration"`, and read-only strings
+  whose words sit inside a quoted data literal
+  (`psql -c "SELECT … WHERE msg = 'drop database retry'"`) are no longer
+  blocked; `psql -c "DROP TABLE users"` still is.
+- **Known residuals** (documented in the pack header, deliberately not fixed):
+  (a) SQL inside a file passed with `-f` remains invisible to the firewall —
+  that is DF-TERMINAL-JAIL-10 and is still open; (b) destructive SQL pasted
+  into a NON-SQL-client interpreter (`python3 -c` and friends) is no longer
+  caught — the accepted cost of requiring an execution context; (c) the
+  semicolon/closed-literal arms stop at the first quote or semicolon inside
+  the flag string, and the sqlite3/sqlplus positional arm is best-effort.
+- **Tests** (`plugin/test_rule_packs.py`,
+  `TestDbPackBlockRulesMatchExecutionContext`): the 9-shape regression matrix
+  through the live engine — 5 block vectors (the 3 mandated + the B1/C arms)
+  and 6 allow vectors (the remediation pair, the quoted-literal read, and
+  echo/grep/`psql -f` carriers) — plus the no-pack control. RED-proven
+  against the old pack: exactly the three false-positive allow vectors fail.
+
 ### Installed rule-mirror drift is no longer silent — scripts/rules-drift-probe.py (TJ-GAP-069)
 
 - **Probe** (`scripts/rules-drift-probe.py`, new): a host whose installed

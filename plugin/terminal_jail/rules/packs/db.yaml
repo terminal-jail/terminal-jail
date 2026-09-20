@@ -35,12 +35,39 @@
 # shadow a builtin: a same-id rules.d entry replaces the builtin in its layer,
 # which is exactly the silent-override class this contract closes.
 #
-# SCOPE — these are SHAPE rules, in the same spirit as the builtin egress
-# family: they match the destructive statement anywhere in the command string
-# (a SQL client is not required), so a migration script pasted into an
-# interpreter is caught too, and a non-database command that merely carries the
-# text is caught as well. The BENIGN control vectors are the ordinary reads
-# (`psql -c 'SELECT 1'`, `mysql -e 'SELECT 1'`), which no rule here matches.
+# SCOPE (DF-TERMINAL-JAIL-23) — the two block rules match EXECUTION CONTEXT:
+# a destructive statement counts only when a SQL client (psql, mysql, mariadb,
+# sqlite3, mysqladmin, sqlplus) is part of the command AND the statement sits
+# in an execution position — immediately after the client's -c/-e/--command/
+# --execute flag, after a SELECT/WITH prefix inside that same flag string (a
+# multi-statement string), or as a quoted statement argument of a client that
+# takes statements positionally (sqlite3/sqlplus basics). A SQL client IS now
+# required; a statement merely carried as text is not matched. Measured
+# through the bridge (dogfood 2026-09-19), this closes the remediation
+# deadlock where the pack blocked the commands that REMOVE the statement:
+#   blocked:  `psql -c "DROP DATABASE prod"`, `psql -c "DROP TABLE users"`,
+#             `mysql -e "DROP TABLE users;"`
+#   allowed:  `sed -i "s/DROP DATABASE/-- DROP DATABASE/" ...`,
+#             `git commit -am "park the DROP DATABASE migration"`,
+#             read-only strings that merely contain the words
+#             (`psql -c "SELECT msg FROM t WHERE msg = 'drop database retry'"`),
+#             `grep -rn "DROP TABLE" migrations/`, `echo "DROP TABLE ..." > f`,
+#             `psql -f migrations/002_legacy.sql`
+# KNOWN RESIDUALS — accepted, documented, deliberately NOT fixed here:
+#   (a) SQL inside a file passed with -f is invisible to the firewall (the
+#       engine only sees the command string, never the file body) — that is
+#       DF-TERMINAL-JAIL-10 and is still open.
+#   (b) destructive SQL pasted into a NON-SQL-client interpreter
+#       (`python3 -c "import sqlite3; sqlite3.connect('x').execute('DROP ...')"`
+#       and friends) is no longer caught — that is the accepted cost of
+#       requiring an execution context. The previous shape rules caught the
+#       words anywhere, and with them also blocked the remediation commands
+#       above (dogfood 2026-09-19), which is the worse trade.
+#   (c) the SELECT/WITH arm stops at the first quote/semicolon inside the -c
+#       string, so a CTE whose data span contains either before the DROP is
+#       not matched; the sqlite3/sqlplus positional arm is anchored only by
+#       the client token, so quoted text following those two clients is
+#       best-effort.
 # The wider catalogue (psql `\!` escape, mysql SHUTDOWN, redis CONFIG) is
 # TJ-GAP-062 and is deliberately NOT in this file — this pack exists to prove
 # the mechanism end-to-end.
@@ -55,12 +82,27 @@ rules:
     action: block
     block_message: "Blocked by the optional 'db' rule pack: a DROP DATABASE statement destroys an entire database. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it."
     match:
-      type: pattern
-      # `DROP DATABASE` (and the optional `IF EXISTS` tail). Statement-shape
-      # match, case-insensitive via the matcher; `(?<![\w-])` is the
-      # token-start boundary so identifiers ending in the word (e.g.
-      # `xdrop database`) are not matched.
-      pattern: "(?<![\\w-])drop\\s+database\\b"
+      type: composite
+      operator: and
+      # (1) a SQL client is part of the command, and (2) the statement sits in
+      # an execution position (DF-TERMINAL-JAIL-23). Arm A: immediately after
+      # the client's -c/-e/--command/--execute flag (optionally behind ONE
+      # quote char — the wrapper's argv quoting or the shell's own). Arm B1:
+      # inside a -c/-e string, after a semicolon (`-c "SELECT 1; DROP ..."`).
+      # Arm B2: inside a -c/-e string, after a CLOSED quoted literal
+      # (`-c "SELECT ... WHERE x = 'a' ; DROP ..."`). The closed-literal
+      # requirement is what keeps a read-only string like
+      # `psql -c "SELECT msg FROM t WHERE msg = 'drop database retry'"`
+      # ALLOWED — there the words sit INSIDE the literal, never behind a
+      # closed one — while the multi-statement forms still block. Arm C:
+      # sqlite3/sqlplus take a statement as a positional argument
+      # (`sqlite3 app.db 'DROP TABLE x'`); tempered-dot anchors it to the
+      # client so bare statement text alone never fires.
+      conditions:
+        - type: pattern
+          pattern: "(?<![\\w-])(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+        - type: pattern
+          pattern: "(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+(?:database|schema)\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\\\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!\\bdrop\\s+(?:database|schema)\\b).)*(?<![\\w-])['\\\"](?![\\w-]*\\s*(?:and|or|not|in|like|between|is|where|select|from)\\b)[^'\\\"]*(?<![\\w-])drop\\s+(?:database|schema)\\b"
 
   # ---------------------------------------------------------------------------
   # DROP TABLE — destroys a table and its rows.
@@ -71,10 +113,19 @@ rules:
     action: block
     block_message: "Blocked by the optional 'db' rule pack: a DROP TABLE statement destroys a table and its contents. This rule is not part of the default rule set — remove it with `./install.sh --unrule-pack db`, or override this id to warn level with a same-id user rule in your rules.d if a workflow genuinely needs it (a scratch/temp table drop included)."
     match:
-      type: pattern
-      # `DROP TABLE` in its plain spelling; the `DROP TABLE IF EXISTS` form
-      # matches the same arm. Same token-start boundary as above.
-      pattern: "(?<![\\w-])drop\\s+table\\b"
+      type: composite
+      operator: and
+      # Same execution-context shape as DROP DATABASE above (DF-TERMINAL-JAIL-23):
+      # a SQL client AND the statement in an execution position — immediately
+      # after the -c/-e/--command/--execute flag (arm A), after a semicolon or
+      # a CLOSED quoted literal inside the flag string (arms B1/B2), or
+      # positionally quoted after sqlite3/sqlplus (arm C). `IF EXISTS` matches
+      # the same arms (the DROP token starts the tail).
+      conditions:
+        - type: pattern
+          pattern: "(?<![\\w-])(?:psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus)\\b"
+        - type: pattern
+          pattern: "(?:-[ce]\\s+['\\\"]?|--(?:command|execute)(?:=|\\s+)['\\\"]?)(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*;\\s*(?<![\\w-])drop\\s+table\\b|-[ce]\\s+['\\\"][^'\\\"]*['\\\"][^'\\\"]*['\\\"][^'\\\"]*(?<![\\w-])drop\\s+table\\b|(?<![\\w-])(?:sqlite3|sqlplus)\\b(?:(?!\\bdrop\\s+table\\b).)*(?<![\\w-])['\\\"](?![\\w-]*\\s*(?:and|or|not|in|like|between|is|where|select|from)\\b)[^'\\\"]*(?<![\\w-])drop\\s+table\\b"
 
   # ---------------------------------------------------------------------------
   # Bulk dump / restore tooling — dual use, so it is SANDBOXED, not blocked.

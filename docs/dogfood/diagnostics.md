@@ -187,6 +187,16 @@ echo '{"command":"psql -c \"DROP DATABASE prod\""}' \
 
 ### 8.3 A shape rule in a DB pack stops the fix, not the destruction
 
+**Update (DF-TERMINAL-JAIL-23):** the pack's two block rules now match
+**execution context** — a SQL client plus the statement in an execution
+position (after the client's `-c`/`-e` flag, in a multi-statement flag
+string, or positionally after sqlite3/sqlplus). The sed/git/quoted-literal
+false positives below no longer reproduce; `psql -c "DROP …"` still blocks.
+The file-execution gap (`psql -f`) is the still-open DF-TERMINAL-JAIL-10, and
+destructive SQL pasted into a non-SQL-client interpreter is now an accepted
+residual of the execution-context scope. The pre-fix behavior is preserved
+below because the diagnosis is what justified the change.
+
 The pack's two block rules match the SQL shape anywhere in the command string
 (documented as deliberate, and reasonable for a revshell). In a database pack the
 practical result is inverted: the file-execution path that really destroys the
