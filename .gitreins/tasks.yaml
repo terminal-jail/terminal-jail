@@ -1208,3 +1208,24 @@ tasks:
   status: complete
   created_at: '2026-09-21T05:18:31.384422+00:00'
   completed_at: '2026-09-21T05:54:25.429322+00:00'
+- id: DF-TERMINAL-JAIL-32
+  title: Record 2026-09-19 fresh-machine install re-verification as the DF-21/DF-26
+    regression evidence
+  criteria:
+  - docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522
+    on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf
+  - 'That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh
+    --rule-pack db correctly SKIPPED with the remediation message and ''base install
+    completed'', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a
+    fresh machine)'
+  - The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe
+    FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow
+    with rule_id provenance
+  - The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth
+    17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete
+    with reasoning citing the evening dogfood doc
+  - Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check
+    . clean
+  status: complete
+  created_at: '2026-09-21T11:28:51.945836+00:00'
+  completed_at: '2026-09-21T11:35:38.815965+00:00'
