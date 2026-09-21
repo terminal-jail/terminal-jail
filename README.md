@@ -103,20 +103,30 @@ TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail rm -rf /
 TERMINAL_JAIL_INTERRUPTOR_MODE=disabled ./standalone/terminal-jail --no-interruptor echo "test"
 ```
 
-**Malformed input fails OPEN.** The bridge is a single-command JSON endpoint. It expects one
-JSON object with a `command` key whose value is a string: `{"command": "<shell command>"}`.
-Invalid JSON, empty stdin, a payload that is not a JSON object (`null`, an array, a number, a
-boolean, or a quoted string), a **missing or misnamed `command` key** (`{}`, `{"Command": …}`,
-`{"cmd": …}`), or a **non-string `command` value** (`{"command": 123}`) all make it answer
+**Malformed *input* fails OPEN; engine failure fails CLOSED.** The bridge is a single-command
+JSON endpoint. It expects one JSON object with a `command` key whose value is a string:
+`{"command": "<shell command>"}`. Invalid JSON, empty stdin, a payload that is not a JSON object
+(`null`, an array, a number, a boolean, or a quoted string), a **missing or misnamed `command`
+key** (`{}`, `{"Command": …}`, `{"cmd": …}`), or a **non-string `command` value**
+(`{"command": 123}`) all make it answer
 `{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command"}`
-and exit 0 — no rule can be applied, so the command proceeds unguarded. This is an **error
-report**, not a block: the command is still allowed, and every schema error is named in the
-`reason` field (missing key, non-object payload, non-string command). This is the same
-fail-open contract the plugin follows (`specs/plugin.md`): a firewall that cannot parse its
-input must not wedge the caller. Fail-*closed* applies only to a **missing bridge**, where
-enforce mode exits 126 with a `COMMAND BLOCKED` box. If you need malformed input to be denied,
-validate the payload yourself and treat any `reason` beginning `[bridge-error]` as a denial.
-An explicit empty command (`{"command": ""}`) is valid input, not a schema error.
+and exit 0 — no rule can be applied, so the command proceeds unguarded. This is a deliberate
+**error report**, not a block: the bridge runs before every command of a host shell, so blocking on
+malformed input could brick the shell it protects. Every schema error is named in `reason`
+(missing key, non-object payload, non-string command), and an explicit empty command
+(`{"command": ""}`) is valid input, not a schema error.
+
+Everything else now fails **CLOSED** (TJ-GAP-070). If the engine raises while evaluating — a rule
+file that loads but carries a bad field type (e.g. `priority: not-a-number`) is refused at load
+with a one-line stderr note naming it — the bridge answers
+`{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <detail> — fail-closed: blocking command (enforce mode)"}`
+and the wrapper exits 126 with a `COMMAND BLOCKED` box. The same is true for a bridge whose stdout
+is empty or not a JSON object. The wrapper decides this itself: **any** verdict whose `reason`
+begins `[bridge-error]` is treated as a denial in enforce mode, and a loud `WARNING` — with the
+command running UNGUARDED — in warn mode. Fail-closed also applies to a **missing bridge** (exit
+126). If you invoke the bridge directly rather than through `standalone/terminal-jail`, treat any
+`reason` beginning `[bridge-error]` as a denial yourself; the allow envelope above is the one
+remaining fail-open case and it is limited to the transport-level input errors listed here.
 
 **Scope: the firewall rules on the command string only.** Every verdict above — allow,
 block, or modify — is a decision about the top-level command string. Script bodies are

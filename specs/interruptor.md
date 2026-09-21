@@ -118,6 +118,58 @@ rules:
 | `timeout` | varies | Command wrapped in `timeout N` before execution |
 | `sandbox` | varies | Command prefixed with `unshare` + `--seccomp` |
 
+### 3.5 Field Validation and Load Failure (TJ-GAP-070)
+
+Every field value the engine reads is type-checked when a rule file is loaded:
+
+| Field | Required type |
+|-------|---------------|
+| `id`, `description`, `action`, `block_message` | string (`block_message` may be absent/null) |
+| `priority` | integer (a `bool` is refused — it is an `int` subclass and would silently sort as 1) |
+| `match`, `modify` | mapping |
+| `match.type`, `match.pattern`, `match.regex`, `match.command`, `match.path`, `match.operator` | string |
+| `match.conditions` | list |
+| `match.not` | mapping or list |
+
+Load has two distinct failure paths, and they must not be conflated:
+
+- **Cannot PARSE** (invalid YAML/JSON, unreadable file) → the file is
+  **skipped** and contributes no rules (DF-TERMINAL-JAIL-6 leniency; §14).
+- **Parses but a field has the wrong TYPE** (e.g. `priority: not-a-number`) →
+  the file is **REFUSED**: one loud one-line note naming the file is written to
+  stderr and the load **ABORTS** (``RuleSchemaError``). It is never silently
+  skipped: a skipped file would make an installed-looking policy silently
+  absent, and `priority: not-a-number` reaches ``RuleSet._sort()`` and raises
+  `TypeError` *during evaluation*. Aborting converts the typo into the
+  fail-closed verdict below instead of a silent allow.
+
+Omitted fields keep their defaults (`priority` 50, no `match`) — the check is
+about types the engine cannot use, not about policy completeness.
+
+### 3.6 Verdict Contract: Engine Errors Fail CLOSED (TJ-GAP-070)
+
+The bridge's stdout is the only channel between the engine and the wrapper, so
+"the engine could not decide" must never be indistinguishable from "the engine
+decided allow". The contract splits by failure class:
+
+| Failure class | Bridge verdict | Wrapper (enforce) | Wrapper (warn) |
+|---------------|----------------|-------------------|----------------|
+| Engine raised during evaluation (rule-load refusal, any `intercept()` exception) | `action: block`, `rule_id: "[bridge-error]"`, reason `[bridge-error] <Class: detail> — fail-closed: blocking command (enforce mode)` | **block**, exit 126 | loud WARNING, command runs |
+| Any verdict whose `reason` begins `[bridge-error]` | — (wrapper-side rule) | **block**, exit 126 | loud WARNING, command runs |
+| Bridge stdout empty or not a JSON object | — (wrapper-side rule) | **block**, exit 126 (`interruptor-verdict-unusable`) | loud WARNING, command runs |
+| **Transport** error: stdin read failure, empty stdin, invalid JSON, non-dict payload, missing/non-string `command`, engine `ImportError` | `action: allow`, `rule_id: null`, reason `[bridge-error] … — fail-open: allowing command` | allow (command runs) | allow |
+
+The transport row is the **documented exception**, and it stays fail-open by
+design: the bridge is invoked before every command of a host shell, so blocking
+on malformed *input* could brick the shell it protects. A missing *bridge* is a
+different failure and already fails closed (§14).
+
+Wrapper detection is deliberately independent of the bridge's own `action`
+field: a `[bridge-error]` reason blocks in enforce mode even when the envelope
+says `allow` (an older bridge, or a transport-level envelope replayed into a
+hostile stream), and the wrapper never falls back to `|| echo allow` —
+unparseable stdout is an unusable verdict, not an approval.
+
 ### 3.4 Rule Packs and the Precedence Contract (TJ-GAP-061)
 
 The default rule set is deliberately lean and identical on every host. Niche
@@ -667,6 +719,12 @@ esac
 - T-I38: Custom user rule overrides built-in (allowlist a normally-blocked command)
 - T-I39: Priority ordering — higher priority user rule wins
 - T-I40: Rule directory hot-reload (SIGHUP or file watcher)
+- T-I41: Engine-evaluation error fails CLOSED — a rules.d file carrying
+  `priority: not-a-number` yields `action=block` + `rule_id=[bridge-error]`
+  from the bridge, and the standalone wrapper exits 126 (`COMMAND BLOCKED`)
+  without running the command in enforce mode, warns loudly and runs it in
+  warn mode; a bridge emitting empty/non-JSON stdout blocks in enforce mode;
+  malformed *stdin* still yields the allow envelope (§3.6, TJ-GAP-070)
 
 ## 13. Performance Requirements
 
@@ -678,7 +736,25 @@ esac
 
 ## 14. Error Handling
 
-- Invalid rule file → skip with warning, continue loading others
-- Unparseable command → pass through with WARNING (never block due to parser failure)
+- Invalid rule file → **two paths, never conflated** (TJ-GAP-070, §3.5):
+  - *unparseable* (invalid YAML/JSON, unreadable) → skip with warning, continue
+    loading others;
+  - *parses but a field has the wrong type* (e.g. `priority: not-a-number`) →
+    REFUSE with one loud one-line stderr note naming the file, and abort the
+    load. The refusal reaches the bridge as an engine exception and becomes a
+    blocking `[bridge-error]` verdict (fail CLOSED — §3.6) rather than a
+    silent allow.
+- Unparseable command → pass through with WARNING (never block due to parser
+  failure)
 - Missing rules directory → act as pass-through
-- JSON output parsing failure in wrapper → fall back to passthrough
+- Engine exception inside `intercept()` → bridge emits a BLOCKING
+  `[bridge-error]` verdict; the wrapper blocks in enforce mode (exit 126) and
+  warns loudly while running the command in warn mode (§3.6)
+- Bridge stdout empty or not a JSON object → wrapper treats it as an unusable
+  verdict and BLOCKS in enforce mode; it never falls back to passthrough
+- Bridge **input** malformed (empty stdin, invalid JSON, non-object payload,
+  missing/non-string `command`) or the engine not importable → bridge answers
+  `action: allow` with a `[bridge-error]` reason and exit 0. This is the
+  deliberate fail-OPEN exception (§3.6): the bridge runs before every command of
+  a host shell, so blocking on malformed input could brick that shell.
+- Missing bridge ⇒ different failure: enforce mode fails CLOSED (exit 126)
