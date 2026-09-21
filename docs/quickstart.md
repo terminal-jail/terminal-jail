@@ -42,6 +42,9 @@ cd terminal-jail
 # Optional: opt in to a curated rule pack (repeat --rule-pack for more)
 ./install.sh --rule-pack db         # optional; see the README *Rule packs* section
 ./install.sh --list-rule-packs      # what this checkout ships
+
+# Remove everything again (see *3g. Removal / Uninstall* below)
+./install.sh --uninstall
 ```
 
 Rule packs are validated before anything is written. Installing a YAML pack
@@ -332,6 +335,43 @@ follow [docs/deploy-to-karahermes.md](deploy-to-karahermes.md) — it installs
 `/usr/local/bin/terminal-jail-sh` as the gateway's `SHELL`, wrapping every
 shell invocation with `setpriv --no-new-privs` + the CLI's
 `--user --seccomp` flags plus the interruptor firewall.
+
+### 3g. Removal / Uninstall
+
+```bash
+./install.sh --uninstall
+```
+
+`--uninstall` mirrors every install target and prints each removal
+(`removed: <path>` / `removed rc-line: <file>`). It removes:
+
+- the wrapper in `$TERMINAL_JAIL_INSTALL_DIR` (default `~/.local/bin`)
+- the lib tree `~/.local/lib/terminal-jail/` (`<prefix>/lib/terminal-jail/`
+  with a custom install dir)
+- in the rules directory the install resolved to: `00-builtins.yaml`,
+  installed packs (`terminal-jail-pack-*.yaml`) and `.bak-*` backups
+- the `# terminal-jail` PATH block from the rc file it was appended to —
+  only that marker-tagged block; everything else in the file stays
+
+It preserves your data: user-authored files in `rules.d` survive and are each
+listed (`left in place (user-authored): <path>`); system rules under
+`/etc/terminal-jail/` are root-managed and never touched; other files in the
+install dir are left alone. The rules dir resolution is the SAME one the
+install used — set `TERMINAL_JAIL_RULES_DIR` (or the same install dir) if you
+installed with a non-default scope.
+
+The gateway systemd drop-in is NOT removed implicitly (it lives in `/etc` and
+needs root). With the drop-in present the uninstall prints a NOTE; to remove
+it:
+
+```bash
+sudo ./install.sh --uninstall --uninstall-systemd
+# removes /etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf
+# (and 95-terminal-jail-shell.conf when present), then systemctl daemon-reload
+```
+
+`--uninstall` is idempotent — on an already-clean host it is a no-op that
+exits 0. To remove just one rule pack, keep using `--unrule-pack <name>`.
 
 ## 4. FAQ / Troubleshooting
 

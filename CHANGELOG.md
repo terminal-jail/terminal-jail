@@ -1,5 +1,33 @@
 ## [Unreleased]
 
+### `--uninstall`: the removal path (TJ-GAP-071)
+
+- **Feature** (`install.sh`): `./install.sh --uninstall` mirrors every install
+  target and prints each removal — the wrapper (`$TERMINAL_JAIL_INSTALL_DIR`),
+  the `<prefix>/lib/terminal-jail` tree, and in the SAME resolved rules
+  directory the install used: `00-builtins.yaml`, installed packs
+  (`terminal-jail-pack-*.yaml`) and the `.bak-<ts>` backups a re-install
+  creates. The `# terminal-jail` PATH block (marker + export line) is removed
+  from the rc file it was appended to, and only that block. USER-AUTHORED
+  rules.d files are PRESERVED and each listed at the end
+  (`left in place (user-authored): <path>`); other files in the install dir
+  and system rules under `/etc/terminal-jail/` are never touched.
+- `--uninstall-systemd` (only with `--uninstall`) additionally removes the
+  gateway drop-ins (`90-terminal-jail-hardening.conf`,
+  `95-terminal-jail-shell.conf`) and runs `systemctl daemon-reload`; without
+  the flag an existing drop-in is reported with a NOTE. Uninstall works from
+  any invocation shape (no local checkout needed — it downloads nothing, so
+  the release-mode opt-in gate does not apply); pack/list flags combined with
+  `--uninstall` are refused at parse time with exit 2 and nothing written.
+  Idempotent: a rerun on a clean host is a no-op with exit 0.
+- **Tests** (`plugin/test_uninstall.py`, 13, all against scratch HOMEs):
+  install → uninstall leaves zero terminal-jail files under the scratch HOME
+  and `command -v` finds nothing; install → uninstall → install round-trip;
+  user-authored rule survives and is listed; never-installed no-op rc 0;
+  custom-prefix scope; refusal combos; `--unrule-pack` unchanged.
+- **Docs**: README "Removal / Uninstall" section; `docs/quickstart.md` §3g
+  plus a pointer in §3a.
+
 ### The firewall's scope is documented: top-level command string only (DF-TERMINAL-JAIL-10)
 
 - **Docs only** (`specs/interruptor.md` §1.1, README bridge Quick Start): the
