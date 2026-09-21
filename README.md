@@ -615,6 +615,52 @@ but no release assets are published yet and release mode is therefore
 **opt-in only** — without the flag the installer refuses instead of hitting a
 dead URL. The git-clone path above is the supported install path.
 
+## Removal / Uninstall
+
+```bash
+./install.sh --uninstall
+```
+
+`--uninstall` removes exactly what the installer wrote, printing every removal
+(`removed: <path>` / `removed rc-line: <file>`):
+
+- the wrapper `terminal-jail` in `$TERMINAL_JAIL_INSTALL_DIR` (default
+  `~/.local/bin` — the same variable controls both install and removal)
+- the lib tree `~/.local/lib/terminal-jail/` (`<prefix>/lib/terminal-jail/`
+  for a custom install dir)
+- in the resolved rules directory: `00-builtins.yaml`, installed rule packs
+  (`terminal-jail-pack-*.yaml`) and the `.bak-*` backups a re-install creates
+- the `# terminal-jail` PATH block (marker line + `export PATH=…` line) from
+  the rc file the installer appended it to — only that marked block; any other
+  content in your rc files is never touched
+
+What it deliberately preserves:
+
+- **user-authored files in `rules.d`** — anything that is not one of the three
+  install-written classes above survives, and each one is listed at the end
+  (`left in place (user-authored): <path>`)
+- system rules under `/etc/terminal-jail/` — root-managed policy a user-level
+  uninstall never deletes (the final note says so)
+- other files in the install dir and the (possibly emptied) rules directory
+  itself
+
+The gateway systemd drop-in is removed only when you ask for it, because it
+lives in `/etc` and needs root:
+
+```bash
+sudo ./install.sh --uninstall --uninstall-systemd
+# removes /etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf
+# (and 95-terminal-jail-shell.conf, when present) and runs systemctl daemon-reload
+```
+
+Without the flag, an existing drop-in is reported with a NOTE instead of being
+removed. The rules directory the removal targets follows the SAME resolution
+the install used (`TERMINAL_JAIL_RULES_DIR` / install scope), so set the same
+environment you installed with if you used a non-default one. `--uninstall` is
+idempotent: on an already-clean host it is a no-op that exits 0. Uninstalling
+never reinstalls anything; `--unrule-pack` remains the scoped single-pack
+removal.
+
 ## Graceful Degradation
 
 Every layer degrades independently:

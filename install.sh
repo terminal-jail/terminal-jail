@@ -113,6 +113,8 @@ TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindup
 RULE_PACKS=""
 UNRULE_PACKS=""
 LIST_RULE_PACKS=0
+UNINSTALL=0
+UNINSTALL_SYSTEMD=0
 
 valid_pack_name() {
     case "$1" in
@@ -165,6 +167,19 @@ Options:
                         terminal-jail-pack-<name>.yaml is touched — the default
                         rules file and every other pack are never modified.
   --list-rule-packs     List the rule packs this checkout ships (exit 0).
+  --uninstall           Remove everything the installer wrote: the wrapper
+                        (TERMINAL_JAIL_INSTALL_DIR), the lib tree, the rules
+                        files it installed (00-builtins.yaml, installed packs
+                        terminal-jail-pack-*.yaml and their .bak-* backups),
+                        and its '# terminal-jail' PATH block in the rc file.
+                        USER-AUTHORED files in rules.d are PRESERVED and
+                        listed. User data (rules you wrote, other files in the
+                        install dir) is never touched. Idempotent: rerunning
+                        on an already-clean host exits 0.
+  --uninstall-systemd   With --uninstall: also remove the gateway systemd
+                        drop-in (90-terminal-jail-hardening.conf,
+                        95-terminal-jail-shell.conf) and run
+                        'systemctl daemon-reload'. Needs root for /etc.
   -h, --help            Print this help and exit 0.
 
 Environment (all optional):
@@ -206,6 +221,14 @@ while [ $# -gt 0 ]; do
             ;;
         --list-rule-packs)
             LIST_RULE_PACKS=1
+            shift
+            ;;
+        --uninstall)
+            UNINSTALL=1
+            shift
+            ;;
+        --uninstall-systemd)
+            UNINSTALL_SYSTEMD=1
             shift
             ;;
         -h|--help)
@@ -266,7 +289,9 @@ echo "terminal-jail installer: detected architecture ${ARCH}"
 # No release assets are published yet. Without a local checkout wrapper and
 # without an explicit TERMINAL_JAIL_USE_RELEASE=1 opt-in, refuse instead of
 # downloading from a dead URL (curl | sh would otherwise 404 silently).
-if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ]; then
+# --uninstall is exempt (TJ-GAP-071): it downloads nothing, so the dead-URL
+# hazard does not apply and removal must work from any invocation shape.
+if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ] && [ "$UNINSTALL" -eq 0 ]; then
     echo "terminal-jail installer: no local checkout detected and release mode is not enabled." >&2
     echo "  Release assets are not published yet (the default download URL returns 404)." >&2
     echo "  Supported install: run ./install.sh from a repository checkout." >&2
@@ -284,6 +309,21 @@ if [ -z "$LOCAL_WRAPPER" ]; then
         echo "terminal-jail installer: --rule-pack/--unrule-pack need the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
         exit 2
     fi
+fi
+
+# --- --uninstall refuses pack/flag mixing (TJ-GAP-071) -----------------------
+# Parse-time refusals: nothing has been created or written yet, so a rejected
+# combination leaves the filesystem untouched. Pack flags belong to an install
+# run; mixing them with uninstall is a caller error, not a best-effort.
+if [ "$UNINSTALL" -eq 1 ]; then
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] || [ "$LIST_RULE_PACKS" -eq 1 ]; then
+        echo "terminal-jail installer: --uninstall cannot be combined with --rule-pack/--unrule-pack/--list-rule-packs — run them separately (nothing was written)" >&2
+        exit 2
+    fi
+fi
+if [ "$UNINSTALL_SYSTEMD" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then
+    echo "terminal-jail installer: --uninstall-systemd only means something together with --uninstall (nothing was written)" >&2
+    exit 2
 fi
 
 # --- rule-pack listing (TJ-GAP-061) ------------------------------------------
@@ -414,6 +454,125 @@ resolve_user_rules_dir() {
     fi
 }
 resolve_user_rules_dir
+
+# --- uninstall (TJ-GAP-071) ---------------------------------------------------
+# The exact mirror of the install section below. Every removal is PRINTED
+# ("removed: <path>" / "removed rc-line: <file>"); everything the installer
+# did NOT write is preserved and, inside the rules dir, explicitly listed at
+# the end ("left in place (user-authored): <path>"). System paths
+# (/etc/terminal-jail, the gateway systemd drop-in) are NEVER touched
+# implicitly — the drop-in goes only behind --uninstall-systemd, and /etc/
+# terminal-jail rules are root-managed policy this user-level uninstall must
+# not delete. Idempotent: on an already-clean host every step no-ops and the
+# script exits 0.
+if [ "$UNINSTALL" -eq 1 ]; then
+    removed_count=0
+
+    # (1) rules dir contents — resolved with the SAME four-way resolution the
+    # install used (explicit TERMINAL_JAIL_RULES_DIR > default install scope
+    # live dir > engine-env > prefix-local config). Pack files are removed
+    # FIRST so the user-authored census below cannot mistake one for a
+    # user file.
+    if [ -d "$RESOLVED_RULES_DIR" ]; then
+        for rules_file in "$RESOLVED_RULES_DIR"/*; do
+            [ -f "$rules_file" ] || continue
+            base="$(basename "$rules_file")"
+            case "$base" in
+                00-builtins.yaml|terminal-jail-pack-*.yaml|*.bak-*)
+                    rm -f "$rules_file"
+                    echo "terminal-jail installer: removed: $rules_file"
+                    removed_count=$((removed_count + 1))
+                    ;;
+            esac
+        done
+    fi
+
+    # (2) wrapper binary — respect TERMINAL_JAIL_INSTALL_DIR (install.sh:621).
+    if [ -f "${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail" ]; then
+        rm -f "${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
+        echo "terminal-jail installer: removed: ${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
+        removed_count=$((removed_count + 1))
+    fi
+
+    # (3) lib tree — the mirror of the install's LIB_DIR layout (install.sh:552).
+    uninstall_lib_dir="$(path_normalize "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
+    if [ -d "$uninstall_lib_dir" ]; then
+        rm -rf "$uninstall_lib_dir"
+        echo "terminal-jail installer: removed: $uninstall_lib_dir"
+        removed_count=$((removed_count + 1))
+    fi
+
+    # (4) rc PATH block — remove ONLY the marker-scoped block the installer
+    # wrote (install.sh:654-658 / 669-673). A line is installer-written when
+    # it is 'export PATH="<resolved install dir>:$PATH"' (any occurrence after
+    # a marker, or one standing alone) OR the classic default line that only
+    # the DEFAULT scope ever appends.
+    for rc_file in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [ -f "$rc_file" ] || continue
+        path_line="export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:\$PATH\""
+        default_path_line='export PATH="$HOME/.local/bin:$PATH"'
+        if grep -qF '# terminal-jail' "$rc_file" 2>/dev/null \
+            && { grep -qF "$path_line" "$rc_file" 2>/dev/null \
+                 || grep -qF "$default_path_line" "$rc_file" 2>/dev/null; }; then
+            rc_tmp="${rc_file}.terminal-jail-uninstall.$$"
+            awk -v marker="# terminal-jail" -v pline="$path_line" -v dline="$default_path_line" '
+                $0 == marker { skip=3; deleted=1; next }
+                skip > 0 {
+                    if ($0 == pline || $0 == dline) { skip=0; deleted=1; next }
+                    skip--
+                    print
+                    next
+                }
+                { print }
+                END { exit deleted ? 0 : 1 }
+            ' "$rc_file" > "$rc_tmp" && mv "$rc_tmp" "$rc_file"
+            echo "terminal-jail installer: removed rc-line: $rc_file"
+            removed_count=$((removed_count + 1))
+        fi
+    done
+
+    # (5) gateway systemd drop-in — explicit opt-in ONLY (never implied).
+    if [ "$UNINSTALL_SYSTEMD" -eq 1 ]; then
+        for drop_in in \
+            /etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf \
+            /etc/systemd/system/hermes-gateway.service.d/95-terminal-jail-shell.conf
+        do
+            if [ -f "$drop_in" ]; then
+                if rm -f "$drop_in" 2>/dev/null; then
+                    echo "terminal-jail installer: removed: $drop_in"
+                    removed_count=$((removed_count + 1))
+                else
+                    echo "terminal-jail installer: WARNING — could not remove $drop_in (root required?); remove it manually" >&2
+                fi
+            fi
+        done
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl daemon-reload 2>/dev/null || echo "terminal-jail installer: WARNING — systemctl daemon-reload failed; run it manually" >&2
+        fi
+    elif [ -d /etc/systemd/system/hermes-gateway.service.d ] \
+        && ls /etc/systemd/system/hermes-gateway.service.d/*terminal-jail*.conf >/dev/null 2>&1; then
+        echo "terminal-jail installer: NOTE — a terminal-jail systemd drop-in exists under /etc/systemd/system/hermes-gateway.service.d/; re-run with --uninstall-systemd to remove it (needs root)"
+    fi
+
+    # (6) user-authored rules census — anything left in the rules dir that the
+    # installer never wrote is named explicitly, never silently deleted.
+    if [ -d "$RESOLVED_RULES_DIR" ]; then
+        for rules_file in "$RESOLVED_RULES_DIR"/*; do
+            [ -f "$rules_file" ] || continue
+            base="$(basename "$rules_file")"
+            case "$base" in
+                00-builtins.yaml|terminal-jail-pack-*.yaml|*.bak-*) ;;
+                *) echo "terminal-jail installer: left in place (user-authored): $rules_file" ;;
+            esac
+        done
+    fi
+
+    if [ "$removed_count" -eq 0 ]; then
+        echo "terminal-jail installer: nothing to uninstall — no terminal-jail files found"
+    fi
+    echo "terminal-jail installer: uninstall done. System rules under /etc/terminal-jail (if any) are root-managed and were NOT touched."
+    exit 0
+fi
 
 # --- opt-in rule packs (TJ-GAP-061, DF-TERMINAL-JAIL-21) ----------------------
 # Packs are per-host policy: the default rule set stays lean and a pack is
