@@ -308,15 +308,83 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
     }
 
     if [ -n "${bridge_result:-}" ]; then
-        action=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('action','allow'))" 2>/dev/null || echo "allow")
+        # TJ-GAP-070: the bridge's stdout is UNTRUSTED for parsing purposes.
+        # One python3 call extracts the three verdict fields and reports
+        # PARSE-OK/action on the first line. Before this, an unusable verdict
+        # fell through `|| echo "allow"`, so garbage stdout (or an empty line)
+        # silently allowed the command in enforce mode.
+        #
+        # Exit codes: 0 = parsed (line 1 PARSE-OK, line 2 action, line 3 rule_id,
+        # line 4 reason), 1 = stdout is empty or not a JSON object.
+        _tj_verdict=$(echo "$bridge_result" | python3 -c '
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    if not isinstance(d, dict):
+        raise ValueError("not a JSON object")
+except Exception:
+    sys.exit(1)
+print("PARSE-OK")
+print(d.get("action") or "")
+print(d.get("rule_id") or "unknown")
+print(d.get("reason") or "Command blocked by security policy")
+' 2>/dev/null) || _tj_verdict=""
+
+        if [ -z "$_tj_verdict" ]; then
+            # Unusable verdict — never treat it as an allow. Enforce mode fails
+            # closed; warn mode states loudly that the command ran unguarded.
+            if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                echo "[terminal-jail] WARNING — interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)" >&2
+            else
+                {
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  COMMAND BLOCKED — interruptor-verdict-unusable              |"
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  The interruptor bridge produced no usable verdict (empty or  |"
+                    echo "|  non-JSON stdout), so the command could not be evaluated.     |"
+                    echo "|                                                               |"
+                    echo "|  Command: ${CMD_STR:0:60}"
+                    echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+                    echo "+--------------------------------------------------------------+"
+                } >&2
+                exit 126
+            fi
+            _tj_verdict=$'PARSE-OK\nallow\nunknown\nCommand blocked by security policy'
+        fi
+
+        # Split the four lines with bash builtins only: the wrapper runs under a
+        # stripped PATH where external tools may be absent (see the
+        # no-external-commands note at the top of this file; test_standalone_cli
+        # and test_modify_preflight both exercise exactly that PATH).
+        _tj_action="${_tj_verdict#*$'\n'}"   # drop the PARSE-OK sentinel line
+        action="${_tj_action%%$'\n'*}"
+        _tj_rest="${_tj_action#*$'\n'}"
+        rule_id="${_tj_rest%%$'\n'*}"
+        # Everything after the rule_id line is the reason — a reason may itself
+        # contain newlines (a JSON "\n" escape decodes to a real newline).
+        reason="${_tj_rest#*$'\n'}"
+        unset -v _tj_verdict _tj_action _tj_rest
+
+        # TJ-GAP-070: a [bridge-error] reason is an engine/transport failure,
+        # not a policy match. The bridge now emits it as action=block, but an
+        # allow-shaped [bridge-error] verdict (transport-level allow envelope
+        # from a shell whose session cannot be bricked... or an older bridge)
+        # must still block in enforce mode and warn loudly in warn mode.
+        case "$reason" in
+            "[bridge-error]"*)
+                if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                    echo "[terminal-jail] WARNING — interruptor bridge reported an error; running the command UNGUARDED (warn mode): $reason" >&2
+                    action="allow"
+                else
+                    action="block"
+                fi
+                ;;
+        esac
 
         if [ "$action" = "block" ]; then
             # Print the formatted block output (the bridge doesn't format boxes
             # for us — we use the output module separately, or just print a
             # simple message here for speed).
-            rule_id=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('rule_id','') or 'unknown')" 2>/dev/null || echo "unknown")
-            reason=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','Command blocked by security policy') or '')" 2>/dev/null || echo "Command blocked by security policy")
-
             if [ "$INTERRUPTOR_MODE" = "warn" ]; then
                 echo "[terminal-jail] WARN: Would have blocked ($rule_id): $reason" >&2
             else

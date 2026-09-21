@@ -358,19 +358,27 @@ pattern firewall, not a policy sandbox (catalog of every shipped rule id:
 [rule-catalog.md](rule-catalog.md); see `specs/interruptor.md`).
 
 **What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
-It fails **open**: the bridge expects one JSON object with a string `command` key
-(`{"command": "..."}`). Bad JSON, empty stdin, a payload that is not a JSON
-object (`null`, array, number, boolean, quoted string), a missing or misnamed
-`command` key (`{}`, `{"Command": ...}`), or a non-string `command` value all
-make it answer
+That stays fail **open**, by design: the bridge expects one JSON object with a string `command`
+key (`{"command": "..."}`). Bad JSON, empty stdin, a payload that is not a JSON object (`null`,
+array, number, boolean, quoted string), a missing or misnamed `command` key (`{}`,
+`{"Command": ...}`), or a non-string `command` value all make it answer
 `{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] invalid JSON on stdin — fail-open: allowing command"}`
-and exit 0, so the command proceeds unguarded — the error is **reported** in
-`reason` (which schema problem it was), not enforced as a block. A *missing*
-bridge is different — enforce mode fails **closed** (exit 126,
-`COMMAND BLOCKED`). Validate the payload yourself and treat any `reason`
-starting with `[bridge-error]` as a denial if you need malformed input to block
-(README "Malformed input fails OPEN"). An explicit empty command
-(`{"command": ""}`) is valid input, not a schema error.
+and exit 0, so the command proceeds unguarded — the error is **reported** in `reason` (which
+schema problem it was). The bridge is invoked before every command of a host shell, so blocking on
+malformed *input* could brick that shell; the transport-level allow above is the only remaining
+fail-open case. An explicit empty command (`{"command": ""}`) is valid input, not a schema error.
+
+**What if the ENGINE fails instead (bad rule field type, unexpected exception)?**
+That fails **closed** (TJ-GAP-070). A rule file whose fields fail type validation — e.g.
+`priority: not-a-number` — is refused at load with a one-line stderr note naming the file, the
+refusal propagates out of `intercept()`, and the bridge answers
+`{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <detail> — fail-closed: blocking command (enforce mode)"}`.
+Enforce mode prints the `COMMAND BLOCKED` box and exits 126 without running the command; warn mode
+prints a loud `WARNING` naming the error and runs the command UNGUARDED. A bridge emitting empty or
+non-JSON stdout is treated as an unusable verdict and blocks the same way. This is what closes the
+silent-protection-loss hole: engine failure can no longer look like "allow". A *missing* bridge was
+already fail-closed (exit 126, `COMMAND BLOCKED`) — see README "Malformed input fails OPEN; engine
+failure fails CLOSED" and `specs/interruptor.md` §3.5–§3.6.
 
 **The interruptor bridge is not available (warning or block on stderr)?**
 The CLI resolves `plugin/terminal_jail/interruptor_bridge.py` in this order:

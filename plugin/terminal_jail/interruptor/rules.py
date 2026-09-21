@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +121,120 @@ class RuleSet:
         return f"RuleSet({len(self._rules)} rules)"
 
 
+class RuleSchemaError(ValueError):
+    """A rule file LOADED but carries a field whose type the engine cannot use.
+
+    Distinct from a file that cannot be parsed at all (DF-TERMINAL-JAIL-6 keeps
+    skipping those): this is a well-formed YAML document whose field values
+    would explode during EVALUATION — ``priority: not-a-number`` reaches
+    ``RuleSet._sort`` and raises ``TypeError`` inside ``intercept()``, which the
+    bridge used to swallow into a fail-open allow (TJ-GAP-070).
+    """
+
+
+# ── rule field schema (TJ-GAP-070) ───────────────────────────────────────────
+#
+# Types are stated for every field the engine READS, in the order the field
+# tables of Rule.from_dict / the Matcher dispatch use them. ``bool`` is
+# rejected for the numeric fields explicitly: it is an ``int`` subclass, and
+# ``priority: true`` would silently sort as 1 rather than fail.
+_SCHEMA_TOP_LEVEL: dict[str, tuple[str, type | tuple[type, ...]]] = {
+    "id": ("a string", str),
+    "description": ("a string", str),
+    "priority": ("an integer", int),
+    "action": ("a string", str),
+    "block_message": ("a string", (str, type(None))),
+    "match": ("a mapping", dict),
+    "modify": ("a mapping", (dict, type(None))),
+}
+
+# Nested MATCH fields the Matcher actually reads (matcher.py dispatch). An
+# unknown ``match.type`` is a no-op today (MatchResult() with matched=False),
+# so only the TYPES of the keys present are validated here.
+_SCHEMA_MATCH: dict[str, tuple[str, type | tuple[type, ...]]] = {
+    "type": ("a string", str),
+    "pattern": ("a string", str),
+    "regex": ("a string", str),
+    "command": ("a string", str),
+    "path": ("a string", str),
+    "operator": ("a string", str),
+    "conditions": ("a list", list),
+    "not": ("a mapping or a list", (dict, list)),
+}
+
+# Nested MODIFY fields (userns / sandbox rewrite).
+_SCHEMA_MODIFY: dict[str, tuple[str, type | tuple[type, ...]]] = {
+    "type": ("a string", str),
+    "command": ("a string", str),
+    "prefix": ("a string", str),
+    "sandbox": ("a string", str),
+}
+
+
+def _type_matches(value: Any, expected: type | tuple[type, ...]) -> bool:
+    """Type test that refuses ``bool`` where a number is expected.
+
+    ``isinstance(True, int)`` is True, so ``priority: true`` would pass a plain
+    isinstance check and then sort as 1 — a silent policy change rather than a
+    refusal. Every other type is a straight isinstance test.
+    """
+    if expected is int and isinstance(value, bool):
+        return False
+    if isinstance(expected, tuple) and int in expected and isinstance(value, bool):
+        return False
+    return isinstance(value, expected)
+
+
+def _check_field_group(
+    scope: str,
+    data: dict[str, Any],
+    schema: dict[str, tuple[str, type | tuple[type, ...]]],
+) -> str | None:
+    """Return the first schema violation in ``data``, or None when it is clean."""
+    for field, (label, expected) in schema.items():
+        if field not in data:
+            continue
+        value = data[field]
+        if not _type_matches(value, expected):
+            return (
+                f"field {scope}{field} must be {label}, "
+                f"got {type(value).__name__} ({value!r})"
+            )
+    return None
+
+
+def validate_rule_document(data: Any) -> str | None:
+    """Validate a parsed rules.d document; return the first violation or None.
+
+    The check is deliberately about TYPES the engine reads, not about policy
+    completeness: a missing ``priority`` still defaults to 50 and a missing
+    ``match`` still matches nothing, so those stay valid. Only a value the
+    engine cannot use — the ``priority: not-a-number`` class — is refused.
+    """
+    if not isinstance(data, dict):
+        return f"document must be a mapping, got {type(data).__name__}"
+    raw_rules = data.get("rules", [])
+    if not isinstance(raw_rules, list):
+        return f"'rules' must be a list, got {type(raw_rules).__name__}"
+    for index, raw in enumerate(raw_rules):
+        if not isinstance(raw, dict):
+            return f"rule #{index + 1} must be a mapping, got {type(raw).__name__}"
+        violation = _check_field_group("", raw, _SCHEMA_TOP_LEVEL)
+        if violation:
+            return f"rule #{index + 1} ({raw.get('id', 'no id')}): {violation}"
+        match = raw.get("match")
+        if isinstance(match, dict):
+            violation = _check_field_group("match.", match, _SCHEMA_MATCH)
+            if violation:
+                return f"rule #{index + 1} ({raw.get('id', 'no id')}): {violation}"
+        modify = raw.get("modify")
+        if isinstance(modify, dict):
+            violation = _check_field_group("modify.", modify, _SCHEMA_MODIFY)
+            if violation:
+                return f"rule #{index + 1} ({raw.get('id', 'no id')}): {violation}"
+    return None
+
+
 def inherit_override_message(override: Rule, replaced: Rule | None) -> Rule:
     """Carry ``replaced``'s block_message onto ``override`` when it declared none.
 
@@ -149,7 +264,20 @@ def inherit_override_message(override: Rule, replaced: Rule | None) -> Rule:
 class RuleLoader:
     """Loads rules from YAML files in one or more directories.
 
-    File loading is lenient — invalid files are skipped with a warning.
+    Two-stage leniency (TJ-GAP-070):
+
+    - A file that cannot be PARSED (invalid YAML/JSON, unreadable) is skipped
+      and contributes no rules — DF-TERMINAL-JAIL-6's documented leniency.
+    - A file that parses but whose FIELDS fail type validation (e.g.
+      ``priority: not-a-number``) is REFUSED with a loud one-line stderr note
+      naming the file, and the load ABORTS. Silently skipping it would be worse
+      than either extreme: the operator's policy would appear installed while
+      being absent. Aborting is also what makes the failure fail CLOSED — the
+      bridge turns it into a blocking ``[bridge-error]`` verdict instead of an
+      allow, so a typo cannot silently remove protection.
+
+    ``schema_notes`` collects the loud notes so callers/tests can assert them
+    without capturing stderr.
     """
 
     def __init__(
@@ -161,6 +289,7 @@ class RuleLoader:
         self.user_dir = user_dir or str(
             Path.home() / ".config" / "terminal-jail" / "rules.d"
         )
+        self.schema_notes: list[str] = []
 
     def load_all(self) -> RuleSet:
         """Load all rules from system and user directories.
@@ -168,6 +297,11 @@ class RuleLoader:
         Rules are loaded in lexical order. User rules override system rules
         (same ID = user wins). Files load in lexical filename order within
         each directory.
+
+        Raises:
+            RuleSchemaError: a file parsed but carried fields the engine
+                cannot use. The note naming the file has already been written
+                to stderr at that point.
         """
         rules: list[Rule] = []
         seen_ids: set[str] = set()
@@ -207,11 +341,15 @@ class RuleLoader:
     def _load_file(self, file_path: str) -> list[Rule]:
         """Load rules from a single YAML file.
 
-        The file is expected to contain a top-level ``rules`` list.
-        If the file can't be parsed, returns empty (fail-open).
+        The file is expected to contain a top-level ``rules`` list. A file that
+        cannot be PARSED returns empty (DF-TERMINAL-JAIL-6 leniency); a file
+        that parses but violates the field schema raises ``RuleSchemaError``
+        after writing one loud stderr note naming it (TJ-GAP-070).
         """
         try:
             return self._parse_file(file_path)
+        except RuleSchemaError:
+            raise
         except Exception:  # noqa: BLE001 — fail-open on file parse errors
             return []
 
@@ -242,6 +380,22 @@ class RuleLoader:
             import json
 
             data = json.loads(content)
+
+        # TJ-GAP-070: refuse a document the engine cannot EVALUATE. The parse
+        # above succeeded, so DF-TERMINAL-JAIL-6's skip path (which is for
+        # unparseable files) is not the right remedy here: skipping would make
+        # an installed-looking policy silently absent. The note goes to stderr
+        # because there is no logger plumbed into the loader; it is one line so
+        # it stays readable when a host shell invokes the bridge per command.
+        violation = validate_rule_document(data)
+        if violation is not None:
+            note = (
+                f"terminal-jail: REFUSING rule file {file_path}: {violation} "
+                "— fix the field type (the rules in this file are NOT loaded)"
+            )
+            self.schema_notes.append(note)
+            print(note, file=sys.stderr, flush=True)
+            raise RuleSchemaError(note)
 
         if not isinstance(data, dict):
             return []
