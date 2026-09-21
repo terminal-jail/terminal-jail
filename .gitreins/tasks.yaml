@@ -1191,3 +1191,20 @@ tasks:
   status: complete
   created_at: '2026-09-21T03:54:35.942258+00:00'
   completed_at: '2026-09-21T04:03:04.722000+00:00'
+- id: TJ-GAP-056
+  title: 'Backend parity battery: bwrap vs unshare containment evidence (private /proc,
+    orphan teardown, escape replay, DEGRADED fail-closed)'
+  criteria:
+  - scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier,
+    and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent
+    orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap,
+    and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the
+    measured table with this host's real numbers plus an explicit known-limits section;
+    both backends fail closed with exit 2 and the command not run when the namespace
+    probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional
+    cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section
+    points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green
+    with no new failures beyond the pre-change baseline and uvx ruff check clean
+  status: complete
+  created_at: '2026-09-21T05:18:31.384422+00:00'
+  completed_at: '2026-09-21T05:54:25.429322+00:00'

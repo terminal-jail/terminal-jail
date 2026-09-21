@@ -1,0 +1,1182 @@
+commit 6528b26c1851b33cfc8333fed80e45dcda2010c0
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Mon Sep 21 00:48:05 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Mon Sep 21 00:48:05 2026 -0500
+
+    feat(battery): bwrap-vs-unshare backend parity battery + measured limits (TJ-GAP-056)
+    
+    specs/cli.md section 4 ended at "a bwrap-specific containment battery is
+    TJ-GAP-056" with no shipped battery and no measured parity evidence: the
+    bwrap backend (TJ-GAP-054) was covered by PATH-stub unit tests for argv and
+    selection semantics only, and nothing pinned the one property where the two
+    backends genuinely differ (the private /proc). A backend swap must be
+    proven, not assumed.
+    
+    Ships the battery, the measured evidence, and the regression contracts:
+    
+    - scripts/backend-parity-battery.py — a host-classifying battery in the
+      probe house style (always exits 0, never gates; --json for structured
+      cells). Ten cells across the seven required measurements: private /proc
+      per backend, orphan teardown per backend (SIGKILL the wrapper, payload
+      found by exact cmdline diff, latency measured), escape-wave replay under
+      the bwrap backend (engine corpus via pytest, tail line recorded, plus a
+      live-wrapper argv/exit slice), the DEGRADED fail-closed contract for both
+      backends (PATH-stubbed probe failure -> exit 2, command not run, marker
+      file the payload would have created stays ABSENT — host-independent by
+      construction), and the pidns/fs-isolation host classification. Verdict
+      vocabulary: SAME | DIFFERS | KNOWN-LIMIT | FAIL-CLOSED-PROVEN; a cell
+      that cannot be measured is labelled KNOWN-LIMIT/UNMEASURED, never guessed.
+    
+    - docs/backend-parity.md — the measured numbers for this host (kernel
+      7.0.0-30-generic, bubblewrap 0.11.1, jail /proc 4 vs host ~1340, unshare
+      --user /proc 1344, both orphan teardowns 20 ms, escape replay "221 passed
+      in 0.95s"), the verbatim parity table, cell-by-cell provenance notes,
+      known limits (a)-(d), and a re-run block. Zero unexplained divergences.
+    
+    - plugin/test_backend_parity.py — durable contracts: fail-closed for both
+      backends (PATH stub + TJ_BWRAP_PROBE_EXIT + marker-absence, plus
+      probe-only launch proof), the three parity-relevant argv invariants not
+      already owned by test_backend_selection.py (--proc /proc present,
+      --die-with-parent present, --as-pid-1 absent), the battery subprocess
+      exit-0/table/vocabulary pins, and host-conditional live cells that skip
+      with grep-able HOST-DEGRADED-BWRAP / HOST-DEGRADED-PIDNS markers.
+    
+    - specs/cli.md — the TJ-GAP-056 placeholder now points at the shipped
+      battery and doc; the section, its table, and the backend contract are
+      otherwise untouched.
+    
+    Measured findings worth knowing (details in docs/backend-parity.md):
+    the unshare --user jail exposes the host /proc while bwrap's --proc /proc
+    does not (the one genuine divergence, documented, not a failure); orphan
+    teardown is equivalent on this host (both dead within 20 ms of the
+    wrapper's SIGKILL); both backends fail closed identically; and raw
+    bwrap --bind / / --unshare-pid WITHOUT --proc /proc still shows the host
+    procfs (1348 entries measured) — hand-rolled probes that omit the flag
+    measure the wrong thing. TERMINAL_JAIL_INTERRUPTOR_MODE=disabled flips
+    105 of the 221 escape-wave verdicts to allow, so the replay cell runs
+    under the default mode.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ docs/backend-parity.md            | 152 +++++++++++
+ plugin/test_backend_parity.py     | 380 ++++++++++++++++++++++++++
+ scripts/backend-parity-battery.py | 552 ++++++++++++++++++++++++++++++++++++++
+ specs/cli.md                      |   2 +-
+ 4 files changed, 1085 insertions(+), 1 deletion(-)
+
+diff --git a/docs/backend-parity.md b/docs/backend-parity.md
+new file mode 100644
+index 0000000..b495d4c
+--- /dev/null
++++ b/docs/backend-parity.md
+@@ -0,0 +1,152 @@
++# Backend parity: bwrap vs unshare — measured evidence (TJ-GAP-056)
++
++This document records what the parity battery (`scripts/backend-parity-battery.py`)
++actually **measured** on the host below. It is evidence, not a plan. The battery is
++a classifier in the house style of `scripts/pidns-capability-probe.py` and
++`scripts/fs-isolation-probe.py`: it always exits 0 and never gates anything.
++
++## Measured on
++
++| | |
++|---|---|
++| Host | karaHermes-mde-7840hs |
++| Kernel | `7.0.0-30-generic` |
++| bubblewrap | 0.11.1 (`/usr/bin/bwrap`) |
++| terminal-jail | 1.1.0 (`./standalone/terminal-jail --version`, rc=0) |
++| Date of run | 2026-09-21 |
++
++Host classification at run time (cell 7): PID-namespace creation **FULL**
++(`scripts/pidns-capability-probe.py`); uid mapping / FS isolation **DEGRADED**
++(`scripts/fs-isolation-probe.py`: `unshare: setgroups failed: Operation not
++permitted` — AppArmor profile `unprivileged_userns`, `kernel.apparmor_restrict_unprivileged_userns=1`).
++
++## The parity table (battery output, verbatim)
++
++Verdict vocabulary: `SAME` / `DIFFERS` / `KNOWN-LIMIT` / `FAIL-CLOSED-PROVEN`.
++Every value below was observed on this host; no cell is an intent marker.
++
++```text
++cell                                                        backend  measured                                                                                                                       expected                                                    verdict
++----------------------------------------------------------  -------  -----------------------------------------------------------------------------------------------------------------------------  ----------------------------------------------------------  ------------------
++1 private /proc — bwrap backend                             bwrap    4 entries (host: 1340)                                                                                                         a handful of entries, far below the host count              SAME
++2 private /proc — unshare backend                           unshare  1344 entries (host: 1340)                                                                                                      ≈ host count (documented known limit)                       KNOWN-LIMIT
++3 orphan teardown — bwrap (--die-with-parent)               bwrap    payload gone in 20 ms; host-side pid 567741, identified by exact cmdline 'sleep 300' diffed against the pre-launch /proc scan  payload gone shortly after the wrapper dies                 SAME
++4 orphan comparison — unshare (--kill-child=SIGKILL)        unshare  payload gone in 20 ms; host-side pid 567867, identified by exact cmdline 'sleep 300' diffed against the pre-launch /proc scan  payload gone shortly after the wrapper dies                 SAME
++5 escape-wave replay under the bwrap backend                bwrap    rc=0, tail: 221 passed in 0.95s                                                                                                all escape vectors stay green under the bwrap backend       SAME
++5b escape replay live slice (wrapper, argv+exit semantics)  bwrap    argv round-trip rc=0 stdout='[a b][$(id)][*][]'; exit 42 -> rc=42                                                              argv preserved, payload exit propagated                     SAME
++6 fail-closed when the namespace probe fails                bwrap    rc=2, stdout='', marker=ABSENT                                                                                                 exit 2, command not run, marker file ABSENT                 FAIL-CLOSED-PROVEN
++6 fail-closed when the namespace probe fails                unshare  rc=2, stdout='', marker=ABSENT                                                                                                 exit 2, command not run, marker file ABSENT                 FAIL-CLOSED-PROVEN
++7 host classification: PID-namespace creation               both     FULL                                                                                                                           FULL on a containment-capable host                          SAME
++7 host classification: uid mapping (FS isolation)           both     DEGRADED                                                                                                                       mapped keeps real FS isolation; degraded runs mapping-less  KNOWN-LIMIT
++```
++
++**Zero unexplained divergences.** The two `KNOWN-LIMIT` cells are the documented
++limits (a) and (c) below; no cell says `DIFFERS` on this host.
++
++## Cell notes (how each number was produced)
++
++1. **Private /proc — bwrap.** The jail ran via the real wrapper
++   (`TERMINAL_JAIL_JAIL_BACKEND=bwrap ... --user`); the payload counted numeric
++   `/proc` entries and the host count was sampled just before the launch (it
++   jitters run to run: 1333–1382 observed on this box). Measured: bwrap **4**
++   vs host **1340**. A measurement caution learned while producing these
++   numbers: raw `bwrap --bind / / --unshare-pid ...` **without** `--proc /proc`
++   still shows the *host* procfs (measured **1348** entries) — the wrapper's
++   argv includes `--proc /proc` (fresh procfs), and that flag is exactly what
++   makes the jail's `/proc` private. Any hand-rolled probe that omits it
++   measures the wrong thing.
++
++2. **Private /proc — unshare.** Same experiment under
++   `TERMINAL_JAIL_JAIL_BACKEND=unshare`: **1344** entries vs host **1340** —
++   the host `/proc` is visible, which is the documented known limit (a), not a
++   failure. The battery records it honestly as `KNOWN-LIMIT`.
++
++3. **Orphan teardown — bwrap.** A jail was started whose payload is
++   `sleep 300`; the payload was identified on the host by its exact cmdline
++   (`sleep 300`) diffed against a pre-launch `/proc` scan (host-side pid, since
++   the host's view shares the PID numbering). The **wrapper** process was
++   `SIGKILL`ed; the payload disappeared within the 20 ms poll granularity — no
++   orphan, no leftover `sleep 300` processes. `--die-with-parent` arms
++   PR_SET_PDEATHSIG on the sandbox and the teardown survives the wrapper's death.
++
++4. **Orphan comparison — unshare.** Same experiment (`--kill-child=SIGKILL`
++   semantics): the payload was also gone in 20 ms — **no orphan either**. On
++   this host the teardown property is therefore *equivalent* between the
++   backends; the mechanisms differ (PDEATHSIG on bwrap's sandbox vs util-linux's
++   kill-on-death child), not the observable outcome.
++
++5. **Escape-wave replay.** Method (a), stated explicitly: the shipped engine
++   corpus `plugin/test_escape_waves.py` (221 collected) was run via the repo
++   venv with `TERMINAL_JAIL_JAIL_BACKEND=bwrap` in the environment. Raw tail
++   line: `221 passed in 0.95s`. Note for re-runners: the corpus pins
++   auto-sandbox (modify) verdicts, which require the **default** interruptor
++   mode — setting `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` flips 105 of the
++   221 verdicts to allow (measured). Cell 5b adds a live-wrapper slice through
++   the bwrap backend: argv boundaries survive (including metacharacter-looking
++   arguments, which the verdict engine would have blocked had the interruptor
++   been active — hence it is disabled for that cell only) and payload exit
++   status propagates (`bash -c 'exit 42'` → rc 42).
++
++6. **Fail-closed contract.** Host-independent by construction: a curated `PATH`
++   provides stub `bwrap`/`unshare` binaries whose probe (`... true`) exits 1.
++   For each backend the wrapper was invoked as
++   `terminal-jail --no-interruptor touch <marker>`: both runs exited **2**,
++   printed the documented `command not run` degradation message, produced empty
++   stdout, and the marker file the payload would have created is **ABSENT**.
++   The command provably never ran.
++
++## Known limits
++
++**(a) unshare `--user` exposes the host `/proc`; bwrap does not.**
++Measured: 1344 host-visible entries under the unshare `--user` jail vs 4 under
++bwrap (host ≈ 1340). A user namespace cannot mount `/proc` unprivileged, so the
++`--user` launch leaves the host procfs visible; bwrap's `--proc /proc` mounts a
++fresh procfs and the jail sees only its own PIDs. This is the one containment
++property where the backends genuinely differ; specs/cli.md documents it and
++`test_live_unshare_user_exposes_host_proc` pins it.
++
++**(b) The payload is namespace PID 2 under bwrap, not PID 1.**
++bubblewrap's reaper occupies PID 1 of the jail; the payload runs as PID 2
++(`--as-pid-1` is deliberately unused because it makes the payload PID 1 and
++nullifies `--die-with-parent` — measured orphan on bubblewrap 0.11.1; see the
++flag rationale at `standalone/terminal-jail`, `BWRAP_FLAGS` block). Under the
++unshare backend `--fork` makes the payload namespace PID 1. Practical consequence:
++`/proc/1` inside a bwrap jail is the reaper, not the payload.
++
++**(c) FS isolation is DEGRADED on this host (AppArmor) — both backends run
++mapping-less here.**
++`scripts/fs-isolation-probe.py`: the mapped launch fails (`unshare: setgroups
++failed: Operation not permitted`); both backends therefore print the loud
++`no filesystem isolation` warning and provide PID-namespace containment +
++identity-env scrub only. This is a host condition, not a backend difference.
++Host-level remediation (requires root): `sysctl -w
++kernel.apparmor_restrict_unprivileged_userns=0`, or add an AppArmor exception
++for the launcher, or install `newuidmap`/`newgidmap` plus `/etc/subuid`/
++`/etc/subgid` ranges for the calling user.
++
++**(d) Teardown equivalence is host-measured, not a theorem.**
++Both backends tore the payload down within the 20 ms poll granularity on this
++host. The mechanisms differ (PR_SET_PDEATHSIG on bwrap's sandbox vs
++`--kill-child=SIGKILL`); if either backend's parent-death linkage ever fails,
++the battery's orphan cells (3–4) are the tripwire — an orphan reports
++`DIFFERS` with the surviving pid named.
++
++No cell was left unmeasured on this host; there are no intent markers in this
++document. On hosts where bubblewrap is absent or namespaces are denied, the
++battery reports the affected cells as `KNOWN-LIMIT ... UNMEASURED` instead of
++guessing, and `plugin/test_backend_parity.py` skips the live cells with
++`HOST-DEGRADED-*` markers.
++
++## How to re-run
++
++```console
++$ cd /home/kara/terminal-jail
++$ .venv/bin/python scripts/backend-parity-battery.py          # human table
++$ .venv/bin/python scripts/backend-parity-battery.py --json   # structured cells
++$ .venv/bin/python -m pytest plugin/test_backend_parity.py -v # contracts + live cells
++$ .venv/bin/python scripts/pidns-capability-probe.py          # host layer 1
++$ .venv/bin/python scripts/fs-isolation-probe.py              # host layer 2
++```
++
++All commands run unprivileged. The battery always exits 0; read the verdicts,
++not the exit status.
+diff --git a/plugin/test_backend_parity.py b/plugin/test_backend_parity.py
+new file mode 100644
+index 0000000..aca1b9d
+--- /dev/null
++++ b/plugin/test_backend_parity.py
+@@ -0,0 +1,380 @@
++"""TJ-GAP-056 — backend parity: bwrap vs unshare containment contracts.
++
++The measured evidence lives in scripts/backend-parity-battery.py and
++docs/backend-parity.md; this module pins the DURABLE contracts as regression
++tests, host-independent where possible:
++
++- fail-closed for BOTH backends when the namespace probe fails (PATH-stub +
++  marker file): exit 2, the command does not run, the marker the payload
++  would have created stays ABSENT;
++- the parity-relevant bwrap argv invariants that the TJ-GAP-054 argv test
++  does not already pin are repeated here only as the parity contract:
++  ``--proc /proc`` present, ``--die-with-parent`` present, ``--as-pid-1``
++  absent (the full flag list and the trampoline shape stay owned by
++  test_backend_selection.py — deliberately not duplicated);
++- the battery itself, executed as a subprocess: a classifier must never
++  gate, so it must exit 0 and emit its table (the JSON cells must use the
++  documented verdict vocabulary only);
++- live containment cells (private /proc, orphan teardown) skip with a
++  grep-able HOST-DEGRADED-* marker exactly like the TJ-GAP-054 lanes.
++"""
++
++from __future__ import annotations
++
++import functools
++import json
++import os
++import pathlib
++import shutil
++import signal
++import subprocess
++import sys
++import time
++
++import pytest
++
++PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
++CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
++BATTERY = PROJECT_ROOT / "scripts" / "backend-parity-battery.py"
++PIDNS_PROBE = PROJECT_ROOT / "scripts" / "pidns-capability-probe.py"
++
++VOCABULARY = ("SAME", "DIFFERS", "KNOWN-LIMIT", "FAIL-CLOSED-PROVEN")
++
++# Always-failing stub: its `true` probe (the exact launch flags) exits 1, so
++# the wrapper must hit the documented fail-closed contract, never launch.
++_FAILING_STUB = """#!/usr/bin/env bash
++exit 1
++"""
++
++# Recording stub (TJ-GAP-054 pattern): NUL-delimited argv + EOR record end;
++# the probe (`true`) exits via TJ_BWRAP_PROBE_EXIT, the launch exits 0.
++_BWRAP_STUB = """#!/usr/bin/env bash
++for a in "$@"; do printf '%s\\0' "$a" >> "$TJ_STUB_LOG"; done
++printf 'EOR\\0' >> "$TJ_STUB_LOG"
++last="${!#}"
++if [ "$last" = "true" ]; then
++    exit "${TJ_BWRAP_PROBE_EXIT:-0}"
++fi
++exit 0
++"""
++
++
++def _stub_path(tmp_path: pathlib.Path, *, failing: str | None = None) -> str:
++    """Curated PATH (bash/uname/... plus stubs). ``failing`` names a backend
++    whose stub always exits 1; the others get the recording bwrap stub."""
++    bindir = tmp_path / "bin"
++    bindir.mkdir(exist_ok=True)
++    for name in ("bash", "uname", "id", "grep", "cut", "head", "env", "sh", "cat"):
++        real = shutil.which(name)
++        if real:
++            (bindir / name).symlink_to(real)
++    bwrap = bindir / "bwrap"
++    if failing == "bwrap":
++        bwrap.write_text(_FAILING_STUB, encoding="utf-8")
++    else:
++        bwrap.write_text(_BWRAP_STUB, encoding="utf-8")
++    bwrap.chmod(0o755)
++    unshare = bindir / "unshare"
++    if failing == "unshare":
++        unshare.write_text(_FAILING_STUB, encoding="utf-8")
++    elif shutil.which("unshare"):
++        unshare.symlink_to(shutil.which("unshare"))
++    return str(bindir)
++
++
++def _env(tmp_path: pathlib.Path, path: str, **overrides: str) -> dict[str, str]:
++    env = {
++        "PATH": path,
++        "HOME": str(tmp_path / "home"),
++        "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
++        "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
++        "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
++    }
++    home = pathlib.Path(env["HOME"])
++    home.mkdir(exist_ok=True)
++    env.update(overrides)
++    return env
++
++
++def _run_cli(
++    *args: str, env: dict[str, str], timeout: int = 30
++) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [str(CLI_SCRIPT), *args],
++        cwd=str(PROJECT_ROOT),
++        env=env,
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=timeout,
++    )
++
++
++def _records(log: pathlib.Path) -> list[list[str]]:
++    if not log.exists():
++        return []
++    records: list[list[str]] = []
++    current: list[bytes] = []
++    for token in log.read_bytes().split(b"\0"):
++        if token == b"EOR":
++            records.append([t.decode("utf-8", "replace") for t in current])
++            current = []
++        else:
++            current.append(token)
++    return records
++
++
++# ── fail-closed contract (host-independent) ────────────────────────────────
++
++
++def _fail_closed_run(backend: str, tmp_path: pathlib.Path):
++    marker = tmp_path / f"marker-{backend}"
++    overrides = {"TERMINAL_JAIL_JAIL_BACKEND": backend}
++    failing = backend
++    if backend == "bwrap":
++        # The recording stub logs every invocation and fails only the probe
++        # (TJ-GAP-054 pattern), so the test can prove the launch never ran.
++        failing = ""
++        overrides["TJ_BWRAP_PROBE_EXIT"] = "1"
++    env = _env(tmp_path, _stub_path(tmp_path, failing=failing), **overrides)
++    result = _run_cli("--no-interruptor", "touch", str(marker), env=env)
++    return result, marker, env
++
++
++@pytest.mark.standalone_cli
++def test_fail_closed_bwrap_probe_fails_leaves_marker_absent(tmp_path) -> None:
++    """A failed bwrap probe: exit 2, command never ran, no marker side effect."""
++    result, marker, env = _fail_closed_run("bwrap", tmp_path)
++    assert result.returncode == 2, result.stderr
++    assert "bwrap namespace creation failed" in result.stderr
++    assert "command not run" in result.stderr
++    assert result.stdout == ""
++    assert not marker.exists(), "the payload RAN despite the failed probe"
++    # probe only — the launch never happened
++    records = _records(pathlib.Path(env["TJ_STUB_LOG"]))
++    assert len(records) == 1 and records[0][-1] == "true", records
++
++
++@pytest.mark.standalone_cli
++def test_fail_closed_unshare_probe_fails_leaves_marker_absent(tmp_path) -> None:
++    """Same contract for the unshare backend (an always-failing unshare stub)."""
++    result, marker, _env_ = _fail_closed_run("unshare", tmp_path)
++    assert result.returncode == 2, result.stderr
++    assert "namespace creation failed" in result.stderr
++    assert "command not run" in result.stderr
++    assert result.stdout == ""
++    assert not marker.exists(), "the payload RAN despite the failed probe"
++
++
++# ── parity-relevant argv invariants (host-independent) ─────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_bwrap_parity_argv_invariants(tmp_path) -> None:
++    """The three parity-relevant invariants: fresh procfs mounted, teardown
++    armed, and NO --as-pid-1 (it would nullify --die-with-parent). The full
++    flag contract stays in test_backend_selection.py."""
++    env = _env(tmp_path, _stub_path(tmp_path))
++    result = _run_cli("--no-interruptor", "true", env=env)
++    assert result.returncode == 0, result.stderr
++    launch = _records(pathlib.Path(env["TJ_STUB_LOG"]))[1]
++    flags = launch[: launch.index("--")]
++    assert "--proc" in flags and flags[flags.index("--proc") + 1] == "/proc"
++    assert "--die-with-parent" in flags
++    assert "--as-pid-1" not in flags
++    assert "--unshare-pid" in flags  # private /proc pairs with a new PID ns
++
++
++# ── the battery itself: a classifier must never gate ───────────────────────
++
++
++def _run_battery(*args: str) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [sys.executable, str(BATTERY), *args],
++        cwd=str(PROJECT_ROOT),
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=600,
++    )
++
++
++@pytest.mark.integration
++def test_battery_json_exits_zero_and_uses_the_verdict_vocabulary() -> None:
++    result = _run_battery("--json")
++    assert result.returncode == 0, result.stderr
++    payload = json.loads(result.stdout)
++    assert payload["cells"], "battery produced no cells"
++    for cell in payload["cells"]:
++        assert cell["verdict"] in VOCABULARY, cell
++
++
++@pytest.mark.integration
++def test_battery_table_mode_exits_zero_and_prints_header() -> None:
++    result = _run_battery()
++    assert result.returncode == 0, result.stderr
++    lines = result.stdout.splitlines()
++    assert any("backend parity battery" in line for line in lines[:2])
++    header = next(line for line in lines if line.startswith("cell"))
++    for column in ("backend", "measured", "expected", "verdict"):
++        assert column in header, header
++
++
++# ── live containment cells (host-conditional) ──────────────────────────────
++
++
++@functools.lru_cache(maxsize=1)
++def _bwrap_usable() -> bool:
++    bwrap = shutil.which("bwrap")
++    if not bwrap:
++        return False
++    probe = subprocess.run(
++        [bwrap, "--unshare-user", "--unshare-pid", "--die-with-parent",
++         "--bind", "/", "/", "--dev-bind", "/dev", "/dev",
++         "--proc", "/proc", "true"],
++        capture_output=True, check=False, timeout=30,
++    )
++    return probe.returncode == 0
++
++
++@functools.lru_cache(maxsize=1)
++def _pidns_full() -> bool:
++    try:
++        result = subprocess.run(
++            [sys.executable, str(PIDNS_PROBE)],
++            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=60,
++        )
++    except (subprocess.TimeoutExpired, OSError):
++        return False
++    return result.stdout.strip().startswith("FULL")
++
++
++def _host_proc_count() -> int:
++    return len([p for p in pathlib.Path("/proc").iterdir() if p.name.isdigit()])
++
++
++def _jail_proc_count(backend: str) -> int:
++    env = dict(os.environ)
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
++    env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    result = subprocess.run(
++        [str(CLI_SCRIPT), "--no-interruptor", "--user",
++         "sh", "-c", 'ls /proc | grep -c "^[0-9]\\+$"'],
++        cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True,
++        check=False, timeout=30,
++    )
++    assert result.returncode == 0, result.stderr
++    return int(result.stdout.strip().splitlines()[-1])
++
++
++@pytest.mark.integration
++def test_live_bwrap_user_proc_is_private() -> None:
++    if not _bwrap_usable() or not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-BWRAP: bubblewrap is absent or cannot create "
++            "namespaces on this host — bwrap private-/proc parity not verified"
++        )
++    host_count = _host_proc_count()
++    jail_count = _jail_proc_count("bwrap")
++    assert jail_count < 100 and jail_count < host_count, (
++        f"bwrap jail sees {jail_count} /proc entries vs {host_count} on the "
++        "host — /proc is not private"
++    )
++
++
++@pytest.mark.integration
++def test_live_unshare_user_exposes_host_proc() -> None:
++    """The documented known limit, pinned honestly: --user cannot mount /proc
++    unprivileged, so the host PID view stays visible (specs/cli.md)."""
++    if not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-PIDNS: this host cannot create unprivileged PID "
++            "namespaces — unshare --user /proc parity not verified"
++        )
++    host_count = _host_proc_count()
++    jail_count = _jail_proc_count("unshare")
++    assert jail_count >= host_count * 0.5, (
++        f"unshare --user jail sees {jail_count} /proc entries vs {host_count} "
++        "on the host — unexpectedly private; re-document the limit"
++    )
++
++
++def _sleep300_pids() -> set[int]:
++    out = set()
++    for proc in pathlib.Path("/proc").iterdir():
++        if not proc.name.isdigit():
++            continue
++        try:
++            argv = (proc / "cmdline").read_bytes().split(b"\0")
++        except OSError:
++            continue
++        if argv[:2] == [b"sleep", b"300"]:
++            out.add(int(proc.name))
++    return out
++
++
++def _orphan_teardown(backend: str) -> float:
++    """SIGKILL the wrapper; return payload teardown latency in seconds."""
++    before = _sleep300_pids()
++    env = dict(os.environ)
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
++    env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    launcher = subprocess.Popen(
++        [str(CLI_SCRIPT), "--no-interruptor", "--user", "sleep", "300"],
++        cwd=str(PROJECT_ROOT), env=env,
++        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
++        stdin=subprocess.DEVNULL, start_new_session=True,
++    )
++    payload = None
++    t0 = time.monotonic()
++    try:
++        while time.monotonic() - t0 < 10:
++            new = _sleep300_pids() - before
++            if new:
++                payload = min(new)
++                break
++            time.sleep(0.05)
++        if payload is None:
++            pytest.fail("no sleep payload appeared within 10s")
++        try:
++            os.kill(launcher.pid, signal.SIGKILL)
++        except ProcessLookupError:
++            pass
++        tk = time.monotonic()
++        while time.monotonic() - tk < 15:
++            if not pathlib.Path(f"/proc/{payload}").exists():
++                return time.monotonic() - tk
++            time.sleep(0.02)
++        # cleanup (not the contract): do not leave an orphan behind
++        try:
++            os.kill(payload, signal.SIGKILL)
++        except ProcessLookupError:
++            pass
++        pytest.fail(
++            f"orphan: {backend} payload {payload} survived the wrapper's "
++            "death for 15s"
++        )
++    finally:
++        launcher.wait()
++
++
++@pytest.mark.integration
++def test_live_bwrap_orphan_teardown() -> None:
++    if not _bwrap_usable() or not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-BWRAP: bubblewrap is absent or cannot create "
++            "namespaces on this host — --die-with-parent teardown not verified"
++        )
++    latency = _orphan_teardown("bwrap")
++    assert latency < 15
++
++
++@pytest.mark.integration
++def test_live_unshare_orphan_teardown() -> None:
++    if not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-PIDNS: this host cannot create unprivileged PID "
++            "namespaces — --kill-child teardown not verified"
++        )
++    latency = _orphan_teardown("unshare")
++    assert latency < 15
+diff --git a/scripts/backend-parity-battery.py b/scripts/backend-parity-battery.py
+new file mode 100755
+index 0000000..e44f730
+--- /dev/null
++++ b/scripts/backend-parity-battery.py
+@@ -0,0 +1,552 @@
++#!/usr/bin/env python3
++"""TJ-GAP-056 — backend parity battery: bwrap vs unshare containment evidence.
++
++specs/cli.md section 4 "Jail backends" documents where the two backends
++genuinely differ (the private /proc, the teardown mechanism) and where they
++must not be overstated. This battery MEASURES those properties on the host it
++runs on and prints a per-cell parity table. It is a classifier in the house
++style (scripts/pidns-capability-probe.py, scripts/fs-isolation-probe.py):
++it always exits 0 and never gates anything.
++
++Cells:
++  1  private /proc under the bwrap backend (jail count << host count)
++  2  private /proc under the unshare backend --user (host /proc exposed —
++     the documented known limit, recorded honestly, not a failure)
++  3  --die-with-parent orphan teardown (bwrap): SIGKILL the wrapper, the
++     payload must disappear; teardown latency recorded
++  4  orphan comparison (unshare --kill-child=SIGKILL): same experiment;
++     a difference is a finding to document, not a crash
++  5  escape-wave replay under the bwrap backend (engine corpus via pytest,
++     plus a live-wrapper argv/exit slice)
++  6  DEGRADED-host fail-closed contract: a PATH-stubbed backend whose probe
++     fails must exit 2 with the command not run and a marker file the
++     payload would have created left ABSENT (host-independent)
++  7  host classification summary via the two shipped probes
++
++Verdict vocabulary: SAME | DIFFERS | KNOWN-LIMIT | FAIL-CLOSED-PROVEN.
++A cell that cannot be measured on this host is labelled KNOWN-LIMIT with an
++"UNMEASURED" note — the divergence vocabulary is never used for a value that
++was not actually observed.
++
++Usage:
++    .venv/bin/python scripts/backend-parity-battery.py           # human table
++    .venv/bin/python scripts/backend-parity-battery.py --json    # structured
++
++Always exits 0: this is evidence collection, not a gate.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import os
++import pathlib
++import shutil
++import signal
++import subprocess
++import sys
++import tempfile
++import time
++
++PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
++CLI = PROJECT_ROOT / "standalone" / "terminal-jail"
++PIDNS_PROBE = PROJECT_ROOT / "scripts" / "pidns-capability-probe.py"
++FSISO_PROBE = PROJECT_ROOT / "scripts" / "fs-isolation-probe.py"
++ESCAPE_WAVES = PROJECT_ROOT / "plugin" / "test_escape_waves.py"
++
++PROC_COUNT_SNIPPET = 'ls /proc | grep -c "^[0-9]\\+$"'
++ORPHAN_WAIT_LAUNCH = 10.0
++ORPHAN_WAIT_TEARDOWN = 15.0
++
++VOCABULARY = ("SAME", "DIFFERS", "KNOWN-LIMIT", "FAIL-CLOSED-PROVEN")
++
++
++def _cell(
++    cell: str, backend: str, measured: str, expected: str, verdict: str, notes: str
++) -> dict[str, str]:
++    assert verdict in VOCABULARY, verdict
++    return {
++        "cell": cell,
++        "backend": backend,
++        "measured": measured,
++        "expected": expected,
++        "verdict": verdict,
++        "notes": notes,
++    }
++
++
++def _unmeasured(cell: str, backend: str, expected: str, reason: str) -> dict[str, str]:
++    return _cell(
++        cell,
++        backend,
++        "not measured",
++        expected,
++        "KNOWN-LIMIT",
++        f"UNMEASURED on this host: {reason}",
++    )
++
++
++def _run(
++    cmd: list[str], env: dict[str, str] | None = None, timeout: float = 60
++) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        cmd,
++        cwd=str(PROJECT_ROOT),
++        env=env if env is not None else dict(os.environ),
++        capture_output=True,
++        text=True,
++        timeout=timeout,
++        check=False,
++    )
++
++
++def _cli_env(backend: str, *, disable_interruptor: bool = True) -> dict[str, str]:
++    env = dict(os.environ)
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
++    if disable_interruptor:
++        env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    else:
++        # The verdict layers need the DEFAULT interruptor mode; drop any
++        # inherited override so the cell is deterministic.
++        env.pop("TERMINAL_JAIL_INTERRUPTOR_MODE", None)
++    return env
++
++
++def _host_proc_count() -> int:
++    return len([p for p in pathlib.Path("/proc").iterdir() if p.name.isdigit()])
++
++
++def _last_int(stdout: str) -> int | None:
++    for line in reversed(stdout.strip().splitlines()):
++        line = line.strip()
++        if line.isdigit():
++            return int(line)
++    return None
++
++
++# ── cells 1+2: private /proc ───────────────────────────────────────────────
++
++
++def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
++    if backend == "bwrap":
++        name = "1 private /proc — bwrap backend"
++    else:
++        name = "2 private /proc — unshare backend"
++    try:
++        result = _run(
++            [str(CLI), "--no-interruptor", "--user", "sh", "-c", PROC_COUNT_SNIPPET],
++            env=_cli_env(backend),
++            timeout=30,
++        )
++    except (subprocess.TimeoutExpired, OSError) as exc:
++        return _unmeasured(
++            name, backend, "a handful of entries, far below the host count",
++            f"launch failed: {exc}",
++        )
++    if result.returncode != 0:
++        return _unmeasured(
++            name,
++            backend,
++            "a handful of entries, far below the host count",
++            f"jail launch exited {result.returncode}: {result.stderr.strip()[:200]}",
++        )
++    count = _last_int(result.stdout)
++    if count is None:
++        return _unmeasured(
++            name, backend, "a handful of entries, far below the host count",
++            "no numeric count",
++        )
++    if backend == "bwrap":
++        # private /proc: the jail sees only its own processes — a handful of
++        # entries (reaper + trampoline + payload), never a fraction of the host.
++        ok = count <= max(16, host_count // 100)
++        verdict = "SAME" if ok else "DIFFERS"
++        note = (
++            f"jail sees {count} numeric /proc entries vs {host_count} on the host; "
++            "--proc /proc mounts a fresh procfs"
++            if ok
++            else (
++                f"bwrap jail sees {count} numeric /proc entries vs {host_count} on "
++                "the host — /proc is NOT private; see docs/backend-parity.md "
++                "known limits"
++            )
++        )
++        return _cell(
++            name,
++            backend,
++            f"{count} entries (host: {host_count})",
++            "a handful of entries, far below the host count",
++            verdict,
++            note,
++        )
++    # unshare --user: the host /proc stays visible (spec: user namespaces
++    # cannot mount /proc unprivileged) — the documented known limit.
++    exposed = count >= host_count * 0.5
++    verdict = "KNOWN-LIMIT" if exposed else "SAME"
++    return _cell(
++        name,
++        backend,
++        f"{count} entries (host: {host_count})",
++        "≈ host count (documented known limit)",
++        verdict,
++        (
++            f"unshare --user exposes the host /proc ({count} vs {host_count} "
++            "entries) — specs/cli.md documents this, docs/backend-parity.md "
++            "known limit (a)"
++            if exposed
++            else f"jail sees {count} vs {host_count} host entries"
++        ),
++    )
++
++
++# ── cells 3+4: orphan teardown ─────────────────────────────────────────────
++
++
++def _sleep300_pids() -> set[int]:
++    out = set()
++    for proc in pathlib.Path("/proc").iterdir():
++        if not proc.name.isdigit():
++            continue
++        try:
++            argv = (proc / "cmdline").read_bytes().split(b"\0")
++        except OSError:
++            continue
++        if argv[:2] == [b"sleep", b"300"]:
++            out.add(int(proc.name))
++    return out
++
++
++def _orphan_cell(backend: str) -> dict[str, str]:
++    if backend == "bwrap":
++        name = "3 orphan teardown — bwrap (--die-with-parent)"
++        expected = "payload gone shortly after the wrapper dies"
++    else:
++        name = "4 orphan comparison — unshare (--kill-child=SIGKILL)"
++        expected = "payload gone shortly after the wrapper dies"
++    before = _sleep300_pids()
++    try:
++        launcher = subprocess.Popen(
++            [str(CLI), "--no-interruptor", "--user", "sleep", "300"],
++            cwd=str(PROJECT_ROOT),
++            env=_cli_env(backend),
++            stdout=subprocess.DEVNULL,
++            stderr=subprocess.DEVNULL,
++            stdin=subprocess.DEVNULL,
++            start_new_session=True,
++        )
++    except OSError as exc:
++        return _unmeasured(name, backend, expected, f"launch failed: {exc}")
++    t0 = time.monotonic()
++    payload: int | None = None
++    while time.monotonic() - t0 < ORPHAN_WAIT_LAUNCH:
++        new = _sleep300_pids() - before
++        if new:
++            payload = min(new)
++            break
++        time.sleep(0.05)
++    if payload is None:
++        launcher.kill()
++        launcher.wait()
++        return _unmeasured(
++            name, backend, expected, "no sleep payload appeared within 10s"
++        )
++    how = (
++        f"host-side pid {payload}, identified by exact cmdline 'sleep 300' "
++        "diffed against the pre-launch /proc scan"
++    )
++    try:
++        os.kill(launcher.pid, signal.SIGKILL)
++    except ProcessLookupError:
++        pass
++    tk = time.monotonic()
++    latency: float | None = None
++    while time.monotonic() - tk < ORPHAN_WAIT_TEARDOWN:
++        if not pathlib.Path(f"/proc/{payload}").exists():
++            latency = time.monotonic() - tk
++            break
++        time.sleep(0.02)
++    launcher.wait()
++    leftover = _sleep300_pids() - before
++    if latency is not None:
++        return _cell(
++            name,
++            backend,
++            f"payload gone in {latency * 1000:.0f} ms; {how}",
++            expected,
++            "SAME",
++            "no orphan; no leftover 'sleep 300' processes",
++        )
++    return _cell(
++        name,
++        backend,
++        f"ORPHAN: payload {payload} still alive after "
++        f"{ORPHAN_WAIT_TEARDOWN:.0f}s; {how}",
++        expected,
++        "DIFFERS",
++        (
++            "an orphan survived the wrapper's death — see "
++            "docs/backend-parity.md known limits"
++            if not leftover
++            else f"leftover 'sleep 300' pids: {sorted(leftover)}"
++        ),
++    )
++
++
++# ── cell 5: escape-wave replay ─────────────────────────────────────────────
++
++
++def _escape_cell() -> dict[str, str]:
++    name = "5 escape-wave replay under the bwrap backend"
++    # NOTE: the corpus pins auto-sandbox (modify) verdicts, which the default
++    # interruptor mode produces — TERMINAL_JAIL_INTERRUPTOR_MODE=disabled
++    # flips 105 of them to allow (measured), so it must NOT be set here.
++    try:
++        result = _run(
++            [
++                sys.executable,
++                "-m",
++                "pytest",
++                "plugin/test_escape_waves.py",
++                "-q",
++                "-p",
++                "no:cacheprovider",
++            ],
++            env=_cli_env("bwrap", disable_interruptor=False),
++            timeout=300,
++        )
++    except (subprocess.TimeoutExpired, OSError) as exc:
++        return _unmeasured(name, "bwrap", "all vectors green", f"pytest failed: {exc}")
++    tail = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
++    if "No module named" in result.stderr and "pytest" in result.stderr:
++        return _unmeasured(
++            name, "bwrap", "all vectors green", "pytest unavailable — run under "
++            "the repo venv (.venv/bin/python)"
++        )
++    ok = result.returncode == 0 and "failed" not in tail.lower()
++    return _cell(
++        name,
++        "bwrap",
++        f"rc={result.returncode}, tail: {tail}",
++        "all escape vectors stay green under the bwrap backend",
++        "SAME" if ok else "DIFFERS",
++        "method (a): the engine corpus via pytest under the bwrap backend; a "
++        "live-wrapper argv/exit slice follows in cell 5b",
++    )
++
++
++def _escape_live_slice_cell() -> dict[str, str]:
++    name = "5b escape replay live slice (wrapper, argv+exit semantics)"
++    try:
++        argv = _run(
++            [str(CLI), "--no-interruptor", "printf", "[%s]", "a b", "$(id)", "*", ""],
++            env=_cli_env("bwrap"),
++            timeout=30,
++        )
++        exitcode = _run(
++            [str(CLI), "--no-interruptor", "bash", "-c", "exit 42"],
++            env=_cli_env("bwrap"),
++            timeout=30,
++        )
++    except (subprocess.TimeoutExpired, OSError) as exc:
++        return _unmeasured(name, "bwrap", "argv preserved, exit propagated", str(exc))
++    ok = (
++        argv.returncode == 0
++        and argv.stdout == "[a b][$(id)][*][]"
++        and exitcode.returncode == 42
++    )
++    return _cell(
++        name,
++        "bwrap",
++        f"argv round-trip rc={argv.returncode} stdout={argv.stdout!r}; "
++        f"exit 42 -> rc={exitcode.returncode}",
++        "argv preserved, payload exit propagated",
++        "SAME" if ok else "DIFFERS",
++        "live wrapper under TERMINAL_JAIL_JAIL_BACKEND=bwrap",
++    )
++
++
++# ── cell 6: DEGRADED fail-closed contract ──────────────────────────────────
++
++
++def _fail_closed_cell(backend: str) -> dict[str, str]:
++    name = "6 fail-closed when the namespace probe fails"
++    expected = "exit 2, command not run, marker file ABSENT"
++    with tempfile.TemporaryDirectory(prefix="tj-parity-") as tmp:
++        root = pathlib.Path(tmp)
++        bindir = root / "bin"
++        bindir.mkdir()
++        stub = bindir / backend
++        stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
++        stub.chmod(0o755)
++        marker = root / f"marker-{backend}"
++        env = _cli_env(backend)
++        env["PATH"] = f"{bindir}:{env.get('PATH', os.defpath)}"
++        try:
++            result = _run(
++                [str(CLI), "--no-interruptor", "touch", str(marker)],
++                env=env,
++                timeout=30,
++            )
++        except (subprocess.TimeoutExpired, OSError) as exc:
++            return _unmeasured(name, backend, expected, f"run failed: {exc}")
++        absent = not marker.exists()
++        proven = (
++            result.returncode == 2
++            and absent
++            and result.stdout == ""
++            and "command not run" in result.stderr
++        )
++        return _cell(
++            name,
++            backend,
++            f"rc={result.returncode}, stdout={result.stdout!r}, "
++            f"marker={'ABSENT' if absent else 'PRESENT'}",
++            expected,
++            "FAIL-CLOSED-PROVEN" if proven else "DIFFERS",
++            (
++                "PATH-stubbed backend whose probe exits 1; the payload never ran"
++                if proven
++                else f"stderr: {result.stderr.strip()[:200]}"
++            ),
++        )
++
++
++# ── cell 7: host classification ────────────────────────────────────────────
++
++
++def _probe_classification(script: pathlib.Path) -> tuple[str, str]:
++    try:
++        result = _run([sys.executable, str(script)], timeout=60)
++    except (subprocess.TimeoutExpired, OSError) as exc:
++        return "UNKNOWN", f"probe failed to run: {exc}"
++    line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
++    return (line.split(":", 1)[0].split()[0] if line else "UNKNOWN"), line
++
++
++def _classification_cells() -> list[dict[str, str]]:
++    pidns, pidns_line = _probe_classification(PIDNS_PROBE)
++    fsiso, fsiso_line = _probe_classification(FSISO_PROBE)
++    return [
++        _cell(
++            "7 host classification: PID-namespace creation",
++            "both",
++            pidns,
++            "FULL on a containment-capable host",
++            "SAME" if pidns == "FULL" else "KNOWN-LIMIT",
++            "scripts/pidns-capability-probe.py — "
++            f"{pidns_line or pidns}; DEGRADED hosts cannot create the "
++            "namespaces and live cells skip",
++        ),
++        _cell(
++            "7 host classification: uid mapping (FS isolation)",
++            "both",
++            fsiso,
++            "mapped keeps real FS isolation; degraded runs mapping-less",
++            "SAME" if fsiso == "FULL" else "KNOWN-LIMIT",
++            "scripts/fs-isolation-probe.py — " + (fsiso_line or fsiso)
++            + "; DEGRADED = both backends run mapping-less here "
++            "(known limit (c))",
++        ),
++    ]
++
++
++# ── environment banner ─────────────────────────────────────────────────────
++
++
++def _environment() -> dict[str, str]:
++    kernel = pathlib.Path("/proc/sys/kernel/osrelease")
++    bwrap = shutil.which("bwrap")
++    version = ""
++    if bwrap:
++        try:
++            probe = _run([bwrap, "--version"], timeout=10)
++            version = probe.stdout.strip()
++        except (subprocess.TimeoutExpired, OSError):
++            version = ""
++    try:
++        tj = _run([str(CLI), "--version"], timeout=15).stdout.strip()
++    except (subprocess.TimeoutExpired, OSError):
++        tj = "unknown"
++    return {
++        "kernel": kernel.read_text(encoding="ascii").strip()
++        if kernel.exists()
++        else "unknown",
++        "bubblewrap": version or "absent",
++        "terminal-jail": tj,
++    }
++
++
++def collect_cells() -> list[dict[str, str]]:
++    host_count = _host_proc_count()
++    cells = [
++        _proc_cell("bwrap", host_count),
++        _proc_cell("unshare", host_count),
++        _orphan_cell("bwrap"),
++        _orphan_cell("unshare"),
++        _escape_cell(),
++        _escape_live_slice_cell(),
++        _fail_closed_cell("bwrap"),
++        _fail_closed_cell("unshare"),
++    ]
++    cells.extend(_classification_cells())
++    return cells
++
++
++def print_table(env: dict[str, str], cells: list[dict[str, str]]) -> None:
++    widths = {
++        key: max(len(key), *(len(c[key]) for c in cells))
++        for key in ("cell", "backend", "measured", "expected", "verdict")
++    }
++    host_count = _host_proc_count()
++    print("backend parity battery (TJ-GAP-056) — bwrap vs unshare")
++    print(
++        f"host: kernel {env['kernel']}, {env['bubblewrap']}, "
++        f"{env['terminal-jail']}, host /proc numeric entries: {host_count}"
++    )
++    print()
++    header = "  ".join(key.ljust(widths[key]) for key in widths)
++    print(header)
++    print("  ".join("-" * widths[key] for key in widths))
++    for cell in cells:
++        print("  ".join(cell[key].ljust(widths[key]) for key in widths))
++    print()
++    print("notes:")
++    for cell in cells:
++        if cell["notes"]:
++            print(f"  [{cell['cell'][:1]}] {cell['notes']}")
++    divergences = [c for c in cells if c["verdict"] == "DIFFERS"]
++    print()
++    if divergences:
++        print(
++            f"{len(divergences)} divergence(s) — each must be justified in "
++            "docs/backend-parity.md (known limits):"
++        )
++        for cell in divergences:
++            print(f"  - {cell['cell']} ({cell['backend']})")
++    else:
++        print(
++            "zero unexplained divergences: every cell is SAME, KNOWN-LIMIT "
++            "(documented) or FAIL-CLOSED-PROVEN."
++        )
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
++    parser.add_argument(
++        "--json",
++        action="store_true",
++        help="print structured cells as JSON instead of the human table",
++    )
++    args = parser.parse_args()
++    env = _environment()
++    cells = collect_cells()
++    if args.json:
++        print(json.dumps({"environment": env, "cells": cells}, indent=2))
++    else:
++        print_table(env, cells)
++    # House style: a classifier never gates.
++    sys.exit(0)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/specs/cli.md b/specs/cli.md
+index 5936679..23c714c 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -253,7 +253,7 @@ Backend differences that must never be overstated:
+ 
+ Both backends are subject to the same host policy: both need unprivileged user namespaces, so on a host that denies them (e.g. Ubuntu's `kernel.apparmor_restrict_unprivileged_userns=1` with the `unprivileged_userns` AppArmor profile) **both** fail closed with exit `2` and the command does not run. Bubblewrap is not a workaround for a host that forbids user namespaces; where bare-mode `unshare` is denied but user namespaces are allowed (a common configuration), the bwrap backend can run in bare mode while the unshare backend cannot — an improvement, not a guarantee.
+ 
+-Prerequisites: the `bubblewrap` system package (`apt install bubblewrap` / `dnf install bubblewrap`), invoked as an external binary resolved from `PATH` at run time; it is an optional runtime dependency like `util-linux` and is never vendored, bundled, or redistributed by this MIT-licensed repository — no vendored source tree, no git submodule, no binary blob, and no download or build step in `install.sh`, which prints an advisory note only when `bwrap` is absent and still installs successfully (TJ-GAP-055). bubblewrap is LGPL-2.1-or-later under its own authors' terms: installing it and meeting its license obligations are between the operator and their distribution (this is project packaging guidance, not legal advice). The CLI falls back to the `unshare` backend when bubblewrap is absent, and an explicitly demanded `TERMINAL_JAIL_JAIL_BACKEND=bwrap` fails closed (exit `2`, command not run) when it is missing or unusable. Verified against bubblewrap 0.11.1. Host classification helpers: `scripts/pidns-capability-probe.py` (bare-mode namespace creation) and `scripts/fs-isolation-probe.py` (uid mapping); a bwrap-specific containment battery is TJ-GAP-056.
++Prerequisites: the `bubblewrap` system package (`apt install bubblewrap` / `dnf install bubblewrap`), invoked as an external binary resolved from `PATH` at run time; it is an optional runtime dependency like `util-linux` and is never vendored, bundled, or redistributed by this MIT-licensed repository — no vendored source tree, no git submodule, no binary blob, and no download or build step in `install.sh`, which prints an advisory note only when `bwrap` is absent and still installs successfully (TJ-GAP-055). bubblewrap is LGPL-2.1-or-later under its own authors' terms: installing it and meeting its license obligations are between the operator and their distribution (this is project packaging guidance, not legal advice). The CLI falls back to the `unshare` backend when bubblewrap is absent, and an explicitly demanded `TERMINAL_JAIL_JAIL_BACKEND=bwrap` fails closed (exit `2`, command not run) when it is missing or unusable. Verified against bubblewrap 0.11.1. Host classification helpers: `scripts/pidns-capability-probe.py` (bare-mode namespace creation) and `scripts/fs-isolation-probe.py` (uid mapping); backend containment parity (TJ-GAP-056) is measured by `scripts/backend-parity-battery.py` and recorded with this host's numbers in `docs/backend-parity.md` — the battery found one genuine containment divergence (the unshare `--user` jail sees the host `/proc`; bwrap's `--proc /proc` does not) and proved both backends fail closed (exit 2, command not run) when the namespace probe fails.
+ 
+ ### Preflight checks
+ 

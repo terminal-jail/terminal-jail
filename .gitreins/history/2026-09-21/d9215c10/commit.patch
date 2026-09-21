@@ -1,0 +1,375 @@
+commit 49caaa883c495689d555b6f451974c97e8416fd2
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 20 22:59:28 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 20 22:59:28 2026 -0500
+
+    fix(dogfood): scratch-HOME hygiene checker + checklist/diag updates (DF-TERMINAL-JAIL-27)
+    
+    A previous dogfood run redirected HOME into /tmp/dogfood-tj and left
+    home/.bunker/config.yaml (mode 644) holding a live bunkerd token: a scratch HOME
+    that receives a credential file turns /tmp into a key store. The leak was purged
+    and the token rotated on the host; this commit lands the repo-side guard.
+    
+    - scripts/scratch-home-hygiene.sh: scans a root (default /tmp) for dogfood-*
+      scratch dirs and flags those readable beyond their owner (any group/other bit)
+      that hold a credential-shaped file — matched by file name (config.yaml,
+      config.yml, *.env, *token*, *secret*, *credential*) or by a credential
+      assignment line in the content. Exits 1 on a finding, 0 when clean, 2 on a bad
+      scan root. Prints paths and mode strings only: matched contents are tested with
+      `grep -q` and never echoed.
+    - tests/test_scratch_home_hygiene.py: pins the contract — a clean root exits 0, a
+      0755 dir with a world-readable config.yaml fails, the same file under 0700 is
+      suppressed by tight perms, the fixture credential value never reaches
+      stdout/stderr, and the content branch stays independent of the name branch.
+    - docs/dogfood/checklist.md: standing item — scratch trees under /tmp/dogfood-*
+      are created 0700 and never receive credential files; run the checker at the end
+      of every dogfood tick and treat a non-zero exit as a pre-closure blocker.
+    - docs/dogfood/diagnostics.md: resolution paragraph for the §8.6 scratch-dir
+      hygiene section (purge plus rotation, and the checker + checklist item as the
+      structural guard). No credential values or secret paths are recorded.
+    
+    Verification: the checker exits 0 on this host's /tmp (24 scratch dirs, 0
+    findings); .venv/bin/python -m pytest tests/test_scratch_home_hygiene.py -x
+    --tb=short -> 7 passed; full suite -> 1348 passed, 7 skipped; gitreins guard
+    tier 1 PASS (secrets/lint/tests/static_analysis).
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ docs/dogfood/checklist.md          |   4 +
+ docs/dogfood/diagnostics.md        |  14 +++
+ scripts/scratch-home-hygiene.sh    | 107 +++++++++++++++++++++++
+ tests/test_scratch_home_hygiene.py | 175 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 300 insertions(+)
+
+diff --git a/docs/dogfood/checklist.md b/docs/dogfood/checklist.md
+index 8ccee49..bd224c8 100644
+--- a/docs/dogfood/checklist.md
++++ b/docs/dogfood/checklist.md
+@@ -7,3 +7,7 @@ gaps the engine-level verdicts alone did not catch.*
+ - When a closure claims a rule CLASS is covered, probe at least one shape
+   the rule deliberately does not target (scoped source, different client,
+   quoted form) before closing.
++- Scratch HOMEs and scratch trees under `/tmp/dogfood-*` must be created 0700
++  and must never receive credential files; run
++  `scripts/scratch-home-hygiene.sh` at the end of every dogfood tick and treat
++  a non-zero exit as a blocker before closing the run.
+diff --git a/docs/dogfood/diagnostics.md b/docs/dogfood/diagnostics.md
+index 567febe..1e780ce 100644
+--- a/docs/dogfood/diagnostics.md
++++ b/docs/dogfood/diagnostics.md
+@@ -265,6 +265,20 @@ tool write credentials into them (or point the tool's own config elsewhere), and
+ destroy the tree at the end of the tick. Purge is not enough for a live token —
+ rotate.
+ 
++**Resolution (DF-TERMINAL-JAIL-27).** The leaked file is gone: later scratch-HOME
++churn under `/tmp/dogfood-tj` removed the tree, and `/tmp` no longer carries any
++`dogfood-*` directory readable beyond its owner. Purge is not rotation, so the
++live bunkerd token for las-03 was rotated on the host — the pre-rotation value
++was verified rejected (401) and the replacement verified accepted (`ServerInfo`
++200) — and the backup copy kept in `$HOME` is mode 0600. The structural guard is
++now two-part: `scripts/scratch-home-hygiene.sh` fails a tick when a group/world-
++readable `/tmp/dogfood-*` tree holds a credential-shaped file (matching by file
++name *or* by a credential-assignment line; only paths and mode strings are
++printed, never contents), and `docs/dogfood/checklist.md` makes running it a
++standing item before closing a dogfood run. Its finding logic, tight-permission
++suppression, and no-content-echo property are pinned by
++`tests/test_scratch_home_hygiene.py`.
++
+ ## 9. Errors hit during the 2026-09-19 evening run (regression re-verification + egress matrix)
+ 
+ Full narrative: `docs/dogfood/2026-09-19-evening-integration.md`. This run
+diff --git a/scripts/scratch-home-hygiene.sh b/scripts/scratch-home-hygiene.sh
+new file mode 100755
+index 0000000..5d69f54
+--- /dev/null
++++ b/scripts/scratch-home-hygiene.sh
+@@ -0,0 +1,107 @@
++#!/usr/bin/env bash
++#
++# scratch-home-hygiene.sh — structural guard for the DF-TERMINAL-JAIL-27 gap.
++#
++# A dogfood leg that redirects HOME into a /tmp scratch tree can let a tool write
++# its own credential file (observed: /tmp/dogfood-tj/home/.bunker/config.yaml,
++# mode 644, holding a live bunkerd token) into that tree. Group/world-readable
++# scratch trees therefore turn /tmp into a key store. This checker scans a root
++# for `dogfood-*` scratch directories and flags the ones that are readable beyond
++# their owner AND carry a credential-shaped file.
++#
++# Usage:  scripts/scratch-home-hygiene.sh [SCAN_ROOT]      (default: /tmp)
++# Exit:   0 = clean, 1 = finding(s), 2 = usage / scan-root error
++#
++# Privacy contract: only PATHS and MODE STRINGS are ever printed. A matched file
++# is opened for a content test (`grep -q`, output discarded) but its contents and
++# credential values are never echoed, logged, or returned.
++#
++# See docs/dogfood/diagnostics.md §8.6 and docs/dogfood/checklist.md.
++
++set -u
++
++SCAN_ROOT="${1:-/tmp}"
++
++if [ ! -d "$SCAN_ROOT" ]; then
++  printf 'scratch-home-hygiene: ERROR scan root is not a directory: %s\n' \
++    "$SCAN_ROOT" >&2
++  exit 2
++fi
++
++# Credential-shaped file NAME (case-insensitive): config.yaml | config.yml |
++# *.env | *token* | *secret* | *credentials*. The two trailing families are
++# matched as infixes so prefixed names (e.g. my_secret.txt) count too.
++is_credential_name() {
++  local base lower
++  base="${1##*/}"
++  lower="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
++  case "$lower" in
++    config.yaml | config.yml | *.env | *token* | *secret* | *credential*)
++      return 0
++      ;;
++    *)
++      return 1
++      ;;
++  esac
++}
++
++# Credential-shaped CONTENT: a credential-assignment line, e.g.
++# `token: abc`, `TOKEN=abc`, `  api_key: abc` (case-insensitive).
++CREDENTIAL_LINE_RE='^[[:space:]]*[A-Za-z0-9_]*(token|secret|password|api_?key)[A-Za-z0-9_]*:?[[:space:]]*[=:][[:space:]]*[^[:space:]]+'
++
++has_credential_line() {
++  # -q silences the match, -I skips binary files ("Binary file matches" noise).
++  grep -q -I -i -E -- "$CREDENTIAL_LINE_RE" -- "$1" 2>/dev/null
++}
++
++mode_of() {
++  stat -c '%a' -- "$1" 2>/dev/null || true
++}
++
++# Owner-only means "no mode bits beyond rwx------": no group, no other bits.
++is_owner_only() {
++  local mode
++  mode="$(mode_of "$1")"
++  [ -n "$mode" ] || return 1
++  [ "$((8#$mode & 8#077))" -eq 0 ]
++}
++
++findings=0
++scanned=0
++
++while IFS= read -r -d '' scratch_dir; do
++  scanned=$((scanned + 1))
++
++  # Tight scratch tree: nothing loose, nothing to report.
++  if is_owner_only "$scratch_dir"; then
++    continue
++  fi
++
++  dir_mode="$(mode_of "$scratch_dir")"
++  [ -n "$dir_mode" ] || dir_mode='unknown'
++
++  while IFS= read -r -d '' file; do
++    [ -f "$file" ] || continue
++    if is_credential_name "$file" || has_credential_line "$file"; then
++      file_mode="$(mode_of "$file")"
++      [ -n "$file_mode" ] || file_mode='unknown'
++      printf 'scratch-home-hygiene: FINDING dir=%s dir-mode=%s credential-file=%s file-mode=%s\n' \
++        "$scratch_dir" "$dir_mode" "$file" "$file_mode"
++      findings=$((findings + 1))
++    fi
++  done < <(find "$scratch_dir" -type f -print0 2>/dev/null)
++done < <(
++  find "$SCAN_ROOT" -mindepth 1 -maxdepth 1 -name 'dogfood-*' -type d -print0 \
++    2>/dev/null
++)
++
++printf 'scratch-home-hygiene: scanned %d scratch dir(s) under %s; %d finding(s)\n' \
++  "$scanned" "$SCAN_ROOT" "$findings"
++
++if [ "$findings" -gt 0 ]; then
++  printf 'scratch-home-hygiene: FAIL — credential file(s) inside a group/world-readable scratch tree; keep scratch HOMEs at mode 0700 and keep credentials out of them (DF-TERMINAL-JAIL-27)\n' >&2
++  exit 1
++fi
++
++printf 'scratch-home-hygiene: OK — no loose scratch tree carries a credential file\n'
++exit 0
+diff --git a/tests/test_scratch_home_hygiene.py b/tests/test_scratch_home_hygiene.py
+new file mode 100644
+index 0000000..1d9f0ac
+--- /dev/null
++++ b/tests/test_scratch_home_hygiene.py
+@@ -0,0 +1,175 @@
++"""Tests for scripts/scratch-home-hygiene.sh (DF-TERMINAL-JAIL-27).
++
++A dogfood leg that redirects HOME into /tmp can let a tool write its own
++credential file into the scratch tree; when that tree is group/world readable
++the scratch area becomes a key store (the leaked
++``/tmp/dogfood-tj/home/.bunker/config.yaml`` case). These tests pin the
++checker's contract: a loose tree carrying a credential-shaped file fails, the
++same file under 0700 is suppressed, a clean root exits 0, and the checker never
++echoes file contents — only paths and mode strings.
++"""
++
++from __future__ import annotations
++
++import os
++import subprocess
++import tempfile
++from pathlib import Path
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++CHECKER = PROJECT_ROOT / "scripts" / "scratch-home-hygiene.sh"
++
++# Obviously-fake credential value. The checker may print PATHS and MODE STRINGS
++# only, so this string must never reach stdout or stderr.
++SECRET_VALUE = "not-a-real-token-value"
++SECRET_LINE = f"token: {SECRET_VALUE}"
++
++
++# ── helpers ────────────────────────────────────────────────────────
++
++
++def run_checker(scan_root: Path) -> subprocess.CompletedProcess[str]:
++    """Run the checker against an explicit scan root (never the real /tmp)."""
++    return subprocess.run(
++        [str(CHECKER), str(scan_root)],
++        capture_output=True,
++        text=True,
++        check=False,
++        cwd=str(PROJECT_ROOT),
++    )
++
++
++def output_of(result: subprocess.CompletedProcess[str]) -> str:
++    """Findings and the FAIL line may land on either stream."""
++    return result.stdout + result.stderr
++
++
++def make_scratch_dir(root: Path, name: str, mode: int) -> Path:
++    """Create root/<name>, a ``dogfood-*`` scratch tree, at an explicit mode.
++
++    ``Path.mkdir`` mode is masked by the umask, so the mode is set afterwards.
++    """
++    path = root / name
++    path.mkdir(parents=True, exist_ok=True)
++    os.chmod(path, mode)
++    return path
++
++
++def write_credential_file(
++    directory: Path,
++    name: str,
++    body: str,
++    mode: int = 0o644,
++) -> Path:
++    """Write a credential-shaped fixture file at an explicit mode."""
++    path = directory / name
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(body, encoding="utf-8")
++    os.chmod(path, mode)
++    return path
++
++
++# ── the checker itself ─────────────────────────────────────────────
++
++
++def test_checker_ships_executable():
++    """The hygiene checker is a runnable script, not just source."""
++    assert CHECKER.is_file()
++    assert os.access(CHECKER, os.X_OK)
++
++
++def test_clean_scratch_root_exits_zero():
++    """A clean (empty, 0700) scratch tree under the scan root is not a finding."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        make_scratch_dir(root, "dogfood-clean", 0o700)
++        result = run_checker(root)
++        assert result.returncode == 0, output_of(result)
++        assert "FINDING" not in output_of(result)
++
++
++# ── loose tree: credential file is a finding ───────────────────────
++
++
++def test_loose_dir_with_world_readable_config_flags():
++    """0755 scratch tree + world-readable config.yaml holding a token -> fail."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        scratch = make_scratch_dir(root, "dogfood-leak", 0o755)
++        credential = write_credential_file(
++            scratch / "home" / ".bunker",
++            "config.yaml",
++            SECRET_LINE + "\n",
++        )
++        result = run_checker(root)
++        output = output_of(result)
++        assert result.returncode != 0, output
++        assert "FINDING" in output
++        assert str(credential) in output
++        assert "dir-mode=755" in output
++
++
++def test_loose_dir_flags_credential_content_with_innocuous_name():
++    """A credential-assignment line is a finding even under a harmless name."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        scratch = make_scratch_dir(root, "dogfood-content", 0o755)
++        credential = write_credential_file(
++            scratch,
++            "notes.txt",
++            f"api_key: {SECRET_VALUE}\n",
++        )
++        result = run_checker(root)
++        output = output_of(result)
++        assert result.returncode != 0, output
++        assert str(credential) in output
++
++
++def test_loose_dir_without_credential_shaped_files_is_clean():
++    """A loose tree with no credential-shaped file makes no finding."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        scratch = make_scratch_dir(root, "dogfood-innocent", 0o755)
++        write_credential_file(scratch, "readme.txt", "hello, no secrets\n")
++        result = run_checker(root)
++        assert result.returncode == 0, output_of(result)
++
++
++# ── tight tree: permissions suppress the finding ───────────────────
++
++
++def test_tight_dir_with_same_file_exits_zero():
++    """The same credential file under 0700 is suppressed by tight perms."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        scratch = make_scratch_dir(root, "dogfood-tight", 0o700)
++        write_credential_file(
++            scratch / "home" / ".bunker",
++            "config.yaml",
++            SECRET_LINE + "\n",
++        )
++        result = run_checker(root)
++        assert result.returncode == 0, output_of(result)
++        assert "FINDING" not in output_of(result)
++
++
++# ── privacy: contents are never echoed ─────────────────────────────
++
++
++def test_checker_never_echoes_file_contents():
++    """Findings report paths and modes only — never the credential value."""
++    with tempfile.TemporaryDirectory() as tmp:
++        root = Path(tmp)
++        loose = make_scratch_dir(root, "dogfood-loose", 0o755)
++        write_credential_file(loose, "config.yaml", SECRET_LINE + "\n")
++        tight = make_scratch_dir(root, "dogfood-tight", 0o700)
++        write_credential_file(tight, "config.yaml", SECRET_LINE + "\n")
++
++        result = run_checker(root)
++        output = output_of(result)
++
++        # The loose tree must be reported ...
++        assert result.returncode != 0, output
++        # ... and the value it contains must not be.
++        assert SECRET_VALUE not in output
++        assert "token:" not in output

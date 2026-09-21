@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-25",
+  "task_title": "Same-id warn downgrade loses the rule's block_message",
+  "task_criteria": [
+    "Carry the matched rule's block_message through the warn path instead of the generic placeholder, add a bridge test asserting the downgraded rule's message appears in reason, full suite green"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "5ff28bcf87eedfaf9533de233eb8592857eb3de1",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:19PM INF scanned ~4377075 bytes (4.38 MB) in 270ms\n4:19PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 142 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1355 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  8%]\ns.s..                                                                    [  8%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.....                                                                    [ 35%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 77%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 87%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 91%]\nplugin/test_rules_drift_probe.py .................                       [ 92%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 97%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1348 passed, 7 skipped in 33.33s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T210923.741134Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 Carry the matched rule's block_message through the warn path instead of the generic placeholder, add a bridge test asserting the downgraded rule's message appears in reason, full suite green: PARTIAL: (1) block_message carried through warn path: PASS by code inspection \u2014 plugin/terminal_jail/interruptor/rules.py adds block_message_explicit + inherit_override_message(); decider.py _build_layers calls inherit_override_message(r, replaced_by_id.get(r.id)) and RuleLoader.load_all calls it for file->file same-id merges; decider.py _rule_result warn branch emits reason=f\"would have blocked: {rule.block_message}\" (line ~339). (2) bridge test: PASS \u2014 plugin/test_interruptor_integration.py::test_bridge_warn_override_keeps_the_rules_own_message asserts FDISK_BUILTIN_MESSAGE in response[\"reason\"] and reason != generic placeholder; plus test_bridge_warn_override_with_explicit_message_wins. (3) full suite green: NOT VERIFIED \u2014 pytest run launched in background (.venv/bin/python -m pytest -q -p no:cacheprovider > /tmp/pytest_full.log) never produced output within the time budget (log stayed 0 bytes; run_command 30s cap prevented completion). Commit message claims \"1236 passed, 7 skipped in 35.94s\" but that is not fresh command output I observed.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 Carry the matched rule's block_message through the warn path instead of the generic placeholder, add a bridge test asserting the downgraded rule's message appears in reason, full suite green: PARTIAL: (1) block_message carried through warn path: PASS by code inspection \u2014 plugin/terminal_jail/interruptor/rules.py adds block_message_explicit + inherit_override_message(); decider.py _build_layers calls inherit_override_message(r, replaced_by_id.get(r.id)) and RuleLoader.load_all calls it for file->file same-id merges; decider.py _rule_result warn branch emits reason=f\"would have blocked: {rule.block_message}\" (line ~339). (2) bridge test: PASS \u2014 plugin/test_interruptor_integration.py::test_bridge_warn_override_keeps_the_rules_own_message asserts FDISK_BUILTIN_MESSAGE in response[\"reason\"] and reason != generic placeholder; plus test_bridge_warn_override_with_explicit_message_wins. (3) full suite green: NOT VERIFIED \u2014 pytest run launched in background (.venv/bin/python -m pytest -q -p no:cacheprovider > /tmp/pytest_full.log) never produced output within the time budget (log stayed 0 bytes; run_command 30s cap prevented completion). Commit message claims \"1236 passed, 7 skipped in 35.94s\" but that is not fresh command output I observed.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "Carry the matched rule's block_message through the warn path instead of the generic placeholder, add a bridge test asserting the downgraded rule's message appears in reason, full suite green",
+                "status": "FAIL",
+                "detail": "PARTIAL: (1) block_message carried through warn path: PASS by code inspection \u2014 plugin/terminal_jail/interruptor/rules.py adds block_message_explicit + inherit_override_message(); decider.py _build_layers calls inherit_override_message(r, replaced_by_id.get(r.id)) and RuleLoader.load_all calls it for file->file same-id merges; decider.py _rule_result warn branch emits reason=f\"would have blocked: {rule.block_message}\" (line ~339). (2) bridge test: PASS \u2014 plugin/test_interruptor_integration.py::test_bridge_warn_override_keeps_the_rules_own_message asserts FDISK_BUILTIN_MESSAGE in response[\"reason\"] and reason != generic placeholder; plus test_bridge_warn_override_with_explicit_message_wins. (3) full suite green: NOT VERIFIED \u2014 pytest run launched in background (.venv/bin/python -m pytest -q -p no:cacheprovider > /tmp/pytest_full.log) never produced output within the time budget (log stayed 0 bytes; run_command 30s cap prevented completion). Commit message claims \"1236 passed, 7 skipped in 35.94s\" but that is not fresh command output I observed."
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-25\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 Carry the matched rule's block_message through the warn path instead of the generic placeholder, add a bridge test asserting the downgraded rule's message appears in reason, full suite green: PARTIAL: (1) block_message carried through warn path: PASS by code inspection \u2014 plugin/terminal_jail/interruptor/rules.py adds block_message_explicit + inherit_override_message(); decider.py _build_layers calls inherit_override_message(r, replaced_by_id.get(r.id)) and RuleLoader.load_all calls it for file->file same-id merges; decider.py _rule_result warn branch emits reason=f\"would have blocked: {rule.block_message}\" (line ~339). (2) bridge test: PASS \u2014 plugin/test_interruptor_integration.py::test_bridge_warn_override_keeps_the_rules_own_message asserts FDISK_BUILTIN_MESSAGE in response[\"reason\"] and reason != generic placeholder; plus test_bridge_warn_override_with_explicit_message_wins. (3) full suite green: NOT VERIFIED \u2014 pytest run launched in background (.venv/bin/python -m pytest -q -p no:cacheprovider > /tmp/pytest_full.log) never produced output within the time budget (log stayed 0 bytes; run_command 30s cap prevented completion). Commit message claims \"1236 passed, 7 skipped in 35.94s\" but that is not fresh command output I observed.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-20T22:19:47.318547",
+  "evidence": {
+    "collected_at": "2026-09-20T22:19:47.679497+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show 5ff28bcf87ee"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 10781,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-25"
+  }
+}
