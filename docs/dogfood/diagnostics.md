@@ -265,6 +265,20 @@ tool write credentials into them (or point the tool's own config elsewhere), and
 destroy the tree at the end of the tick. Purge is not enough for a live token —
 rotate.
 
+**Resolution (DF-TERMINAL-JAIL-27).** The leaked file is gone: later scratch-HOME
+churn under `/tmp/dogfood-tj` removed the tree, and `/tmp` no longer carries any
+`dogfood-*` directory readable beyond its owner. Purge is not rotation, so the
+live bunkerd token for las-03 was rotated on the host — the pre-rotation value
+was verified rejected (401) and the replacement verified accepted (`ServerInfo`
+200) — and the backup copy kept in `$HOME` is mode 0600. The structural guard is
+now two-part: `scripts/scratch-home-hygiene.sh` fails a tick when a group/world-
+readable `/tmp/dogfood-*` tree holds a credential-shaped file (matching by file
+name *or* by a credential-assignment line; only paths and mode strings are
+printed, never contents), and `docs/dogfood/checklist.md` makes running it a
+standing item before closing a dogfood run. Its finding logic, tight-permission
+suppression, and no-content-echo property are pinned by
+`tests/test_scratch_home_hygiene.py`.
+
 ## 9. Errors hit during the 2026-09-19 evening run (regression re-verification + egress matrix)
 
 Full narrative: `docs/dogfood/2026-09-19-evening-integration.md`. This run
