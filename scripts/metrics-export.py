@@ -33,7 +33,7 @@ def _metrics_to_dict() -> dict:
     d = dataclasses.asdict(m)
     d["timestamp"] = datetime.now(UTC).isoformat()
     d["project"] = "terminal-jail"
-    d["version"] = "1.1.0"
+    d["version"] = "1.2.0"
     # Derived fields for dashboarding
     total_commands = (
         m.commands_wrapped

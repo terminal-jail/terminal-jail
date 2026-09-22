@@ -10,7 +10,7 @@ set -eu
 # the supported install path; it ships the wrapper, the plugin bridge tree,
 # and the seccomp loader together.
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
-TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
 # (default) = derive from the install scope: the live user rules dir
@@ -188,7 +188,7 @@ Environment (all optional):
                                (default: derived from the install scope)
   TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
                                local checkout (rule packs need the checkout)
-  TERMINAL_JAIL_VERSION        version to install (default: 1.1.0)
+  TERMINAL_JAIL_VERSION        version to install (default: 1.2.0)
   TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
 USAGE
 }

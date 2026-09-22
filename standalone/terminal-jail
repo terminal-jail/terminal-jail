@@ -77,7 +77,7 @@ while IFS= read -r -d '' _tj_entry; do
 done < /proc/self/environ
 unset -v _TJ_HOOK_RE _TJ_VAR_KEEP_RE _tj_entry _tj_name _tj_val
 
-VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
+VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"
 # Resolve the script's directory using bash parameter expansion (no external
 # commands needed — safe in stripped-PATH environments).
 SCRIPT_DIR="${0%/*}"

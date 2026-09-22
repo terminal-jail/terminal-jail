@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-22
+
 ### `--uninstall`: the removal path (TJ-GAP-071)
 
 - **Feature** (`install.sh`): `./install.sh --uninstall` mirrors every install

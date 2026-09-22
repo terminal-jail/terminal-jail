@@ -79,7 +79,7 @@ engine action, the installed action, and both file paths.
 **Step 1 — classify the host** (the probe always exits 0):
 
 ```bash
-~/.local/bin/terminal-jail --version   # → terminal-jail 1.1.0
+~/.local/bin/terminal-jail --version   # → terminal-jail 1.2.0
 python3 scripts/pidns-capability-probe.py
 # FULL     → the host can create unprivileged PID namespaces — bare mode works
 # DEGRADED → it cannot (bare mode exits 2, fail-closed) — use --user
