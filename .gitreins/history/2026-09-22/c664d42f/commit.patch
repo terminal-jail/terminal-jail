@@ -1,0 +1,43 @@
+commit 3bf4dac0ca01c244454427f9cf228465e4f3565f
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Tue Sep 22 14:03:09 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Tue Sep 22 14:03:09 2026 -0500
+
+    polish(release): plugin load banners 1.1.0 -> 1.2.0 (TJ-GAP-073 follow-up)
+    
+    Worker-flagged residue: the two plugin log banners were the only machine
+    literals still carrying 1.1.0 after 6346531. No test pins them.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ plugin/__init__.py               | 2 +-
+ plugin/terminal_jail/__init__.py | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/plugin/__init__.py b/plugin/__init__.py
+index dcf7f44..6015c34 100644
+--- a/plugin/__init__.py
++++ b/plugin/__init__.py
+@@ -81,7 +81,7 @@ def register(ctx) -> None:
+     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
+ 
+     logger.info(
+-        "terminal-jail v1.1.0 loaded. "
++        "terminal-jail v1.2.0 loaded. "
+         "NOTE: pre-execution command wrapping requires Hermes core "
+         "pre-execution hooks (see task HOOK-GAP-03). "
+         "Observability hooks registered."
+diff --git a/plugin/terminal_jail/__init__.py b/plugin/terminal_jail/__init__.py
+index 6642b06..7f02eea 100644
+--- a/plugin/terminal_jail/__init__.py
++++ b/plugin/terminal_jail/__init__.py
+@@ -79,7 +79,7 @@ def register(ctx) -> None:
+     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
+ 
+     logger.info(
+-        "terminal-jail v1.1.0 loaded. "
++        "terminal-jail v1.2.0 loaded. "
+         "NOTE: pre-execution command wrapping requires Hermes core "
+         "pre-execution hooks (see task HOOK-GAP-03). "
+         "Observability hooks registered."

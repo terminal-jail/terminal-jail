@@ -1,0 +1,31 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 00406f9..76dd570 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1282,3 +1282,16 @@ tasks:
+   status: complete
+   created_at: '2026-09-22T16:40:09.669149+00:00'
+   completed_at: '2026-09-22T18:11:44.000329+00:00'
++- id: TJ-GAP-073
++  title: 'Release cut 1.2.0: version literals + CHANGELOG promotion'
++  criteria:
++  - grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail,
++    scripts/metrics-export.py, docs/quickstart.md returns zero hits
++  - "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with\
++    \ the ### subsection count identical before/after and no bullet altered"
++  - uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0
++  - ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh
++    passes, the plugin pytest suite is green, and uvx ruff check . is clean
++  status: complete
++  created_at: '2026-09-22T18:48:17.817794+00:00'
++  completed_at: '2026-09-22T20:05:22.342321+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 39d5ec3..5ad6a54 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -79,3 +79,5 @@
+ {"ts": 1790088686.9226427, "tokens_in": 1742431, "tokens_out": 8087, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790089126.8282027, "tokens_in": 411586, "tokens_out": 3093, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790100967.189588, "tokens_in": 515965, "tokens_out": 5141, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790107467.5682955, "tokens_in": 3274336, "tokens_out": 13240, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790107695.8107545, "tokens_in": 140005, "tokens_out": 3184, "cache_read": 0, "cache_write": 0, "step": "tier2"}
