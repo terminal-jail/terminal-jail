@@ -1266,3 +1266,19 @@ tasks:
   status: complete
   created_at: '2026-09-22T14:17:49.595598+00:00'
   completed_at: '2026-09-22T14:33:55.544012+00:00'
+- id: TJ-GAP-072
+  title: Installer upgrade prunes stale installed files and caps rules .bak retention
+  criteria:
+  - install.sh records an install manifest of every file it wrote under LIB_DIR and
+    refreshes that manifest on every re-install
+  - after a module file is deleted from plugin/terminal_jail in the checkout, re-running
+    install.sh removes that stale file from the installed lib tree, proven by a regression
+    test that installs, deletes, re-installs and asserts absence
+  - 'rules backup retention is capped: after repeated installs with differing user
+    rules only the newest 5 .bak-* backups remain, proven by a regression test'
+  - 'existing behavior preserved: default-dir install, custom-prefix install and --uninstall
+    still pass their existing tests, and the uninstall census still leaves user-authored
+    rules in place'
+  status: complete
+  created_at: '2026-09-22T16:40:09.669149+00:00'
+  completed_at: '2026-09-22T18:11:44.000329+00:00'

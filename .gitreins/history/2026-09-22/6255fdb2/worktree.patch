@@ -1,0 +1,45 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 5eff10e..00406f9 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1266,3 +1266,19 @@ tasks:
+   status: complete
+   created_at: '2026-09-22T14:17:49.595598+00:00'
+   completed_at: '2026-09-22T14:33:55.544012+00:00'
++- id: TJ-GAP-072
++  title: Installer upgrade prunes stale installed files and caps rules .bak retention
++  criteria:
++  - install.sh records an install manifest of every file it wrote under LIB_DIR and
++    refreshes that manifest on every re-install
++  - after a module file is deleted from plugin/terminal_jail in the checkout, re-running
++    install.sh removes that stale file from the installed lib tree, proven by a regression
++    test that installs, deletes, re-installs and asserts absence
++  - 'rules backup retention is capped: after repeated installs with differing user
++    rules only the newest 5 .bak-* backups remain, proven by a regression test'
++  - 'existing behavior preserved: default-dir install, custom-prefix install and --uninstall
++    still pass their existing tests, and the uninstall census still leaves user-authored
++    rules in place'
++  status: complete
++  created_at: '2026-09-22T16:40:09.669149+00:00'
++  completed_at: '2026-09-22T18:11:44.000329+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 71e1d42..39d5ec3 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -78,3 +78,4 @@
+ {"ts": 1790087987.2750788, "tokens_in": 8064472, "tokens_out": 38859, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790088686.9226427, "tokens_in": 1742431, "tokens_out": 8087, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790089126.8282027, "tokens_in": 411586, "tokens_out": 3093, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790100967.189588, "tokens_in": 515965, "tokens_out": 5141, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..f9e0733 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,7 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
