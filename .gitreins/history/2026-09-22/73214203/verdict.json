@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-070",
+  "task_title": "Fail closed on engine-evaluation errors in interruptor bridge + wrapper verdict hardening",
+  "task_criteria": [
+    "Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept() exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error] reason treated as block in enforce, loud warn in warn mode; load-time schema pass refuses bad field types with stderr note; all existing suites stay green; clean-rules control unchanged; regression tests added"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "11a708accdd7a158dcb52e39931e7998eea790c4",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n9:55AM INF scanned ~5281910 bytes (5.28 MB) in 822ms\n9:55AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 151 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1402 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.....                                                                    [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1395 passed, 7 skipped in 41.90s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept() exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error] reason treated as block in enforce, loud warn in warn mode; load-time schema pass refuses bad field types with stderr note; all existing suites stay green; clean-rules control unchanged; regression tests added: All sub-requirements verified. (1) Poison fixture POISON_PRIORITY_YAML (plugin/test_bridge_fail_closed.py:70-78, `priority: not-a-number`) drives: bridge verdict block (test_poison_priority_bridge_verdict_blocks:522), intercept() raises RuleSchemaError (test_poison_priority_intercept_raises:549), loader refuses loudly (test_poison_priority_file_refused_loudly:503). (2) Bridge fail-closed: plugin/terminal_jail/interruptor_bridge.py:73-90 `except Exception` -> `_emit_fail_closed` emitting action=block, rule_id=\"[bridge-error]\", reason \"[bridge-error] {detail} \u2014 fail-closed: blocking command (enforce mode)\"; test_engine_exception_emits_block_verdict:118 asserts exactly this. (3) Wrapper: standalone/terminal-jail:310-357 normalizes empty stdout to sentinel and routes unusable verdicts to exit 126 (enforce) / WARN (warn); :375-390 treats `[bridge-error]*` reason as block in enforce, WARN+allow in warn; :396-409 prints block box and `exit 126`. Tests test_empty_bridge_stdout_blocks_in_enforce:363, test_garbage_bridge_stdout_blocks_in_enforce:314, test_whitespace_bridge_stdout_blocks_in_enforce:419, test_bridge_error_reason_blocks_in_enforce:262, test_bridge_error_reason_warns_and_runs_in_warn_mode:285. (4) Loader schema pass: plugin/terminal_jail/interruptor/rules.py:124-410 RuleSchemaError + validate_rule_document + one-line stderr note naming the file (test asserts err.count('\\n')==1 and 'bad.yaml' in err); bool-priority and non-dict-entry refusals at :624/:637. (5) Clean-rules controls unchanged: test_clean_rules_still_load:589, test_valid_user_rule_file_still_loads:598, test_normal_allow_verdict_unchanged:438, test_normal_block_verdict_unchanged:471, test_parse_failure_still_skips_with_warning_not_abort:560. (6) Tests green: `.venv/bin/python -m pytest -q --tb=short` -> `1395 passed, 7 skipped in 35.14s` (exit 0); plugin/test_bridge_fail_closed.py -> `25 passed in 0.98s` (exit 0).\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept() exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error] reason treated as block in enforce, loud warn in warn mode; load-time schema pass refuses bad field types with stderr note; all existing suites stay green; clean-rules control unchanged; regression tests added: All sub-requirements verified. (1) Poison fixture POISON_PRIORITY_YAML (plugin/test_bridge_fail_closed.py:70-78, `priority: not-a-number`) drives: bridge verdict block (test_poison_priority_bridge_verdict_blocks:522), intercept() raises RuleSchemaError (test_poison_priority_intercept_raises:549), loader refuses loudly (test_poison_priority_file_refused_loudly:503). (2) Bridge fail-closed: plugin/terminal_jail/interruptor_bridge.py:73-90 `except Exception` -> `_emit_fail_closed` emitting action=block, rule_id=\"[bridge-error]\", reason \"[bridge-error] {detail} \u2014 fail-closed: blocking command (enforce mode)\"; test_engine_exception_emits_block_verdict:118 asserts exactly this. (3) Wrapper: standalone/terminal-jail:310-357 normalizes empty stdout to sentinel and routes unusable verdicts to exit 126 (enforce) / WARN (warn); :375-390 treats `[bridge-error]*` reason as block in enforce, WARN+allow in warn; :396-409 prints block box and `exit 126`. Tests test_empty_bridge_stdout_blocks_in_enforce:363, test_garbage_bridge_stdout_blocks_in_enforce:314, test_whitespace_bridge_stdout_blocks_in_enforce:419, test_bridge_error_reason_blocks_in_enforce:262, test_bridge_error_reason_warns_and_runs_in_warn_mode:285. (4) Loader schema pass: plugin/terminal_jail/interruptor/rules.py:124-410 RuleSchemaError + validate_rule_document + one-line stderr note naming the file (test asserts err.count('\\n')==1 and 'bad.yaml' in err); bool-priority and non-dict-entry refusals at :624/:637. (5) Clean-rules controls unchanged: test_clean_rules_still_load:589, test_valid_user_rule_file_still_loads:598, test_normal_allow_verdict_unchanged:438, test_normal_block_verdict_unchanged:471, test_parse_failure_still_skips_with_warning_not_abort:560. (6) Tests green: `.venv/bin/python -m pytest -q --tb=short` -> `1395 passed, 7 skipped in 35.14s` (exit 0); plugin/test_bridge_fail_closed.py -> `25 passed in 0.98s` (exit 0).\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept() exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error] reason treated as block in enforce, loud warn in warn mode; load-time schema pass refuses bad field types with stderr note; all existing suites stay green; clean-rules control unchanged; regression tests added",
+                "status": "PASS",
+                "detail": "All sub-requirements verified. (1) Poison fixture POISON_PRIORITY_YAML (plugin/test_bridge_fail_closed.py:70-78, `priority: not-a-number`) drives: bridge verdict block (test_poison_priority_bridge_verdict_blocks:522), intercept() raises RuleSchemaError (test_poison_priority_intercept_raises:549), loader refuses loudly (test_poison_priority_file_refused_loudly:503). (2) Bridge fail-closed: plugin/terminal_jail/interruptor_bridge.py:73-90 `except Exception` -> `_emit_fail_closed` emitting action=block, rule_id=\"[bridge-error]\", reason \"[bridge-error] {detail} \u2014 fail-closed: blocking command (enforce mode)\"; test_engine_exception_emits_block_verdict:118 asserts exactly this. (3) Wrapper: standalone/terminal-jail:310-357 normalizes empty stdout to sentinel and routes unusable verdicts to exit 126 (enforce) / WARN (warn); :375-390 treats `[bridge-error]*` reason as block in enforce, WARN+allow in warn; :396-409 prints block box and `exit 126`. Tests test_empty_bridge_stdout_blocks_in_enforce:363, test_garbage_bridge_stdout_blocks_in_enforce:314, test_whitespace_bridge_stdout_blocks_in_enforce:419, test_bridge_error_reason_blocks_in_enforce:262, test_bridge_error_reason_warns_and_runs_in_warn_mode:285. (4) Loader schema pass: plugin/terminal_jail/interruptor/rules.py:124-410 RuleSchemaError + validate_rule_document + one-line stderr note naming the file (test asserts err.count('\\n')==1 and 'bad.yaml' in err); bool-priority and non-dict-entry refusals at :624/:637. (5) Clean-rules controls unchanged: test_clean_rules_still_load:589, test_valid_user_rule_file_still_loads:598, test_normal_allow_verdict_unchanged:438, test_normal_block_verdict_unchanged:471, test_parse_failure_still_skips_with_warning_not_abort:560. (6) Tests green: `.venv/bin/python -m pytest -q --tb=short` -> `1395 passed, 7 skipped in 35.14s` (exit 0); plugin/test_bridge_fail_closed.py -> `25 passed in 0.98s` (exit 0)."
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-070\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept() exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error] reason treated as block in enforce, loud warn in warn mode; load-time schema pass refuses bad field types with stderr note; all existing suites stay green; clean-rules control unchanged; regression tests added: All sub-requirements verified. (1) Poison fixture POISON_PRIORITY_YAML (plugin/test_bridge_fail_closed.py:70-78, `priority: not-a-number`) drives: bridge verdict block (test_poison_priority_bridge_verdict_blocks:522), intercept() raises RuleSchemaError (test_poison_priority_intercept_raises:549), loader refuses loudly (test_poison_priority_file_refused_loudly:503). (2) Bridge fail-closed: plugin/terminal_jail/interruptor_bridge.py:73-90 `except Exception` -> `_emit_fail_closed` emitting action=block, rule_id=\"[bridge-error]\", reason \"[bridge-error] {detail} \u2014 fail-closed: blocking command (enforce mode)\"; test_engine_exception_emits_block_verdict:118 asserts exactly this. (3) Wrapper: standalone/terminal-jail:310-357 normalizes empty stdout to sentinel and routes unusable verdicts to exit 126 (enforce) / WARN (warn); :375-390 treats `[bridge-error]*` reason as block in enforce, WARN+allow in warn; :396-409 prints block box and `exit 126`. Tests test_empty_bridge_stdout_blocks_in_enforce:363, test_garbage_bridge_stdout_blocks_in_enforce:314, test_whitespace_bridge_stdout_blocks_in_enforce:419, test_bridge_error_reason_blocks_in_enforce:262, test_bridge_error_reason_warns_and_runs_in_warn_mode:285. (4) Loader schema pass: plugin/terminal_jail/interruptor/rules.py:124-410 RuleSchemaError + validate_rule_document + one-line stderr note naming the file (test asserts err.count('\\n')==1 and 'bad.yaml' in err); bool-priority and non-dict-entry refusals at :624/:637. (5) Clean-rules controls unchanged: test_clean_rules_still_load:589, test_valid_user_rule_file_still_loads:598, test_normal_allow_verdict_unchanged:438, test_normal_block_verdict_unchanged:471, test_parse_failure_still_skips_with_warning_not_abort:560. (6) Tests green: `.venv/bin/python -m pytest -q --tb=short` -> `1395 passed, 7 skipped in 35.14s` (exit 0); plugin/test_bridge_fail_closed.py -> `25 passed in 0.98s` (exit 0).\n\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-22T14:58:46.842712",
+  "evidence": {
+    "collected_at": "2026-09-22T14:58:46.859158+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 7291,
+        "truncated": false,
+        "source": "git show 11a708accdd7"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 35149,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-070"
+  }
+}

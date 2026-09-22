@@ -1,0 +1,117 @@
+{
+  "task_id": "INT-CI-001",
+  "task_title": "Fix host-degradation CI failures in wrapper verdict-hardening tests",
+  "task_criteria": [
+    "All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning True on rc=2 plus a degraded marker (Permission denied / Operation not permitted / namespace creation failed); warn semantics asserted on every host; full plugin suite green locally; CI green on the fix commit"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "11a708accdd7a158dcb52e39931e7998eea790c4",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n9:43AM INF scanned ~5281910 bytes (5.28 MB) in 297ms\n9:43AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 151 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1402 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.....                                                                    [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1395 passed, 7 skipped in 33.92s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T141923.071271Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning True on rc=2 plus a degraded marker (Permission denied / Operation not permitted / namespace creation failed); warn semantics asserted on every host; full plugin suite green locally; CI green on the fix commit: All four named tests exist in plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening (test_bridge_error_reason_warns_and_runs_in_warn_mode, test_garbage_bridge_stdout_warns_and_runs_in_warn_mode, test_empty_bridge_stdout_warns_and_runs_in_warn_mode, test_normal_allow_verdict_unchanged). (a) Namespace-capable host: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening -v` => '9 passed in 0.98s' (exit 0). (b) Namespace-degraded host simulated with a PATH stub unshare printing 'Operation not permitted' exit 1 plus TERMINAL_JAIL_JAIL_BACKEND=unshare: probe `_host_denies_bare_launch()` returned True (verified by direct invocation), and the same command => '9 passed in 0.94s'. Manual degraded-host runs confirm real semantics: garbage bridge + warn mode => stderr '[terminal-jail] WARNING \u2014 interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)' + 'terminal-jail: namespace creation failed (unshare exit 1)' rc=2 (not 126); garbage bridge + enforce => 'COMMAND BLOCKED \u2014 interruptor-verdict-unusable' box rc=126. (c) Probe implementation at plugin/test_bridge_fail_closed.py:193-236 returns `result.returncode == 2 and _degraded_marker(result.stderr)`, with _degraded_marker at :43-52 checking exactly 'Permission denied' / 'Operation not permitted' / 'namespace creation failed'; functools.lru_cache(maxsize=1) probes once per process. (d) Warn semantics asserted on every host: each warn test unconditionally asserts 'WARN'/'WARNING' in stderr and `result.returncode != 126`; only the 'command actually ran' assertion is guarded by `if not (result.returncode == 2 and self._host_denies_bare_launch())`. (e) Full plugin suite locally: `.venv/bin/python -m pytest plugin/ -q -m 'not integration'` => '1336 passed, 4 skipped, 62 deselected in 24.57s' (exit 0), matching the commit message claim. (f) CI green on the fix commit: `gh run view 35740806798` headSha=11a708accdd7a158dcb52e39931e7998eea790c4 (commit 11a708a, the fix) conclusion=success; the Python 3.11 job log shows all 9 TestWrapperVerdictHardening tests PASSED and '1325 passed, 15 skipped, 62 deselected'; the prior run 35733081762 on commit 455f865 was 'failure' (the bug being fixed). LSP diagnostics: 0 findings.\nAll four TestWrapperVerdictHardening tests pass on both namespace-capable and namespace-degraded hosts (probe returns True on rc=2 + degraded marker), warn semantics are asserted unconditionally, the full plugin suite is green locally (1336 passed/4 skipped), and CI run 35740806798 on fix commit 11a708a is success.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning True on rc=2 plus a degraded marker (Permission denied / Operation not permitted / namespace creation failed); warn semantics asserted on every host; full plugin suite green locally; CI green on the fix commit: All four named tests exist in plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening (test_bridge_error_reason_warns_and_runs_in_warn_mode, test_garbage_bridge_stdout_warns_and_runs_in_warn_mode, test_empty_bridge_stdout_warns_and_runs_in_warn_mode, test_normal_allow_verdict_unchanged). (a) Namespace-capable host: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening -v` => '9 passed in 0.98s' (exit 0). (b) Namespace-degraded host simulated with a PATH stub unshare printing 'Operation not permitted' exit 1 plus TERMINAL_JAIL_JAIL_BACKEND=unshare: probe `_host_denies_bare_launch()` returned True (verified by direct invocation), and the same command => '9 passed in 0.94s'. Manual degraded-host runs confirm real semantics: garbage bridge + warn mode => stderr '[terminal-jail] WARNING \u2014 interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)' + 'terminal-jail: namespace creation failed (unshare exit 1)' rc=2 (not 126); garbage bridge + enforce => 'COMMAND BLOCKED \u2014 interruptor-verdict-unusable' box rc=126. (c) Probe implementation at plugin/test_bridge_fail_closed.py:193-236 returns `result.returncode == 2 and _degraded_marker(result.stderr)`, with _degraded_marker at :43-52 checking exactly 'Permission denied' / 'Operation not permitted' / 'namespace creation failed'; functools.lru_cache(maxsize=1) probes once per process. (d) Warn semantics asserted on every host: each warn test unconditionally asserts 'WARN'/'WARNING' in stderr and `result.returncode != 126`; only the 'command actually ran' assertion is guarded by `if not (result.returncode == 2 and self._host_denies_bare_launch())`. (e) Full plugin suite locally: `.venv/bin/python -m pytest plugin/ -q -m 'not integration'` => '1336 passed, 4 skipped, 62 deselected in 24.57s' (exit 0), matching the commit message claim. (f) CI green on the fix commit: `gh run view 35740806798` headSha=11a708accdd7a158dcb52e39931e7998eea790c4 (commit 11a708a, the fix) conclusion=success; the Python 3.11 job log shows all 9 TestWrapperVerdictHardening tests PASSED and '1325 passed, 15 skipped, 62 deselected'; the prior run 35733081762 on commit 455f865 was 'failure' (the bug being fixed). LSP diagnostics: 0 findings.\nAll four TestWrapperVerdictHardening tests pass on both namespace-capable and namespace-degraded hosts (probe returns True on rc=2 + degraded marker), warn semantics are asserted unconditionally, the full plugin suite is green locally (1336 passed/4 skipped), and CI run 35740806798 on fix commit 11a708a is success.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning True on rc=2 plus a degraded marker (Permission denied / Operation not permitted / namespace creation failed); warn semantics asserted on every host; full plugin suite green locally; CI green on the fix commit",
+                "status": "PASS",
+                "detail": "All four named tests exist in plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening (test_bridge_error_reason_warns_and_runs_in_warn_mode, test_garbage_bridge_stdout_warns_and_runs_in_warn_mode, test_empty_bridge_stdout_warns_and_runs_in_warn_mode, test_normal_allow_verdict_unchanged). (a) Namespace-capable host: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening -v` => '9 passed in 0.98s' (exit 0). (b) Namespace-degraded host simulated with a PATH stub unshare printing 'Operation not permitted' exit 1 plus TERMINAL_JAIL_JAIL_BACKEND=unshare: probe `_host_denies_bare_launch()` returned True (verified by direct invocation), and the same command => '9 passed in 0.94s'. Manual degraded-host runs confirm real semantics: garbage bridge + warn mode => stderr '[terminal-jail] WARNING \u2014 interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)' + 'terminal-jail: namespace creation failed (unshare exit 1)' rc=2 (not 126); garbage bridge + enforce => 'COMMAND BLOCKED \u2014 interruptor-verdict-unusable' box rc=126. (c) Probe implementation at plugin/test_bridge_fail_closed.py:193-236 returns `result.returncode == 2 and _degraded_marker(result.stderr)`, with _degraded_marker at :43-52 checking exactly 'Permission denied' / 'Operation not permitted' / 'namespace creation failed'; functools.lru_cache(maxsize=1) probes once per process. (d) Warn semantics asserted on every host: each warn test unconditionally asserts 'WARN'/'WARNING' in stderr and `result.returncode != 126`; only the 'command actually ran' assertion is guarded by `if not (result.returncode == 2 and self._host_denies_bare_launch())`. (e) Full plugin suite locally: `.venv/bin/python -m pytest plugin/ -q -m 'not integration'` => '1336 passed, 4 skipped, 62 deselected in 24.57s' (exit 0), matching the commit message claim. (f) CI green on the fix commit: `gh run view 35740806798` headSha=11a708accdd7a158dcb52e39931e7998eea790c4 (commit 11a708a, the fix) conclusion=success; the Python 3.11 job log shows all 9 TestWrapperVerdictHardening tests PASSED and '1325 passed, 15 skipped, 62 deselected'; the prior run 35733081762 on commit 455f865 was 'failure' (the bug being fixed). LSP diagnostics: 0 findings."
+              }
+            ],
+            "summary": "All four TestWrapperVerdictHardening tests pass on both namespace-capable and namespace-degraded hosts (probe returns True on rc=2 + degraded marker), warn semantics are asserted unconditionally, the full plugin suite is green locally (1336 passed/4 skipped), and CI run 35740806798 on fix commit 11a708a is success."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-001\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning True on rc=2 plus a degraded marker (Permission denied / Operation not permitted / namespace creation failed); warn semantics asserted on every host; full plugin suite green locally; CI green on the fix commit: All four named tests exist in plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening (test_bridge_error_reason_warns_and_runs_in_warn_mode, test_garbage_bridge_stdout_warns_and_runs_in_warn_mode, test_empty_bridge_stdout_warns_and_runs_in_warn_mode, test_normal_allow_verdict_unchanged). (a) Namespace-capable host: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py::TestWrapperVerdictHardening -v` => '9 passed in 0.98s' (exit 0). (b) Namespace-degraded host simulated with a PATH stub unshare printing 'Operation not permitted' exit 1 plus TERMINAL_JAIL_JAIL_BACKEND=unshare: probe `_host_denies_bare_launch()` returned True (verified by direct invocation), and the same command => '9 passed in 0.94s'. Manual degraded-host runs confirm real semantics: garbage bridge + warn mode => stderr '[terminal-jail] WARNING \u2014 interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)' + 'terminal-jail: namespace creation failed (unshare exit 1)' rc=2 (not 126); garbage bridge + enforce => 'COMMAND BLOCKED \u2014 interruptor-verdict-unusable' box rc=126. (c) Probe implementation at plugin/test_bridge_fail_closed.py:193-236 returns `result.returncode == 2 and _degraded_marker(result.stderr)`, with _degraded_marker at :43-52 checking exactly 'Permission denied' / 'Operation not permitted' / 'namespace creation failed'; functools.lru_cache(maxsize=1) probes once per process. (d) Warn semantics asserted on every host: each warn test unconditionally asserts 'WARN'/'WARNING' in stderr and `result.returncode != 126`; only the 'command actually ran' assertion is guarded by `if not (result.returncode == 2 and self._host_denies_bare_launch())`. (e) Full plugin suite locally: `.venv/bin/python -m pytest plugin/ -q -m 'not integration'` => '1336 passed, 4 skipped, 62 deselected in 24.57s' (exit 0), matching the commit message claim. (f) CI green on the fix commit: `gh run view 35740806798` headSha=11a708accdd7a158dcb52e39931e7998eea790c4 (commit 11a708a, the fix) conclusion=success; the Python 3.11 job log shows all 9 TestWrapperVerdictHardening tests PASSED and '1325 passed, 15 skipped, 62 deselected'; the prior run 35733081762 on commit 455f865 was 'failure' (the bug being fixed). LSP diagnostics: 0 findings.\nAll four TestWrapperVerdictHardening tests pass on both namespace-capable and namespace-degraded hosts (probe returns True on rc=2 + degraded marker), warn semantics are asserted unconditionally, the full plugin suite is green locally (1336 passed/4 skipped), and CI run 35740806798 on fix commit 11a708a is success.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-22T14:51:26.935286",
+  "evidence": {
+    "collected_at": "2026-09-22T14:51:26.949499+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 7291,
+        "truncated": false,
+        "source": "git show 11a708accdd7"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 35028,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-001"
+  }
+}

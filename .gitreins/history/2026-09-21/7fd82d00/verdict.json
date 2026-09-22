@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-071",
+  "task_title": "install.sh --uninstall removal path + docs",
+  "task_criteria": [
+    "./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install works; user-authored rules.d files preserved and listed; only marker-matched rc PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md; tests added; full suite green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "004a3573b6535786e9bd845fb67d2a984d0e0b7e",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T114649.973566Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n8:22AM INF scanned ~5792874 bytes (5.79 MB) in 528ms\n8:22AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 148 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T114649.973566Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1399 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ......................                 [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.....                                                                    [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1392 passed, 7 skipped in 43.42s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T132338.996389Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 ./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install works; user-authored rules.d files preserved and listed; only marker-matched rc PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md; tests added; full suite green: All sub-requirements verified by live probes + test runs. (1) Zero files: default-scope install then `HOME=/tmp/tjprobe2/home sh install.sh --uninstall` -> `find /tmp/tjprobe2/home -name '*terminal-jail*' -type f` returns nothing (only empty .config/terminal-jail dirs remain, which the test at plugin/test_uninstall.py:70-82 documents as intentionally preserved); `command -v terminal-jail` with scratch bin on PATH -> rc=127. (2) Round-trip: install.sh:832 appends marker; uninstall removes it; reinstall re-appends exactly once (probe /tmp/tjrt2: 1 marker -> 0 -> 1) and wrapper runs `terminal-jail 1.1.0`. (3) User-authored preservation: install.sh:558-570 census prints 'left in place (user-authored): /tmp/tjrt/rules.d/my-own-rule.yaml' and file content intact. (4) Marker-only rc removal: install.sh:505-529 awk deletes only the '# terminal-jail' block; probe /tmp/tjprobe showed the user's own `export PATH=\"$HOME/.local/bin:$PATH\"` line SURVIVED. (5) systemd: install.sh:534-556 removes drop-in only when UNINSTALL_SYSTEMD=1 (probe: drop-in still present after no-flag run; with flag it attempts removal and prints WARNING without root); `--uninstall-systemd` alone exits 2 (install.sh:324-327). (6) Idempotent no-op: never-installed HOME -> rc=0, 'nothing to uninstall'. (7) Docs: README.md:628 '## Removal / Uninstall'; docs/quickstart.md:339 '### 3g. Removal / Uninstall'. (8) Tests: plugin/test_uninstall.py (344 lines, 13 tests) -> `.venv/bin/python -m pytest plugin/test_uninstall.py -x --tb=short` = '13 passed in 1.46s'. (9) Full suite: `.venv/bin/python -m pytest -x --tb=short -p no:cacheprovider` = '1392 passed, 7 skipped in 73.30s (0:01:13)', exit 0. Also `sh -n install.sh` OK, ruff 'All checks passed!', LSP diagnostics empty.\ninstall.sh --uninstall fully implements the removal mirror (zero files left, marker-scoped rc removal, user-rule preservation, opt-in systemd, idempotent no-op), docs added to README and quickstart, 13 new tests pass and the full suite is green (1392 passed, 7 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 ./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install works; user-authored rules.d files preserved and listed; only marker-matched rc PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md; tests added; full suite green: All sub-requirements verified by live probes + test runs. (1) Zero files: default-scope install then `HOME=/tmp/tjprobe2/home sh install.sh --uninstall` -> `find /tmp/tjprobe2/home -name '*terminal-jail*' -type f` returns nothing (only empty .config/terminal-jail dirs remain, which the test at plugin/test_uninstall.py:70-82 documents as intentionally preserved); `command -v terminal-jail` with scratch bin on PATH -> rc=127. (2) Round-trip: install.sh:832 appends marker; uninstall removes it; reinstall re-appends exactly once (probe /tmp/tjrt2: 1 marker -> 0 -> 1) and wrapper runs `terminal-jail 1.1.0`. (3) User-authored preservation: install.sh:558-570 census prints 'left in place (user-authored): /tmp/tjrt/rules.d/my-own-rule.yaml' and file content intact. (4) Marker-only rc removal: install.sh:505-529 awk deletes only the '# terminal-jail' block; probe /tmp/tjprobe showed the user's own `export PATH=\"$HOME/.local/bin:$PATH\"` line SURVIVED. (5) systemd: install.sh:534-556 removes drop-in only when UNINSTALL_SYSTEMD=1 (probe: drop-in still present after no-flag run; with flag it attempts removal and prints WARNING without root); `--uninstall-systemd` alone exits 2 (install.sh:324-327). (6) Idempotent no-op: never-installed HOME -> rc=0, 'nothing to uninstall'. (7) Docs: README.md:628 '## Removal / Uninstall'; docs/quickstart.md:339 '### 3g. Removal / Uninstall'. (8) Tests: plugin/test_uninstall.py (344 lines, 13 tests) -> `.venv/bin/python -m pytest plugin/test_uninstall.py -x --tb=short` = '13 passed in 1.46s'. (9) Full suite: `.venv/bin/python -m pytest -x --tb=short -p no:cacheprovider` = '1392 passed, 7 skipped in 73.30s (0:01:13)', exit 0. Also `sh -n install.sh` OK, ruff 'All checks passed!', LSP diagnostics empty.\ninstall.sh --uninstall fully implements the removal mirror (zero files left, marker-scoped rc removal, user-rule preservation, opt-in systemd, idempotent no-op), docs added to README and quickstart, 13 new tests pass and the full suite is green (1392 passed, 7 skipped).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install works; user-authored rules.d files preserved and listed; only marker-matched rc PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md; tests added; full suite green",
+                "status": "PASS",
+                "detail": "All sub-requirements verified by live probes + test runs. (1) Zero files: default-scope install then `HOME=/tmp/tjprobe2/home sh install.sh --uninstall` -> `find /tmp/tjprobe2/home -name '*terminal-jail*' -type f` returns nothing (only empty .config/terminal-jail dirs remain, which the test at plugin/test_uninstall.py:70-82 documents as intentionally preserved); `command -v terminal-jail` with scratch bin on PATH -> rc=127. (2) Round-trip: install.sh:832 appends marker; uninstall removes it; reinstall re-appends exactly once (probe /tmp/tjrt2: 1 marker -> 0 -> 1) and wrapper runs `terminal-jail 1.1.0`. (3) User-authored preservation: install.sh:558-570 census prints 'left in place (user-authored): /tmp/tjrt/rules.d/my-own-rule.yaml' and file content intact. (4) Marker-only rc removal: install.sh:505-529 awk deletes only the '# terminal-jail' block; probe /tmp/tjprobe showed the user's own `export PATH=\"$HOME/.local/bin:$PATH\"` line SURVIVED. (5) systemd: install.sh:534-556 removes drop-in only when UNINSTALL_SYSTEMD=1 (probe: drop-in still present after no-flag run; with flag it attempts removal and prints WARNING without root); `--uninstall-systemd` alone exits 2 (install.sh:324-327). (6) Idempotent no-op: never-installed HOME -> rc=0, 'nothing to uninstall'. (7) Docs: README.md:628 '## Removal / Uninstall'; docs/quickstart.md:339 '### 3g. Removal / Uninstall'. (8) Tests: plugin/test_uninstall.py (344 lines, 13 tests) -> `.venv/bin/python -m pytest plugin/test_uninstall.py -x --tb=short` = '13 passed in 1.46s'. (9) Full suite: `.venv/bin/python -m pytest -x --tb=short -p no:cacheprovider` = '1392 passed, 7 skipped in 73.30s (0:01:13)', exit 0. Also `sh -n install.sh` OK, ruff 'All checks passed!', LSP diagnostics empty."
+              }
+            ],
+            "summary": "install.sh --uninstall fully implements the removal mirror (zero files left, marker-scoped rc removal, user-rule preservation, opt-in systemd, idempotent no-op), docs added to README and quickstart, 13 new tests pass and the full suite is green (1392 passed, 7 skipped)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-071\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 ./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install works; user-authored rules.d files preserved and listed; only marker-matched rc PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md; tests added; full suite green: All sub-requirements verified by live probes + test runs. (1) Zero files: default-scope install then `HOME=/tmp/tjprobe2/home sh install.sh --uninstall` -> `find /tmp/tjprobe2/home -name '*terminal-jail*' -type f` returns nothing (only empty .config/terminal-jail dirs remain, which the test at plugin/test_uninstall.py:70-82 documents as intentionally preserved); `command -v terminal-jail` with scratch bin on PATH -> rc=127. (2) Round-trip: install.sh:832 appends marker; uninstall removes it; reinstall re-appends exactly once (probe /tmp/tjrt2: 1 marker -> 0 -> 1) and wrapper runs `terminal-jail 1.1.0`. (3) User-authored preservation: install.sh:558-570 census prints 'left in place (user-authored): /tmp/tjrt/rules.d/my-own-rule.yaml' and file content intact. (4) Marker-only rc removal: install.sh:505-529 awk deletes only the '# terminal-jail' block; probe /tmp/tjprobe showed the user's own `export PATH=\"$HOME/.local/bin:$PATH\"` line SURVIVED. (5) systemd: install.sh:534-556 removes drop-in only when UNINSTALL_SYSTEMD=1 (probe: drop-in still present after no-flag run; with flag it attempts removal and prints WARNING without root); `--uninstall-systemd` alone exits 2 (install.sh:324-327). (6) Idempotent no-op: never-installed HOME -> rc=0, 'nothing to uninstall'. (7) Docs: README.md:628 '## Removal / Uninstall'; docs/quickstart.md:339 '### 3g. Removal / Uninstall'. (8) Tests: plugin/test_uninstall.py (344 lines, 13 tests) -> `.venv/bin/python -m pytest plugin/test_uninstall.py -x --tb=short` = '13 passed in 1.46s'. (9) Full suite: `.venv/bin/python -m pytest -x --tb=short -p no:cacheprovider` = '1392 passed, 7 skipped in 73.30s (0:01:13)', exit 0. Also `sh -n install.sh` OK, ruff 'All checks passed!', LSP diagnostics empty.\ninstall.sh --uninstall fully implements the removal mirror (zero files left, marker-scoped rc removal, user-rule preservation, opt-in systemd, idempotent no-op), docs added to README and quickstart, 13 new tests pass and the full suite is green (1392 passed, 7 skipped).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-21T13:31:27.872220",
+  "evidence": {
+    "collected_at": "2026-09-21T13:31:27.901625+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 908,
+        "truncated": false,
+        "source": "git show 004a3573b653"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 29213,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-071"
+  }
+}

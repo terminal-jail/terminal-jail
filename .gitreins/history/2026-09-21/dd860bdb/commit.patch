@@ -1,0 +1,20 @@
+commit 004a3573b6535786e9bd845fb67d2a984d0e0b7e
+Merge: bf8c974 2e351ff
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Mon Sep 21 08:21:41 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Mon Sep 21 08:21:41 2026 -0500
+
+    merge: TJ-GAP-070 fail-closed engine errors (wt/TJ-GAP-070 @ 2e351ff)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ README.md                                  |  36 +-
+ docs/quickstart.md                         |  32 +-
+ plugin/terminal_jail/interruptor/rules.py  | 160 ++++++++-
+ plugin/terminal_jail/interruptor_bridge.py |  50 ++-
+ plugin/test_bridge_fail_closed.py          | 505 +++++++++++++++++++++++++++++
+ specs/interruptor.md                       |  82 ++++-
+ standalone/terminal-jail                   |  76 ++++-
+ 7 files changed, 903 insertions(+), 38 deletions(-)
+

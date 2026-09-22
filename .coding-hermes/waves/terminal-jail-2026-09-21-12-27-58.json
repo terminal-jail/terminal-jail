@@ -1,0 +1,41 @@
+{
+  "scheduler_tick_id": "terminal-jail-2026-09-21-12-27-58",
+  "project": "terminal-jail",
+  "created_at": "2026-09-21T12:40:00-05:00",
+  "wave_budget": 2,
+  "board_tick": 307,
+  "workers": [
+    {
+      "task_id": "TJ-GAP-070",
+      "title": "Engine crash inside a user rule file fails the firewall OPEN",
+      "priority": "P1",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-070",
+      "branch": "wt/TJ-GAP-070",
+      "base": "origin/main",
+      "base_sha": "997c8d4",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm-default",
+      "brief": "/tmp/tj307_brief_TJ-GAP-070.md",
+      "log": "/tmp/tj307_worker_TJ-GAP-070.log",
+      "status": "merged",
+      "merged_commit": "004a357"
+    },
+    {
+      "task_id": "TJ-GAP-071",
+      "title": "No uninstall/removal path exists",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-071",
+      "branch": "wt/TJ-GAP-071",
+      "base": "origin/main",
+      "base_sha": "997c8d4",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm-default",
+      "brief": "/tmp/tj307_brief_TJ-GAP-071.md",
+      "log": "/tmp/tj307_worker_TJ-GAP-071.log",
+      "status": "merged",
+      "merged_commit": "bf8c974"
+    }
+  ],
+  "finished_at": "2026-09-22T10:20:00-05:00",
+  "finish_note": "recovery tick #308: both merges landed on main during tick #307 (session died post-judge, pre-close); TJ-GAP-070 first judge INCOMPLETE (real empty-stdout hole) -> follow-up 455f865 + INT-CI-001 CI fix 11a708a; re-judges PASS (070: 8b89c163, 071: 7fd82d00 inherited, INT-CI-001: 75b974e0); rows closed + manifest folded into board commit"
+}

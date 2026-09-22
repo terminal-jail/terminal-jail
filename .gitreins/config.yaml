@@ -30,8 +30,11 @@ evaluator:
   # rung — `Cap exceeded: Input token budget (2.0M) exceeded (2.0M used)`, verdict
   # 933b300c INCOMPLETE, tier1 PASS (usage.jsonl tier2 row: 2,035,763 tokens_in).
   # used == cap is STARVATION, not the model window: deepseek-v4-flash is 1M per
-  # call and 8M is the fleet-proven rung for a live-verification criteria set.
-  max_input_tokens: 8M
+  # call. RUNG HISTORY: 2M (#289) -> 8M (fleet-proven for live-verification sets)
+  # -> 12M (tick #308, 1.5x step per cached answer 2269): the INT-CI-001 judge hit
+  # `Cap exceeded: Input token budget (8.0M) exceeded (8.1M used)` -> INCOMPLETE
+  # with tier1 PASS, no criteria split — same starvation signature, one rung up.
+  max_input_tokens: 12M
   max_output_tokens: 0.4M
   tool_call_weight: 0.1
   fast_track: auto

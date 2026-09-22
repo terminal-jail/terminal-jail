@@ -1229,3 +1229,40 @@ tasks:
   status: complete
   created_at: '2026-09-21T11:28:51.945836+00:00'
   completed_at: '2026-09-21T11:35:38.815965+00:00'
+- id: TJ-GAP-070
+  title: Fail closed on engine-evaluation errors in interruptor bridge + wrapper verdict
+    hardening
+  criteria:
+  - Poison-priority rules fixture makes standalone/terminal-jail exit 126 with a block
+    box in enforce mode; bridge emits action=block with [bridge-error] reason on intercept()
+    exception; non-JSON/empty bridge stdout blocks in enforce mode; [bridge-error]
+    reason treated as block in enforce, loud warn in warn mode; load-time schema pass
+    refuses bad field types with stderr note; all existing suites stay green; clean-rules
+    control unchanged; regression tests added
+  status: complete
+  created_at: '2026-09-21T12:38:50.066936+00:00'
+  completed_at: '2026-09-22T13:23:04.202484+00:00'
+- id: TJ-GAP-071
+  title: install.sh --uninstall removal path + docs
+  criteria:
+  - ./install.sh --uninstall on a scratch-HOME install leaves zero terminal-jail files
+    under HOME and command -v terminal-jail finds nothing; round-trip install->uninstall->install
+    works; user-authored rules.d files preserved and listed; only marker-matched rc
+    PATH lines removed; systemd drop-in removed only behind explicit flag; idempotent
+    no-op on never-installed HOME; docs Removal section in README + docs/quickstart.md;
+    tests added; full suite green
+  status: complete
+  created_at: '2026-09-21T12:38:50.518266+00:00'
+  completed_at: '2026-09-21T13:22:58.089051+00:00'
+- id: INT-CI-001
+  title: Fix host-degradation CI failures in wrapper verdict-hardening tests
+  criteria:
+  - 'All four TestWrapperVerdictHardening tests (bridge-error warn, garbage-stdout
+    warn, empty-stdout warn, normal-allow control) pass on namespace-capable hosts
+    AND namespace-degraded hosts: run-assertions guarded by a bare-launch probe returning
+    True on rc=2 plus a degraded marker (Permission denied / Operation not permitted
+    / namespace creation failed); warn semantics asserted on every host; full plugin
+    suite green locally; CI green on the fix commit'
+  status: complete
+  created_at: '2026-09-22T14:17:49.595598+00:00'
+  completed_at: '2026-09-22T14:33:55.544012+00:00'
