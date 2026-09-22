@@ -307,6 +307,13 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
         fi
     }
 
+    # TJ-GAP-070 follow-up: an empty command substitution means the bridge
+    # ran and exited 0 with NO stdout — just as unusable as non-JSON output.
+    # Normalize to a sentinel so the unusable-verdict branch below handles
+    # BOTH shapes (previously `[ -n "$bridge_result" ]` skipped the whole
+    # verdict path for empty stdout and the command ran UNGUARDED in
+    # enforce mode). Non-empty whitespace already fails JSON parsing.
+    [ -n "${bridge_result:-}" ] || bridge_result="<no usable verdict>"
     if [ -n "${bridge_result:-}" ]; then
         # TJ-GAP-070: the bridge's stdout is UNTRUSTED for parsing purposes.
         # One python3 call extracts the three verdict fields and reports

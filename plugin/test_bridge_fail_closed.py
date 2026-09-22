@@ -293,6 +293,76 @@ class TestWrapperVerdictHardening:
         assert "WARN" in result.stderr or "WARNING" in result.stderr
         assert result.returncode != 126
 
+    def test_empty_bridge_stdout_blocks_in_enforce(self, tmp_path: Path) -> None:
+        """A bridge that exits 0 with EMPTY stdout must block in enforce mode.
+
+        Judge finding on 2e351ff: the fail-closed branch was gated behind
+        ``[ -n "$bridge_result" ]``, so an empty command substitution (exit 0,
+        no output) skipped the whole verdict path and the command ran
+        UNGUARDED with rc 0 — contradicting specs/interruptor.md's
+        "stdout empty or not a JSON object → block, exit 126".
+        """
+        bridge = self._fake_bridge(tmp_path, "")
+        result = subprocess.run(
+            [str(CLI_SCRIPT), "true"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "enforce",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 126, (
+            f"empty bridge stdout must block in enforce mode, rc={result.returncode} "
+            f"stderr={result.stderr!r}"
+        )
+        assert "COMMAND BLOCKED" in result.stderr
+
+    def test_empty_bridge_stdout_warns_and_runs_in_warn_mode(
+        self, tmp_path: Path
+    ) -> None:
+        """Warn mode must at least WARN loudly when bridge stdout is empty."""
+        bridge = self._fake_bridge(tmp_path, "")
+        result = subprocess.run(
+            [str(CLI_SCRIPT), "echo", "tj070-empty-warn-ran"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert "tj070-empty-warn-ran" in result.stdout
+        assert "WARN" in result.stderr or "WARNING" in result.stderr
+        assert result.returncode != 126
+
+    def test_whitespace_bridge_stdout_blocks_in_enforce(self, tmp_path: Path) -> None:
+        """Whitespace-only stdout is just as unusable (boundary control)."""
+        bridge = self._fake_bridge(tmp_path, "   ")
+        result = subprocess.run(
+            [str(CLI_SCRIPT), "true"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "enforce",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 126
+        assert "COMMAND BLOCKED" in result.stderr
+
     def test_normal_allow_verdict_unchanged(self, tmp_path: Path) -> None:
         """Control: a normal allow verdict keeps the fast path (command runs, no box)."""
         verdict = json.dumps(
