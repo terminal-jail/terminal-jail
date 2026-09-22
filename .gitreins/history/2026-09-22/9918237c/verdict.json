@@ -1,0 +1,142 @@
+{
+  "task_id": "REVIEW-TJ-001",
+  "task_title": "REVIEW-TJ-001 verification closure - v1.2.0 is released (tag pushed; tag-only is the repo release convention)",
+  "task_criteria": [
+    "Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0, an annotated tag whose peeled object is 3bf4dac, the last content commit",
+    "Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac and git tag --points-at 3bf4dac includes v1.2.0",
+    "Tag-only is the project's release convention: gh release list --repo totalwindupflightsystems/terminal-jail is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object",
+    "Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md carries a [1.2.0] - 2026-09-22 section"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b46ab8723e9c930f53f46e669fd3ca1579a2381b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T201830.431878Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n5:44PM INF scanned ~4793781 bytes (4.79 MB) in 239ms\n5:44PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 151 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T201830.431878Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1404 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1397 passed, 7 skipped in 47.09s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T201830.431878Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0, an annotated tag whose peeled object is 3bf4dac, the last content commit: git ls-remote --tags origin output: '228e595683ee76039274d0f4e0c8c6bbf62b46e1\trefs/tags/v1.2.0' and '3bf4dac0ca01c244454427f9cf228465e4f3565f\trefs/tags/v1.2.0^{}'. The presence of the ^{} peeled entry proves it is an annotated tag, and the peeled object is exactly 3bf4dac (git cat-file -p v1.2.0 shows 'object 3bf4dac0ca01c244454427f9cf228465e4f3565f / type commit').\n  \u2713 Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac and git tag --points-at 3bf4dac includes v1.2.0: git rev-parse v1.2.0^{commit} => 3bf4dac0ca01c244454427f9cf228465e4f3565f (matches 3bf4dac). git tag --points-at 3bf4dac => 'v1.2.0'. Both concrete checks specified in the criterion pass. (Local HEAD is b46ab87, a later board-only commit, but the criterion's stated checks are on the tag/commit 3bf4dac and both hold.)\n  \u2713 Tag-only is the project's release convention: gh release list --repo totalwindupflightsystems/terminal-jail is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object: gh release list --repo totalwindupflightsystems/terminal-jail returned empty output with exit_code 0. gh release view v1.2.0 --repo ... => 'release not found'; gh release view v1.0.0 --repo ... => 'release not found'. v1.0.0 is likewise a bare annotated tag (git cat-file -t v1.0.0 => tag, peeled to a0db182f), confirming tag-only is the convention.\n  \u2713 Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md carries a [1.2.0] - 2026-09-22 section: pyproject.toml:7 => 'version = \"1.2.0\"'. CHANGELOG.md:3 => '## [1.2.0] \u2014 2026-09-22' (em-dash separator rather than hyphen, but the [1.2.0] section with the 2026-09-22 date is present, immediately after the reopened '## [Unreleased]' at line 1). [resolution 0.27; pyproject.toml, CHANGELOG.md]\nAll four criteria verified with live command output: v1.2.0 is an annotated tag pushed to origin peeling to 3bf4dac, locally resolves to 3bf4dac, no GitHub Release objects exist (tag-only convention), and pyproject.toml/CHANGELOG.md advertise 1.2.0 dated 2026-09-22.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0, an annotated tag whose peeled object is 3bf4dac, the last content commit: git ls-remote --tags origin output: '228e595683ee76039274d0f4e0c8c6bbf62b46e1\trefs/tags/v1.2.0' and '3bf4dac0ca01c244454427f9cf228465e4f3565f\trefs/tags/v1.2.0^{}'. The presence of the ^{} peeled entry proves it is an annotated tag, and the peeled object is exactly 3bf4dac (git cat-file -p v1.2.0 shows 'object 3bf4dac0ca01c244454427f9cf228465e4f3565f / type commit').\n  \u2713 Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac and git tag --points-at 3bf4dac includes v1.2.0: git rev-parse v1.2.0^{commit} => 3bf4dac0ca01c244454427f9cf228465e4f3565f (matches 3bf4dac). git tag --points-at 3bf4dac => 'v1.2.0'. Both concrete checks specified in the criterion pass. (Local HEAD is b46ab87, a later board-only commit, but the criterion's stated checks are on the tag/commit 3bf4dac and both hold.)\n  \u2713 Tag-only is the project's release convention: gh release list --repo totalwindupflightsystems/terminal-jail is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object: gh release list --repo totalwindupflightsystems/terminal-jail returned empty output with exit_code 0. gh release view v1.2.0 --repo ... => 'release not found'; gh release view v1.0.0 --repo ... => 'release not found'. v1.0.0 is likewise a bare annotated tag (git cat-file -t v1.0.0 => tag, peeled to a0db182f), confirming tag-only is the convention.\n  \u2713 Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md carries a [1.2.0] - 2026-09-22 section: pyproject.toml:7 => 'version = \"1.2.0\"'. CHANGELOG.md:3 => '## [1.2.0] \u2014 2026-09-22' (em-dash separator rather than hyphen, but the [1.2.0] section with the 2026-09-22 date is present, immediately after the reopened '## [Unreleased]' at line 1). [resolution 0.27; pyproject.toml, CHANGELOG.md]\nAll four criteria verified with live command output: v1.2.0 is an annotated tag pushed to origin peeling to 3bf4dac, locally resolves to 3bf4dac, no GitHub Release objects exist (tag-only convention), and pyproject.toml/CHANGELOG.md advertise 1.2.0 dated 2026-09-22.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0, an annotated tag whose peeled object is 3bf4dac, the last content commit",
+                "status": "PASS",
+                "detail": "git ls-remote --tags origin output: '228e595683ee76039274d0f4e0c8c6bbf62b46e1\trefs/tags/v1.2.0' and '3bf4dac0ca01c244454427f9cf228465e4f3565f\trefs/tags/v1.2.0^{}'. The presence of the ^{} peeled entry proves it is an annotated tag, and the peeled object is exactly 3bf4dac (git cat-file -p v1.2.0 shows 'object 3bf4dac0ca01c244454427f9cf228465e4f3565f / type commit').",
+                "resolution_probability": 0.27
+              },
+              {
+                "criterion": "Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac and git tag --points-at 3bf4dac includes v1.2.0",
+                "status": "PASS",
+                "detail": "git rev-parse v1.2.0^{commit} => 3bf4dac0ca01c244454427f9cf228465e4f3565f (matches 3bf4dac). git tag --points-at 3bf4dac => 'v1.2.0'. Both concrete checks specified in the criterion pass. (Local HEAD is b46ab87, a later board-only commit, but the criterion's stated checks are on the tag/commit 3bf4dac and both hold.)",
+                "resolution_probability": 0.27
+              },
+              {
+                "criterion": "Tag-only is the project's release convention: gh release list --repo totalwindupflightsystems/terminal-jail is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object",
+                "status": "PASS",
+                "detail": "gh release list --repo totalwindupflightsystems/terminal-jail returned empty output with exit_code 0. gh release view v1.2.0 --repo ... => 'release not found'; gh release view v1.0.0 --repo ... => 'release not found'. v1.0.0 is likewise a bare annotated tag (git cat-file -t v1.0.0 => tag, peeled to a0db182f), confirming tag-only is the convention.",
+                "resolution_probability": 0.27
+              },
+              {
+                "criterion": "Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md carries a [1.2.0] - 2026-09-22 section",
+                "status": "PASS",
+                "detail": "pyproject.toml:7 => 'version = \"1.2.0\"'. CHANGELOG.md:3 => '## [1.2.0] \u2014 2026-09-22' (em-dash separator rather than hyphen, but the [1.2.0] section with the 2026-09-22 date is present, immediately after the reopened '## [Unreleased]' at line 1). [resolution 0.27; pyproject.toml, CHANGELOG.md]",
+                "resolution_probability": 0.27,
+                "cited_path": "pyproject.toml, CHANGELOG.md"
+              }
+            ],
+            "summary": "All four criteria verified with live command output: v1.2.0 is an annotated tag pushed to origin peeling to 3bf4dac, locally resolves to 3bf4dac, no GitHub Release objects exist (tag-only convention), and pyproject.toml/CHANGELOG.md advertise 1.2.0 dated 2026-09-22."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-001\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0, an annotated tag whose peeled object is 3bf4dac, the last content commit: git ls-remote --tags origin output: '228e595683ee76039274d0f4e0c8c6bbf62b46e1\trefs/tags/v1.2.0' and '3bf4dac0ca01c244454427f9cf228465e4f3565f\trefs/tags/v1.2.0^{}'. The presence of the ^{} peeled entry proves it is an annotated tag, and the peeled object is exactly 3bf4dac (git cat-file -p v1.2.0 shows 'object 3bf4dac0ca01c244454427f9cf228465e4f3565f / type commit').\n  \u2713 Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac and git tag --points-at 3bf4dac includes v1.2.0: git rev-parse v1.2.0^{commit} => 3bf4dac0ca01c244454427f9cf228465e4f3565f (matches 3bf4dac). git tag --points-at 3bf4dac => 'v1.2.0'. Both concrete checks specified in the criterion pass. (Local HEAD is b46ab87, a later board-only commit, but the criterion's stated checks are on the tag/commit 3bf4dac and both hold.)\n  \u2713 Tag-only is the project's release convention: gh release list --repo totalwindupflightsystems/terminal-jail is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object: gh release list --repo totalwindupflightsystems/terminal-jail returned empty output with exit_code 0. gh release view v1.2.0 --repo ... => 'release not found'; gh release view v1.0.0 --repo ... => 'release not found'. v1.0.0 is likewise a bare annotated tag (git cat-file -t v1.0.0 => tag, peeled to a0db182f), confirming tag-only is the convention.\n  \u2713 Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md carries a [1.2.0] - 2026-09-22 section: pyproject.toml:7 => 'version = \"1.2.0\"'. CHANGELOG.md:3 => '## [1.2.0] \u2014 2026-09-22' (em-dash separator rather than hyphen, but the [1.2.0] section with the 2026-09-22 date is present, immediately after the reopened '## [Unreleased]' at line 1). [resolution 0.27; pyproject.toml, CHANGELOG.md]\nAll four criteria verified with live command output: v1.2.0 is an annotated tag pushed to origin peeling to 3bf4dac, locally resolves to 3bf4dac, no GitHub Release objects exist (tag-only convention), and pyproject.toml/CHANGELOG.md advertise 1.2.0 dated 2026-09-22.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-22T22:45:25.306229",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-22T22:45:25.334290+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 93514,
+        "truncated": false,
+        "source": "git show b46ab8723e9c"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1860,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-001"
+  }
+}

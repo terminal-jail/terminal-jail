@@ -1295,3 +1295,18 @@ tasks:
   status: complete
   created_at: '2026-09-22T18:48:17.817794+00:00'
   completed_at: '2026-09-22T20:05:22.342321+00:00'
+- id: REVIEW-TJ-001
+  title: REVIEW-TJ-001 verification closure - v1.2.0 is released (tag pushed; tag-only
+    is the repo release convention)
+  criteria:
+  - 'Tag v1.2.0 is on the remote: git ls-remote --tags origin lists refs/tags/v1.2.0,
+    an annotated tag whose peeled object is 3bf4dac, the last content commit'
+  - 'Local HEAD carries the same tag: git rev-parse v1.2.0^{commit} equals 3bf4dac
+    and git tag --points-at 3bf4dac includes v1.2.0'
+  - 'Tag-only is the project''s release convention: gh release list --repo totalwindupflightsystems/terminal-jail
+    is empty, so v1.0.0 also shipped as a bare tag with no GitHub Release object'
+  - 'Tree advertises the released version: pyproject.toml version = 1.2.0 and CHANGELOG.md
+    carries a [1.2.0] - 2026-09-22 section'
+  status: complete
+  created_at: '2026-09-22T22:35:31.844822+00:00'
+  completed_at: '2026-09-22T22:44:22.172936+00:00'
