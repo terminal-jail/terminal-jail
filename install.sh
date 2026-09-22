@@ -708,11 +708,62 @@ if [ -n "$LOCAL_WRAPPER" ]; then
     # Ship the runtime support tree next to the binary so the installed CLI
     # finds the interruptor bridge and seccomp loader (fail-closed: a binary
     # without its bridge BLOCKS in enforce mode — see TJ-GAP-021).
+    #
+    # TJ-GAP-072: upgrades must not leak stale files. The documented upgrade
+    # path is re-running install.sh, but a bare `cp -R` over the installed
+    # tree keeps every file the new checkout no longer carries (renames and
+    # deletions pile up forever). So the install records an `.install-manifest`
+    # INSIDE the installed tree and prunes exactly the files the PREVIOUS
+    # manifest lists that the new checkout no longer ships. Everything not in
+    # the previous manifest (user-added files) is never touched, and nothing
+    # outside plugin/terminal_jail is ever considered — the default rules
+    # YAML and the user rules directory are not part of this contract.
     LIB_DIR="$(path_normalize "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
     if [ -d "$SCRIPT_DIR/plugin/terminal_jail" ]; then
         mkdir -p "$LIB_DIR/plugin"
+        plugin_tree="$LIB_DIR/plugin/terminal_jail"
+        manifest="$plugin_tree/.install-manifest"
+
+        # Capture the previous manifest BEFORE the copy overwrites it. The
+        # manifest path only ever exists in the INSTALLED tree (the checkout
+        # never carries it), so first-ever installs find nothing here.
+        previous_manifest=""
+        if [ -f "$manifest" ]; then
+            previous_manifest="$(cat "$manifest")"
+        fi
+
+        # List the CHECKOUT's shipped file set (relative paths under the
+        # package root, sorted) BEFORE copying: the copy below would
+        # otherwise overwrite/merge into the destination and re-adopt stale
+        # files into the new manifest. Only regular files ship. The checkout
+        # is this repository's own Python package tree, so a newline in a
+        # file name is not a real case — capture in the portable \n form and
+        # match exactly with grep -Fx.
+        new_manifest="$(cd "$SCRIPT_DIR/plugin/terminal_jail" && find . -type f | sort | sed 's#^\./##')"
+
         cp -R "$SCRIPT_DIR/plugin/terminal_jail" "$LIB_DIR/plugin/"
         echo "terminal-jail installer: installed plugin bridge tree to ${LIB_DIR}/plugin/"
+
+        # Prune exactly the stale files: recorded in the previous manifest,
+        # still present on disk, and absent from the new checkout. Anything
+        # not recorded (user-added) is never a prune candidate.
+        if [ -n "$previous_manifest" ]; then
+            printf '%s\n' "$previous_manifest" | while IFS= read -r rel; do
+                [ -n "$rel" ] || continue
+                case "$rel" in
+                    .install-manifest|/*|*..*) continue ;;
+                esac
+                if [ -f "$plugin_tree/$rel" ] && ! printf '%s' "$new_manifest" | grep -Fxq -- "$rel"; then
+                    rm -f -- "$plugin_tree/$rel"
+                    echo "terminal-jail installer: pruned stale installed file: $plugin_tree/$rel"
+                fi
+            done
+        fi
+
+        # Rewrite the manifest atomically: temp + mv, so a crash mid-write
+        # can never leave a half-written manifest as "the previous" one.
+        printf '%s\n' "$new_manifest" > "${manifest}.tmp"
+        mv -f "${manifest}.tmp" "$manifest"
     else
         echo "terminal-jail installer: WARNING — plugin tree not found next to installer; installed binary will fail closed (bridge missing)" >&2
     fi
@@ -746,6 +797,20 @@ if [ -n "$LOCAL_WRAPPER" ]; then
             rules_backup="${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)"
             cp "$installed_rules" "$rules_backup"
             echo "terminal-jail installer: WARNING — existing user rules differed; backed up to ${rules_backup} before installing defaults"
+            # TJ-GAP-072: keep a bounded history. The UTC timestamp makes
+            # plain name order == chronological order, so a bare `sort`
+            # (LC_ALL=C) suffices: keep the newest 5, delete the rest, each
+            # announced on stdout. Only this backup family is ever matched —
+            # user-authored rule files never carry the .bak- suffix of the
+            # installed rules file, and nothing outside RESOLVED_RULES_DIR
+            # is considered. POSIX: the list flows through a while-read pipe
+            # (a `for x in "$(cmd)"` would see one newline-joined word, and
+            # an empty substitution would invent an empty iteration).
+            LC_ALL=C ls -1 "$RESOLVED_RULES_DIR"/00-builtins.yaml.bak-* 2>/dev/null | sort -r | tail -n +6 | while IFS= read -r stale_backup; do
+                [ -n "$stale_backup" ] || continue
+                rm -f -- "$stale_backup"
+                echo "terminal-jail installer: pruned old rules backup: $(basename "$stale_backup")"
+            done
         fi
         cp "$shipped_rules" "$installed_rules"
         echo "terminal-jail installer: installed default rules to ${installed_rules}"

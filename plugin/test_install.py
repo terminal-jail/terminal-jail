@@ -6,6 +6,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -999,12 +1000,15 @@ _INSTALL_TOOLS = (
     "cp",
     "date",
     "dirname",
+    "find",
     "grep",
     "head",
     "mkdir",
     "mv",
     "rm",
+    "sed",
     "sh",
+    "sort",
     "uname",
 )
 
@@ -2013,3 +2017,130 @@ def test_engine_env_rules_dir_pack_is_loaded_by_the_engine(
     benign = intercept(DB_PACK_BENIGN_READ)
     assert benign.action == Action.ALLOW, benign
     assert benign.rule_id is None, benign
+
+
+# ── TJ-GAP-072: upgrades prune stale installed files; .bak retention cap ─────
+#
+# Contract (board row TJ-GAP-072, approach (a) — install manifest): the
+# documented upgrade path is re-running install.sh, but the only lib-tree
+# step was a bare `cp -R` over the installed tree — a module deleted upstream
+# persisted in the installed tree forever. The installer now records an
+# `.install-manifest` (the sorted relative paths of every regular file the
+# checkout ships) inside the installed tree, and on upgrade prunes exactly
+# the previously-manifested files the new checkout no longer carries —
+# never anything else. Rules backups (.bak-<ts>) keep the newest 5.
+
+
+def _lib_tree(tmp_path: Path) -> Path:
+    """The installed plugin tree for the _install_env/_scratch_checkout
+    fixtures: <prefix>/lib/terminal-jail/plugin/terminal_jail."""
+    return tmp_path / "lib" / "terminal-jail" / "plugin" / "terminal_jail"
+
+
+def _read_manifest(lib_tree: Path) -> list[str]:
+    return (lib_tree / ".install-manifest").read_text(encoding="utf-8").splitlines()
+
+
+@pytest.mark.standalone_cli
+def test_upgrade_prunes_module_deleted_from_checkout(tmp_path: Path) -> None:
+    """TJ-GAP-072: install from a scratch checkout, delete a real module from
+    the CHECKOUT (never the repo), re-run the install — the deleted module is
+    pruned from the installed tree and the stdout names the pruned path. A
+    user-created extra file inside the installed tree (never in any manifest)
+    SURVIVES, and a first-ever install prints no prune line."""
+    checkout = _scratch_checkout(tmp_path)
+    env = _install_env(tmp_path)
+
+    # First-ever install: tree lands complete, manifest written, no pruning.
+    first = _run_checkout_install(checkout, tmp_path, extra_env=env)
+    out1 = (first.stdout + first.stderr).decode("utf-8", "replace")
+    assert first.returncode == 0, out1
+    lib_tree = _lib_tree(tmp_path)
+    victim = lib_tree / "seccomp.py"
+    assert victim.is_file(), out1
+    assert (lib_tree / ".install-manifest").is_file(), out1
+    assert "interruptor_bridge.py" in _read_manifest(lib_tree), out1
+    assert "seccomp.py" in _read_manifest(lib_tree), out1
+    assert (
+        "pruned stale installed file" not in out1
+    ), "first-ever install must prune nothing"
+
+    # A file the installer never wrote (not in any manifest) inside the
+    # installed tree: must survive every upgrade untouched.
+    user_extra = lib_tree / "user-extra" / "my-note.txt"
+    user_extra.parent.mkdir()
+    user_extra.write_text("# mine\n", encoding="utf-8")
+
+    # Upstream deletes a real module from the checkout copy only.
+    (checkout / "plugin" / "terminal_jail" / "seccomp.py").unlink()
+
+    # Upgrade (the documented path: re-run install.sh).
+    second = _run_checkout_install(checkout, tmp_path, extra_env=env)
+    out2 = (second.stdout + second.stderr).decode("utf-8", "replace")
+    assert second.returncode == 0, out2
+
+    # The deleted module is gone from the installed tree, named on stdout...
+    assert not victim.exists(), "stale installed file was not pruned"
+    assert (
+        f"terminal-jail installer: pruned stale installed file: {victim}" in out2
+    ), out2
+    # ...the user-created extra file survived...
+    assert user_extra.is_file(), "a non-manifest file inside the tree was removed"
+    assert user_extra.read_text(encoding="utf-8") == "# mine\n"
+    # ...and the manifest was rewritten to the new file set (no stale rows).
+    manifest = _read_manifest(lib_tree)
+    assert "seccomp.py" not in manifest, manifest
+    assert "interruptor_bridge.py" in manifest, manifest
+    # The checkout still ships the bridge; the installed tree keeps it.
+    assert (lib_tree / "interruptor_bridge.py").is_file(), out2
+
+
+@pytest.mark.standalone_cli
+def test_rules_bak_retention_capped(tmp_path: Path) -> None:
+    """TJ-GAP-072: every install whose user rules differ writes a
+    .bak-<utc-ts>; after N such installs only the NEWEST 5 backups remain
+    (name order == chronological order for the UTC names) and each pruned
+    backup was announced on stdout."""
+    checkout = _scratch_checkout(tmp_path)
+    env = _install_env(tmp_path)
+    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+    installed = rules_dir / "00-builtins.yaml"
+
+    # Baseline install ships the defaults (no backup: nothing differed).
+    baseline = _run_checkout_install(checkout, tmp_path, extra_env=env)
+    out0 = (baseline.stdout + baseline.stderr).decode("utf-8", "replace")
+    assert baseline.returncode == 0, out0
+    assert installed.is_file(), out0
+
+    # 7 installs over differing user rules -> 7 .bak-<ts> writes. Sleep past
+    # the 1s timestamp resolution so every backup name is distinct and name
+    # order is unambiguous.
+    prune_lines: list[str] = []
+    for i in range(7):
+        installed.write_text(f"# user edit {i}\nrules: []\n", encoding="utf-8")
+        time.sleep(1.1)
+        run = _run_checkout_install(checkout, tmp_path, extra_env=env)
+        out = (run.stdout + run.stderr).decode("utf-8", "replace")
+        assert run.returncode == 0, out
+        prune_lines += [
+            line
+            for line in out.splitlines()
+            if line.startswith("terminal-jail installer: pruned old rules backup: ")
+        ]
+
+    backups = sorted(rules_dir.glob("00-builtins.yaml.bak-*"))
+    assert len(backups) == 5, [b.name for b in backups]
+    # The newest backup holds the LAST customized content (user edit 6 was
+    # backed up by the final run); the two oldest (edit 0, edit 1) were pruned.
+    assert backups[-1].read_text(encoding="utf-8") == "# user edit 6\nrules: []\n"
+    assert backups[0].read_text(encoding="utf-8") == "# user edit 2\nrules: []\n"
+    # Exactly one announce line per pruned backup: 7 installs create 7
+    # backups; retention keeps the newest 5, so exactly 2 are pruned — one
+    # on the 6th install, one on the 7th — and no announced name belongs
+    # to a backup that survived.
+    assert len(prune_lines) == 2, prune_lines
+    pruned_names = {line.rsplit(": ", 1)[-1] for line in prune_lines}
+    surviving_names = {b.name for b in backups}
+    assert pruned_names.isdisjoint(surviving_names), (pruned_names, surviving_names)
+    # The live rules file itself is the shipped default (never pruned).
+    assert "builtin-rm-rf-root" in installed.read_text(encoding="utf-8")
