@@ -35,7 +35,7 @@ PID-namespace containment for everything Hermes runs → deploy shim
 
 ```bash
 # From source (recommended until release assets are published)
-git clone https://github.com/totalwindupflightsystems/terminal-jail.git
+git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
 ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
 

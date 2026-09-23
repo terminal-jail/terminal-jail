@@ -5,7 +5,7 @@ Thanks for helping make Hermes agent commands safer.
 ## Development Setup
 
 ```bash
-git clone https://github.com/totalwindupflightsystems/terminal-jail.git
+git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
 python3 -m venv .venv
 source .venv/bin/activate

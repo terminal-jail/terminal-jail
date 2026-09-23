@@ -485,7 +485,7 @@ systemctl show hermes-gateway.service -p ProtectProc -p NoNewPrivileges
 ### From source (recommended)
 
 ```bash
-git clone https://github.com/totalwindupflightsystems/terminal-jail.git
+git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
 ./install.sh
 ```

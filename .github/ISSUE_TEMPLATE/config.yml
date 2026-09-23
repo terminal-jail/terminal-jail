@@ -1,11 +1,11 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security Vulnerability Disclosure
-    url: https://github.com/totalwindupflightsystems/terminal-jail/security/advisories/new
+    url: https://github.com/terminal-jail/terminal-jail/security/advisories/new
     about: Report a security vulnerability privately. Do NOT open a public issue.
   - name: Hermes Agent PR (--sandbox flag)
     url: https://github.com/NousResearch/hermes-agent/pull/68216
     about: Track the upstream Hermes core PR for the --sandbox flag that enables full plugin functionality.
   - name: terminal-jail Discussions
-    url: https://github.com/totalwindupflightsystems/terminal-jail/discussions
+    url: https://github.com/terminal-jail/terminal-jail/discussions
     about: Ask questions, share ideas, and discuss usage patterns.

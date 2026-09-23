@@ -99,7 +99,7 @@ path_normalize() {
     esac
     printf '%s\n' "$output"
 }
-TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
+TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/terminal-jail/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 
 # --- installer flags (TJ-GAP-061) --------------------------------------------
 # The installer stays env-var driven; these flags only add the opt-in rule-pack

@@ -66,14 +66,14 @@ python3 -m pip install -e ".[dev]" 2>/dev/null || true
 
 ## 7. CI/CD (3 min)
 
-- [ ] GitHub Actions: `gh run list -R totalwindupflightsystems/terminal-jail --limit 5` — all green?
+- [ ] GitHub Actions: `gh run list -R terminal-jail/terminal-jail --limit 5` — all green?
 - [ ] Any CI configuration drift? (runner deprecation, action version bumps)
 - [ ] `.github/workflows/ci.yml` — still correct test commands?
 
 ## 8. Community & Issues (5 min)
 
-- [ ] GitHub Issues: `gh issue list -R totalwindupflightsystems/terminal-jail --limit 20` — any unanswered?
-- [ ] Open PRs: `gh pr list -R totalwindupflightsystems/terminal-jail` — any pending review?
+- [ ] GitHub Issues: `gh issue list -R terminal-jail/terminal-jail --limit 20` — any unanswered?
+- [ ] Open PRs: `gh pr list -R terminal-jail/terminal-jail` — any pending review?
 - [ ] PR SLA compliance (see `docs/pr-sla.md`) — within targets?
 - [ ] Hermes core PR status — any movement on the `--sandbox` flag?
 

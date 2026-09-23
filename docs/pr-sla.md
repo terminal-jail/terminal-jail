@@ -86,6 +86,6 @@ Track quarterly:
 
 ## Repository
 
-- **GitHub:** https://github.com/totalwindupflightsystems/terminal-jail
+- **GitHub:** https://github.com/terminal-jail/terminal-jail
 - **Maintainer:** Alexis Okuwa (wojonstech@gmail.com)
 - **Last updated:** 2026-07-21

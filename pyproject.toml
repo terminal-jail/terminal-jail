@@ -27,8 +27,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/totalwindupflightsystems/terminal-jail"
-Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
+Homepage = "https://github.com/terminal-jail/terminal-jail"
+Repository = "https://github.com/terminal-jail/terminal-jail"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff==0.16.8"]
