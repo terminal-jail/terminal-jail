@@ -1,0 +1,32 @@
+{
+  "tick_id": "terminal-jail-2026-09-23-13-46-44",
+  "created_at": "2026-09-23T08:53:22-05:00",
+  "wave_budget": 4,
+  "dispatched": 2,
+  "recovery_of": "terminal-jail-2026-09-23-11-49-57",
+  "composition_note": "middle-out partition verified: TJ-DF-019 = standalone CLI wrapper + plugin tests (code band), TJ-DF-023 = docs/quickstart.md only (docs band). Disjoint file sets, no depends_on edges on either row.",
+  "tasks": [
+    {
+      "task_id": "TJ-DF-019",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-019",
+      "branch": "wt/TJ-DF-019",
+      "base_sha": "e55acba",
+      "brief_file": "/tmp/tj-brief-TJ-DF-019.txt",
+      "launch_script": "/tmp/tj-launch-TJ-DF-019.sh",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave-TJ-DF-019.log"
+    },
+    {
+      "task_id": "TJ-DF-023",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-023",
+      "branch": "wt/TJ-DF-023",
+      "base_sha": "e55acba",
+      "brief_file": "/tmp/tj-brief-TJ-DF-023.txt",
+      "launch_script": "/tmp/tj-launch-TJ-DF-023.sh",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave-TJ-DF-023.log"
+    }
+  ]
+}

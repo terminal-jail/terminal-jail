@@ -1,0 +1,143 @@
+{
+  "task_id": "TJ-DF-019",
+  "task_title": "TJ-DF-019 fix: --user --seccomp must never die on an unreadable loader path",
+  "task_criteria": [
+    "the wrapper probes whether the seccomp loader path is readable inside the candidate uid-mapped launch, and when it is not, falls back to the mapping-less --user launch while printing an explicit degradation warning that names the 0700-home traversal cause and the path it could not read, and the command still runs with seccomp applied",
+    "a test in plugin/test_standalone_cli.py exercises the unreadable-loader branch through an injectable prober seam and asserts both the warning and the applied seccomp marker, and that test fails against the pre-fix wrapper",
+    "when the loader IS readable in the candidate launch the wrapper behavior is unchanged: no new warning, mapped launch still chosen",
+    "the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox path in plugin/terminal_jail/interruptor/userns.py are untouched"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2fff412ae597f374beaa3c469776f48a893d2e8b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n9:26AM INF scanned ~5376888 bytes (5.38 MB) in 399ms\n9:26AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 155 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1412 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 76%]\nplugin/test_packaging.py ..........                                      [ 77%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_rule_pack_db.py ............................................ [ 81%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 89%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss..... [ 94%]\n.                                                                        [ 94%]\nplugin/test_standalone_cli.py .....................                      [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n================== 1405 passed, 7 skipped in 75.73s (0:01:15) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 the wrapper probes whether the seccomp loader path is readable inside the candidate uid-mapped launch, and when it is not, falls back to the mapping-less --user launch while printing an explicit degradation warning that names the 0700-home traversal cause and the path it could not read, and the command still runs with seccomp applied: standalone/terminal-jail:537-563: when USE_SECCOMP=1 and SECCOMP_LOADER is set, the wrapper runs `unshare $_TJ_MAPPED_FLAGS test -r \"$SECCOMP_LOADER\"` (line 546); on failure it sets _tj_read_failed=1 and prints at line 560: \"WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; ...)\" then sets UNSHARE_FLAGS=\"--user $UNSHARE_FLAGS\" (line 566). Live run: `TERMINAL_JAIL_SECCOMP_READ_PROBE=false TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo TJDF019-RAN; grep Seccomp /proc/self/status'` -> rc=0, stdout 'TJDF019-RAN' + 'Seccomp:\t2' + 'Seccomp_filters:\t1', stderr contains the warning naming the exact path and the 0700/750-home cause; TERMINAL_JAIL_FS_ISOLATION=degraded. bash -n standalone/terminal-jail = SYNTAX OK.\n  \u2713 a test in plugin/test_standalone_cli.py exercises the unreadable-loader branch through an injectable prober seam and asserts both the warning and the applied seccomp marker, and that test fails against the pre-fix wrapper: plugin/test_standalone_cli.py:377-419 test_user_seccomp_unreadable_loader_degrades_and_runs drives the branch via the TERMINAL_JAIL_SECCOMP_READ_PROBE seam (line 397, set to a failing `test -r /nonexistent/...`), asserting rc==0, 'TJDF019-RAN' in stdout, 'Seccomp:\\t2' in stdout (line 408), _NEW_READ_WARNING in stderr, the exact loader path in stderr, and the old mapping warning absent. Pre-fix verification: extracted HEAD tree to /tmp/prefix-test, replaced standalone/terminal-jail with the 0fc950a^ version (grep -c SECCOMP_READ_PROBE = 0), ran the same test -> FAILED with 'AssertionError: new warning missing: stderr=\"terminal-jail: WARNING: no filesystem isolation \u2014 could not create a uid mapping...\"'. Post-fix: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -p no:cacheprovider -v` -> 21 passed in 4.22s. [resolution 0.10; plugin/test_standalone_cli.py]\n  \u2713 when the loader IS readable in the candidate launch the wrapper behavior is unchanged: no new warning, mapped launch still chosen: standalone/terminal-jail:545-557: when the readability probe succeeds, _tj_probe_ok=1 -> TERMINAL_JAIL_FS_ISOLATION=mapped and UNSHARE_FLAGS=\"$_TJ_MAPPED_FLAGS\"; no warning is emitted on that branch. Live verification with a fake unshare that succeeds for probes: `PATH=/tmp/fakebin:$PATH TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo ISO=$TERMINAL_JAIL_FS_ISOLATION'` -> no stderr output, stdout 'ISO=mapped'. plugin/test_standalone_cli.py:422-449 test_user_seccomp_read_probe_success_no_degradation asserts neither the new nor the legacy warning appears; it passes (21/21 in the file).\n  \u2713 the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox path in plugin/terminal_jail/interruptor/userns.py are untouched: `git show --name-only --format=\"\" 0fc950a` (the TJ-DF-019 fix commit) lists exactly plugin/test_standalone_cli.py and standalone/terminal-jail. `git diff HEAD -- docs/quickstart.md install.sh plugin/terminal_jail/interruptor/userns.py` is empty (untouched in the working tree). `grep -n 'SECCOMP_READ_PROBE|read_failed|loader not readable'` across those three files returns NONE FOUND. The docs/quickstart.md changes in the commit range come from separate TJ-DF-023 commits (008cb7c, 9652663), and userns.py's mapped_file_access_ok preflight is unchanged (last touched by 9048370, DF-TERMINAL-JAIL-15). [resolution 0.10; docs/quickstart.md, install.sh, plugin/terminal_jail/interruptor/userns.py]\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 the wrapper probes whether the seccomp loader path is readable inside the candidate uid-mapped launch, and when it is not, falls back to the mapping-less --user launch while printing an explicit degradation warning that names the 0700-home traversal cause and the path it could not read, and the command still runs with seccomp applied: standalone/terminal-jail:537-563: when USE_SECCOMP=1 and SECCOMP_LOADER is set, the wrapper runs `unshare $_TJ_MAPPED_FLAGS test -r \"$SECCOMP_LOADER\"` (line 546); on failure it sets _tj_read_failed=1 and prints at line 560: \"WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; ...)\" then sets UNSHARE_FLAGS=\"--user $UNSHARE_FLAGS\" (line 566). Live run: `TERMINAL_JAIL_SECCOMP_READ_PROBE=false TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo TJDF019-RAN; grep Seccomp /proc/self/status'` -> rc=0, stdout 'TJDF019-RAN' + 'Seccomp:\t2' + 'Seccomp_filters:\t1', stderr contains the warning naming the exact path and the 0700/750-home cause; TERMINAL_JAIL_FS_ISOLATION=degraded. bash -n standalone/terminal-jail = SYNTAX OK.\n\n\u2026 [1899 chars omitted \u2014 2 line(s)] \u2026\n  \u2713 the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox path in plugin/terminal_jail/interruptor/userns.py are untouched: `git show --name-only --format=\"\" 0fc950a` (the TJ-DF-019 fix commit) lists exactly plugin/test_standalone_cli.py and standalone/terminal-jail. `git diff HEAD -- docs/quickstart.md install.sh plugin/terminal_jail/interruptor/userns.py` is empty (untouched in the working tree). `grep -n 'SECCOMP_READ_PROBE|read_failed|loader not readable'` across those three files returns NONE FOUND. The docs/quickstart.md changes in the commit range come from separate TJ-DF-023 commits (008cb7c, 9652663), and userns.py's mapped_file_access_ok preflight is unchanged (last touched by 9048370, DF-TERMINAL-JAIL-15). [resolution 0.10; docs/quickstart.md, install.sh, plugin/terminal_jail/interruptor/userns.py]\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "the wrapper probes whether the seccomp loader path is readable inside the candidate uid-mapped launch, and when it is not, falls back to the mapping-less --user launch while printing an explicit degradation warning that names the 0700-home traversal cause and the path it could not read, and the command still runs with seccomp applied",
+                "status": "PASS",
+                "detail": "standalone/terminal-jail:537-563: when USE_SECCOMP=1 and SECCOMP_LOADER is set, the wrapper runs `unshare $_TJ_MAPPED_FLAGS test -r \"$SECCOMP_LOADER\"` (line 546); on failure it sets _tj_read_failed=1 and prints at line 560: \"WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; ...)\" then sets UNSHARE_FLAGS=\"--user $UNSHARE_FLAGS\" (line 566). Live run: `TERMINAL_JAIL_SECCOMP_READ_PROBE=false TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo TJDF019-RAN; grep Seccomp /proc/self/status'` -> rc=0, stdout 'TJDF019-RAN' + 'Seccomp:\t2' + 'Seccomp_filters:\t1', stderr contains the warning naming the exact path and the 0700/750-home cause; TERMINAL_JAIL_FS_ISOLATION=degraded. bash -n standalone/terminal-jail = SYNTAX OK.",
+                "resolution_probability": 0.1
+              },
+              {
+                "criterion": "a test in plugin/test_standalone_cli.py exercises the unreadable-loader branch through an injectable prober seam and asserts both the warning and the applied seccomp marker, and that test fails against the pre-fix wrapper",
+                "status": "PASS",
+                "detail": "plugin/test_standalone_cli.py:377-419 test_user_seccomp_unreadable_loader_degrades_and_runs drives the branch via the TERMINAL_JAIL_SECCOMP_READ_PROBE seam (line 397, set to a failing `test -r /nonexistent/...`), asserting rc==0, 'TJDF019-RAN' in stdout, 'Seccomp:\\t2' in stdout (line 408), _NEW_READ_WARNING in stderr, the exact loader path in stderr, and the old mapping warning absent. Pre-fix verification: extracted HEAD tree to /tmp/prefix-test, replaced standalone/terminal-jail with the 0fc950a^ version (grep -c SECCOMP_READ_PROBE = 0), ran the same test -> FAILED with 'AssertionError: new warning missing: stderr=\"terminal-jail: WARNING: no filesystem isolation \u2014 could not create a uid mapping...\"'. Post-fix: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -p no:cacheprovider -v` -> 21 passed in 4.22s. [resolution 0.10; plugin/test_standalone_cli.py]",
+                "resolution_probability": 0.1,
+                "cited_path": "plugin/test_standalone_cli.py"
+              },
+              {
+                "criterion": "when the loader IS readable in the candidate launch the wrapper behavior is unchanged: no new warning, mapped launch still chosen",
+                "status": "PASS",
+                "detail": "standalone/terminal-jail:545-557: when the readability probe succeeds, _tj_probe_ok=1 -> TERMINAL_JAIL_FS_ISOLATION=mapped and UNSHARE_FLAGS=\"$_TJ_MAPPED_FLAGS\"; no warning is emitted on that branch. Live verification with a fake unshare that succeeds for probes: `PATH=/tmp/fakebin:$PATH TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo ISO=$TERMINAL_JAIL_FS_ISOLATION'` -> no stderr output, stdout 'ISO=mapped'. plugin/test_standalone_cli.py:422-449 test_user_seccomp_read_probe_success_no_degradation asserts neither the new nor the legacy warning appears; it passes (21/21 in the file).",
+                "resolution_probability": 0.1
+              },
+              {
+                "criterion": "the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox path in plugin/terminal_jail/interruptor/userns.py are untouched",
+                "status": "PASS",
+                "detail": "`git show --name-only --format=\"\" 0fc950a` (the TJ-DF-019 fix commit) lists exactly plugin/test_standalone_cli.py and standalone/terminal-jail. `git diff HEAD -- docs/quickstart.md install.sh plugin/terminal_jail/interruptor/userns.py` is empty (untouched in the working tree). `grep -n 'SECCOMP_READ_PROBE|read_failed|loader not readable'` across those three files returns NONE FOUND. The docs/quickstart.md changes in the commit range come from separate TJ-DF-023 commits (008cb7c, 9652663), and userns.py's mapped_file_access_ok preflight is unchanged (last touched by 9048370, DF-TERMINAL-JAIL-15). [resolution 0.10; docs/quickstart.md, install.sh, plugin/terminal_jail/interruptor/userns.py]",
+                "resolution_probability": 0.1,
+                "cited_path": "docs/quickstart.md, install.sh, plugin/terminal_jail/interruptor/userns.py"
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-019\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 the wrapper probes whether the seccomp loader path is readable inside the candidate uid-mapped launch, and when it is not, falls back to the mapping-less --user launch while printing an explicit degradation warning that names the 0700-home traversal cause and the path it could not read, and the command still runs with seccomp applied: standalone/terminal-jail:537-563: when USE_SECCOMP=1 and SECCOMP_LOADER is set, the wrapper runs `unshare $_TJ_MAPPED_FLAGS test -r \"$SECCOMP_LOADER\"` (line 546); on failure it sets _tj_read_failed=1 and prints at line 560: \"WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; ...)\" then sets UNSHARE_FLAGS=\"--user $UNSHARE_FLAGS\" (line 566). Live run: `TERMINAL_JAIL_SECCOMP_READ_PROBE=false TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo TJDF019-RAN; grep Seccomp /proc/self/status'` -> rc=0, stdout 'TJDF019-RAN' + 'Seccomp:\t2' + 'Seccomp_filters:\t1', stderr contains the warning naming the exact path and the 0700/750-home cause; TERMINAL_JAIL_FS_ISOLATION=degraded. bash -n standalone/terminal-jail = SYNTAX OK.\n  \u2713 a test in plugin/test_standalone_cli.py exercises the unreadable-loader branch through an injectable prober seam and asserts both the warning and the applied seccomp marker, and that test fails against the pre-fix wrapper: plugin/test_standalone_cli.py:377-419 test_user_seccomp_unreadable_loader_degrades_and_runs drives the branch via the TERMINAL_JAIL_SECCOMP_READ_PROBE seam (line 397, set to a failing `test -r /nonexistent/...`), asserting rc==0, 'TJDF019-RAN' in stdout, 'Seccomp:\\t2' in stdout (line 408), _NEW_READ_WARNING in stderr, the exact loader path in stderr, and the old mapping warning absent. Pre-fix verification: extracted HEAD tree to /tmp/prefix-test, replaced standalone/terminal-jail with the 0fc950a^ version (grep -c SECCOMP_READ_PROBE = 0), ran the same test -> FAILED with 'AssertionError: new warning missing: stderr=\"terminal-jail: WARNING: no filesystem isolation \u2014 could not create a uid mapping...\"'. Post-fix: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -p no:cacheprovider -v` -> 21 passed in 4.22s. [resolution 0.10; plugin/test_standalone_cli.py]\n  \u2713 when the loader IS readable in the candidate launch the wrapper behavior is unchanged: no new warning, mapped launch still chosen: standalone/terminal-jail:545-557: when the readability probe succeeds, _tj_probe_ok=1 -> TERMINAL_JAIL_FS_ISOLATION=mapped and UNSHARE_FLAGS=\"$_TJ_MAPPED_FLAGS\"; no warning is emitted on that branch. Live verification with a fake unshare that succeeds for probes: `PATH=/tmp/fakebin:$PATH TERMINAL_JAIL_SECCOMP_LOADER=$PWD/standalone/seccomp-loader.py ./standalone/terminal-jail --user --seccomp sh -c 'echo ISO=$TERMINAL_JAIL_FS_ISOLATION'` -> no stderr output, stdout 'ISO=mapped'. plugin/test_standalone_cli.py:422-449 test_user_seccomp_read_probe_success_no_degradation asserts neither the new nor the legacy warning appears; it passes (21/21 in the file).\n  \u2713 the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox path in plugin/terminal_jail/interruptor/userns.py are untouched: `git show --name-only --format=\"\" 0fc950a` (the TJ-DF-019 fix commit) lists exactly plugin/test_standalone_cli.py and standalone/terminal-jail. `git diff HEAD -- docs/quickstart.md install.sh plugin/terminal_jail/interruptor/userns.py` is empty (untouched in the working tree). `grep -n 'SECCOMP_READ_PROBE|read_failed|loader not readable'` across those three files returns NONE FOUND. The docs/quickstart.md changes in the commit range come from separate TJ-DF-023 commits (008cb7c, 9652663), and userns.py's mapped_file_access_ok preflight is unchanged (last touched by 9048370, DF-TERMINAL-JAIL-15). [resolution 0.10; docs/quickstart.md, install.sh, plugin/terminal_jail/interruptor/userns.py]\n\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-23T14:37:13.959249",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T14:37:13.982112+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 711,
+        "truncated": false,
+        "source": "git show 2fff412ae597"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 29527,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-019"
+  }
+}

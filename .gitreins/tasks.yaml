@@ -1338,3 +1338,39 @@ tasks:
   status: complete
   created_at: '2026-09-23T04:14:17.962073+00:00'
   completed_at: '2026-09-23T04:42:00.536191+00:00'
+- id: TJ-DF-019
+  title: 'TJ-DF-019 fix: --user --seccomp must never die on an unreadable loader path'
+  criteria:
+  - the wrapper probes whether the seccomp loader path is readable inside the candidate
+    uid-mapped launch, and when it is not, falls back to the mapping-less --user launch
+    while printing an explicit degradation warning that names the 0700-home traversal
+    cause and the path it could not read, and the command still runs with seccomp
+    applied
+  - a test in plugin/test_standalone_cli.py exercises the unreadable-loader branch
+    through an injectable prober seam and asserts both the warning and the applied
+    seccomp marker, and that test fails against the pre-fix wrapper
+  - 'when the loader IS readable in the candidate launch the wrapper behavior is unchanged:
+    no new warning, mapped launch still chosen'
+  - 'the change is confined to standalone/terminal-jail plus its tests: docs/quickstart.md
+    is untouched (owned by TJ-DF-023) and install.sh and the transparent auto-sandbox
+    path in plugin/terminal_jail/interruptor/userns.py are untouched'
+  status: complete
+  created_at: '2026-09-23T13:53:41.545021+00:00'
+  completed_at: '2026-09-23T14:26:27.522385+00:00'
+- id: TJ-DF-023
+  title: "TJ-DF-023 fix: quickstart \xA73c must prove the seccomp filter is applied"
+  criteria:
+  - docs/quickstart.md section 3c no longer uses echo as the seccomp verification
+    payload and instead names a command whose captured output distinguishes filter-applied
+    from filter-skipped
+  - section 3c states the fail-open behaviour of the seccomp loader with a pointer
+    to the loader code path and gives a mount-attempt EPERM check expecting errno
+    32
+  - section 3c documents the 0700-home failure mode of --user --seccomp and cross-references
+    the wrapper degradation warning
+  - the change is confined to docs/quickstart.md and every command in the rewritten
+    block that can run on this host was executed verbatim, with non-runnable branches
+    explicitly marked instead of fabricated
+  status: complete
+  created_at: '2026-09-23T13:53:41.912249+00:00'
+  completed_at: '2026-09-23T14:26:28.708515+00:00'
