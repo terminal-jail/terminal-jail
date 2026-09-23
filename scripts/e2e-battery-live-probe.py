@@ -26,7 +26,7 @@ least one allow with a null id must be present, or the run fails even if
 every case matched its expectation.
 
 Output: one `PASS <case> -> action=<...> rule_id=<...>` (or `FAIL ...`) line
-per check, then `LIVE-PROBE: <n>/<13> PASS`. Exit 0 iff all 13 cases AND the
+per check, then `LIVE-PROBE: <n>/<n> PASS`. Exit 0 iff all cases AND the
 positive control pass; anything else exits 1 (battery gate). Fail-closed: a
 non-zero bridge exit, a timeout, or non-JSON output is a FAIL carrying the
 raw output — never an automatic pass.
