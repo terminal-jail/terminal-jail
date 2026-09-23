@@ -1,0 +1,26 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 1d57038..3d2f8c3 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1338,3 +1338,12 @@ tasks:
+   status: complete
+   created_at: '2026-09-23T04:14:17.962073+00:00'
+   completed_at: '2026-09-23T04:42:00.536191+00:00'
++- id: TJ-DF-020
++  title: seccomp glibc-routed variant syscalls
++  criteria:
++  - clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired
++    so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM
++    for adjtimex under the filter
++  status: complete
++  created_at: '2026-09-23T12:19:16.193901+00:00'
++  completed_at: '2026-09-23T12:19:16.688869+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index c402af1..b233bfd 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -86,3 +86,4 @@
+ {"ts": 1790138950.0829926, "tokens_in": 24963, "tokens_out": 726, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790139781.584449, "tokens_in": 229235, "tokens_out": 5825, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790141441.7058005, "tokens_in": 1094501, "tokens_out": 8849, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790166105.4002836, "tokens_in": 238417, "tokens_out": 4561, "cache_read": 0, "cache_write": 0, "step": "tier2"}
