@@ -192,8 +192,7 @@ def test_command_with_args(cli_path: Path) -> None:
         assert "a:b:c" in result.stdout.decode("utf-8")
     else:
         assert _host_denies_bare_mode(cli_path), (
-            "HOST-DEGRADED-PIDNS: bare command failed without the "
-            "host-degradation path"
+            "HOST-DEGRADED-PIDNS: bare command failed without the host-degradation path"
         )
         pytest.skip(
             "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
@@ -208,8 +207,7 @@ def test_command_with_special_chars(cli_path: Path) -> None:
         assert "path/to/file with spaces" in result.stdout.decode("utf-8")
     else:
         assert _host_denies_bare_mode(cli_path), (
-            "HOST-DEGRADED-PIDNS: bare command failed without the "
-            "host-degradation path"
+            "HOST-DEGRADED-PIDNS: bare command failed without the host-degradation path"
         )
         pytest.skip(
             "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
@@ -260,8 +258,7 @@ def test_stdin_passthrough(cli_path: Path) -> None:
         assert b"hello-from-stdin" in proc.stdout
     else:
         assert _host_denies_bare_mode(cli_path), (
-            "HOST-DEGRADED-PIDNS: bare command failed without the "
-            "host-degradation path"
+            "HOST-DEGRADED-PIDNS: bare command failed without the host-degradation path"
         )
         pytest.skip(
             "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
@@ -276,8 +273,7 @@ def test_stderr_passthrough(cli_path: Path) -> None:
         assert b"to-stderr" in result.stderr
     else:
         assert _host_denies_bare_mode(cli_path), (
-            "HOST-DEGRADED-PIDNS: bare command failed without the "
-            "host-degradation path"
+            "HOST-DEGRADED-PIDNS: bare command failed without the host-degradation path"
         )
         pytest.skip(
             "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
@@ -329,8 +325,7 @@ def test_bare_mode_keeps_identity_env(cli_path: Path) -> None:
         assert "HOME=/home/tester" in stdout
     else:
         assert _host_denies_bare_mode(cli_path), (
-            "HOST-DEGRADED-PIDNS: bare command failed without the "
-            "host-degradation path"
+            "HOST-DEGRADED-PIDNS: bare command failed without the host-degradation path"
         )
         pytest.skip(
             "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
@@ -370,3 +365,85 @@ def test_bare_mode_pid_namespace_containment(cli_path: Path) -> None:
         f"bare mode did not create a new PID namespace: inside={inside}, "
         f"outside={outside}"
     )
+
+
+# ── seccomp loader readability under the uid-mapped launch (TJ-DF-019) ─────
+
+_NEW_READ_WARNING = "seccomp loader not readable under the uid-mapped launch"
+_OLD_MAPPING_WARNING = "could not create a uid mapping"
+
+
+@pytest.mark.standalone_cli
+def test_user_seccomp_unreadable_loader_degrades_and_runs(cli_path: Path) -> None:
+    """TJ-DF-019: when the subordinate uid of the mapped launch cannot READ
+    the seccomp loader (e.g. a 0700/750 agent home it cannot traverse), the
+    wrapper must NOT die with Errno 13 before the wrapped command runs. It
+    must print its own loud warning naming the exact loader path, fall back
+    to the mapping-less --user launch, and still RUN the command with the
+    seccomp filter applied (Seccomp: 2).
+
+    The unreadable-loader outcome is driven through the documented test seam
+    TERMINAL_JAIL_SECCOMP_READ_PROBE (a failing probe command), because this
+    host cannot create a uid-mapped launch at all (Ubuntu AppArmor profile
+    'unprivileged_userns') — the real mapped launch is not creatable here."""
+    result = _run_cli(
+        cli_path,
+        "--user",
+        "--seccomp",
+        "sh",
+        "-c",
+        "echo TJDF019-RAN; grep Seccomp /proc/self/status",
+        extra_env={
+            "TERMINAL_JAIL_SECCOMP_READ_PROBE": "test -r /nonexistent/tj-df-019-seccomp-loader",
+        },
+        unset_env=("TERMINAL_JAIL_SECCOMP_LOADER",),
+    )
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    stdout = result.stdout.decode("utf-8", errors="replace")
+    assert result.returncode == 0, (
+        f"wrapped command must RUN, not die on the loader: "
+        f"rc={result.returncode}, stderr={stderr!r}"
+    )
+    assert "TJDF019-RAN" in stdout, "wrapped command did not actually run"
+    assert "Seccomp:\t2" in stdout, (
+        f"seccomp filter not applied inside the fallback jail: stdout={stdout!r}"
+    )
+    assert _NEW_READ_WARNING in stderr, f"new warning missing: stderr={stderr!r}"
+    assert str(PROJECT_ROOT / "standalone" / "seccomp-loader.py") in stderr, (
+        f"warning must name the exact unreadable loader path: stderr={stderr!r}"
+    )
+    assert _OLD_MAPPING_WARNING not in stderr, (
+        f"read-failure warning must be distinguishable from the "
+        f"creation-failure warning: stderr={stderr!r}"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_user_seccomp_read_probe_success_no_degradation(cli_path: Path) -> None:
+    """TJ-DF-019: when the readability probe reports the mapped launch can
+    read the loader, the wrapper promotes it silently — neither the new
+    read-failure warning nor the legacy mapping-degradation warning may
+    appear."""
+    result = _run_cli(
+        cli_path,
+        "--user",
+        "--seccomp",
+        "echo",
+        "TJDF019-OK",
+        extra_env={"TERMINAL_JAIL_SECCOMP_READ_PROBE": "true"},
+        unset_env=("TERMINAL_JAIL_SECCOMP_LOADER",),
+    )
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    assert _NEW_READ_WARNING not in stderr, f"stderr={stderr!r}"
+    assert _OLD_MAPPING_WARNING not in stderr, f"stderr={stderr!r}"
+    if result.returncode == 0:
+        assert "TJDF019-OK" in result.stdout.decode("utf-8")
+    else:
+        # This host cannot create the mapped launch the seam-forced
+        # promotion selects (Ubuntu AppArmor 'unprivileged_userns'); the
+        # failure must land on the host-denial path at exec, never on a
+        # silent non-zero exit.
+        assert _host_denied_namespaces(stderr), (
+            f"HOST-DEGRADED-USERNS: mapped exec failed without a host-"
+            f"denial error: rc={result.returncode}, stderr={stderr!r}"
+        )

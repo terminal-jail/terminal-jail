@@ -516,11 +516,51 @@ if [ "$USE_USER_NS" -eq 1 ]; then
             UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
             ;;
         *)
-            if unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+            # TJ-DF-019: with --seccomp the mapped payload runs python3 as
+            # the subordinate uid, so the mapped launch is only usable when
+            # that uid can READ the seccomp loader — an agent home at 0700
+            # (or a non-traversable parent) makes the loader unreadable and
+            # the wrapped command dies with Errno 13 before running. Probe
+            # exactly that property with the candidate launch flags before
+            # promoting the launch; on failure fall back to the
+            # mapping-less --user launch and keep the command ALIVE.
+            #
+            # Test seam: TERMINAL_JAIL_SECCOMP_READ_PROBE, when set, is run
+            # via bash -c INSTEAD of both promotion probes (mapped-launch
+            # creation + loader readability). Default (unset) is the real
+            # probe pair below. A seam-forced promotion still performs the
+            # real mapped launch — forcing success on a host that cannot
+            # create the mapped launch fails at exec — so tests drive the
+            # failure outcome through the seam or exercise the real path.
+            _tj_probe_ok=0
+            _tj_read_failed=0
+            if [ "$USE_SECCOMP" -eq 1 ] && [ -n "$SECCOMP_LOADER" ]; then
+                _tj_read_probe="${TERMINAL_JAIL_SECCOMP_READ_PROBE:-}"
+                if [ -n "$_tj_read_probe" ]; then
+                    if bash -c "$_tj_read_probe" >/dev/null 2>&1; then
+                        _tj_probe_ok=1
+                    else
+                        _tj_read_failed=1
+                    fi
+                elif unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+                    if unshare $_TJ_MAPPED_FLAGS test -r "$SECCOMP_LOADER" >/dev/null 2>&1; then
+                        _tj_probe_ok=1
+                    else
+                        _tj_read_failed=1
+                    fi
+                fi
+            elif unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+                _tj_probe_ok=1
+            fi
+            if [ "$_tj_probe_ok" -eq 1 ]; then
                 TERMINAL_JAIL_FS_ISOLATION=mapped
                 UNSHARE_FLAGS="$_TJ_MAPPED_FLAGS"
             else
-                echo "terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)" >&2
+                if [ "$_tj_read_failed" -eq 1 ]; then
+                    echo "terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch — falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; PID-namespace containment and the seccomp filter still apply; remedy: place the loader under a traversable home, or set TERMINAL_JAIL_UID_MAP=0 to select this mode deliberately)" >&2
+                else
+                    echo "terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)" >&2
+                fi
                 UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
             fi
             ;;
