@@ -1,0 +1,141 @@
+{
+  "task_id": "REVIEW-TJ-002",
+  "task_title": "Three rows blocked since 31 July with no stated blocker",
+  "task_criteria": [
+    "every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair)",
+    "T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose",
+    "the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys",
+    "no blocked row remains without a stated blocker"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b7711835ce9437e6536369413d2d449de7ee02c7",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n12:21AM INF scanned ~5341179 bytes (5.34 MB) in 336ms\n12:21AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 152 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1404 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n================== 1397 passed, 7 skipped in 63.02s (0:01:03) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): .coding-hermes/board/tasks.jsonl lines 30-32: T5.1-T5.7 blocked_reason names the concrete gate 'host LAYOUT: ... ProtectHome=true hides /home/kara/.hermes and MemoryMax=1G OOM-kills a 1.5G+ gateway'; T6.2-T6.7 blocked_reason 'BLOCKED: requires T5.x + unshare kernel support' names the T5.x dependency; T9.4-GPG blocked_reason 'BLOCKED: no GPG keypair. Manual generation required' names the missing keypair. All three match the criterion's expected gates.\n  \u2713 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: .coding-hermes/board/tasks.jsonl line 31: T6.2-T6.7 has \"depends_on\": \"T5.1-T5.7\" \u2014 a structural field value, not prose. (Note: this edit is present in the working tree; HEAD still shows depends_on=null, but the working tree is the evaluated state.)\n  \u2713 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: Ran live on 2026-09-23 (host date: Wed Sep 23 2026): `sudo -n id` -> 'uid=0(root) gid=0(root) groups=0(root)', exit 0; `gpg --list-secret-keys` -> no output (no secret keys), exit 0. Both premises hold. Corroborated by tick #312 event (events.jsonl id 427) recording 'REVIEW-TJ-002 evidence closure' and repeated audit probes noting 'list-secret-keys empty (T9.4 still blocked)'.\n  \u2713 no blocked row remains without a stated blocker: Status census of .coding-hermes/board/tasks.jsonl: complete=156, pending=11, completed=6, blocked=3. The only 3 rows with status='blocked' (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) are exactly the 3 rows carrying a non-null blocked_reason; zero blocked rows lack a stated blocker. Test suite `.venv/bin/python -m pytest -x --tb=short -q` -> '1397 passed, 7 skipped in 47.51s' EXIT=0; LSP diagnostics empty.\nAll four criteria are satisfied in the working tree: the three blocked rows each name a concrete gate, T6.2-T6.7 carries a structural depends_on=T5.1-T5.7, both live premises (uid=0, no GPG secret keys) were re-verified on 2026-09-23, and no blocked row lacks a stated blocker; the suite passes 1397/7 with exit 0.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): .coding-hermes/board/tasks.jsonl lines 30-32: T5.1-T5.7 blocked_reason names the concrete gate 'host LAYOUT: ... ProtectHome=true hides /home/kara/.hermes and MemoryMax=1G OOM-kills a 1.5G+ gateway'; T6.2-T6.7 blocked_reason 'BLOCKED: requires T5.x + unshare kernel support' names the T5.x dependency; T9.4-GPG blocked_reason 'BLOCKED: no GPG keypair. Manual generation required' names the missing keypair. All three match the criterion's expected gates.\n  \u2713 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: .coding-hermes/board/tasks.jsonl line 31: T6.2-T6.7 has \"depends_on\": \"T5.1-T5.7\" \u2014 a structural field value, not prose. (Note: this edit is present in the working tree; HEAD still shows depends_on=null, but the working tree is the evaluated state.)\n  \u2713 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: Ran live on 2026-09-23 (host date: Wed Sep 23 2026): `sudo -n id` -> 'uid=0(root) gid=0(root) groups=0(root)', exit 0; `gpg --list-secret-keys` -> no output (no secret keys), exit 0. Both premises hold. Corroborated by tick #312 event (events.jsonl id 427) recording 'REVIEW-TJ-002 evidence closure' and repeated audit probes noting 'list-secret-keys empty (T9.4 still blocked)'.\n  \u2713 no blocked row remains without a stated blocker: Status census of .coding-hermes/board/tasks.jsonl: complete=156, pending=11, completed=6, blocked=3. The only 3 rows with status='blocked' (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) are exactly the 3 rows carrying a non-null blocked_reason; zero blocked rows lack a stated blocker. Test suite `.venv/bin/python -m pytest -x --tb=short -q` -> '1397 passed, 7 skipped in 47.51s' EXIT=0; LSP diagnostics empty.\nAll four criteria are satisfied in the working tree: the three blocked rows each name a concrete gate, T6.2-T6.7 carries a structural depends_on=T5.1-T5.7, both live premises (uid=0, no GPG secret keys) were re-verified on 2026-09-23, and no blocked row lacks a stated blocker; the suite passes 1397/7 with exit 0.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair)",
+                "status": "PASS",
+                "detail": ".coding-hermes/board/tasks.jsonl lines 30-32: T5.1-T5.7 blocked_reason names the concrete gate 'host LAYOUT: ... ProtectHome=true hides /home/kara/.hermes and MemoryMax=1G OOM-kills a 1.5G+ gateway'; T6.2-T6.7 blocked_reason 'BLOCKED: requires T5.x + unshare kernel support' names the T5.x dependency; T9.4-GPG blocked_reason 'BLOCKED: no GPG keypair. Manual generation required' names the missing keypair. All three match the criterion's expected gates.",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose",
+                "status": "PASS",
+                "detail": ".coding-hermes/board/tasks.jsonl line 31: T6.2-T6.7 has \"depends_on\": \"T5.1-T5.7\" \u2014 a structural field value, not prose. (Note: this edit is present in the working tree; HEAD still shows depends_on=null, but the working tree is the evaluated state.)",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys",
+                "status": "PASS",
+                "detail": "Ran live on 2026-09-23 (host date: Wed Sep 23 2026): `sudo -n id` -> 'uid=0(root) gid=0(root) groups=0(root)', exit 0; `gpg --list-secret-keys` -> no output (no secret keys), exit 0. Both premises hold. Corroborated by tick #312 event (events.jsonl id 427) recording 'REVIEW-TJ-002 evidence closure' and repeated audit probes noting 'list-secret-keys empty (T9.4 still blocked)'.",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "no blocked row remains without a stated blocker",
+                "status": "PASS",
+                "detail": "Status census of .coding-hermes/board/tasks.jsonl: complete=156, pending=11, completed=6, blocked=3. The only 3 rows with status='blocked' (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) are exactly the 3 rows carrying a non-null blocked_reason; zero blocked rows lack a stated blocker. Test suite `.venv/bin/python -m pytest -x --tb=short -q` -> '1397 passed, 7 skipped in 47.51s' EXIT=0; LSP diagnostics empty.",
+                "resolution_probability": 0.0
+              }
+            ],
+            "summary": "All four criteria are satisfied in the working tree: the three blocked rows each name a concrete gate, T6.2-T6.7 carries a structural depends_on=T5.1-T5.7, both live premises (uid=0, no GPG secret keys) were re-verified on 2026-09-23, and no blocked row lacks a stated blocker; the suite passes 1397/7 with exit 0."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-002\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): .coding-hermes/board/tasks.jsonl lines 30-32: T5.1-T5.7 blocked_reason names the concrete gate 'host LAYOUT: ... ProtectHome=true hides /home/kara/.hermes and MemoryMax=1G OOM-kills a 1.5G+ gateway'; T6.2-T6.7 blocked_reason 'BLOCKED: requires T5.x + unshare kernel support' names the T5.x dependency; T9.4-GPG blocked_reason 'BLOCKED: no GPG keypair. Manual generation required' names the missing keypair. All three match the criterion's expected gates.\n  \u2713 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: .coding-hermes/board/tasks.jsonl line 31: T6.2-T6.7 has \"depends_on\": \"T5.1-T5.7\" \u2014 a structural field value, not prose. (Note: this edit is present in the working tree; HEAD still shows depends_on=null, but the working tree is the evaluated state.)\n  \u2713 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: Ran live on 2026-09-23 (host date: Wed Sep 23 2026): `sudo -n id` -> 'uid=0(root) gid=0(root) groups=0(root)', exit 0; `gpg --list-secret-keys` -> no output (no secret keys), exit 0. Both premises hold. Corroborated by tick #312 event (events.jsonl id 427) recording 'REVIEW-TJ-002 evidence closure' and repeated audit probes noting 'list-secret-keys empty (T9.4 still blocked)'.\n  \u2713 no blocked row remains without a stated blocker: Status census of .coding-hermes/board/tasks.jsonl: complete=156, pending=11, completed=6, blocked=3. The only 3 rows with status='blocked' (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) are exactly the 3 rows carrying a non-null blocked_reason; zero blocked rows lack a stated blocker. Test suite `.venv/bin/python -m pytest -x --tb=short -q` -> '1397 passed, 7 skipped in 47.51s' EXIT=0; LSP diagnostics empty.\nAll four criteria are satisfied in the working tree: the three blocked rows each name a concrete gate, T6.2-T6.7 carries a structural depends_on=T5.1-T5.7, both live premises (uid=0, no GPG secret keys) were re-verified on 2026-09-23, and no blocked row lacks a stated blocker; the suite passes 1397/7 with exit 0.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-23T05:30:41.720666",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T05:30:41.739571+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1593,
+        "truncated": false,
+        "source": "git show b7711835ce94"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 61583,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-002"
+  }
+}

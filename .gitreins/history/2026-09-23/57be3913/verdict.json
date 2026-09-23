@@ -1,0 +1,141 @@
+{
+  "task_id": "REVIEW-TJ-002",
+  "task_title": "Three rows blocked since 31 July with no stated blocker",
+  "task_criteria": [
+    "every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair)",
+    "T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose",
+    "the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys",
+    "no blocked row remains without a stated blocker"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b7711835ce9437e6536369413d2d449de7ee02c7",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n11:54PM INF scanned ~5341179 bytes (5.34 MB) in 400ms\n11:54PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 152 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1404 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1397 passed, 7 skipped in 45.61s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T044426.928939Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): The named rows do not exist. .coding-hermes/board/tasks.jsonl (1161 rows) has status counts pending=788/complete=373 and ZERO rows with status 'blocked'; only DAGGER-0894 and INT-CI-009 carry a blocked_reason. grep for 'T5.1-T5.7', 'T6.2-T6.7', 'T9.4-GPG' across the repo and `git log --all -S` returns zero hits. The prompt's diff (adding REVIEW-TJ-002/TJ-GAP-074 to .gitreins/tasks.yaml) is not present: .gitreins/tasks.yaml contains neither id, and `git log --all -S 'TJ-GAP-074'` is empty. The criterion cannot be satisfied against rows that are absent.\n  \u2717 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: No row with id 'T6.2-T6.7' exists in .coding-hermes/board/tasks.jsonl or anywhere in the repo/git history (grep and `git log --all -S 'T6.2-T6.7'` both empty), so there is no depends_on field to inspect. The claimed edit is absent from the working tree (git status clean; git diff empty).\n  \u2717 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: The two live commands do hold: `sudo -n id` -> exit 0, 'uid=0(root) gid=0(root) groups=0(root)'; `gpg --list-secret-keys` -> exit 0, no output (no secret keys). However the criterion requires re-verifying the premises OF THE NAMED ROWS (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), and those rows do not exist in this repository (zero grep/git-history hits), so the re-verification the criterion demands cannot be evidenced.\n  \u2717 no blocked row remains without a stated blocker: In the actual board (.coding-hermes/board/tasks.jsonl at HEAD) there are zero rows with status 'blocked'; the only rows carrying a blocked_reason are DAGGER-0894 and INT-CI-009, both of which do have a stated blocker. But the criterion is scoped to the task's premise rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), which are absent from the repo and all git history, and the diff's claimed changes (.gitreins/config.yaml max_iterations 200->300 with TICK-312, scripts/e2e-battery-live-probe.py, REVIEW-TJ-002/TJ-GAP-074 rows) are not present \u2014 config.yaml:37 still reads 'max_iterations: 200', TICK-312 is absent, and scripts/e2e-battery-live-probe.py does not exist. The criterion cannot be verified against the rows it names.\nThe prompt's diff does not correspond to this repository's state \u2014 the referenced rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) and task records (REVIEW-TJ-002, TJ-GAP-074) exist nowhere in the repo or git history, so all four criteria fail despite the two live host premises (uid=0, no GPG keys) holding.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): The named rows do not exist. .coding-hermes/board/tasks.jsonl (1161 rows) has status counts pending=788/complete=373 and ZERO rows with status 'blocked'; only DAGGER-0894 and INT-CI-009 carry a blocked_reason. grep for 'T5.1-T5.7', 'T6.2-T6.7', 'T9.4-GPG' across the repo and `git log --all -S` returns zero hits. The prompt's diff (adding REVIEW-TJ-002/TJ-GAP-074 to .gitreins/tasks.yaml) is not present: .gitreins/tasks.yaml contains neither id, and `git log --all -S 'TJ-GAP-074'` is empty. The criterion cannot be satisfied against rows that are absent.\n  \u2717 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: No row with id 'T6.2-T6.7' exists in .coding-hermes/board/tasks.jsonl or anywhere in the repo/git history (grep and `git log --all -S 'T6.2-T6.7'` both empty), so there is no depends_on field to inspect. The claimed edit is absent from the working tree (git status clean; git diff empty).\n  \u2717 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: The two live commands do hold: `sudo -n id` -> exit 0, 'uid=0(root) gid=0(root) groups=0(root)'; `gpg --list-secret-keys` -> exit 0, no output (no secret keys). However the criterion requires re-verifying the premises OF THE NAMED ROWS (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), and those rows do not exist in this repository (zero grep/git-history hits), so the re-verification the criterion demands cannot be evidenced.\n  \u2717 no blocked row remains without a stated blocker: In the actual board (.coding-hermes/board/tasks.jsonl at HEAD) there are zero rows with status 'blocked'; the only rows carrying a blocked_reason are DAGGER-0894 and INT-CI-009, both of which do have a stated blocker. But the criterion is scoped to the task's premise rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), which are absent from the repo and all git history, and the diff's claimed changes (.gitreins/config.yaml max_iterations 200->300 with TICK-312, scripts/e2e-battery-live-probe.py, REVIEW-TJ-002/TJ-GAP-074 rows) are not present \u2014 config.yaml:37 still reads 'max_iterations: 200', TICK-312 is absent, and scripts/e2e-battery-live-probe.py does not exist. The criterion cannot be verified against the rows it names.\nThe prompt's diff does not correspond to this repository's state \u2014 the referenced rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) and task records (REVIEW-TJ-002, TJ-GAP-074) exist nowhere in the repo or git history, so all four criteria fail despite the two live host premises (uid=0, no GPG keys) holding.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair)",
+                "status": "FAIL",
+                "detail": "The named rows do not exist. .coding-hermes/board/tasks.jsonl (1161 rows) has status counts pending=788/complete=373 and ZERO rows with status 'blocked'; only DAGGER-0894 and INT-CI-009 carry a blocked_reason. grep for 'T5.1-T5.7', 'T6.2-T6.7', 'T9.4-GPG' across the repo and `git log --all -S` returns zero hits. The prompt's diff (adding REVIEW-TJ-002/TJ-GAP-074 to .gitreins/tasks.yaml) is not present: .gitreins/tasks.yaml contains neither id, and `git log --all -S 'TJ-GAP-074'` is empty. The criterion cannot be satisfied against rows that are absent.",
+                "resolution_probability": 0.05
+              },
+              {
+                "criterion": "T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose",
+                "status": "FAIL",
+                "detail": "No row with id 'T6.2-T6.7' exists in .coding-hermes/board/tasks.jsonl or anywhere in the repo/git history (grep and `git log --all -S 'T6.2-T6.7'` both empty), so there is no depends_on field to inspect. The claimed edit is absent from the working tree (git status clean; git diff empty).",
+                "resolution_probability": 0.05
+              },
+              {
+                "criterion": "the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys",
+                "status": "FAIL",
+                "detail": "The two live commands do hold: `sudo -n id` -> exit 0, 'uid=0(root) gid=0(root) groups=0(root)'; `gpg --list-secret-keys` -> exit 0, no output (no secret keys). However the criterion requires re-verifying the premises OF THE NAMED ROWS (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), and those rows do not exist in this repository (zero grep/git-history hits), so the re-verification the criterion demands cannot be evidenced.",
+                "resolution_probability": 0.05
+              },
+              {
+                "criterion": "no blocked row remains without a stated blocker",
+                "status": "FAIL",
+                "detail": "In the actual board (.coding-hermes/board/tasks.jsonl at HEAD) there are zero rows with status 'blocked'; the only rows carrying a blocked_reason are DAGGER-0894 and INT-CI-009, both of which do have a stated blocker. But the criterion is scoped to the task's premise rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), which are absent from the repo and all git history, and the diff's claimed changes (.gitreins/config.yaml max_iterations 200->300 with TICK-312, scripts/e2e-battery-live-probe.py, REVIEW-TJ-002/TJ-GAP-074 rows) are not present \u2014 config.yaml:37 still reads 'max_iterations: 200', TICK-312 is absent, and scripts/e2e-battery-live-probe.py does not exist. The criterion cannot be verified against the rows it names.",
+                "resolution_probability": 0.05
+              }
+            ],
+            "summary": "The prompt's diff does not correspond to this repository's state \u2014 the referenced rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) and task records (REVIEW-TJ-002, TJ-GAP-074) exist nowhere in the repo or git history, so all four criteria fail despite the two live host premises (uid=0, no GPG keys) holding."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-002\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 every blocked row in tasks.jsonl carries a blocked_reason naming its concrete gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x; T9.4-GPG: no GPG keypair): The named rows do not exist. .coding-hermes/board/tasks.jsonl (1161 rows) has status counts pending=788/complete=373 and ZERO rows with status 'blocked'; only DAGGER-0894 and INT-CI-009 carry a blocked_reason. grep for 'T5.1-T5.7', 'T6.2-T6.7', 'T9.4-GPG' across the repo and `git log --all -S` returns zero hits. The prompt's diff (adding REVIEW-TJ-002/TJ-GAP-074 to .gitreins/tasks.yaml) is not present: .gitreins/tasks.yaml contains neither id, and `git log --all -S 'TJ-GAP-074'` is empty. The criterion cannot be satisfied against rows that are absent.\n  \u2717 T6.2-T6.7 names its dependency structurally in the depends_on field, not only in prose: No row with id 'T6.2-T6.7' exists in .coding-hermes/board/tasks.jsonl or anywhere in the repo/git history (grep and `git log --all -S 'T6.2-T6.7'` both empty), so there is no depends_on field to inspect. The claimed edit is absent from the working tree (git status clean; git diff empty).\n  \u2717 the row-level premises were re-verified live on 2026-09-23: sudo -n id returns uid=0 on this host and gpg --list-secret-keys returns no secret keys: The two live commands do hold: `sudo -n id` -> exit 0, 'uid=0(root) gid=0(root) groups=0(root)'; `gpg --list-secret-keys` -> exit 0, no output (no secret keys). However the criterion requires re-verifying the premises OF THE NAMED ROWS (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), and those rows do not exist in this repository (zero grep/git-history hits), so the re-verification the criterion demands cannot be evidenced.\n  \u2717 no blocked row remains without a stated blocker: In the actual board (.coding-hermes/board/tasks.jsonl at HEAD) there are zero rows with status 'blocked'; the only rows carrying a blocked_reason are DAGGER-0894 and INT-CI-009, both of which do have a stated blocker. But the criterion is scoped to the task's premise rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG), which are absent from the repo and all git history, and the diff's claimed changes (.gitreins/config.yaml max_iterations 200->300 with TICK-312, scripts/e2e-battery-live-probe.py, REVIEW-TJ-002/TJ-GAP-074 rows) are not present \u2014 config.yaml:37 still reads 'max_iterations: 200', TICK-312 is absent, and scripts/e2e-battery-live-probe.py does not exist. The criterion cannot be verified against the rows it names.\nThe prompt's diff does not correspond to this repository's state \u2014 the referenced rows (T5.1-T5.7, T6.2-T6.7, T9.4-GPG) and task records (REVIEW-TJ-002, TJ-GAP-074) exist nowhere in the repo or git history, so all four criteria fail despite the two live host premises (uid=0, no GPG keys) holding.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-23T05:03:01.600601",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T05:03:01.621375+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1593,
+        "truncated": false,
+        "source": "git show b7711835ce94"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 61461,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-002"
+  }
+}

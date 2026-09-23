@@ -1310,3 +1310,31 @@ tasks:
   status: complete
   created_at: '2026-09-22T22:35:31.844822+00:00'
   completed_at: '2026-09-22T22:44:22.172936+00:00'
+- id: TJ-GAP-074
+  title: Restore the E2E battery live-probe script
+  criteria:
+  - 'scripts/e2e-battery-live-probe.py exists and runs green via .venv/bin/python:
+    prints LIVE-PROBE 13/13 PASS and exits 0'
+  - every block case returns action=block with the expected builtin rule_id and every
+    allow case action=allow, including allow-provenance pins and a rule_id=null default-allow
+    case
+  - the probe points TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR at an empty dir for
+    every bridge call so installed user-rule overrides cannot mask builtins
+  - uvx ruff check on the new script is clean
+  status: complete
+  created_at: '2026-09-23T04:06:00.836775+00:00'
+  completed_at: '2026-09-23T04:36:00.565375+00:00'
+- id: REVIEW-TJ-002
+  title: Three rows blocked since 31 July with no stated blocker
+  criteria:
+  - 'every blocked row in tasks.jsonl carries a blocked_reason naming its concrete
+    gate (T5.1-T5.7: host layout ProtectHome/MemoryMax; T6.2-T6.7: dependency on T5.x;
+    T9.4-GPG: no GPG keypair)'
+  - T6.2-T6.7 names its dependency structurally in the depends_on field, not only
+    in prose
+  - 'the row-level premises were re-verified live on 2026-09-23: sudo -n id returns
+    uid=0 on this host and gpg --list-secret-keys returns no secret keys'
+  - no blocked row remains without a stated blocker
+  status: complete
+  created_at: '2026-09-23T04:14:17.962073+00:00'
+  completed_at: '2026-09-23T04:42:00.536191+00:00'
