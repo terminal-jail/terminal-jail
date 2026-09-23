@@ -220,16 +220,53 @@ For deny-by-default, add your own rules under `~/.config/terminal-jail/rules.d/`
 
 ```bash
 terminal-jail --user echo "contained + env-scrubbed"   # user namespace
-terminal-jail --user --seccomp echo "seccomp BPF active"   # denies mount/pivot_root/...
+terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'
 # NOTE: on hosts denying unprivileged PID namespaces (unshare: Operation not
 # permitted), the bare `--seccomp` form fails — use the --user variant above
 # (see FAQ §4) or deploy the systemd drop-in.
 # `--user` gives PID-namespace containment + env scrub on EVERY host;
 # FILESYSTEM isolation additionally requires a uid mapping. When the host
 # denies one (e.g. Ubuntu AppArmor 'unprivileged_userns') the CLI prints
-# `no filesystem isolation` on stderr and continues. Classify your host:
+# `no filesystem isolation` on stderr and continues — so the WARNING line in
+# the output below is the expected degradation, not a failure. Classify
+# your host:
 python3 scripts/fs-isolation-probe.py    # FULL / DEGRADED + cause, exit 0
 ```
+
+On a host that denies the uid mapping (this project's host, captured verbatim):
+
+```
+terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)
+Seccomp:	2
+Seccomp_filters:	1
+```
+
+`Seccomp: 2` (SECCOMP_MODE_FILTER) plus `Seccomp_filters: 1` is the proof the
+BPF filter is live. An `echo`-style payload proves nothing: it runs identically
+whether or not a filter was installed. The filter also **fails open** by design
+— `standalone/seccomp-loader.py` prints
+`terminal-jail: seccomp not applied (<reason>); running without seccomp` on
+stderr and `exec`s the command anyway when the filter cannot be applied — so if
+you need fail-closed, watch the wrapper's stderr and exit code yourself; a
+clean exit alone does not prove a filter is active.
+
+Two probe traps when verifying by hand:
+
+- Read-only forms still succeed inside the jail — `swapon --show` prints the
+  host swap list — because only the **write** form is denied. A succeeding
+  read therefore does NOT prove the filter is absent. The strong check is a
+  write attempt that must fail with EPERM (errno 32):
+  ```bash
+  terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo "mount rc=$?"'
+  # mount: /mnt: must be superuser to use mount.   (mount rc=32 — EPERM, filter live)
+  ```
+- On a mapping-capable host whose `$HOME` is `0700` or otherwise not
+  traversable by the subordinate uid, `--user --seccomp` cannot read the
+  loader at all and the launch dies with
+  `python3: can't open file '~/.local/lib/terminal-jail/seccomp-loader.py': [Errno 13] Permission denied`;
+  the wrapper prints a loud warning naming that unreadable loader path and
+  keeps the command alive by falling back to the mapping-less launch. Treat
+  that warning as "seccomp not proven here", not as a filter confirmation.
 
 ### 3d. Hermes plugin
 
