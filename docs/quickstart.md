@@ -254,12 +254,16 @@ Two probe traps when verifying by hand:
 
 - Read-only forms still succeed inside the jail — `swapon --show` prints the
   host swap list — because only the **write** form is denied. A succeeding
-  read therefore does NOT prove the filter is absent. The strong check is a
-  write attempt that must fail with EPERM (errno 32):
+  read therefore does NOT prove the filter is absent. A write attempt must
+  fail with EPERM (errno 32):
   ```bash
   terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo "mount rc=$?"'
-  # mount: /mnt: must be superuser to use mount.   (mount rc=32 — EPERM, filter live)
+  # mount: /mnt: must be superuser to use mount.   (mount rc=32 — EPERM)
   ```
+  That EPERM is not by itself proof of the filter: an unprivileged account
+  gets the same EPERM from `mount` with no filter at all. Only the
+  `/proc/self/status` check above distinguishes filter-applied from
+  filter-skipped — read this probe as a companion to it, never as the proof.
 - On a mapping-capable host whose `$HOME` is `0700` or otherwise not
   traversable by the subordinate uid, `--user --seccomp` cannot read the
   loader at all and the launch dies with
