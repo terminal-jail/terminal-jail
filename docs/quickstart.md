@@ -233,44 +233,64 @@ python3 scripts/fs-isolation-probe.py    # FULL / DEGRADED + cause, exit 0
 
 ### 3d. Hermes plugin
 
-```bash
-pip install -e .   # from the repo root (installs the plugin/ package tree)
-```
+Hermes core discovers plugins from **directories**, not environment variables: user
+plugins live in `~/.hermes/plugins/<name>/` — one directory per plugin, each with a
+`plugin.yaml` manifest — and are **opt-in** via the `plugins.enabled` allow-list in
+`~/.hermes/config.yaml`. (An older mechanism, a `HERMES_PLUGINS` environment variable,
+was never part of Hermes core plugin discovery and does not work — ignore any doc that
+instructs you to export it. A silently absent plugin means it was never discovered;
+there is no env var to fix.)
 
-**Enable via `HERMES_PLUGINS`.** The value must be an **absolute path** to
-the plugin directory — relative paths are not resolved. Copy-paste this and
-substitute your checkout path:
-
-```bash
-export HERMES_PLUGINS="/absolute/path/to/terminal-jail/plugin"
-```
-
-Multiple plugins are comma-separated. To append when `HERMES_PLUGINS` is
-already set:
+**Install — copy the plugin tree into your Hermes plugin directory:**
 
 ```bash
-export HERMES_PLUGINS="$HERMES_PLUGINS,/absolute/path/to/other/plugin"
+cp -r /absolute/path/to/terminal-jail/plugin ~/.hermes/plugins/terminal-jail
 ```
 
-The variable must be in the Hermes gateway process environment: export it in
-the shell that launches Hermes, or set it in the gateway's service env file.
+The copy must contain `plugin.yaml`, `__init__.py` and the `terminal_jail/` package —
+exactly what the repo's `plugin/` tree ships.
 
-**Confirm the plugin loaded at runtime** — one command that launches Hermes
-with the plugin and greps its startup log for the registration line emitted
-by `register()`:
+**Enable it** in `~/.hermes/config.yaml`:
+
+```yaml
+plugins:
+  enabled:
+    - terminal-jail
+```
+
+or run the CLI equivalent, which edits the config for you:
 
 ```bash
-HERMES_PLUGINS="/absolute/path/to/terminal-jail/plugin" hermes <launch-cmd> 2>&1 | grep "Observability hooks registered"
+hermes plugins enable terminal-jail
 ```
 
-A silent exit (`grep` returns 1, no match) means the plugin did **not** load —
-re-check that the path is absolute and that `HERMES_PLUGINS` reaches the
-Hermes process environment.
+`plugins.enabled` is an allow-list — plugins are opt-in, so a discovered-but-unlisted
+plugin stays unloaded. If you also maintain a `plugins.disabled` deny-list, note that it
+wins over `enabled`.
 
-The plugin hooks `pre_tool_call` (command visibility) and
-`transform_terminal_output` (stub — returns output unchanged). It
-does **not** wrap or modify commands — Hermes core has no pre-execution
-command-transform hook. Verify with the plugin test suite:
+**Restart Hermes** (the gateway service, or relaunch your CLI session) so the discovery
+sweep picks the plugin up, then **verify it loaded** — `register()` logs its startup
+line to `agent.log`:
+
+```bash
+grep "terminal-jail v1.2.0 loaded" ~/.hermes/logs/agent.log
+```
+
+and confirm the hooks actually fire on terminal tool use:
+
+```bash
+grep "observed terminal command" ~/.hermes/logs/agent.log
+```
+
+(The "observed terminal command" line is emitted when the jail is enabled and `unshare`
+is present; if you have not enabled the jail, the plugin logs a debug-level pass-through
+instead — the startup line above is the load proof.)
+
+**Hook surface.** The plugin hooks `pre_tool_call` (an observer: it logs terminal
+command usage; the hook itself can only block/allow — it cannot modify the command
+string) and `transform_terminal_output` (a stub — returns output unchanged). It does
+**not** wrap or modify commands — Hermes core has no pre-execution command-transform
+hook. Verify with the plugin test suite:
 
 ```bash
 # From the repo root — creates .venv/ with PyYAML + pytest, then runs the suite
@@ -282,6 +302,21 @@ is pinned to: `uv sync --dev` creates a project-local `.venv/` with the
 runtime dependency (PyYAML) and the dev dependency group (`pytest`), and
 `uv run pytest ...` executes inside it. A bare `python3 -m pytest` fails on a
 stock host — the interpreter has neither PyYAML nor pytest.
+
+**Installed version may lag the repo.** The installed copy is a snapshot: an install
+made earlier can report an older `version:` in
+`~/.hermes/plugins/terminal-jail/plugin.yaml` than the repo ships (e.g. `0.2.0`
+installed vs `1.2.0` in the repo today). Check yours:
+
+```bash
+grep "^version" ~/.hermes/plugins/terminal-jail/plugin.yaml
+```
+
+To refresh, re-run the `cp -r` install step above (it overwrites the installed tree)
+and restart Hermes again.
+
+The other core discovery path — a pip package exposing the `hermes_agent.plugins`
+entry point — is not used by this plugin; the directory copy is the supported install.
 
 ### 3e. systemd drop-in (gateway hardening)
 
