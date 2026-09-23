@@ -187,9 +187,7 @@ class TestBuildBpfProgram:
 
     def test_noop_filter_arch_jump_semantics(self) -> None:
         """The empty-deny no-op filter must also allow the matching arch."""
-        _, _, audit_arch = build_bpf_program(
-            arch="x86_64", extra_denies=frozenset()
-        )
+        _, _, audit_arch = build_bpf_program(arch="x86_64", extra_denies=frozenset())
         # Empty deny set: filter has no extra_denies entries, so we build the
         # no-op 4-instruction form when the DEFAULT set is also empty — but
         # the default x86_64 set is non-empty. Simulate by passing a set
@@ -483,3 +481,182 @@ class TestPentestIntegration:
         )
         # kexec should fail (seccomp blocks it, or no CAP_SYS_BOOT)
         assert result.returncode != 0
+
+
+# ── glibc-routed variant NRs (TJ-DF-020) ──────────────────────────────────────
+
+
+class TestGlibcVariantNrs:
+    """glibc wrappers must not bypass the deny list via variant NRs.
+
+    TJ-DF-020: glibc routes ``adjtimex()`` to ``clock_adjtime`` (NR 305 on
+    x86_64) rather than the classic ``adjtimex`` (NR 159), so a filter that
+    only pins the classic NR lets the libc wrapper through. These tests
+    call the libc *wrappers* (not raw NRs) under the installed filter —
+    exactly the routing a real payload exercises — and assert EPERM.
+
+    All wrappers are called in a subprocess: a successful prctl filter
+    install latches no_new_privs for the process lifetime and would
+    otherwise leak into sibling tests.
+    """
+
+    @staticmethod
+    def _wrapper_probe(script: str) -> subprocess.CompletedProcess:
+        plugin_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "plugin")
+        )
+        prologue = (
+            "import ctypes, ctypes.util, errno, sys\n"
+            f"sys.path.insert(0, {plugin_dir!r})\n"
+            "from terminal_jail.seccomp import try_apply\n"
+            "result = try_apply()\n"
+            "assert result.applied, f'filter not applied: {result.reason}'\n"
+        )
+        return subprocess.run(
+            [sys.executable, "-c", prologue + script],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    # glibc 2.43 on the 2026-09-23 control host segfaults inside
+    # settimeofday()/clock_settime() under a fresh EPERM filter (glibc's
+    # internal errno path). Those two wrappers route to NRs already
+    # covered by the classic table, so the WRAPPER-level EPERM proof for
+    # the family is the raw-NR battery below; the wrapper tests here
+    # cover the actual TJ-DF-020 surface: wrappers glibc routes through a
+    # NON-classic NR (adjtimex -> clock_adjtime 305). One subprocess per
+    # wrapper so a crash cannot mask the others' verdicts.
+    _WRAPPERS: dict[str, str] = {
+        "adjtimex": (
+            "libc.adjtimex.restype = ctypes.c_int\n"
+            "libc.adjtimex.argtypes = [ctypes.c_void_p]\n"
+            "buf = ctypes.create_string_buffer(256)\n"
+            "libc.adjtimex(buf)\n"
+            "print('errno=%d' % ctypes.get_errno())\n"
+        ),
+        "clock_adjtime": (
+            "libc.clock_adjtime.restype = ctypes.c_int\n"
+            "libc.clock_adjtime.argtypes = [ctypes.c_int, ctypes.c_void_p]\n"
+            "buf = ctypes.create_string_buffer(256)\n"
+            "libc.clock_adjtime(0, buf)\n"
+            "print('errno=%d' % ctypes.get_errno())\n"
+        ),
+    }
+
+    def test_libc_adjtimex_returns_eperm_under_filter(self) -> None:
+        """libc adjtimex() (glibc-routed to clock_adjtime 305) must EPERM.
+
+        Red-proof (unfixed tree, 2026-09-23 control host x86_64): this
+        probe returned ret=0 — glibc issued clock_adjtime(305) which the
+        deny list did not cover. With NR 305 denied (and the BPF
+        fall-through bug fixed), the same wrapper call must fail EPERM.
+        """
+        result = self._wrapper_probe(
+            "libc = ctypes.CDLL('libc.so.6', use_errno=True)\n"
+            + self._WRAPPERS["adjtimex"]
+        )
+        assert result.returncode == 0, (
+            f"probe crashed rc={result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "errno=1" in result.stdout, (
+            f"libc.adjtimex() did not get EPERM under the filter\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_libc_clock_adjtime_returns_eperm_under_filter(self) -> None:
+        """The variant NR glibc routes adjtimex() through must deny directly."""
+        result = self._wrapper_probe(
+            "libc = ctypes.CDLL('libc.so.6', use_errno=True)\n"
+            + self._WRAPPERS["clock_adjtime"]
+        )
+        assert result.returncode == 0 and "errno=1" in result.stdout, (
+            f"libc.clock_adjtime() did not get EPERM under the filter\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_clock_adjtime_305_in_x86_64_deny_set(self) -> None:
+        """The deny table must pin the glibc-routed clock_adjtime NR (305)."""
+        deny = deny_set_for_arch("x86_64")
+        assert 305 in deny, (
+            "clock_adjtime (NR 305) missing from x86_64 deny set — "
+            "glibc adjtimex() routes here and bypasses the filter "
+            "(TJ-DF-020)"
+        )
+
+    def test_variant_routings_are_covered(self) -> None:
+        """Every classic NR with a glibc variant routing has both pinned.
+
+        glibc variant routing audit (x86_64):
+            adjtimex(159)    -> clock_adjtime(305)
+            settimeofday(164)-> clock_settime(227)
+            init_module(175) -> finit_module(313)
+            kexec_load(246)  -> kexec_file_load(320)
+        """
+        deny = deny_set_for_arch("x86_64")
+        for classic, variant in ((159, 305), (164, 227), (175, 313), (246, 320)):
+            assert classic in deny, f"classic NR {classic} missing"
+            assert variant in deny, (
+                f"glibc-routed variant NR {variant} missing — wrapper "
+                f"routing bypasses the filter (TJ-DF-020)"
+            )
+
+    def test_raw_deny_nr_battery_returns_eperm_under_filter(self) -> None:
+        """Raw syscall() for every testable deny NR must EPERM under the filter.
+
+        The BPF fall-through bug (TJ-DF-020 root cause) meant every other
+        JEQ in the chain was skipped: raw NRs 159, 164, 174, 176, 305,
+        320 and friends reached the kernel (EFAULT/ENOSYS from kernel
+        checks) instead of the filter. With jf=0, ALL deny NRs hit the
+        deny block — including create_module 174, whose kernel-side
+        ENOSYS the filter now precedes.
+        """
+        script = (
+            "import ctypes, errno, mmap\n"
+            "libc = ctypes.CDLL('libc.so.6', use_errno=True)\n"
+            "raw = libc.syscall\n"
+            "raw.restype = ctypes.c_long\n"
+            "raw.argtypes = [ctypes.c_long] + [ctypes.c_void_p] * 6\n"
+            "page = mmap.mmap(-1, 4096)\n"
+            "addr = ctypes.addressof(ctypes.c_char.from_buffer(page))\n"
+            "nrs = [155, 159, 163, 164, 165, 167, 168, 174, 175, 176, 227,\n"
+            "       246, 248, 249, 250, 305, 313, 320]\n"
+            "bad = []\n"
+            "for nr in nrs:\n"
+            "    ctypes.set_errno(0)\n"
+            "    if nr == 305:\n"
+            "        rc = raw(nr, ctypes.c_void_p(0), ctypes.c_void_p(addr), None, None, None, None)\n"
+            "    else:\n"
+            "        rc = raw(nr, ctypes.c_void_p(addr), ctypes.c_void_p(addr), None, None, None, None)\n"
+            "    rc_e = ctypes.get_errno()\n"
+            "    if not (rc == -1 and rc_e == 1):\n"
+            "        bad.append((nr, rc, rc_e))\n"
+            "print('BAD=%r' % (bad,))\n"
+        )
+        result = self._wrapper_probe(script)
+        assert result.returncode == 0, (
+            f"probe crashed rc={result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "BAD=[]" in result.stdout, (
+            "some deny NRs did not return seccomp EPERM under the filter\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_non_deny_syscall_not_blocked(self) -> None:
+        """Sanity: a syscall OUTSIDE the deny list must still work (getpid)."""
+        script = (
+            "import ctypes\n"
+            "libc = ctypes.CDLL('libc.so.6', use_errno=True)\n"
+            "raw = libc.syscall\n"
+            "raw.restype = ctypes.c_long\n"
+            "raw.argtypes = [ctypes.c_long] + [ctypes.c_void_p] * 6\n"
+            "rc = raw(39, None, None, None, None, None, None)  # getpid\n"
+            "print('pid_ok=%d' % (1 if rc > 0 else 0))\n"
+        )
+        result = self._wrapper_probe(script)
+        assert result.returncode == 0 and "pid_ok=1" in result.stdout, (
+            f"getpid blocked under filter — default-allow broken\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )

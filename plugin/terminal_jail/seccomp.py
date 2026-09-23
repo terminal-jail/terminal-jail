@@ -8,6 +8,16 @@ focused list of dangerous syscalls inside the PID namespace jail:
     delete_module, create_module, swapon, swapoff, settimeofday, adjtimex,
     clock_settime, acct, add_key, request_key, keyctl
 
+glibc routing note (TJ-DF-020): glibc does not always issue the *classic*
+syscall number for a libc wrapper. On x86_64, ``adjtimex()`` and
+``clock_adjtime()`` route to ``clock_adjtime`` (NR 305), not ``adjtimex``
+(NR 159) — so the deny list must pin BOTH the classic NR and the
+glibc-routed variant NR, or the libc wrapper silently bypasses the filter.
+``settimeofday()`` routes to ``clock_settime`` (227, already denied);
+``init_module()``/``finit_module()`` (175/313) and
+``kexec_load()``/``kexec_file_load()`` (246/320) variants are already
+covered. See the ``glibc variant routing`` note at ``_DENY_EXTRA``.
+
 The filter is documented in the project threat model (docs/threat-model.md,
 section 9.2, recommendation #5) and is exercised manually by pentest tests
 PT-004a, PT-004b, and PT-004c (docs/pentest-plan.md, section 3.4).
@@ -164,6 +174,27 @@ _ARCH_TABLE: Final[tuple[_Arch, ...]] = (
 # aarch64 we install a smaller, verified subset (mount, settimeofday,
 # swapon, swapoff, clock_settime) and skip the rest. Future work can
 # expand the aarch64 table as kernel coverage is confirmed.
+#
+# glibc variant routing (TJ-DF-020)
+# ---------------------------------
+# glibc may implement a libc wrapper via a DIFFERENT syscall than the
+# classic one with the same name. The bypass proven live on x86_64
+# (2026-09-23, control host): libc ``adjtimex()`` returns 0 under this
+# filter because glibc routes it to ``clock_adjtime`` (NR 305), while the
+# raw ``adjtimex`` NR (159) is denied. Therefore each classic NR that
+# glibc may re-route must ALSO pin its glibc-routed variant NR:
+#
+#   x86_64: adjtimex(159) -> clock_adjtime(305)   [added]
+#           settimeofday(164) -> clock_settime(227)  [227 already denied]
+#           init_module(175) -> finit_module(313)    [313 already denied]
+#           kexec_load(246) -> kexec_file_load(320)  [320 already denied]
+#
+# TODO(aarch64): the kernel-generic aarch64 table places the equivalents
+# at different NRs (adjtimex 171, clock_adjtime 266, kexec_file_load
+# absent, finit_module 273); the current aarch64 deny set below does not
+# include adjtimex-family numbers at all, so mirroring the variant NRs
+# there is deferred until the aarch64 table itself is audited/verified on
+# an aarch64 host.
 
 
 # Subset of deny syscalls that exist on *both* x86_64 and aarch64 with the
@@ -197,6 +228,7 @@ _DENY_EXTRA: Final[dict[str, frozenset[int]]] = {
             248,  # add_key
             249,  # request_key
             250,  # keyctl
+            305,  # clock_adjtime — glibc routes adjtimex() here (TJ-DF-020)
             313,  # finit_module
             320,  # kexec_file_load
         }
@@ -299,12 +331,17 @@ def _build_filter(arch_value: int, deny_numbers: frozenset[int]) -> tuple[bytes,
     instructions.append(_bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_NR))
     # 4..3+N: linear JEQ chain
     for idx, nr in enumerate(sorted_denies):
-        remaining = len(sorted_denies) - idx - 1
         # jt: on match, jump forward to the deny block (instruction deny_block_index)
-        # jf: on no match, jump forward by 1 (next JEQ), or 0 to RET ALLOW if last
+        # jf: on no match, fall through to the NEXT instruction (the next JEQ
+        #     in the chain, or RET ALLOW after the last one).
+        #
+        # BPF jump offsets are relative to the *next* instruction, so
+        # fall-through is jf=0. A jf=1 here would skip the next JEQ
+        # entirely — every other deny NR silently bypassed the filter
+        # (root cause of the TJ-DF-020 clock_adjtime/305 miss: 305 sits
+        # at an odd chain position and was never consulted).
         jt = deny_block_index - (len(instructions) + 1)
-        jf = 1 if remaining else 0
-        instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, nr, jt, jf))
+        instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, nr, jt, 0))
     # 3+N+1: RET ALLOW — no match in the JEQ chain
     instructions.append(_bpf_stmt(_BPF_RET, _SECCOMP_RET_ALLOW))
     # 3+N+2 = deny_block_index: RET ERRNO|EPERM — the deny block
