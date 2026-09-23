@@ -35,7 +35,18 @@ description: >-
   keep working; the db pack additionally blocks `sed`/`git commit`/read-only
   SELECT of the statement text while `psql -f <file>` that really drops the
   table is allowed — see pitfalls 8-9 and the pack-verification pattern).
-version: 1.9.0
+refreshed 2026-09-23 (plugin+seccomp angle: the quickstart §3d HERMES_PLUGINS
+  env-var path does NOT exist in current Hermes core — plugins load from
+  ~/.hermes/plugins/<name>/ gated by plugins.enabled, and the DEPLOYED terminal-jail
+  plugin is v0.2.0/spin-veto while the repo ships v1.2.0/observability+interruptor, so
+  diff the deployed copy before judging what is live; seccomp verification MUST be
+  `grep Seccomp /proc/self/status` inside the jail plus RAW per-NR syscalls, because a
+  libc wrapper can route to a variant NR the deny list misses (clock_adjtime=305 vs
+  adjtimex=159 — TJ-DF-020) and an echo payload cannot distinguish filter-on from
+  filter-off (TJ-DF-023); `--user --seccomp` fails on 0700-home hosts because the
+  mapped launch runs the loader as a subordinate uid that cannot traverse the home
+  (TJ-DF-019) — use bare --seccomp there or a world-traversable install path).
+version: 1.10.0
 category: software-development
 ---
 

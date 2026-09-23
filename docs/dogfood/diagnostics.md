@@ -322,3 +322,51 @@ SKIPPED, and count leaked users (`ls /home | grep -c ^bunker-` on the host) each
 run — the count grew 17 → 33 since the morning run, so the leak (DF-26) is
 still active even though spawns now mostly succeed.
 
+
+## 10. Errors and lessons of the 2026-09-23 run (plugin + seccomp + fresh-install angle)
+
+### 10.1 The plugin surface: deployed ≠ repo, and only one of them is guarding you
+
+How it works: Hermes loads general plugins from `~/.hermes/plugins/<name>/` gated by
+`plugins.enabled` in config.yaml. Discovery is directory + pip-entry-point + catalog based;
+there is no `HERMES_PLUGINS` env-var path in current core. This host's deployed copy is
+v0.2.0 (spin_policy veto) while the repo ships v1.2.0 (observability + interruptor bridge) —
+two different feature sets under one name.
+
+Errors hit: (1) `HERMES_PLUGINS=... hermes -z ...` per quickstart §3d produced zero evidence
+of loading — the env var is read nowhere in core. (2) The repo checkout's plugin.py differs
+from the deployed one; `diff` is the only honest check.
+
+Lesson: when a project's docs describe an integration env var, verify the consuming
+process actually reads it (grep the consumer's source) before building on it; and always
+diff the deployed plugin copy against the repo before judging which behaviors are live.
+
+### 10.2 Seccomp: proving the filter does something (and the two false alarms)
+
+How it works: `--seccomp` execs the payload through seccomp-loader.py inside the PID
+namespace; the loader applies a classic cBPF deny-list filter via prctl and, per design,
+FAILS OPEN (warn + run without seccomp) if the filter cannot be applied.
+
+Errors hit: (1) First probe read `Seccomp: 0` inside the jail and looked like a P0
+"filter never applied" — re-measurement showed my probe had omitted the `--seccomp` flag
+(the jail itself doesn't apply seccomp; only the flag does). (2) In-process `libc.adjtimex()`
+succeeded under the filter, which looked like a dead filter — the BPF program was
+byte-dumped (23 instructions, correct deny-block jump layout) and a raw per-NR battery
+proved 10/11 deny syscalls return EPERM; the miss is glibc routing adjtimex() through
+clock_adjtime(305), a syscall not in the deny list.
+
+The right way to verify this component: inside the jailed payload run
+`grep Seccomp /proc/self/status` (expect `2`/`1`), then raw-syscall each deny NR
+(`libc.syscall(nr, ...)`) and assert EPERM — never a libc wrapper (it may route to a variant
+NR the list doesn't cover), never an `echo` payload (it cannot tell filter-on from filter-off).
+
+### 10.3 The fresh-machine failure: 0700 home × mapped launch × loader path
+
+On the bunker agent (home 0700, bunkerd default) the documented `--user --seccomp` form
+died with `Permission denied` opening seccomp-loader.py. Chain: mapping-capable host →
+mapped launch → payload runs as subordinate uid 231072 → DAC denies traversal through the
+0700 home to the loader. `namei -l` on the path is what localized it (the file itself is
+0775; it is the home directory that denies). Bare `--seccomp` (no --user) works on the same
+box. Lesson: "host classified FULL by the isolation probe" and "the mapped payload can read
+the loader path" are different properties; the wrapper already knows the first one and
+needs to check the second (TJ-DF-019).
