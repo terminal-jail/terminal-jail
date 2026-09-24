@@ -226,6 +226,10 @@ echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge
 
 With bubblewrap installed, compare the `/proc` view (`TERMINAL_JAIL_JAIL_BACKEND=auto ./standalone/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"'`) against the host count — the private procfs is the observable difference.
 
+### Scripting the firewall
+
+The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (transport failures fail open, engine failures fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3b2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024).
+
 ### Plugin (Hermes)
 
 The plugin registers two hooks for observability:
