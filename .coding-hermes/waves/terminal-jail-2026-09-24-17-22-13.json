@@ -37,5 +37,7 @@
       "worker_provider": "zai-glm-default",
       "log": "/tmp/tj-wave316-TJ-DF-026.log"
     }
-  ]
+  ],
+  "finished_at": "2026-09-24T15:46:00-05:00",
+  "finished_note": "Closed by recovery tick terminal-jail-2026-09-24-20-37-52 after verifying all 3 tasks merged+judged+board-closed (see recovery_note in wave 2026-09-24-20-37-52)."
 }

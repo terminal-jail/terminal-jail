@@ -1410,3 +1410,34 @@ tasks:
   status: complete
   created_at: '2026-09-24T17:52:17.573031+00:00'
   completed_at: '2026-09-24T19:12:47.133188+00:00'
+- id: TJ-DF-022
+  title: install.sh --hermes-plugin update path for the deployed Hermes plugin
+  criteria:
+  - install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir
+    with stale files replaced; exit 0 on success, non-zero with clear error when the
+    repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md;
+    regression tests in plugin/test_install.py cover fresh install, stale-target refresh,
+    and missing-tree failure; tests pass and ruff clean
+  status: complete
+  created_at: '2026-09-24T20:50:57.610610+00:00'
+  completed_at: '2026-09-24T21:27:59.356388+00:00'
+- id: TJ-GAP-076
+  title: 'threat-model.md correctness: drop-in claims, missing Interruptor/bwrap layers,
+    stale residual-risk line'
+  criteria:
+  - docs/threat-model.md no longer claims PID-namespace/network containment for the
+    systemd drop-in; the layer table includes the Interruptor firewall and the bwrap
+    backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count
+    metrics; header bumped to 1.2.0/2026-09-24
+  status: complete
+  created_at: '2026-09-24T20:51:05.888516+00:00'
+  completed_at: '2026-09-24T21:37:24.109752+00:00'
+- id: TJ-GAP-081
+  title: 'CI drift-guards job: rule-catalog --check + drift probes wired into ci.yml'
+  criteria:
+  - ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py
+    on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and
+    the mutation reverted; all probes exit 0 at HEAD
+  status: complete
+  created_at: '2026-09-24T20:51:06.461443+00:00'
+  completed_at: '2026-09-24T21:38:24.175707+00:00'
