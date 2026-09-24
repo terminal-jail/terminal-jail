@@ -1,0 +1,15 @@
+commit 738b35f98cc5c313281804a198d06a71dee6c9e2
+Merge: d389043 b06e3b3
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Sep 24 14:08:19 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Sep 24 14:08:19 2026 -0500
+
+    merge: TJ-DF-026 document the JSON bridge firewall API from wt/TJ-DF-026
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ README.md          |   4 ++
+ docs/quickstart.md | 135 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 139 insertions(+)
+

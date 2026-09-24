@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-DF-026",
+  "task_title": "Document the JSON bridge firewall API in docs/quickstart.md",
+  "task_criteria": [
+    "docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line request and response schema with the exact field names from interruptor_bridge.py; it states rule_id null means default-allow pass-through and not an approval; it documents the transport-failure fail-open envelope with the bracket-bridge-error reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it carries a pointer that the matcher length limitation is tracked by TJ-DF-024; every example transcript was produced by running the bridge, not fabricated"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "738b35f98cc5c313281804a198d06a71dee6c9e2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T174108.578553Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n2:12PM INF scanned ~5417648 bytes (5.42 MB) in 432ms\n2:12PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 157 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T174108.578553Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1425 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 35%]\n.........                                                                [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 71%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 74%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 76%]\nplugin/test_packaging.py ..........                                      [ 77%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_rule_pack_db.py ............................................ [ 81%]\n................................................................         [ 85%]\nplugin/test_rule_packs.py .............................................. [ 89%]\n.........                                                                [ 89%]\nplugin/test_rules_drift_probe.py .................                       [ 90%]\nplugin/test_seccomp.py .........................................sss..... [ 94%]\n.                                                                        [ 94%]\nplugin/test_standalone_cli.py .....................                      [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1418 passed, 7 skipped in 53.45s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T174108.578553Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line request and response schema with the exact field names from interruptor_bridge.py; it states rule_id null means default-allow pass-through and not an approval; it documents the transport-failure fail-open envelope with the bracket-bridge-error reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it carries a pointer that the matcher length limitation is tracked by TJ-DF-024; every example transcript was produced by running the bridge, not fabricated: docs/quickstart.md:205 \u00a73a2 'Scripting the firewall (the JSON bridge)' documents the one-JSON-line request {\"command\": \"<shell command>\"} and the response with the exact five fields action/command/modified/rule_id/reason (lines 218-227), matching interruptor_bridge.py:100-106 and the _emit_fail_open/_emit_fail_closed envelopes. rule_id null = default-allow pass-through not approval at lines 256-266 and 349. Transport fail-open with [bridge-error] prefix at lines 268-282; engine-evaluation fail-closed split (TJ-GAP-070) at lines 284-300. TJ-DF-024 pointer at line 331. Transcripts verified by ACTUALLY RUNNING the bridge: `printf '{\"command\": \"echo hello\"}' | python3 plugin/terminal_jail/interruptor_bridge.py` \u2192 {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\"}; date \u2192 rule_id null; rm -rf / \u2192 block builtin-rm-rf-root; make test \u2192 modify auto-make; invalid JSON \u2192 [bridge-error] invalid JSON on stdin \u2014 fail-open (rc=0); poison rule file \u2192 block rule_id \"[bridge-error]\" fail-closed; warn mode \u2192 [WARN MODE] allow. All outputs match the documented transcripts exactly. Referenced docs exist: docs/dogfood/2026-09-24-firewall-library-integration.md (7.491s engine time, 20KB+ never returns) and specs/interruptor.md \u00a73.5\u2013\u00a73.6 (TJ-GAP-070). [resolution 0.24; docs/quickstart.md, interruptor_bridge.py]\ndocs/quickstart.md \u00a73a2 fully documents the JSON bridge API with exact field names, rule_id-null semantics, the fail-open/fail-closed TJ-GAP-070 split, the TJ-DF-024 pointer, and transcripts independently reproduced by running the bridge.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line request and response schema with the exact field names from interruptor_bridge.py; it states rule_id null means default-allow pass-through and not an approval; it documents the transport-failure fail-open envelope with the bracket-bridge-error reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it carries a pointer that the matcher length limitation is tracked by TJ-DF-024; every example transcript was produced by running the bridge, not fabricated: docs/quickstart.md:205 \u00a73a2 'Scripting the firewall (the JSON bridge)' documents the one-JSON-line request {\"command\": \"<shell command>\"} and the response with the exact five fields action/command/modified/rule_id/reason (lines 218-227), matching interruptor_bridge.py:100-106 and the _emit_fail_open/_emit_fail_closed envelopes. rule_id null = default-allow pass-through not approval at lines 256-266 and 349. Transport fail-open with [bridge-error] prefix at lines 268-282; engine-evaluation fail-closed split (TJ-GAP-070) at lines 284-300. TJ-DF-024 pointer at line 331. Transcripts verified by ACTUALLY RUNNING the bridge: `printf '{\"command\": \"echo hello\"}' | python3 plugin/terminal_jail/interruptor_bridge.py` \u2192 {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\"}; date \u2192 rule_id null; rm -rf / \u2192 block builtin-rm-rf-root; make test \u2192 modify auto-make; invalid JSON \u2192 [bridge-error] invalid JSON on stdin \u2014 fail-open (rc=0); poison rule file \u2192 block rule_id \"[bridge-error]\" fail-closed; warn mode \u2192 [WARN MODE] allow. All outputs match the documented transcripts exactly. Referenced docs exist: docs/dogfood/2026-09-24-firewall-library-integration.md (7.491s engine time, 20KB+ never returns) and specs/interruptor.md \u00a73.5\u2013\u00a73.6 (TJ-GAP-070). [resolution 0.24; docs/quickstart.md, interruptor_bridge.py]\ndocs/quickstart.md \u00a73a2 fully documents the JSON bridge API with exact field names, rule_id-null semantics, the fail-open/fail-closed TJ-GAP-070 split, the TJ-DF-024 pointer, and transcripts independently reproduced by running the bridge.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line request and response schema with the exact field names from interruptor_bridge.py; it states rule_id null means default-allow pass-through and not an approval; it documents the transport-failure fail-open envelope with the bracket-bridge-error reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it carries a pointer that the matcher length limitation is tracked by TJ-DF-024; every example transcript was produced by running the bridge, not fabricated",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:205 \u00a73a2 'Scripting the firewall (the JSON bridge)' documents the one-JSON-line request {\"command\": \"<shell command>\"} and the response with the exact five fields action/command/modified/rule_id/reason (lines 218-227), matching interruptor_bridge.py:100-106 and the _emit_fail_open/_emit_fail_closed envelopes. rule_id null = default-allow pass-through not approval at lines 256-266 and 349. Transport fail-open with [bridge-error] prefix at lines 268-282; engine-evaluation fail-closed split (TJ-GAP-070) at lines 284-300. TJ-DF-024 pointer at line 331. Transcripts verified by ACTUALLY RUNNING the bridge: `printf '{\"command\": \"echo hello\"}' | python3 plugin/terminal_jail/interruptor_bridge.py` \u2192 {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\"}; date \u2192 rule_id null; rm -rf / \u2192 block builtin-rm-rf-root; make test \u2192 modify auto-make; invalid JSON \u2192 [bridge-error] invalid JSON on stdin \u2014 fail-open (rc=0); poison rule file \u2192 block rule_id \"[bridge-error]\" fail-closed; warn mode \u2192 [WARN MODE] allow. All outputs match the documented transcripts exactly. Referenced docs exist: docs/dogfood/2026-09-24-firewall-library-integration.md (7.491s engine time, 20KB+ never returns) and specs/interruptor.md \u00a73.5\u2013\u00a73.6 (TJ-GAP-070). [resolution 0.24; docs/quickstart.md, interruptor_bridge.py]",
+                "resolution_probability": 0.24,
+                "cited_path": "docs/quickstart.md, interruptor_bridge.py"
+              }
+            ],
+            "summary": "docs/quickstart.md \u00a73a2 fully documents the JSON bridge API with exact field names, rule_id-null semantics, the fail-open/fail-closed TJ-GAP-070 split, the TJ-DF-024 pointer, and transcripts independently reproduced by running the bridge."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-026\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line request and response schema with the exact field names from interruptor_bridge.py; it states rule_id null means default-allow pass-through and not an approval; it documents the transport-failure fail-open envelope with the bracket-bridge-error reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it carries a pointer that the matcher length limitation is tracked by TJ-DF-024; every example transcript was produced by running the bridge, not fabricated: docs/quickstart.md:205 \u00a73a2 'Scripting the firewall (the JSON bridge)' documents the one-JSON-line request {\"command\": \"<shell command>\"} and the response with the exact five fields action/command/modified/rule_id/reason (lines 218-227), matching interruptor_bridge.py:100-106 and the _emit_fail_open/_emit_fail_closed envelopes. rule_id null = default-allow pass-through not approval at lines 256-266 and 349. Transport fail-open with [bridge-error] prefix at lines 268-282; engine-evaluation fail-closed split (TJ-GAP-070) at lines 284-300. TJ-DF-024 pointer at line 331. Transcripts verified by ACTUALLY RUNNING the bridge: `printf '{\"command\": \"echo hello\"}' | python3 plugin/terminal_jail/interruptor_bridge.py` \u2192 {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\"}; date \u2192 rule_id null; rm -rf / \u2192 block builtin-rm-rf-root; make test \u2192 modify auto-make; invalid JSON \u2192 [bridge-error] invalid JSON on stdin \u2014 fail-open (rc=0); poison rule file \u2192 block rule_id \"[bridge-error]\" fail-closed; warn mode \u2192 [WARN MODE] allow. All outputs match the documented transcripts exactly. Referenced docs exist: docs/dogfood/2026-09-24-firewall-library-integration.md (7.491s engine time, 20KB+ never returns) and specs/interruptor.md \u00a73.5\u2013\u00a73.6 (TJ-GAP-070). [resolution 0.24; docs/quickstart.md, interruptor_bridge.py]\ndocs/quickstart.md \u00a73a2 fully documents the JSON bridge API with exact field names, rule_id-null semantics, the fail-open/fail-closed TJ-GAP-070 split, the TJ-DF-024 pointer, and transcripts independently reproduced by running the bridge.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T19:14:36.334035",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T19:14:36.357209+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 591,
+        "truncated": false,
+        "source": "git show 738b35f98cc5"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 25070,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-026"
+  }
+}

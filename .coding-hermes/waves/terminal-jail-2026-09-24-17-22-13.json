@@ -1,0 +1,41 @@
+{
+  "tick_id": "terminal-jail-2026-09-24-17-22-13",
+  "created_at": "2026-09-24T12:50:00-05:00",
+  "wave_budget": 6,
+  "dispatched": 3,
+  "recovery_of": "terminal-jail-2026-09-23-13-46-44",
+  "recovery_note": "Recovery completed first (bookkeeping-only): TJ-DF-019/TJ-DF-023 already merged+judged, manifest closed, audit event id=443, commit 9d00d52 pushed.",
+  "composition_note": "3 mutually independent tasks verified: RELEASE-TJ-001 was P0 (landed foreman-direct before the wave), TJ-DF-024 (engine perf: plugin/terminal_jail/interruptor/matcher.py + tests), TJ-DF-025 (install.sh rule-pack listing refusal), TJ-DF-026 (docs/quickstart.md bridge docs). Disjoint file sets; no depends_on edges on any row (depends_on null). All rows raw-UTF-8, worker_status=pending, attempts=0.",
+  "tasks": [
+    {
+      "task_id": "TJ-DF-024",
+      "worktree": "~/worktrees/terminal-jail-TJ-DF-024",
+      "branch": "wt/TJ-DF-024",
+      "base_sha": "9d00d52",
+      "brief_file": "/tmp/tj-wave316-TJ-DF-024.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave316-TJ-DF-024.log"
+    },
+    {
+      "task_id": "TJ-DF-025",
+      "worktree": "~/worktrees/terminal-jail-TJ-DF-025",
+      "branch": "wt/TJ-DF-025",
+      "base_sha": "9d00d52",
+      "brief_file": "/tmp/tj-wave316-TJ-DF-025.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave316-TJ-DF-025.log"
+    },
+    {
+      "task_id": "TJ-DF-026",
+      "worktree": "~/worktrees/terminal-jail-TJ-DF-026",
+      "branch": "wt/TJ-DF-026",
+      "base_sha": "9d00d52",
+      "brief_file": "/tmp/tj-wave316-TJ-DF-026.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave316-TJ-DF-026.log"
+    }
+  ]
+}

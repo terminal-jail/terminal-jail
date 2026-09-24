@@ -1374,3 +1374,38 @@ tasks:
   status: complete
   created_at: '2026-09-23T13:53:41.912249+00:00'
   completed_at: '2026-09-23T14:26:28.708515+00:00'
+- id: TJ-DF-024
+  title: "Interruptor matcher regex backtracking on long args \u2014 length fastpath"
+  criteria:
+  - bridge verdict on an 8000-char-arg echo returns in under 200ms or an explicit
+    over-length verdict; a 20KB-arg command returns within 1s instead of hanging;
+    regression tests with 8KB and 200KB payloads exist and pass; repro and before/after
+    numbers recorded in docs/dogfood/2026-09-24-firewall-library-integration.md; the
+    full plugin suite stays green
+  status: in_progress
+  created_at: '2026-09-24T17:52:03.876086+00:00'
+- id: TJ-DF-025
+  title: install.sh --list-rule-packs must exit 0 when a shipped pack cannot be parsed
+    (PyYAML-less host)
+  criteria:
+  - on a host without PyYAML, install.sh --list-rule-packs exits 0 and lists the unreadable
+    pack with a one-line skip reason; an explicit request for a specific unreadable
+    pack still refuses non-zero; a --list-rule-packs && install.sh chain completes
+    a full install; specs/cli.md wording matches the shipped behavior; the full plugin
+    suite stays green
+  status: complete
+  created_at: '2026-09-24T17:52:09.997130+00:00'
+  completed_at: '2026-09-24T19:09:00.228647+00:00'
+- id: TJ-DF-026
+  title: Document the JSON bridge firewall API in docs/quickstart.md
+  criteria:
+  - docs/quickstart.md contains a Scripting the firewall subsection covering the one-JSON-line
+    request and response schema with the exact field names from interruptor_bridge.py;
+    it states rule_id null means default-allow pass-through and not an approval; it
+    documents the transport-failure fail-open envelope with the bracket-bridge-error
+    reason prefix and the engine-evaluation fail-closed split from TJ-GAP-070; it
+    carries a pointer that the matcher length limitation is tracked by TJ-DF-024;
+    every example transcript was produced by running the bridge, not fabricated
+  status: complete
+  created_at: '2026-09-24T17:52:17.573031+00:00'
+  completed_at: '2026-09-24T19:12:47.133188+00:00'
