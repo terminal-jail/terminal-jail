@@ -1441,3 +1441,26 @@ tasks:
   status: complete
   created_at: '2026-09-24T20:51:06.461443+00:00'
   completed_at: '2026-09-24T21:38:24.175707+00:00'
+- id: TJ-GAP-075
+  title: whole-tree ruff format clean + CI format gate
+  criteria:
+  - uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format
+    --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited
+    to the 31 format files + ci.yml
+  status: in_progress
+  created_at: '2026-09-24T22:46:47.983690+00:00'
+- id: TJ-GAP-079
+  title: README Requirements systemd bullet corrected
+  criteria:
+  - grep 'systemd (for the primary isolation layer)' README.md empty; bullet states
+    systemd optional drop-in not a containment boundary consistent with the L567 table;
+    README.md-only diff
+  status: in_progress
+  created_at: '2026-09-24T22:46:48.384920+00:00'
+- id: TJ-GAP-080
+  title: COMPATIBILITY.md architecture corrections
+  criteria:
+  - grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column
+    gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff
+  status: in_progress
+  created_at: '2026-09-24T22:46:48.806202+00:00'

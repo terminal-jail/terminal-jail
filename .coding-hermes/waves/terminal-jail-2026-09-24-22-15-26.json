@@ -1,0 +1,42 @@
+{
+  "tick_id": "terminal-jail-2026-09-24-22-15-26",
+  "tick_number": 320,
+  "created_at": "2026-09-24T17:32:03-05:00",
+  "wave_budget": 9,
+  "dispatched": 3,
+  "recovery_of": "terminal-jail-2026-09-24-20-37-52",
+  "recovery_note": "Recovery completed first (bookkeeping-only): wave 20-37-52 tasks TJ-DF-022 / TJ-GAP-076 / TJ-GAP-081 already merged+judged+board-closed by tick 319; manifest finished_at set this tick; worktrees reaped; branches deleted; parity 0; CI green.",
+  "composition_note": "3 mutually independent pending tasks verified: TJ-GAP-075 (ruff format sweep over 28 stale files + pyproject format enforce + CI format check), TJ-GAP-079 (README.md Requirements systemd bullet only), TJ-GAP-080 (docs/COMPATIBILITY.md only). Disjoint file sets; depends_on null on all three rows. QA-TERMINAL-JAIL-9 NOT picked: its fix touches tests/qa-e2e-battery.py which TJ-GAP-075's whole-tree format sweep would also reformat — deferred to a serial tick to avoid a sibling-write collision.",
+  "tasks": [
+    {
+      "task_id": "TJ-GAP-075",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-075",
+      "branch": "wt/TJ-GAP-075",
+      "base_sha": "db02eeb",
+      "brief_file": "/tmp/tj-wave320-TJ-GAP-075.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave320-TJ-GAP-075.log"
+    },
+    {
+      "task_id": "TJ-GAP-079",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-079",
+      "branch": "wt/TJ-GAP-079",
+      "base_sha": "db02eeb",
+      "brief_file": "/tmp/tj-wave320-TJ-GAP-079.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave320-TJ-GAP-079.log"
+    },
+    {
+      "task_id": "TJ-GAP-080",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-080",
+      "branch": "wt/TJ-GAP-080",
+      "base_sha": "db02eeb",
+      "brief_file": "/tmp/tj-wave320-TJ-GAP-080.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave320-TJ-GAP-080.log"
+    }
+  ]
+}

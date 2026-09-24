@@ -4,7 +4,7 @@
   "wave_budget": 10,
   "dispatched": 3,
   "recovery_of": "terminal-jail-2026-09-24-17-22-13",
-  "recovery_note": "Recovery verified complete before composition: wave-316 tasks TJ-DF-024 (PASS dac0eec0, aa129ca), TJ-DF-025 (PASS fed86714, d389043), TJ-DF-026 (PASS 14104f6d, 738b35f) all merged+judged+board-closed by ticks 317/318; their branches already deleted; worktrees reaped; only leftover evidence branches wt/TJ-DF-019 + wt/TJ-DF-023 (both merged into main, kept as evidence per board convention). 17-22-13 manifest lacks finished_at only; finished_at set this tick. CI 3/3 green on main (latest runs on 2100b74/7a8daef/aa129ca); origin/main parity 0.",
+  "recovery_note": "Recovery by tick terminal-jail-2026-09-24-22-15-26 (#320): all 3 branches already merged to main by tick 319 (5229c2e TJ-DF-022, 3f64380 TJ-GAP-076, 441dedb TJ-GAP-081) with tier2 verdicts COMPLETE/PASS (29ee7911 / d8baaac6 / e5716808), rows closed in board commit db02eeb; worktrees reaped and wt/TJ-DF-022/TJ-GAP-076/TJ-GAP-081 branches already deleted; gate re-verification this tick: all 3 merge commits merge-base --is-ancestor YES, origin/main parity 0, CI 3/3 success on main (incl. new drift-guards job), full suite 1444 passed / 7 skipped at merged tree (event 461). Manifest lacked finished_at only.",
   "composition_note": "3 mutually independent pending tasks verified: TJ-DF-022 (install.sh --hermes-plugin mode + docs + plugin/test_install.py), TJ-GAP-076 (docs/threat-model.md only), TJ-GAP-081 (.github/workflows/ci.yml + local probe RED-proof). Disjoint file sets; depends_on=null on all three rows; no shared files. QA-TERMINAL-JAIL-9 (P1) NOT picked: its primary fix is the fleet harness ~/.hermes/scripts/bunker-qa.sh (outside this repo) plus a small env-labeling fix in tests/qa-e2e-battery.py; deferred to a serial tick. All rows dispatched with worker_status=dispatched, attempts=1.",
   "tasks": [
     {
@@ -37,5 +37,7 @@
       "worker_provider": "zai-glm-default",
       "log": "/tmp/tj-wave319-TJ-GAP-081.log"
     }
-  ]
+  ],
+  "closed_by_tick": "terminal-jail-2026-09-24-22-15-26",
+  "finished_at": "2026-09-24T17:32:03-05:00"
 }
