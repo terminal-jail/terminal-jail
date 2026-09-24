@@ -321,7 +321,6 @@ An allow verdict carries provenance: `rule_id` names the rule that allowed it.
 |---|---|
 | `{"action":"allow","rule_id":"allow-ls",…}` | Matched an allow rule — an **approved** decision |
 | `{"action":"allow","rule_id":null,…}` | **No rule matched** — *default-allow*, not an approved decision. The common case: `psql -c 'SELECT 1'`, or `cat /etc/passwd` (whose negative lookahead deliberately excludes `/etc`, `/boot`, `/proc`, `/sys`, so `allow-cat-safe` declines it) |
-| `{"action":"allow","rule_id":"over-length-fastpath",…}` | The command exceeded the matching budget (`TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH`, default 4000 chars) and was allowed **without regex evaluation** — the blocklist patterns backtrack polynomially on multi-KB arguments, so past the budget the engine answers immediately instead of freezing (TJ-DF-024). An allow, never a block: `reason` names the length, the budget, and the knob; budget `0` disables the guard. |
 
 **For deny-by-default**, add your own rules under `~/.config/terminal-jail/rules.d/`: a catch-all user `block` rule with a new id (e.g. pattern `.*`) evaluates in the last layer and therefore denies exactly the commands that would otherwise have ridden default-allow. The built-in allow rules (`pwd`, `echo`, `ls`, safe `cat`, `grep`, safe `find`, `git status|log|diff`, …) still match ahead of it, so tighten those too if your policy is strict.
 

@@ -6,23 +6,6 @@ import os
 from pathlib import Path
 
 
-def _int_env(name: str, default: int) -> int:
-    """Read an integer env var; garbage, negative, or unset values fall back.
-
-    The over-length guard (TJ-DF-024) must never be silently disabled by a
-    typo: ``"0"`` explicitly opts out (guard off), anything that is not a
-    non-negative integer keeps the default so the protection stays armed.
-    """
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
-    return value if value >= 0 else default
-
-
 class Config:
     """Runtime configuration for the interruptor rule engine.
 
@@ -32,7 +15,6 @@ class Config:
 
     __slots__ = (
         "log_level",
-        "max_command_length",
         "mode",
         "system_rules_dir",
         "user_rules_dir",
@@ -46,7 +28,6 @@ class Config:
         system_rules_dir: str = "/etc/terminal-jail/rules.d",
         user_rules_dir: str = "",
         log_level: str = "WARNING",
-        max_command_length: int = 4000,
     ) -> None:
         if mode not in self.VALID_MODES:
             mode = "enforce"
@@ -56,7 +37,6 @@ class Config:
             Path.home() / ".config" / "terminal-jail" / "rules.d"
         )
         self.log_level = log_level.upper() if log_level else "WARNING"
-        self.max_command_length = max_command_length
 
     @classmethod
     def from_environ(cls) -> Config:
@@ -71,9 +51,6 @@ class Config:
                 "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", ""
             ),
             log_level=os.environ.get("TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL", "WARNING"),
-            max_command_length=_int_env(
-                "TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH", 4000
-            ),
         )
 
     def __repr__(self) -> str:
@@ -81,6 +58,5 @@ class Config:
             f"Config(mode={self.mode!r}, "
             f"system_rules_dir={self.system_rules_dir!r}, "
             f"user_rules_dir={self.user_rules_dir!r}, "
-            f"log_level={self.log_level!r}, "
-            f"max_command_length={self.max_command_length!r})"
+            f"log_level={self.log_level!r})"
         )

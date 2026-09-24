@@ -664,7 +664,6 @@ esac
 | `TERMINAL_JAIL_INTERRUPTOR_RULES_DIR` | `/etc/terminal-jail/rules.d` | System rules directory |
 | `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` | `~/.config/terminal-jail/rules.d` | User rules directory |
 | `TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL` | `WARNING` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
-| `TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` | `4000` | Over-length fast path (TJ-DF-024): commands longer than this are allowed WITHOUT regex evaluation, marked `rule_id=over-length-fastpath` — the blocklist patterns backtrack polynomially on multi-KB arguments. `0` disables the guard; garbage/negative values fall back to the default. |
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Master enable for both jail + interruptor |
 
 ## 12. Test Scenarios
