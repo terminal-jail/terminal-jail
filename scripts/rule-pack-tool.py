@@ -59,7 +59,8 @@ validate  Refuse (exit 2, one-line reason on stderr) or accept (exit 0) a rule
           pack-<name>-* id namespace, and id collisions against the engine
           builtin rule set plus every rule file installed in --rules-dir.
 list      Print <name>\\t<path>\\t<rule count> for every pack shipped next to
-          this script (plugin/terminal_jail/rules/packs/*.yaml)."""
+          this script (plugin/terminal_jail/rules/packs/*.yaml). A pack that
+          cannot be read is skipped with a one-line reason (exit stays 0)."""
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -223,7 +224,9 @@ def _installed_rule_ids(rules_dir: Path, exclude: Path) -> list[tuple[str, Path]
 # ---------------------------------------------------------------------------
 
 
-def _parse_named_options(args: list[str], allowed: tuple[str, ...]) -> tuple[dict, list[str]]:
+def _parse_named_options(
+    args: list[str], allowed: tuple[str, ...]
+) -> tuple[dict, list[str]]:
     """Split ``args`` into option values and positionals (``--opt value``/``=``).
 
     Kept hand-rolled (no argparse) because a refusal must be exactly ONE line
@@ -273,9 +276,7 @@ def cmd_validate(args: list[str]) -> int:
     if pack_name is None:
         return _refuse("validate requires --pack-name <name>")
     if not PACK_NAME_RE.fullmatch(pack_name):
-        return _refuse(
-            f"invalid pack name {pack_name!r} (expected [a-z0-9][a-z0-9-]*)"
-        )
+        return _refuse(f"invalid pack name {pack_name!r} (expected [a-z0-9][a-z0-9-]*)")
 
     if not pack_path.is_file():
         return _refuse(f"pack file not found: {pack_path}")
@@ -385,11 +386,7 @@ def cmd_validate(args: list[str]) -> int:
     )
     if installed_hits:
         sources = sorted(
-            {
-                str(path)
-                for rule_id, path in installed
-                if rule_id in set(installed_hits)
-            }
+            {str(path) for rule_id, path in installed if rule_id in set(installed_hits)}
         )
         return _refuse(
             f"{pack_path}: rule id(s) {installed_hits} are already installed in "
@@ -397,7 +394,9 @@ def cmd_validate(args: list[str]) -> int:
         )
 
     counts = Counter(entry["action"] for entry in entries)
-    breakdown = ", ".join(f"{count} {action}" for action, count in sorted(counts.items()))
+    breakdown = ", ".join(
+        f"{count} {action}" for action, count in sorted(counts.items())
+    )
     print(
         f"rule-pack-tool: pack '{pack_name}' valid — {len(entries)} rule(s) "
         f"({breakdown}); checked against {len(builtin_ids)} engine builtin ids "
@@ -408,7 +407,16 @@ def cmd_validate(args: list[str]) -> int:
 
 
 def cmd_list(args: list[str]) -> int:
-    """Print ``<name>\\t<path>\\t<rule count>`` for every shipped pack."""
+    """Print ``<name>\\t<path>\\t<rule count>`` for every shipped pack.
+
+    TJ-DF-025: the listing is INFORMATIONAL — install.sh runs it with
+    ``exit 0`` right behind it, so a pack this process cannot parse is a
+    SKIP with a one-line reason (``<name>: unreadable (<why>)`` on stderr),
+    never the exit-2 refusal that used to poison
+    ``install.sh --list-rule-packs && install.sh`` bootstrap chains. The
+    explicit single-pack contract is untouched: ``validate`` keeps its
+    exit-2 refusal, and so do the argument/missing-directory refusals here.
+    """
     if args:
         return _refuse(
             f"list takes no arguments (got {len(args)}) — see rule-pack-tool.py --help"
@@ -421,7 +429,10 @@ def cmd_list(args: list[str]) -> int:
         try:
             entries = _load_rule_entries(path, require_rules_key=True)
         except PackParseError as exc:
-            return _refuse(f"shipped pack {path} cannot be read ({exc})")
+            # PackParseError text is always ONE line (the parser detail is
+            # folded), so the skip reason keeps the one-line contract.
+            print(f"{path.stem}: unreadable ({exc})", file=sys.stderr)
+            continue
         rows.append((path.stem, path, len(entries)))
 
     for name, path, count in rows:

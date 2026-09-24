@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -44,15 +45,15 @@ PACK_TOOL = PROJECT_ROOT / "scripts" / "rule-pack-tool.py"
 # exactly these banners, each at most once. Registered by STABLE PREFIX —
 # future documented banners register here in one place. Any other stderr
 # line is a hard failure: arbitrary output is never swallowed.
-DOCUMENTED_SANDBOX_BANNERS = (
-    "terminal-jail: WARNING: no filesystem isolation",
-)
+DOCUMENTED_SANDBOX_BANNERS = ("terminal-jail: WARNING: no filesystem isolation",)
 
 # Every validator refusal is emitted by ``rule-pack-tool.py::_refuse`` as this
 # single line prefix; the helper asserts refusal PRESENCE by anchoring on it.
 REFUSAL_PREFIX = "rule-pack-tool: refused:"
 
-ENGINE_BUILTIN_COUNT = len(BUILTIN_BLOCKLIST) + len(BUILTIN_SANDBOX) + len(BUILTIN_ALLOWLIST)
+ENGINE_BUILTIN_COUNT = (
+    len(BUILTIN_BLOCKLIST) + len(BUILTIN_SANDBOX) + len(BUILTIN_ALLOWLIST)
+)
 
 # The pack's positive vectors: one per rule id, with the verdict the engine
 # must produce when the pack is installed. TJ-GAP-062 landed the FULL catalogue
@@ -94,6 +95,29 @@ def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
 def _write_pack(path: Path, body: str) -> Path:
     path.write_text(body, encoding="utf-8")
     return path
+
+
+# TJ-DF-025: drive ``cmd_list`` against a scratch packs dir (argv: tool path,
+# packs dir) — the tool resolves its real PACKS_DIR from __file__, so the test
+# overrides it after import instead of copying the checkout.
+_LIST_WITH_PACKS_DIR = (
+    "import importlib.util, pathlib, sys\n"
+    "spec = importlib.util.spec_from_file_location('rule_pack_tool', sys.argv[1])\n"
+    "mod = importlib.util.module_from_spec(spec)\n"
+    "spec.loader.exec_module(mod)\n"
+    "mod.PACKS_DIR = pathlib.Path(sys.argv[2])\n"
+    "raise SystemExit(mod.cmd_list([]))\n"
+)
+
+# A directory whose ``yaml.py`` always raises ImportError, prepended to the
+# child interpreter's PYTHONPATH so `import yaml` fails deterministically —
+# a fresh host without PyYAML (the dogfood scenario). Created once per pytest
+# process; the subprocess only needs the path to exist.
+_PYYAML_SHADOW_DIR = Path(tempfile.mkdtemp(prefix="tj-pyyaml-shadow-"))
+(_PYYAML_SHADOW_DIR / "yaml.py").write_text(
+    'raise ImportError("PyYAML is not installed (shadowed for the TJ-DF-025 test)")\n',
+    encoding="utf-8",
+)
 
 
 def _scratch_rule_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -160,9 +184,9 @@ DB_PACK_EXECUTION_CONTEXT_GRAY = (
 DB_PACK_EXECUTION_CONTEXT_ALLOWS = (
     'sed -i "s/DROP DATABASE/-- DROP DATABASE/" migrations/003_shard.sql',
     'git commit -am "park the DROP DATABASE migration"',
-    'psql -c "SELECT msg FROM t WHERE msg = \'drop database retry\'"',
+    "psql -c \"SELECT msg FROM t WHERE msg = 'drop database retry'\"",
     'echo "DROP TABLE users" > build/rollback.sql',
-    'psql -f migrations/002_legacy.sql',
+    "psql -f migrations/002_legacy.sql",
     'grep -rn "DROP TABLE" migrations/',
 )
 
@@ -185,9 +209,7 @@ class TestDbPackBlockRulesMatchExecutionContext:
         assert result.action == action, result
         assert result.rule_id == rule_id, (command, result)
 
-    @pytest.mark.parametrize(
-        ("command", "rule_id"), DB_PACK_EXECUTION_CONTEXT_GRAY
-    )
+    @pytest.mark.parametrize(("command", "rule_id"), DB_PACK_EXECUTION_CONTEXT_GRAY)
     def test_single_table_destruction_is_sandboxed_not_blocked(
         self, installed_pack: Path, command: str, rule_id: str
     ) -> None:
@@ -266,7 +288,9 @@ class TestShippedDbPack:
             assert result.rule_id != rule_id, (command, result)
             assert not str(result.rule_id or "").startswith("pack-"), (command, result)
 
-    def test_pack_file_loads_through_the_engine_loader(self, installed_pack: Path) -> None:
+    def test_pack_file_loads_through_the_engine_loader(
+        self, installed_pack: Path
+    ) -> None:
         """The pack is an ordinary rules.d file: the engine's own loader reads
         every catalogued rule under the installer's file name.
 
@@ -312,9 +336,13 @@ class TestValidatorAccepts:
         assert result.returncode == 0, result.stderr
         assert "pack 'db' valid" in result.stdout
         assert "14 rule(s)" in result.stdout
-        assert f"{ENGINE_BUILTIN_COUNT} engine builtin ids" in result.stdout, result.stdout
+        assert f"{ENGINE_BUILTIN_COUNT} engine builtin ids" in result.stdout, (
+            result.stdout
+        )
 
-    def test_engine_match_types_are_derived_from_the_engine(self, tmp_path: Path) -> None:
+    def test_engine_match_types_are_derived_from_the_engine(
+        self, tmp_path: Path
+    ) -> None:
         """A non-pattern dispatch type is accepted, an invented one refused:
         the valid set comes from matcher.py, not from a hardcoded list."""
         src = tmp_path / "packs-src"
@@ -344,7 +372,12 @@ class TestValidatorAccepts:
             "      type: telepathy\n",
         )
         refused = _run_tool(
-            "validate", str(invented), "--pack-name", "db", "--rules-dir", str(rules_dir)
+            "validate",
+            str(invented),
+            "--pack-name",
+            "db",
+            "--rules-dir",
+            str(rules_dir),
         )
         assert refused.returncode == 2, refused.stdout
         assert "telepathy" in refused.stderr
@@ -497,7 +530,9 @@ class TestValidatorRefusals:
         self._assert_refused(result, "without a non-empty 'pattern'")
 
     def test_malformed_yaml_is_refused_on_one_line(self, tmp_path: Path) -> None:
-        pack = _write_pack(tmp_path / "malformed.yaml", "rules: [ this : is : not : valid\n")
+        pack = _write_pack(
+            tmp_path / "malformed.yaml", "rules: [ this : is : not : valid\n"
+        )
 
         result = _run_tool(
             "validate", str(pack), "--pack-name", "db", "--rules-dir", str(tmp_path)
@@ -526,7 +561,7 @@ class TestValidatorRefusals:
 
     def test_duplicate_ids_inside_the_pack_are_refused(self, tmp_path: Path) -> None:
         rule = (
-            "  - id: \"pack-db-dup\"\n"
+            '  - id: "pack-db-dup"\n'
             "    priority: 950\n"
             "    action: block\n"
             "    match:\n"
@@ -541,7 +576,9 @@ class TestValidatorRefusals:
 
         self._assert_refused(result, "duplicate rule id(s) inside the pack")
 
-    def test_id_already_installed_in_the_rules_dir_is_refused(self, tmp_path: Path) -> None:
+    def test_id_already_installed_in_the_rules_dir_is_refused(
+        self, tmp_path: Path
+    ) -> None:
         """The other-packs oracle: an id an installed file already carries is
         refused (a pack must not shadow it)."""
         rules_dir = tmp_path / "rules.d"
@@ -566,7 +603,12 @@ class TestValidatorRefusals:
 
     def test_unknown_pack_name_pattern_is_refused(self, tmp_path: Path) -> None:
         result = _run_tool(
-            "validate", str(DB_PACK), "--pack-name", "db/../evil", "--rules-dir", str(tmp_path)
+            "validate",
+            str(DB_PACK),
+            "--pack-name",
+            "db/../evil",
+            "--rules-dir",
+            str(tmp_path),
         )
 
         self._assert_refused(result, "invalid pack name")
@@ -621,7 +663,9 @@ class TestAssertRefusedContract:
 
     @staticmethod
     def _result(stderr: str, returncode: int = 2) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
+        return subprocess.CompletedProcess(
+            args=[], returncode=returncode, stdout="", stderr=stderr
+        )
 
     def _assert(self, stderr: str, returncode: int = 2) -> None:
         TestValidatorRefusals()._assert_refused(
@@ -694,6 +738,128 @@ class TestValidatorList:
 
         assert result.returncode == 2
         assert "takes no arguments" in result.stderr
+
+
+class TestValidatorListSkipNotRefuse:
+    """TJ-DF-025 (dogfood 2026-09-24): ``--list-rule-packs`` is INFORMATIONAL.
+
+    A shipped pack the lister cannot parse is a SKIP with a one-line reason —
+    never the exit-2 refusal that poisoned ``&&``-chained bootstrap scripts
+    (the listing ran, refused, and the chained plain install never happened).
+    The plain install on the same host already skips such a pack (DF-21);
+    the listing now mirrors that. Explicit single-pack requests keep the
+    strict refusal (``validate`` is untouched).
+    """
+
+    def test_list_skips_an_unparseable_pack_and_exits_0(self, tmp_path: Path) -> None:
+        """A malformed YAML pack among the shipped packs is listed as skipped
+        with a reason; the readable packs still list; exit 0."""
+        (tmp_path / "broken.yaml").write_text(
+            "rules: [ this : is : not : valid\n", encoding="utf-8"
+        )
+        (tmp_path / "good.yaml").write_text(
+            "rules:\n  - id: pack-good-one\n    action: block\n"
+            "    match:\n      type: pattern\n      pattern: zzz\n",
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [sys.executable, "-c", _LIST_WITH_PACKS_DIR, str(PACK_TOOL), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=str(PROJECT_ROOT),
+            timeout=60,
+        )
+        out = result.stdout + result.stderr
+
+        assert result.returncode == 0, out
+        # one-line skip reason naming the unreadable pack
+        skip_lines = [line for line in out.splitlines() if "broken: unreadable" in line]
+        assert len(skip_lines) == 1, out
+        assert "cannot parse" in skip_lines[0], out
+        # the readable pack still lists with its rule count
+        rows = [line for line in out.splitlines() if line.startswith("good\t")]
+        assert rows, out
+        assert rows[0].endswith("\t1"), out
+
+    def test_list_skips_a_pack_only_pyyaml_can_read_and_exits_0(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without PyYAML a YAML pack cannot be read at all (the engine-loader
+        fallback is stdlib json): it is skipped with a reason naming PyYAML,
+        and the listing still exits 0 — the fresh-host scenario."""
+        (tmp_path / "needs-yaml.yaml").write_text(
+            "rules:\n  - id: pack-needs-yaml-one\n    action: block\n"
+            "    match:\n      type: pattern\n      pattern: zzz\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setitem(sys.modules, "yaml", None)
+
+        result = subprocess.run(
+            [sys.executable, "-c", _LIST_WITH_PACKS_DIR, str(PACK_TOOL), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=str(PROJECT_ROOT),
+            timeout=60,
+            env={**os.environ, "PYTHONPATH": str(_PYYAML_SHADOW_DIR)},
+        )
+        out = result.stdout + result.stderr
+
+        assert result.returncode == 0, out
+        # The skip reason is the printed exception chain: "PyYAML is not
+        # installed" is only reachable when `import yaml` raised ImportError,
+        # and "Expecting value" is the JSON fallback failing on YAML content —
+        # together they PROVE the PyYAML-less ImportError path was exercised.
+        assert "PyYAML is not installed" in out, out
+        assert "Expecting value" in out, out
+        skip_lines = [
+            line for line in out.splitlines() if "needs-yaml: unreadable" in line
+        ]
+        assert len(skip_lines) == 1, out
+        assert "PyYAML" in skip_lines[0], out
+
+    def test_list_exits_0_when_every_pack_is_unreadable(self, tmp_path: Path) -> None:
+        """Even with ALL shipped packs unreadable the listing is informational:
+        every pack gets a skip line and the exit stays 0."""
+        (tmp_path / "broken.yaml").write_text(
+            "rules: [ this : is : not : valid\n", encoding="utf-8"
+        )
+
+        result = subprocess.run(
+            [sys.executable, "-c", _LIST_WITH_PACKS_DIR, str(PACK_TOOL), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=str(PROJECT_ROOT),
+            timeout=60,
+        )
+        out = result.stdout + result.stderr
+
+        assert result.returncode == 0, out
+        assert "broken: unreadable" in out, out
+        assert "rule-pack-tool: refused:" not in out, out
+
+    def test_explicit_validate_of_an_unreadable_pack_still_refuses(
+        self, tmp_path: Path
+    ) -> None:
+        """The refusal semantics that must STAY: a pack the user EXPLICITLY
+        asked to install is refused with exit 2 (validate contract unchanged)."""
+        broken = tmp_path / "broken.yaml"
+        broken.write_text("rules: [ this : is : not : valid\n", encoding="utf-8")
+
+        result = _run_tool(
+            "validate",
+            str(broken),
+            "--pack-name",
+            "broken",
+            "--rules-dir",
+            str(tmp_path),
+        )
+
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "cannot parse" in result.stderr, result.stderr
 
 
 class TestValidatorEngineDefaults:

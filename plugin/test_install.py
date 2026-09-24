@@ -581,14 +581,14 @@ def test_prefix_install_does_not_touch_home_rules(
     prefix_rules = (
         tmp_path / "config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
     )
-    assert prefix_rules.exists(), f"default rules not installed to prefix: {prefix_rules}"
+    assert prefix_rules.exists(), (
+        f"default rules not installed to prefix: {prefix_rules}"
+    )
     assert "builtin-rm-rf-root" in prefix_rules.read_text(encoding="utf-8")
     # (d) the installer names the prefix target and warns honestly that the
     # engine will not read it.
     assert str(prefix_rules) in output, output
-    assert (
-        "non-default install prefix" in output
-    ), "prefix-scope WARNING line missing"
+    assert "non-default install prefix" in output, "prefix-scope WARNING line missing"
     assert "/etc/terminal-jail/rules.d" in output
 
 
@@ -639,7 +639,9 @@ def test_prefix_install_missing_parent_no_cd_error_no_dotdot(
     assert (install_dir / "terminal-jail").exists(), output
     prefix = tmp_path / "opt"
     prefix_rules = prefix / "config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
-    assert prefix_rules.exists(), f"default rules not installed to prefix: {prefix_rules}"
+    assert prefix_rules.exists(), (
+        f"default rules not installed to prefix: {prefix_rules}"
+    )
     assert str(prefix_rules) in output, output
     assert (prefix / "lib" / "terminal-jail" / "seccomp-loader.py").exists(), output
     # (d) the prefix-scope WARNING still names the (now normalized) target.
@@ -678,7 +680,9 @@ def test_explicit_rules_dir_wins_over_install_scope(
     output = result.stdout.decode("utf-8", "replace")
 
     explicit_rules = custom_rules_dir / "00-builtins.yaml"
-    assert explicit_rules.exists(), f"rules not installed to explicit dir: {explicit_rules}"
+    assert explicit_rules.exists(), (
+        f"rules not installed to explicit dir: {explicit_rules}"
+    )
     assert str(explicit_rules) in output
     # No prefix-scope warning for an explicit choice, and no HOME config write.
     assert "non-default install prefix" not in output
@@ -841,7 +845,9 @@ def test_bare_wrapper_warn_mode_passes(install_script: Path, tmp_path: Path) -> 
 # ── TJ-DF-002: seccomp loader resolves plugin dir in installed layout ────────
 
 
-def _run_installed_loader(loader: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+def _run_installed_loader(
+    loader: Path, *args: str
+) -> subprocess.CompletedProcess[bytes]:
     """Run the seccomp loader with TERMINAL_JAIL_SECCOMP=1 (as the wrapper
     does for --seccomp) and a clean sys.path so only the loader's own
     _setup_path() can make terminal_jail importable."""
@@ -1135,9 +1141,7 @@ def test_installer_writes_no_bubblewrap_artifact(tmp_path: Path) -> None:
     assert named == [], f"bubblewrap artifact written by the installer: {named}"
 
     vendored = [
-        str(p)
-        for p in files
-        if p.is_file() and p.suffix.lower() in _VENDORED_SUFFIXES
+        str(p) for p in files if p.is_file() and p.suffix.lower() in _VENDORED_SUFFIXES
     ]
     assert vendored == [], f"vendored source/package deposited: {vendored}"
 
@@ -1157,9 +1161,9 @@ def test_install_sh_never_downloads_or_vendors_bubblewrap(
         if "bwrap" in line.lower()
     ]
     assert bwrap_lines, "install.sh no longer mentions bwrap — audit would be vacuous"
-    assert any(
-        "command -v bwrap" in line for _, line in bwrap_lines
-    ), "install.sh must detect bwrap with command -v"
+    assert any("command -v bwrap" in line for _, line in bwrap_lines), (
+        "install.sh must detect bwrap with command -v"
+    )
 
     offenders = [
         (number, line.strip())
@@ -1254,9 +1258,7 @@ def _install_env(tmp_path: Path) -> dict[str, str]:
 #           PATH-related writes out of scratch HOME (mirrors _install_env).
 #           Pack install/validation/removal tests run in THIS scope: it is
 #           engine-loaded, so a pack reported installed is really loaded.
-def _install_env_for_scope(
-    tmp_path: Path, scope: str
-) -> tuple[dict[str, str], Path]:
+def _install_env_for_scope(tmp_path: Path, scope: str) -> tuple[dict[str, str], Path]:
     """(env, expected rules dir) for the named scope. Never mutates the real
     HOME: both scopes live under tmp_path."""
     env = _install_env(tmp_path)
@@ -1422,9 +1424,14 @@ def test_install_skips_a_bad_pack_but_still_installs_the_base(
     the validator (packs skip there before any validation)."""
     env, rules_dir = _install_env_for_scope(tmp_path, "live")
     checkout = _scratch_checkout(tmp_path)
-    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
-        body, encoding="utf-8"
-    )
+    (
+        checkout
+        / "plugin"
+        / "terminal_jail"
+        / "rules"
+        / "packs"
+        / f"{fixture_name}.yaml"
+    ).write_text(body, encoding="utf-8")
 
     result = _run_checkout_install(
         checkout, tmp_path, "--rule-pack", fixture_name, extra_env=env
@@ -1433,11 +1440,12 @@ def test_install_skips_a_bad_pack_but_still_installs_the_base(
 
     assert result.returncode == 2, out
     assert needle in out, out
-    assert f"skipped: pack '{fixture_name}' — REFUSED by the validator, nothing was written" in out, out
+    assert (
+        f"skipped: pack '{fixture_name}' — REFUSED by the validator, nothing was written"
+        in out
+    ), out
     # the pack file itself was never written (fail-closed, validate-before-write)
-    assert not (
-        rules_dir / f"terminal-jail-pack-{fixture_name}.yaml"
-    ).exists(), out
+    assert not (rules_dir / f"terminal-jail-pack-{fixture_name}.yaml").exists(), out
     # ...but the base install completed
     _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
     # the end-of-run summary names what installed and what skipped
@@ -1490,9 +1498,7 @@ def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
     --list-rule-packs, and the base install completes (exit 2 at the end).
     DF-TERMINAL-JAIL-22: engine-loaded scope."""
     env, rules_dir = _install_env_for_scope(tmp_path, "live")
-    result = _run_repo_install(
-        tmp_path, "--rule-pack", "nope", extra_env=env
-    )
+    result = _run_repo_install(tmp_path, "--rule-pack", "nope", extra_env=env)
     out = (result.stdout + result.stderr).decode("utf-8", "replace")
 
     assert result.returncode == 2, out
@@ -1500,9 +1506,7 @@ def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
     assert "unknown pack name" in out, out
     assert "--list-rule-packs" in out, out
     # the unknown pack wrote nothing, but the base install completed
-    assert not (
-        rules_dir / "terminal-jail-pack-nope.yaml"
-    ).exists(), out
+    assert not (rules_dir / "terminal-jail-pack-nope.yaml").exists(), out
     _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
 
 
@@ -1540,6 +1544,68 @@ def test_list_rule_packs_names_db(tmp_path: Path) -> None:
     assert str(DB_PACK) in rows[0], rows
     assert rows[0].endswith("\t14"), rows
     _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_list_rule_packs_on_a_pyyaml_less_host_exits_0(tmp_path: Path) -> None:
+    """TJ-DF-025 (dogfood 2026-09-24, fresh bunker agent without PyYAML): the
+    INFORMATIONAL listing must not refuse when a shipped pack cannot be
+    parsed. It names the pack as unreadable with a one-line reason and exits
+    0, so `install.sh --list-rule-packs && install.sh` bootstrap chains are
+    never poisoned by the listing (mirrors the plain-install skip, DF-21).
+    Explicit `--rule-pack <name>` requests keep their refusal contract —
+    locked by test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base."""
+    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
+    result = _run_repo_install(tmp_path, "--list-rule-packs", extra_env=extra_env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    skip_lines = [
+        line for line in out.splitlines() if line.startswith("db: unreadable")
+    ]
+    assert len(skip_lines) == 1, out
+    assert "PyYAML" in skip_lines[0], out
+    # "PyYAML is not installed" is only reachable through the ImportError path,
+    # so the PyYAML-less simulation is proven, not assumed
+    assert "PyYAML is not installed" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_list_rule_packs_then_plain_install_completes_with_a_broken_pack(
+    tmp_path: Path,
+) -> None:
+    """The dogfood acceptance criterion end to end: a checkout whose shipped
+    pack cannot be parsed still lets `./install.sh --list-rule-packs &&
+    ./install.sh` complete a FULL install — the &&-chain reaches the install,
+    the base lands, and the overall exit is 0."""
+    checkout = _scratch_checkout(tmp_path)
+    (
+        checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "broken.yaml"
+    ).write_text(_MALFORMED_PACK, encoding="utf-8")
+    env = _install_env(tmp_path)
+    result = subprocess.run(
+        ["sh", "-c", "./install.sh --list-rule-packs && ./install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "broken: unreadable" in out, out
+    # the base install landed (a plain install prints no "base install
+    # completed" summary — that phrase belongs to the pack-skip path)
+    assert "terminal-jail installer: done." in out, out
+    _assert_base_install_completed(tmp_path, out)
+    # the listing ran before the install: both banners are stdout, and the
+    # captured stdout buffer preserves their order across the && chain
+    assert out.index("rule packs available in this checkout") < out.index(
+        "terminal-jail installer: installed to"
+    ), out
 
 
 @pytest.mark.standalone_cli
@@ -1625,7 +1691,7 @@ def test_custom_install_dir_appends_despite_stale_default_block(
     env = _install_env(tmp_path)
     rc = _scratch_rc(tmp_path / "home")
     rc.write_text(
-        "# scratch rc\n\n# terminal-jail\nexport PATH=\"$HOME/.local/bin:$PATH\"\n",
+        '# scratch rc\n\n# terminal-jail\nexport PATH="$HOME/.local/bin:$PATH"\n',
         encoding="utf-8",
     )
 
@@ -1706,9 +1772,7 @@ def _env_with_shadowed_pyyaml(env: dict[str, str], tmp_path: Path) -> dict[str, 
     fixture style used for the bwrap tests."""
     shadow_dir = tmp_path / "pyyaml-shadow"
     shadow_dir.mkdir(exist_ok=True)
-    (shadow_dir / "yaml.py").write_text(
-        _PYAML_SHADOW_YAML_BODY, encoding="utf-8"
-    )
+    (shadow_dir / "yaml.py").write_text(_PYAML_SHADOW_YAML_BODY, encoding="utf-8")
     python3 = shutil.which("python3")
     assert python3, "the test host has no real python3 to shim"
     shim = shadow_dir / "python3"
@@ -1784,9 +1848,9 @@ def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
     json fallback and installs normally — exit 0, wrapper installed.
     DF-TERMINAL-JAIL-22: engine-loaded scope."""
     checkout = _scratch_checkout(tmp_path)
-    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "json-pack.yaml").write_text(
-        _JQ_JSON_PACK_BODY, encoding="utf-8"
-    )
+    (
+        checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "json-pack.yaml"
+    ).write_text(_JQ_JSON_PACK_BODY, encoding="utf-8")
     env, rules_dir = _install_env_for_scope(tmp_path, "live")
     extra_env = _env_with_shadowed_pyyaml(env, tmp_path)
     result = subprocess.run(
@@ -1848,9 +1912,9 @@ def test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base(
     same skip-not-abort semantics as the no-PyYAML path.
     DF-TERMINAL-JAIL-22: engine-loaded scope."""
     checkout = _scratch_checkout(tmp_path)
-    (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "malformed.yaml").write_text(
-        _MALFORMED_PACK, encoding="utf-8"
-    )
+    (
+        checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "malformed.yaml"
+    ).write_text(_MALFORMED_PACK, encoding="utf-8")
     env, rules_dir = _install_env_for_scope(tmp_path, "live")
     result = _run_checkout_install(
         checkout, tmp_path, "--rule-pack", "malformed", extra_env=env
@@ -1908,7 +1972,8 @@ def test_prefix_install_skips_every_requested_rule_pack(
     so same-id content is irrelevant), nothing is written, exit 2."""
     checkout = _scratch_checkout(tmp_path)
     shutil.copy2(
-        DB_PACK, checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "cache.yaml"
+        DB_PACK,
+        checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "cache.yaml",
     )
     result = _run_checkout_install(
         checkout, tmp_path, "--rule-pack", "db", "--rule-pack", "cache"
@@ -2061,9 +2126,9 @@ def test_upgrade_prunes_module_deleted_from_checkout(tmp_path: Path) -> None:
     assert (lib_tree / ".install-manifest").is_file(), out1
     assert "interruptor_bridge.py" in _read_manifest(lib_tree), out1
     assert "seccomp.py" in _read_manifest(lib_tree), out1
-    assert (
-        "pruned stale installed file" not in out1
-    ), "first-ever install must prune nothing"
+    assert "pruned stale installed file" not in out1, (
+        "first-ever install must prune nothing"
+    )
 
     # A file the installer never wrote (not in any manifest) inside the
     # installed tree: must survive every upgrade untouched.
@@ -2081,9 +2146,9 @@ def test_upgrade_prunes_module_deleted_from_checkout(tmp_path: Path) -> None:
 
     # The deleted module is gone from the installed tree, named on stdout...
     assert not victim.exists(), "stale installed file was not pruned"
-    assert (
-        f"terminal-jail installer: pruned stale installed file: {victim}" in out2
-    ), out2
+    assert f"terminal-jail installer: pruned stale installed file: {victim}" in out2, (
+        out2
+    )
     # ...the user-created extra file survived...
     assert user_extra.is_file(), "a non-manifest file inside the tree was removed"
     assert user_extra.read_text(encoding="utf-8") == "# mine\n"

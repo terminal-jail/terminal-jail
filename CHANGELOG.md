@@ -1,5 +1,29 @@
 ## [Unreleased]
 
+### `--list-rule-packs`: an unreadable pack is a skip, not a refusal (TJ-DF-025)
+
+- **Fix** (`scripts/rule-pack-tool.py list`): the informational listing no
+  longer exits `2` when a shipped pack cannot be parsed — on a fresh host
+  without PyYAML the shipped `db.yaml` is YAML-only, so the listing refused
+  and poisoned `install.sh --list-rule-packs && install.sh` bootstrap chains
+  (the plain install never ran; dogfooded 2026-09-24). The pack is now
+  reported as `<name>: unreadable (<reason>)` on stderr, every readable pack
+  still lists, and the exit stays `0` — mirroring the plain-install skip
+  semantics (DF-TERMINAL-JAIL-21). The explicit single-pack contract is
+  unchanged: `rule-pack-tool.py validate` (and therefore
+  `install.sh --rule-pack <name>`) keeps its exit-2 refusal for a pack the
+  user explicitly requested.
+- **Tests**: `plugin/test_rule_packs.py` (4 new: skip line + exit 0 with a
+  malformed pack; PyYAML-less listing via the PYTHONPATH ImportError shadow —
+  the skip reason itself proves the ImportError path; all-unreadable still
+  exits 0; explicit `validate` refusal unchanged) and
+  `plugin/test_install.py` (2 new: `--list-rule-packs` on a PyYAML-shadowed
+  host exits 0 with the unreadable line; the full `./install.sh
+  --list-rule-packs && ./install.sh` chain completes a real install against a
+  scratch HOME).
+- **Docs**: `specs/cli.md` `--list-rule-packs` row now states the
+  skip-and-exit-0 behavior.
+
 ## [1.2.0] — 2026-09-22
 
 ### `--uninstall`: the removal path (TJ-GAP-071)
