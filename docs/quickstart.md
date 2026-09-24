@@ -202,6 +202,141 @@ unprivileged equivalent of `--map-users`, `auto` deliberately keeps the
 `unshare` backend for `--user` on hosts where the uid mapping works (real
 filesystem isolation), rather than silently trading it away.
 
+### 3a2. Scripting the firewall (the JSON bridge)
+
+Integrators do not have to spawn the CLI to get firewall verdicts. The
+interruptor is exposed as a small line protocol over stdin/stdout by
+[plugin/terminal_jail/interruptor_bridge.py](../plugin/terminal_jail/interruptor_bridge.py):
+you feed it **one JSON line**, it answers with **one JSON line**, and it
+exits `0` on every documented path — the verdict's `action` field is the
+decision, not the exit code (the CLI's exit 126 on a block is wrapper
+behavior, see below).
+
+Request and response schema:
+
+```text
+request  — one JSON object, one line:  {"command": "<shell command>"}
+           ("command" must be a string; an empty string is valid input,
+           not a schema error)
+
+response — one JSON object, one line, always these five fields:
+  action    "allow" | "block" | "modify"
+  command   the command as evaluated ("" on an error envelope)
+  modified  the rewritten command when action is "modify", else null
+  rule_id   the id of the rule that decided, or null (semantics below)
+  reason    human-readable explanation ("" on a plain allow)
+```
+
+Four real sessions (verdicts captured on this project's host; the two rules
+directories are pinned to empty dirs with the documented env vars so the
+transcript shows built-in-rule behavior regardless of anything installed
+under your `rules.d/`):
+
+```bash
+export TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules
+export TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules   # mkdir both
+
+printf '{"command": "echo hello"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "allow", "command": "echo hello", "modified": null, "rule_id": "allow-echo", "reason": ""}
+printf '{"command": "date"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "allow", "command": "date", "modified": null, "rule_id": null, "reason": ""}
+printf '{"command": "rm -rf /"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "block", "command": "rm -rf /", "modified": null, "rule_id": "builtin-rm-rf-root",
+#    "reason": "Recursive root directory removal (rm -rf /) is blocked."}
+printf '{"command": "make test"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "modify", "command": "make test", "modified": "unshare --user --pid --fork --kill-child=SIGKILL bash -c 'make test'",
+#    "rule_id": "auto-make", "reason": "Command modified by auto-sandbox"}
+```
+
+The `modify` rewrite wraps the command in an unshare namespace; the exact
+prefix flags depend on what the host's namespaces permit (see §3c and
+FAQ §4), so treat `modified` as an opaque string to execute, not a shape to
+parse.
+
+**`rule_id` semantics — null is a pass-through, not an approval.** A named
+`rule_id` identifies the rule that decided the verdict (`allow-echo` above
+is an explicit allowlist hit; `builtin-rm-rf-root` a block; `auto-make` a
+rewrite). `"rule_id": null` means **no rule matched** — the command was
+allowed because the firewall is deny-list-over-default-allow. A script that
+needs "the firewall examined and permitted this" must treat only named
+allow rules as approvals and read `reason` alongside `action`: on the
+error envelope below `rule_id` is null too, and in warn mode a blockable
+command comes back as `action: "allow"` with a non-empty
+`[WARN MODE] Would have blocked: …` reason.
+
+**Failure split — transport fails OPEN, engine evaluation fails CLOSED
+(TJ-GAP-070).** Anything that prevents the request from *reaching* the
+engine (stdin read failure, empty stdin, invalid JSON, a payload that is
+not a JSON object, a missing/non-string `command` key) or that prevents the
+engine from being *imported* answers the fail-open envelope and exits 0 —
+a host shell invokes the bridge before every command, so blocking on
+malformed input would brick that shell:
+
+```bash
+printf 'not json {\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "allow", "command": "", "modified": null, "rule_id": null,
+#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-open: allowing command"}
+```
+
+(empty stdin → `[bridge-error] empty stdin …`; a missing engine →
+`[bridge-error] interruptor engine not importable …`; always
+`action: "allow"`, rc=0).
+
+An **engine-evaluation** failure — `intercept()` itself raising, e.g. a rule
+file that parses but carries fields the engine cannot evaluate — fails
+**closed** instead: the verdict is a normal-shaped BLOCK with the sentinel
+`rule_id: "[bridge-error]"` and a `[bridge-error] … — fail-closed: blocking
+command (enforce mode)` reason (the refusal detail is also printed to
+stderr, naming the file):
+
+```bash
+# with ~/.config/terminal-jail/rules.d/zz-poison.yaml containing priority: "not-a-number"
+printf '{"command": "rm -rf /"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "block", "command": "", "modified": null, "rule_id": "[bridge-error]",
+#    "reason": "[bridge-error] RuleSchemaError: terminal-jail: REFUSING rule file
+#    …/zz-poison.yaml: rule #1 (zz-poison-priority): field priority must be an integer,
+#    got str ('not-a-number') … — fail-closed: blocking command (enforce mode)"}
+```
+
+**Consumers running the real CLI wrapper, not just the bridge:** the
+wrapper additionally blocks (exit 126) on any verdict whose `reason` begins
+`[bridge-error]` — even the fail-open `allow` envelope — and treats empty
+or non-JSON bridge stdout as an unusable verdict that also blocks in
+enforce mode. In `warn` mode it prints a loud warning and runs the command
+UNGUARDED. So a script may observe `action: "allow"` + rc 0 from the bridge
+and still see the command blocked by the wrapper; the bridge's `action` is
+the engine verdict, the wrapper's exit code is the enforcement decision.
+
+Two mode caveats when scripting against `TERMINAL_JAIL_INTERRUPTOR_MODE`
+(the bridge reads the same env var the CLI does):
+
+```bash
+# warn mode — a blockable command returns an ALLOW with a [WARN MODE] reason:
+# → {"action": "allow", "command": "rm -rf /", "modified": null, "rule_id": null,
+#    "reason": "[WARN MODE] Would have blocked: Recursive root directory removal (rm -rf /) is blocked."}
+# disabled mode — every command returns action "allow" with an empty reason;
+# the verdict is then indistinguishable from a default-allow pass-through.
+```
+
+Consumer checklist: set a timeout on the bridge call (see below), branch on
+`action`, and treat `reason` starting with `[bridge-error]` as a failure of
+the firewall itself — not as a policy verdict.
+
+**No length or time bound is documented or guaranteed.** As of this writing
+the engine has no limit on command length and no per-evaluation timeout:
+an 8 KB argument was measured at ~7.5 s of pure CPU inside the engine and a
+20 KB+ argument did not return at all (latency self-DoS — repro numbers in
+[docs/dogfood/2026-09-24-firewall-library-integration.md](dogfood/2026-09-24-firewall-library-integration.md)).
+Keep a timeout on every scripted bridge call until that limitation is fixed
+(tracked as TJ-DF-024).
+
+Background and a worked consumer: the 2026-08-10 integration dogfood
+([docs/dogfood/2026-08-10-integration.md](dogfood/2026-08-10-integration.md))
+first called this surface safe to script; the rule vocabulary the verdicts
+name is catalogued in [docs/rule-catalog.md](rule-catalog.md) and the full
+contract (including the TJ-GAP-070 verdict table) in
+[specs/interruptor.md](../specs/interruptor.md) §3.5–§3.6.
+
 ### 3b. Interruptor modes
 
 ```bash
