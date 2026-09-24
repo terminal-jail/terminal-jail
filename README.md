@@ -610,7 +610,7 @@ Every layer degrades independently.
 - Linux (kernel 3.8+ for user namespaces, 4.3+ for `--kill-child`)
 - `util-linux` 2.32+ (`unshare` with `--kill-child`)
 - `bash`
-- systemd (for the primary isolation layer)
+- **Optional:** systemd drop-in (`systemd/` snippets) — gateway-hardening convenience (process visibility, privilege, cgroup limits), not a containment or PID-namespace boundary. The primary isolation layer is the standalone CLI's `unshare`/`bwrap` backend
 - **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`). It is an external runtime dependency resolved from `PATH`, exactly like `util-linux`, and never a requirement: without it the CLI uses the `unshare` backend, and `install.sh` only prints an advisory note (a missing `bwrap` never fails an install). An explicit `TERMINAL_JAIL_JAIL_BACKEND=bwrap` still fails closed — exit 2, command not run. Packaging/legal boundary: see [Bubblewrap backend](#bubblewrap-backend-v12)
 
 ---
