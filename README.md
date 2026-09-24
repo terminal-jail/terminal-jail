@@ -239,6 +239,15 @@ The plugin registers two hooks for observability:
 
 **The plugin is observability-only.** Hermes core has no pre-execution command-transform hook, so the plugin cannot wrap commands. Former wrapping functions (`transform_command` / `transform_exec_command`) were removed in v1.1.x as dead code (TJ-GAP-010). See `specs/integration.md` for the full architectural rationale (HOOK-GAP-03).
 
+**Install or refresh.** Fresh install — from a repository checkout, let the installer copy the tree into your Hermes plugin directory:
+
+```bash
+./install.sh --hermes-plugin               # -> ~/.hermes/plugins/terminal-jail
+./install.sh --hermes-plugin /custom/dir   # explicit target
+```
+
+Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update, and it prints the deployed version and target path. Then enable it (`hermes plugins enable terminal-jail`) and restart Hermes — discovery and verification steps are in [docs/quickstart.md](docs/quickstart.md) **§3d**.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Enable/disable plugin (`true`/`false`/`1`/`0`) |

@@ -2209,3 +2209,192 @@ def test_rules_bak_retention_capped(tmp_path: Path) -> None:
     assert pruned_names.isdisjoint(surviving_names), (pruned_names, surviving_names)
     # The live rules file itself is the shipped default (never pruned).
     assert "builtin-rm-rf-root" in installed.read_text(encoding="utf-8")
+
+
+# ── TJ-DF-022: --hermes-plugin deploy/refresh mode ───────────────────────────
+#
+# The gateway loads this plugin from a DIRECTORY (~/.hermes/plugins/
+# terminal-jail/, discovery semantics per docs/quickstart.md section 3d).
+# Some deployed copies are the v0.2.0 snapshot (spin_policy.py busy-wait veto
+# only); a bare re-copy could never remove the files the v1.2.0 tree no longer
+# ships, so --hermes-plugin empties the deployed package and re-copies the
+# current tree. Every test here runs against temp targets only — the live
+# /home/<user>/.hermes/plugins/terminal-jail is never touched (HOME is a
+# scratch dir in every _install_env call and every explicit target is under
+# pytest's tmp_path).
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_fresh_deploy_to_empty_target(tmp_path: Path) -> None:
+    """--hermes-plugin <dir> into an empty temp target: exit 0, plugin.yaml +
+    the terminal_jail package present, and the deployed version printed."""
+    target = tmp_path / "plugins" / "terminal-jail"
+    env = _install_env(tmp_path)
+
+    result = _run_repo_install(tmp_path, "--hermes-plugin", str(target), extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert (target / "plugin.yaml").exists(), out
+    assert (target / "__init__.py").exists(), out
+    assert (target / "terminal_jail").is_dir(), out
+    assert (target / "terminal_jail" / "interruptor_bridge.py").exists(), out
+    # The deployed version is read from the DEPLOYED plugin.yaml and printed.
+    version_line = [
+        line
+        for line in out.splitlines()
+        if line.startswith("terminal-jail installer: deployed Hermes plugin v")
+    ]
+    assert len(version_line) == 1, out
+    deployed = (target / "plugin.yaml").read_text(encoding="utf-8")
+    match = re.search(r'^version:\s*"?([^"\n]+)"?\s*$', deployed, re.MULTILINE)
+    assert match is not None, deployed
+    assert f"deployed Hermes plugin v{match.group(1)}" in out, out
+    assert str(target) in out, out
+    # The base install did NOT run: this mode is standalone (no wrapper, no
+    # rules dir, no PATH block in the scratch HOME).
+    assert not (tmp_path / "bin" / "terminal-jail").exists(), out
+    assert not (tmp_path / "home" / ".config" / "terminal-jail").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_refresh_removes_stale_files(tmp_path: Path) -> None:
+    """UPDATE semantics over a v0.2.0-era target: a stale file the current
+    tree no longer ships (the old busy-wait veto) must be GONE after the
+    refresh, and the current tree's files present."""
+    target = tmp_path / "plugins" / "terminal-jail"
+    target.mkdir(parents=True)
+    stale = target / "spin_policy.py"
+    stale.write_text("# v0.2.0-era busy-wait veto\n", encoding="utf-8")
+    (target / "plugin.yaml").write_text('version: "0.2.0"\n', encoding="utf-8")
+
+    result = _run_repo_install(tmp_path, "--hermes-plugin", str(target))
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert not stale.exists(), "stale v0.2-era file survived the refresh"
+    # Fresh content landed.
+    assert (target / "plugin.yaml").exists(), out
+    deployed = (target / "plugin.yaml").read_text(encoding="utf-8")
+    assert "0.2.0" not in deployed, deployed
+    assert (target / "terminal_jail").is_dir(), out
+    # The refresh is announced (so operators can tell update from install).
+    assert "stale files removed" in out, out
+    assert "deployed Hermes plugin v" in out, out
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_refresh_is_idempotent_and_complete(tmp_path: Path) -> None:
+    """Two refreshes in a row leave the target equal to the repo tree — no
+    drift, no leftovers, and the tree matches the repo file-for-file."""
+    target = tmp_path / "plugins" / "terminal-jail"
+    first = _run_repo_install(tmp_path, "--hermes-plugin", str(target))
+    assert first.returncode == 0, (first.stdout + first.stderr).decode(
+        "utf-8", "replace"
+    )
+    second = _run_repo_install(tmp_path, "--hermes-plugin", str(target))
+    out = (second.stdout + second.stderr).decode("utf-8", "replace")
+    assert second.returncode == 0, out
+
+    def _tree(root: Path) -> set[str]:
+        return {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+
+    assert _tree(target) == _tree(PROJECT_ROOT / "plugin"), (
+        "deployed tree diverged from the repo plugin/ tree"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_dir_flag_overrides(tmp_path: Path) -> None:
+    """--hermes-plugin-dir=<dir> overrides the default target (the brief's
+    second accepted shape for passing a target)."""
+    target = tmp_path / "custom" / "plugin-dir"
+    result = _run_repo_install(tmp_path, f"--hermes-plugin-dir={target}")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert (target / "plugin.yaml").exists(), out
+    assert str(target) in out, out
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_missing_repo_tree_fails_without_writing(tmp_path: Path) -> None:
+    """A checkout without plugin/plugin.yaml refuses loudly and writes
+    nothing to the target (even a pre-existing one keeps its contents)."""
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    shutil.copy2(PROJECT_ROOT / "install.sh", checkout / "install.sh")
+    # no plugin/ directory at all
+    target = tmp_path / "plugins" / "terminal-jail"
+    target.mkdir(parents=True)
+    keeper = target / "keep-me.txt"
+    keeper.write_text("untouched\n", encoding="utf-8")
+
+    result = _run_checkout_install(checkout, tmp_path, "--hermes-plugin", ".")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode != 0, out
+    assert "--hermes-plugin needs a repository checkout" in out, out
+    assert "nothing was written" in out, out
+    # The pre-existing target was never emptied, let alone replaced.
+    assert keeper.read_text(encoding="utf-8") == "untouched\n"
+    assert sorted(p.name for p in target.iterdir()) == ["keep-me.txt"]
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_works_without_release_mode_opt_in(tmp_path: Path) -> None:
+    """The refresh path must work from ANY invocation shape (curl | sh
+    equivalent, no checkout wrapper on PATH, no release opt-in) — it copies
+    the checkout tree and downloads nothing. A v0.2.0 host must never be told
+    to re-install from a dead release URL just to refresh."""
+    target = tmp_path / "plugins" / "terminal-jail"
+    result = subprocess.run(
+        ["sh", str(PROJECT_ROOT / "install.sh"), "--hermes-plugin", str(target)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=30,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path / "home"),
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "release mode is not enabled" not in out, out
+    assert (target / "plugin.yaml").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_refuses_flag_mixing(tmp_path: Path) -> None:
+    """Parse-time refusals: nothing written, pre-existing behavior of the
+    other flags untouched."""
+    result = _run_repo_install(tmp_path, "--hermes-plugin", "--rule-pack", "db")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 2, out
+    assert "cannot be combined" in out, out
+    _assert_nothing_written(tmp_path)
+
+    bogus = _run_repo_install(tmp_path, "--bogus-flag")
+    bout = (bogus.stdout + bogus.stderr).decode("utf-8", "replace")
+    assert bogus.returncode == 2, bout
+    assert "unknown argument '--bogus-flag'" in bout, bout
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_hermes_plugin_default_target_lands_under_scratch_home(
+    tmp_path: Path,
+) -> None:
+    """With no explicit target, the deploy lands in $HOME/.hermes/plugins/
+    terminal-jail — HOME here is the scratch dir, never the live home."""
+    env = _install_env(tmp_path)
+    expected = tmp_path / "home" / ".hermes" / "plugins" / "terminal-jail"
+    result = _run_repo_install(tmp_path, "--hermes-plugin", extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert (expected / "plugin.yaml").exists(), out
+    assert str(expected) in out, out

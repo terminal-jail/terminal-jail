@@ -19,6 +19,15 @@ TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # other TERMINAL_JAIL_INSTALL_DIR. A non-empty value is used verbatim and
 # always wins, even outside the selected prefix.
 TERMINAL_JAIL_RULES_DIR="${TERMINAL_JAIL_RULES_DIR:-}"
+# Hermes plugin target for --hermes-plugin (TJ-DF-022): the directory the
+# plugin/ tree (plugin.yaml + __init__.py + terminal_jail/) is deployed or
+# refreshed into. This is the directory Hermes gateway discovery reads
+# (~/.hermes/plugins/<name>/). Overridable per run with --hermes-plugin <dir>
+# or --hermes-plugin-dir=<dir>. The $HOME default is derived AT USE (the
+# explicit chain in the --hermes-plugin block), not here: nested
+# "${VAR:-${HOME:-}/...}" expansions mis-parse under /bin/sh (dash), and HOME
+# may legitimately be unset during parse-time refusals.
+TERMINAL_JAIL_HERMES_PLUGIN_DIR="${TERMINAL_JAIL_HERMES_PLUGIN_DIR:-}"
 
 # --- path normalization (DF-TERMINAL-JAIL-24) --------------------------------
 # Derived prefix paths (<prefix>/config/... rules dir, <prefix>/lib/... lib
@@ -115,6 +124,11 @@ UNRULE_PACKS=""
 LIST_RULE_PACKS=0
 UNINSTALL=0
 UNINSTALL_SYSTEMD=0
+# --hermes-plugin (TJ-DF-022): deploy/refresh mode. The optional positional
+# argument is captured here and overrides the default/env target when present.
+HERMES_PLUGIN=0
+HERMES_PLUGIN_ARG=""
+HERMES_PLUGIN_TARGET=""
 
 valid_pack_name() {
     case "$1" in
@@ -167,6 +181,16 @@ Options:
                         terminal-jail-pack-<name>.yaml is touched — the default
                         rules file and every other pack are never modified.
   --list-rule-packs     List the rule packs this checkout ships (exit 0).
+  --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
+                        __init__.py, terminal_jail/) into dir (default:
+                        $HOME/.hermes/plugins/terminal-jail, override also via
+                        --hermes-plugin-dir=<dir> or the
+                        TERMINAL_JAIL_HERMES_PLUGIN_DIR env var). UPDATE
+                        semantics: an existing target is emptied of the old
+                        plugin package contents before the current tree is
+                        copied in, so stale v0.2-era files never survive a
+                        refresh. Prints the deployed version and target path.
+                        Needs a repository checkout.
   --uninstall           Remove everything the installer wrote: the wrapper
                         (TERMINAL_JAIL_INSTALL_DIR), the lib tree, the rules
                         files it installed (00-builtins.yaml, installed packs
@@ -190,6 +214,8 @@ Environment (all optional):
                                local checkout (rule packs need the checkout)
   TERMINAL_JAIL_VERSION        version to install (default: 1.2.0)
   TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
+  TERMINAL_JAIL_HERMES_PLUGIN_DIR  --hermes-plugin target directory
+                               (default: $HOME/.hermes/plugins/terminal-jail)
 USAGE
 }
 
@@ -223,6 +249,20 @@ while [ $# -gt 0 ]; do
             LIST_RULE_PACKS=1
             shift
             ;;
+        --hermes-plugin)
+            HERMES_PLUGIN=1
+            shift
+            ;;
+        --hermes-plugin=*)
+            HERMES_PLUGIN=1
+            HERMES_PLUGIN_ARG="${1#--hermes-plugin=}"
+            shift
+            ;;
+        --hermes-plugin-dir=*)
+            HERMES_PLUGIN=1
+            HERMES_PLUGIN_ARG="${1#--hermes-plugin-dir=}"
+            shift
+            ;;
         --uninstall)
             UNINSTALL=1
             shift
@@ -235,9 +275,34 @@ while [ $# -gt 0 ]; do
             usage
             exit 0
             ;;
-        *)
+        -*)
             echo "terminal-jail installer: unknown argument '$1' (see --help)" >&2
             exit 2
+            ;;
+        *)
+            # TJ-DF-022: --hermes-plugin optionally takes its target directory
+            # as the next positional token. A positional argument while the
+            # mode is inactive (or a second one) is still an unknown argument,
+            # so pre-existing behavior is unchanged: `install.sh foo` is
+            # refused exactly as before. A token starting with '-' is never
+            # captured as the target — `--hermes-plugin --uninstall` must
+            # stay a flag-shaped refusal, not silently deploy to a directory
+            # named after the flag.
+            case "$1" in
+                -*) capture=0 ;;
+                *) capture=1 ;;
+            esac
+            if [ "$HERMES_PLUGIN" -eq 1 ] \
+                && [ "$capture" -eq 1 ] \
+                && [ -z "$HERMES_PLUGIN_ARG" ] \
+                && [ -z "${HERMES_PLUGIN_TARGET_SEEN:-}" ]; then
+                HERMES_PLUGIN_ARG="$1"
+                HERMES_PLUGIN_TARGET_SEEN=1
+            else
+                echo "terminal-jail installer: unknown argument '$1' (see --help)" >&2
+                exit 2
+            fi
+            shift
             ;;
     esac
 done
@@ -291,7 +356,10 @@ echo "terminal-jail installer: detected architecture ${ARCH}"
 # downloading from a dead URL (curl | sh would otherwise 404 silently).
 # --uninstall is exempt (TJ-GAP-071): it downloads nothing, so the dead-URL
 # hazard does not apply and removal must work from any invocation shape.
-if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ] && [ "$UNINSTALL" -eq 0 ]; then
+# --hermes-plugin is exempt for the same reason (TJ-DF-022): it copies a
+# checkout tree, downloads nothing, and a refresh must work from any
+# invocation shape (its own checkout guard follows).
+if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ] && [ "$UNINSTALL" -eq 0 ] && [ "$HERMES_PLUGIN" -eq 0 ]; then
     echo "terminal-jail installer: no local checkout detected and release mode is not enabled." >&2
     echo "  Release assets are not published yet (the default download URL returns 404)." >&2
     echo "  Supported install: run ./install.sh from a repository checkout." >&2
@@ -321,6 +389,18 @@ if [ "$UNINSTALL" -eq 1 ]; then
         exit 2
     fi
 fi
+# TJ-DF-022: --hermes-plugin is a standalone mode exactly like --uninstall and
+# --list-rule-packs — parse-time refusals, nothing written.
+if [ "$HERMES_PLUGIN" -eq 1 ]; then
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+        echo "terminal-jail installer: --hermes-plugin cannot be combined with --rule-pack/--unrule-pack — run them separately (nothing was written)" >&2
+        exit 2
+    fi
+    if [ "$UNINSTALL" -eq 1 ] || [ "$LIST_RULE_PACKS" -eq 1 ]; then
+        echo "terminal-jail installer: --hermes-plugin cannot be combined with --uninstall/--list-rule-packs — run them separately (nothing was written)" >&2
+        exit 2
+    fi
+fi
 if [ "$UNINSTALL_SYSTEMD" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then
     echo "terminal-jail installer: --uninstall-systemd only means something together with --uninstall (nothing was written)" >&2
     exit 2
@@ -341,6 +421,76 @@ if [ "$LIST_RULE_PACKS" -eq 1 ]; then
     fi
     echo "terminal-jail installer: rule packs available in this checkout (opt in with --rule-pack <name>):"
     python3 "$SCRIPT_DIR/scripts/rule-pack-tool.py" list
+    exit 0
+fi
+
+# --- --hermes-plugin: deploy/refresh the Hermes plugin tree (TJ-DF-022) -------
+# The gateway loads this plugin from a plugin DIRECTORY (discovery semantics,
+# docs/quickstart.md section 3d): plugin.yaml + __init__.py + terminal_jail/.
+# A host that installed the v0.2.0 snapshot had no refresh path — re-running a
+# bare `cp -r` only overwrites, it never removes, so files the new tree no
+# longer ships survive forever. The UPDATE contract here is: empty the
+# deployed plugin package first, then copy the current tree in wholesale —
+# after this mode the target is byte-for-byte the repo's plugin/ tree.
+#
+# Target resolution, first non-empty wins: the positional argument captured
+# during parsing (--hermes-plugin <dir>), --hermes-plugin-dir=<dir>, the
+# TERMINAL_JAIL_HERMES_PLUGIN_DIR env var, then the default
+# $HOME/.hermes/plugins/terminal-jail. Written as an explicit chain —
+# dash mis-parses nested "${A:-${B:-}/...}" expansions.
+if [ "$HERMES_PLUGIN" -eq 1 ]; then
+    # The plugin mode reads the checkout through THIS script's own location —
+    # absolute invocations included. Copying a tree needs no release assets,
+    # so the `sh /abs/path/install.sh --hermes-plugin` shape (what a refresh
+    # of a remote host looks like) is valid here even though the release gate
+    # refuses that shape for the binary download. SCRIPT_DIR is only set for
+    # relative invocations (the release-gate contract is untouched), so an
+    # absolute invocation derives the checkout root from $0 directly.
+    plugin_source_dir="$SCRIPT_DIR"
+    if [ -z "$plugin_source_dir" ] && [ -n "${0:-}" ]; then
+        plugin_source_dir="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd 2>/dev/null || true)"
+    fi
+    if [ -z "$plugin_source_dir" ] || [ ! -f "$plugin_source_dir/plugin/plugin.yaml" ] \
+        || [ ! -d "$plugin_source_dir/plugin/terminal_jail" ]; then
+        echo "terminal-jail installer: --hermes-plugin needs a repository checkout (no plugin/plugin.yaml + plugin/terminal_jail next to ${0:-install.sh}); nothing was written" >&2
+        exit 2
+    fi
+    if [ -n "$HERMES_PLUGIN_ARG" ]; then
+        HERMES_PLUGIN_TARGET="$HERMES_PLUGIN_ARG"
+    fi
+    if [ -z "$HERMES_PLUGIN_TARGET" ] && [ -n "$TERMINAL_JAIL_HERMES_PLUGIN_DIR" ]; then
+        HERMES_PLUGIN_TARGET="$TERMINAL_JAIL_HERMES_PLUGIN_DIR"
+    fi
+    if [ -z "$HERMES_PLUGIN_TARGET" ] && [ -n "$HOME" ]; then
+        HERMES_PLUGIN_TARGET="$HOME/.hermes/plugins/terminal-jail"
+    fi
+    if [ -z "$HERMES_PLUGIN_TARGET" ]; then
+        echo "terminal-jail installer: --hermes-plugin: could not resolve a target directory (HOME is not set and no --hermes-plugin-dir=<dir> was given); nothing was written" >&2
+        exit 2
+    fi
+    HERMES_PLUGIN_TARGET="$(path_normalize "$HERMES_PLUGIN_TARGET")"
+    # Fresh install or refresh: the deployed package directory is removed and
+    # re-copied, so a v0.2-era target carries no stale file after this runs.
+    if [ -e "$HERMES_PLUGIN_TARGET" ] && [ ! -d "$HERMES_PLUGIN_TARGET" ]; then
+        echo "terminal-jail installer: --hermes-plugin: target exists and is not a directory: $HERMES_PLUGIN_TARGET (remove it or choose another target with --hermes-plugin-dir=<dir>); nothing was written" >&2
+        exit 2
+    fi
+    if [ -d "$HERMES_PLUGIN_TARGET" ]; then
+        # The directory itself is kept (Hermes discovery may hold it open);
+        # every stale entry inside it is removed, including dotfiles.
+        find "$HERMES_PLUGIN_TARGET" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+        echo "terminal-jail installer: refreshed Hermes plugin tree in $HERMES_PLUGIN_TARGET (stale files removed)"
+    else
+        mkdir -p "$HERMES_PLUGIN_TARGET"
+        echo "terminal-jail installer: created Hermes plugin directory $HERMES_PLUGIN_TARGET"
+    fi
+    cp -R "$plugin_source_dir"/plugin/. "$HERMES_PLUGIN_TARGET/"
+    deployed_version="$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"\n]*\)"\{0,1\}[[:space:]]*$/\1/p' "$HERMES_PLUGIN_TARGET/plugin.yaml" | head -n 1)"
+    if [ -z "$deployed_version" ]; then
+        deployed_version="unknown"
+    fi
+    echo "terminal-jail installer: deployed Hermes plugin v${deployed_version} to $HERMES_PLUGIN_TARGET"
+    echo "terminal-jail installer: enable it in ~/.hermes/config.yaml (plugins.enabled: terminal-jail) and restart Hermes — see docs/quickstart.md section 3d."
     exit 0
 fi
 

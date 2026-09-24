@@ -420,11 +420,14 @@ there is no env var to fix.)
 **Install — copy the plugin tree into your Hermes plugin directory:**
 
 ```bash
-cp -r /absolute/path/to/terminal-jail/plugin ~/.hermes/plugins/terminal-jail
+./install.sh --hermes-plugin
 ```
 
-The copy must contain `plugin.yaml`, `__init__.py` and the `terminal_jail/` package —
-exactly what the repo's `plugin/` tree ships.
+This deploys the checkout's `plugin/` tree (`plugin.yaml`, `__init__.py`, the
+`terminal_jail/` package — everything the copy must contain) to
+`~/.hermes/plugins/terminal-jail` and prints the deployed version. Pass an
+explicit target as an argument (`./install.sh --hermes-plugin /custom/dir`) or
+via `--hermes-plugin-dir=<dir>`; the default is derived from `$HOME`.
 
 **Enable it** in `~/.hermes/config.yaml`:
 
@@ -488,8 +491,16 @@ installed vs `1.2.0` in the repo today). Check yours:
 grep "^version" ~/.hermes/plugins/terminal-jail/plugin.yaml
 ```
 
-To refresh, re-run the `cp -r` install step above (it overwrites the installed tree)
-and restart Hermes again.
+Already installed? Refresh with the same command — re-running it empties the
+deployed package and re-copies the current tree, so files the new version no
+longer ships (e.g. a v0.2-era leftover) are removed rather than surviving the
+update, and the deployed version is printed:
+
+```bash
+./install.sh --hermes-plugin
+```
+
+Then restart Hermes again so the discovery sweep re-reads the refreshed tree.
 
 The other core discovery path — a pip package exposing the `hermes_agent.plugins`
 entry point — is not used by this plugin; the directory copy is the supported install.
