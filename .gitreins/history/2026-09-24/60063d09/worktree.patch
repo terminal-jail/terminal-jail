@@ -1,0 +1,18 @@
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index d4d6eed..63f00a0 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -89,3 +89,4 @@
+ {"ts": 1790174082.9196675, "tokens_in": 546102, "tokens_out": 6962, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790174233.9365442, "tokens_in": 1619242, "tokens_out": 10424, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790244959.5402331, "tokens_in": 167212, "tokens_out": 2954, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790245266.1391325, "tokens_in": 315392, "tokens_out": 3775, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..7811c36 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,4 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_standalone_cli.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}

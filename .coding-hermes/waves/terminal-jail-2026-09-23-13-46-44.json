@@ -28,5 +28,6 @@
       "worker_provider": "zai-glm-default",
       "log": "/tmp/tj-wave-TJ-DF-023.log"
     }
-  ]
+  ],
+  "finished_at": "2026-09-24T12:38:10-05:00"
 }
