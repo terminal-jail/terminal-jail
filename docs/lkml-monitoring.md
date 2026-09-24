@@ -68,12 +68,15 @@ The `scripts/kernel-watchdog.sh` (T10.1) already monitors the local kernel's cur
 1. **Weekly RSS check** — script that fetches the RSS feeds above and greps for relevant keywords
 2. **New release diff** — script that diffs `kernel/user_namespace.c`, `kernel/seccomp.c`, `security/apparmor/lsm.c` between kernel versions
 
-### Example weekly check script (add to scripts/):
+### Example weekly check script (future work — not shipped)
+
+`scripts/lkml-check.sh` is **not shipped yet** — the block below is a sketch for a future
+helper, not a ready-to-run file. Do not point cron at it until it lands in the repo.
 
 ```bash
 #!/usr/bin/env bash
 # scripts/lkml-check.sh — weekly LKML scan for terminal-jail-relevant patches
-# Run via: cron 0 9 * * MON ~/terminal-jail/scripts/lkml-check.sh
+# (PROPOSED; not in the repo yet — see note above)
 
 FEEDS=(
   "https://lore.kernel.org/all/new.atom"
