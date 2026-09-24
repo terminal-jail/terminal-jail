@@ -140,7 +140,9 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
         return _unmeasured(
-            name, backend, "a handful of entries, far below the host count",
+            name,
+            backend,
+            "a handful of entries, far below the host count",
             f"launch failed: {exc}",
         )
     if result.returncode != 0:
@@ -153,7 +155,9 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
     count = _last_int(result.stdout)
     if count is None:
         return _unmeasured(
-            name, backend, "a handful of entries, far below the host count",
+            name,
+            backend,
+            "a handful of entries, far below the host count",
             "no numeric count",
         )
     if backend == "bwrap":
@@ -319,8 +323,10 @@ def _escape_cell() -> dict[str, str]:
     tail = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
     if "No module named" in result.stderr and "pytest" in result.stderr:
         return _unmeasured(
-            name, "bwrap", "all vectors green", "pytest unavailable — run under "
-            "the repo venv (.venv/bin/python)"
+            name,
+            "bwrap",
+            "all vectors green",
+            "pytest unavailable — run under the repo venv (.venv/bin/python)",
         )
     ok = result.returncode == 0 and "failed" not in tail.lower()
     return _cell(
@@ -443,7 +449,8 @@ def _classification_cells() -> list[dict[str, str]]:
             fsiso,
             "mapped keeps real FS isolation; degraded runs mapping-less",
             "SAME" if fsiso == "FULL" else "KNOWN-LIMIT",
-            "scripts/fs-isolation-probe.py — " + (fsiso_line or fsiso)
+            "scripts/fs-isolation-probe.py — "
+            + (fsiso_line or fsiso)
             + "; DEGRADED = both backends run mapping-less here "
             "(known limit (c))",
         ),

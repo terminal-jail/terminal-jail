@@ -21,9 +21,7 @@ GUARD_SCRIPT = PROJECT_ROOT / "scripts" / "board_id_guard.py"
 # ── helpers ────────────────────────────────────────────────────────
 
 
-def run_guard(
-    *args: str, cwd: Path | None = None
-) -> subprocess.CompletedProcess[str]:
+def run_guard(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run the board guard and return the CompletedProcess."""
     return subprocess.run(
         [sys.executable, str(GUARD_SCRIPT), *args],
@@ -107,9 +105,7 @@ def test_default_target_is_canonical_board_path():
     module = load_guard_module()
     expected = PROJECT_ROOT / ".coding-hermes" / "board" / "tasks.jsonl"
     assert module.default_target() == expected
-    assert module.DEFAULT_BOARD_RELATIVE == Path(
-        ".coding-hermes/board/tasks.jsonl"
-    )
+    assert module.DEFAULT_BOARD_RELATIVE == Path(".coding-hermes/board/tasks.jsonl")
     assert expected.is_file()
 
 
@@ -253,12 +249,10 @@ def test_empty_id_rejected(tmp_path):
 def test_compact_keeps_last_raw_row_exactly(tmp_path):
     """Survivors are raw bytes: escaping style, spacing and key order survive."""
     escaped = (
-        b'{"id": "DUP-1", "title": "caf\\u00e9 \\ud83d\\ude80", '
-        b'"status": "pending"}'
+        b'{"id": "DUP-1", "title": "caf\\u00e9 \\ud83d\\ude80", "status": "pending"}'
     )
     raw_utf8 = (
-        '{"title": "café 🚀", "id": "DUP-1", "status": "complete",'
-        ' "complexity": 3}'
+        '{"title": "café 🚀", "id": "DUP-1", "status": "complete", "complexity": 3}'
     ).encode()
     unique = row(id="TJ-GAP-009", title="survivor", status="pending")
     board = write_board(tmp_path, [escaped, raw_utf8, unique])

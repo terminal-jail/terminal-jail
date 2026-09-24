@@ -55,8 +55,7 @@ def test_packages_find_exposes_terminal_jail_as_top_level(pyproject: dict) -> No
     )
     include = find["include"]
     assert "terminal_jail*" in include, (
-        f"packages.find.include = {include!r}; expected it to contain "
-        "'terminal_jail*'"
+        f"packages.find.include = {include!r}; expected it to contain 'terminal_jail*'"
     )
 
 
@@ -99,6 +98,7 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
     from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
     from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
     from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+
     rules_yaml = (
         PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "00-builtins.yaml"
     )
@@ -108,9 +108,7 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
     engine_ids = {
         rule.id
         for rule in (
-            list(BUILTIN_BLOCKLIST)
-            + list(BUILTIN_SANDBOX)
-            + list(BUILTIN_ALLOWLIST)
+            list(BUILTIN_BLOCKLIST) + list(BUILTIN_SANDBOX) + list(BUILTIN_ALLOWLIST)
         )
     }
 
@@ -154,12 +152,11 @@ def test_shipped_rules_yaml_patterns_match_engine_builtins() -> None:
     from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
     from terminal_jail.interruptor.rules import RuleLoader
     from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+
     engine_rules = {
         rule.id: rule
         for rule in (
-            list(BUILTIN_BLOCKLIST)
-            + list(BUILTIN_SANDBOX)
-            + list(BUILTIN_ALLOWLIST)
+            list(BUILTIN_BLOCKLIST) + list(BUILTIN_SANDBOX) + list(BUILTIN_ALLOWLIST)
         )
     }
     rules_dir = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules"
@@ -170,8 +167,7 @@ def test_shipped_rules_yaml_patterns_match_engine_builtins() -> None:
     missing = sorted(set(engine_rules) - {r.id for r in loaded.rules})
     assert not missing, f"shipped YAML is missing engine rule ids: {missing}"
     assert len(loaded.rules) == len(engine_rules), (
-        f"shipped YAML loaded {len(loaded.rules)} rules, engine has "
-        f"{len(engine_rules)}"
+        f"shipped YAML loaded {len(loaded.rules)} rules, engine has {len(engine_rules)}"
     )
 
     drift = []
@@ -396,7 +392,11 @@ def test_docs_state_bubblewrap_packaging_boundary() -> None:
         for line in doc.splitlines()
         if any(
             claim in line.lower()
-            for claim in ("vendor bubblewrap", "vendoring bubblewrap", "vendored bubblewrap")
+            for claim in (
+                "vendor bubblewrap",
+                "vendoring bubblewrap",
+                "vendored bubblewrap",
+            )
         )
     ]
     assert claiming_lines, (

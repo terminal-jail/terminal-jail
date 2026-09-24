@@ -229,10 +229,24 @@ def _bwrap_usable() -> bool:
     if not bwrap:
         return False
     probe = subprocess.run(
-        [bwrap, "--unshare-user", "--unshare-pid", "--die-with-parent",
-         "--bind", "/", "/", "--dev-bind", "/dev", "/dev",
-         "--proc", "/proc", "true"],
-        capture_output=True, check=False, timeout=30,
+        [
+            bwrap,
+            "--unshare-user",
+            "--unshare-pid",
+            "--die-with-parent",
+            "--bind",
+            "/",
+            "/",
+            "--dev-bind",
+            "/dev",
+            "/dev",
+            "--proc",
+            "/proc",
+            "true",
+        ],
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     return probe.returncode == 0
 
@@ -242,7 +256,10 @@ def _pidns_full() -> bool:
     try:
         result = subprocess.run(
             [sys.executable, str(PIDNS_PROBE)],
-            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=60,
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (subprocess.TimeoutExpired, OSError):
         return False
@@ -258,10 +275,20 @@ def _jail_proc_count(backend: str) -> int:
     env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
     env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
     result = subprocess.run(
-        [str(CLI_SCRIPT), "--no-interruptor", "--user",
-         "sh", "-c", 'ls /proc | grep -c "^[0-9]\\+$"'],
-        cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True,
-        check=False, timeout=30,
+        [
+            str(CLI_SCRIPT),
+            "--no-interruptor",
+            "--user",
+            "sh",
+            "-c",
+            'ls /proc | grep -c "^[0-9]\\+$"',
+        ],
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
     )
     assert result.returncode == 0, result.stderr
     return int(result.stdout.strip().splitlines()[-1])
@@ -321,9 +348,12 @@ def _orphan_teardown(backend: str) -> float:
     env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
     launcher = subprocess.Popen(
         [str(CLI_SCRIPT), "--no-interruptor", "--user", "sleep", "300"],
-        cwd=str(PROJECT_ROOT), env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL, start_new_session=True,
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
     )
     payload = None
     t0 = time.monotonic()
@@ -351,8 +381,7 @@ def _orphan_teardown(backend: str) -> float:
         except ProcessLookupError:
             pass
         pytest.fail(
-            f"orphan: {backend} payload {payload} survived the wrapper's "
-            "death for 15s"
+            f"orphan: {backend} payload {payload} survived the wrapper's death for 15s"
         )
     finally:
         launcher.wait()

@@ -111,12 +111,20 @@ arbitrary command lengths**. P1 fix is small and targeted at matcher.py:115.
 ```python
 import json, subprocess, sys
 
+
 def verdict(cmd: str) -> dict:
     p = subprocess.run(
-        [sys.executable, "/path/to/terminal-jail/plugin/terminal_jail/interruptor_bridge.py"],
-        input=json.dumps({"command": cmd}), capture_output=True, text=True, timeout=10,
+        [
+            sys.executable,
+            "/path/to/terminal-jail/plugin/terminal_jail/interruptor_bridge.py",
+        ],
+        input=json.dumps({"command": cmd}),
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     return json.loads(p.stdout.splitlines()[-1])
+
 
 v = verdict("ls -la")
 assert v["action"] == "allow" and v["rule_id"] == "allow-ls"

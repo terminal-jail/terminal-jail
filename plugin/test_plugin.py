@@ -67,7 +67,9 @@ class TestEnabledFromEnvironment:
 class TestUnshareExecutableFromEnvironment:
     """T4.4: unshare path resolution."""
 
-    def test_missing_unshare_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_unshare_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "/nonexistent/unshare")
         assert plugin_module._unshare_executable_from_environment() is None
 
@@ -89,7 +91,9 @@ class TestUnshareExecutableFromEnvironment:
         result = plugin_module._unshare_executable_from_environment()
         assert result is None
 
-    def test_whitespace_command_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_whitespace_command_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "unshare --user")
         assert plugin_module._unshare_executable_from_environment() is None
 

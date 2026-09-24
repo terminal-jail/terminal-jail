@@ -88,7 +88,7 @@ exit "${TJ_PROBE_EXIT:-0}"
 # Bridge stand-in: records the reconstructed command the wrapper sent, then
 # answers with a canned verdict. `modify` mirrors the engine's rewrite shape
 # (`<prefix>bash -c <command>`) around the command it received.
-_BRIDGE_STUB = '''#!/usr/bin/env python3
+_BRIDGE_STUB = """#!/usr/bin/env python3
 import json
 import os
 import shlex
@@ -122,7 +122,7 @@ else:
     }
 json.dump(response, sys.stdout)
 sys.stdout.write("\\n")
-'''
+"""
 
 
 def _make_stub_path(tmp_path: Path) -> str:

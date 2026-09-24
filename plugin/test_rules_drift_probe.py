@@ -106,7 +106,9 @@ class TestDowngradedCopyDrift:
             env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)}
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert f"DRIFT: {DOWNGRADED_ID}: engine action={ENGINE_ACTION} " in result.stdout
+        assert (
+            f"DRIFT: {DOWNGRADED_ID}: engine action={ENGINE_ACTION} " in result.stdout
+        )
         assert f"installed action={DOWNGRADED_ACTION} (weaker)" in result.stdout
         # both file paths named: the shipped mirror (engine constant) and the
         # installed file that shadows it
@@ -144,16 +146,19 @@ class TestDowngradedCopyDrift:
             tmp_path / "user",
             {
                 "00-builtins.yaml": downgraded_yaml(DOWNGRADED_ACTION),
-                "10-tighten.yaml": downgraded_yaml("block").replace(
-                    DOWNGRADED_ID, "auto-pytest"
-                ).replace("sandbox\n", "block\n", 1),
+                "10-tighten.yaml": downgraded_yaml("block")
+                .replace(DOWNGRADED_ID, "auto-pytest")
+                .replace("sandbox\n", "block\n", 1),
             },
         )
         result = run_probe(
             "--fail-on-drift",
             env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)},
         )
-        assert "DRIFT: auto-pytest: engine action=sandbox installed action=block (stronger)" in result.stdout
+        assert (
+            "DRIFT: auto-pytest: engine action=sandbox installed action=block (stronger)"
+            in result.stdout
+        )
         assert result.returncode == 1
 
 
@@ -198,7 +203,9 @@ class TestOkCases:
         assert "DRIFT" not in result.stdout
         # Derive the expected count from the engine rather than pinning a
         # literal: a newly added builtin rule must not break this case.
-        assert f"RESULT: drift=0 overridden={len(probe_mod.ENGINE_RULES)}" in result.stdout
+        assert (
+            f"RESULT: drift=0 overridden={len(probe_mod.ENGINE_RULES)}" in result.stdout
+        )
 
     def test_fail_on_drift_exits_zero_when_clean(self, tmp_path: Path) -> None:
         result = run_probe(
@@ -258,7 +265,7 @@ class TestNotDrift:
         # stays live), so corruption is reported as WARNING, never as drift.
         user_dir = write_rules_dir(
             tmp_path / "user",
-            {"00-builtins.yaml": "rules: [ { id: \"unterminated\", action: "},
+            {"00-builtins.yaml": 'rules: [ { id: "unterminated", action: '},
         )
         result = run_probe(
             "--fail-on-drift",
@@ -321,16 +328,16 @@ class TestProbeInProcess:
     def test_probe_names_source_file_per_drift_row(self, tmp_path: Path) -> None:
         # Two downgraded ids in two different files: each DRIFT row must name
         # ITS OWN source file (a host may have several installed files).
-        second = downgraded_yaml(DOWNGRADED_ACTION).replace(DOWNGRADED_ID, "builtin-sudo")
+        second = downgraded_yaml(DOWNGRADED_ACTION).replace(
+            DOWNGRADED_ID, "builtin-sudo"
+        )
         write_rules_dir(
             tmp_path / "user",
             {"00-a.yaml": downgraded_yaml(DOWNGRADED_ACTION), "10-b.yaml": second},
         )
         lines, drift = probe_mod.probe(str(tmp_path / "absent"), str(tmp_path / "user"))
         assert drift == 2
-        sources = [
-            line for line in lines if line.startswith("    installed copy")
-        ]
+        sources = [line for line in lines if line.startswith("    installed copy")]
         assert len(sources) == 2
         assert "00-a.yaml" in sources[0] and "10-b.yaml" in sources[1]
 
@@ -342,11 +349,15 @@ class TestProbeInProcess:
         def boom() -> object:
             raise RuntimeError("injected failure")
 
-        monkeypatch.setattr(probe_mod.Config, "from_environ", classmethod(lambda cls: boom()))
+        monkeypatch.setattr(
+            probe_mod.Config, "from_environ", classmethod(lambda cls: boom())
+        )
         monkeypatch.setattr(sys, "argv", ["rules-drift-probe.py"])
         rc = probe_mod.main()
         assert rc == 0
-        assert capsys.readouterr().out.startswith("UNKNOWN: probe error: injected failure")
+        assert capsys.readouterr().out.startswith(
+            "UNKNOWN: probe error: injected failure"
+        )
 
     def test_engine_covers_all_builtin_layers(self) -> None:
         # Guard the engine-constant aggregation: every blocklist/sandbox/

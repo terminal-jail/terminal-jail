@@ -109,7 +109,7 @@ DB_PACK_BLOCK_VECTORS = (
     ("pack-db-psql-meta-shell", "psql -c", '"\\! rm -rf /tmp/x"'),
     ("pack-db-psql-meta-shell", "psql -c", '"\\! id"'),
     ("pack-db-psql-meta-shell", "psql template1 -c", '"\\! sh"'),
-    ("pack-db-psql-meta-shell", "psql --command=", '\\! sh'),
+    ("pack-db-psql-meta-shell", "psql --command=", "\\! sh"),
     ("pack-db-psql-meta-shell", "psql --command", '"\\! sh"'),
     # 2. SQL destruction in an execution context
     ("pack-db-drop-database", "psql -c", '"DROP DATABASE prod"'),

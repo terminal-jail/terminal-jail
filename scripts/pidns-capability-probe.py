@@ -123,10 +123,7 @@ def _classify() -> str:
         marker in result.stderr for marker in _DEGRADATION_MARKERS
     ):
         return "DEGRADED"
-    return (
-        f"UNKNOWN: rc={result.returncode}, "
-        f"stderr={result.stderr.strip()!r}"
-    )
+    return f"UNKNOWN: rc={result.returncode}, stderr={result.stderr.strip()!r}"
 
 
 def main() -> None:

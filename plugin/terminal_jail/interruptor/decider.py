@@ -103,7 +103,9 @@ class Decider:
         allowlist = effective(BUILTIN_ALLOWLIST, allow_ids)
         sandbox = effective(BUILTIN_SANDBOX, sandbox_ids)
         layer4 = [
-            r for r in user_rules.rules if r.id not in block_ids | allow_ids | sandbox_ids
+            r
+            for r in user_rules.rules
+            if r.id not in block_ids | allow_ids | sandbox_ids
         ]
         return blocklist, allowlist, sandbox, layer4
 

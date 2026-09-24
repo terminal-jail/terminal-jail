@@ -170,7 +170,9 @@ def _mapped_flags() -> str:
 _LEGACY_FLAGS = "--user --pid --fork"
 
 
-def _run_unshare(flags: str, payload: str, timeout: int = 15) -> subprocess.CompletedProcess[str]:
+def _run_unshare(
+    flags: str, payload: str, timeout: int = 15
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["unshare", *flags.split(), "bash", "-c", payload],
         capture_output=True,
@@ -197,7 +199,9 @@ def _diagnose(mapped: subprocess.CompletedProcess[str], legacy_rc: int) -> str:
         causes.append(f"no /etc/subgid entry for {username!r}")
     err = (mapped.stderr or "").strip()
     if legacy_rc == 0 and mapped.returncode != 0:
-        cause = "uid-mapping denied: mapped launch failed while the legacy one succeeded"
+        cause = (
+            "uid-mapping denied: mapped launch failed while the legacy one succeeded"
+        )
         lowered = err.lower()
         if "setuid" in lowered:
             cause += (
@@ -257,7 +261,7 @@ def _classify() -> str:
         payload = (
             f"cat '{secret_file}' >/dev/null 2>&1; read_rc=$?; "
             f"touch '{home_probe}' >/dev/null 2>&1; write_rc=$?; "
-            f"echo \"read_rc=$read_rc write_rc=$write_rc\""
+            f'echo "read_rc=$read_rc write_rc=$write_rc"'
         )
 
         mapped = _run_unshare(_mapped_flags(), payload)
@@ -265,18 +269,20 @@ def _classify() -> str:
         if mapped.returncode == 0 and last_line[0] == "read_rc=0 write_rc=0":
             # The namespace never came up with a mapping — the payload ran in
             # the caller's own context. Not FULL even though rc==0.
-            return "DEGRADED: mapped launch produced no isolation " + _diagnose(mapped, -1)
+            return "DEGRADED: mapped launch produced no isolation " + _diagnose(
+                mapped, -1
+            )
         if mapped.returncode == 0 and last_line[0] == "read_rc=1 write_rc=1":
             return "FULL: uid-mapped user namespace denies caller-owned 600 reads and home writes"
         if mapped.returncode == 0:
-            return (
-                "DEGRADED: partial isolation "
-                f"({last_line[0]!r}); " + _diagnose(mapped, -1)
+            return f"DEGRADED: partial isolation ({last_line[0]!r}); " + _diagnose(
+                mapped, -1
             )
         legacy = _run_unshare(_LEGACY_FLAGS, "true")
         return (
             f"DEGRADED: mapped launch failed (rc={mapped.returncode}, "
-            f"stderr={(mapped.stderr or '').strip()!r}); " + _diagnose(mapped, legacy.returncode)
+            f"stderr={(mapped.stderr or '').strip()!r}); "
+            + _diagnose(mapped, legacy.returncode)
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return f"UNKNOWN: probe error: {exc}"
@@ -287,7 +293,9 @@ def _classify() -> str:
             tmp.rmdir()
         except OSError:
             pass
-        home_probe = Path(os.environ.get("HOME", "/tmp")) / f".tj-fsiso-probe-{os.getpid()}"
+        home_probe = (
+            Path(os.environ.get("HOME", "/tmp")) / f".tj-fsiso-probe-{os.getpid()}"
+        )
         try:
             home_probe.unlink()
         except OSError:

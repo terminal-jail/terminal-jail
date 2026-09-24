@@ -76,7 +76,7 @@ def write_fake_systemd_run(tmp_path: Path) -> Path:
     fake = tmp_path / "systemd-run"
     fake.write_text(
         "#!/bin/sh\n"
-        '# Fake systemd-run for offline TJ-GAP-052 tests (NOT a real unit).\n'
+        "# Fake systemd-run for offline TJ-GAP-052 tests (NOT a real unit).\n"
         'MODE="${TJ_FAKE_MODE:-passthrough}"\n'
         'ASSIGN=""\n'
         'prev=""\n'
@@ -97,7 +97,7 @@ def write_fake_systemd_run(tmp_path: Path) -> Path:
         'if [ "$MODE" = "silent" ]; then\n'
         "  exit 0\n"
         "fi\n"
-        '# passthrough: execute the payload exactly as a unit would\n'
+        "# passthrough: execute the payload exactly as a unit would\n"
         '/bin/sh -c "$PAYLOAD"\n',
         encoding="utf-8",
     )
@@ -129,10 +129,13 @@ def test_rejected_directive_is_unsupported(tmp_path):
     """(i) load rejection ('Unknown assignment') classifies UNSUPPORTED."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
-        "--directive", "NoNewPrivileges",
+        "--directive",
+        "NoNewPrivileges",
         env_extra={"TJ_FAKE_MODE": "reject"},
     )
     assert result.returncode == 0, result.stderr  # classifier, never a gate
@@ -146,10 +149,13 @@ def test_accepted_with_evidence_is_enforced(tmp_path):
     """(ii) accepted + enforcing evidence classifies ENFORCED."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
-        "--directive", "NoNewPrivileges",
+        "--directive",
+        "NoNewPrivileges",
         env_extra={"TJ_FAKE_MODE": "evidence"},
     )
     assert result.returncode == 0, result.stderr
@@ -163,10 +169,13 @@ def test_accepted_without_enforcing_evidence_is_not_enforced(tmp_path):
     """(iii) accepted but effect NOT observed classifies NOT_ENFORCED."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
-        "--directive", "NoNewPrivileges",
+        "--directive",
+        "NoNewPrivileges",
         env_extra={"TJ_FAKE_MODE": "passthrough"},
     )
     assert result.returncode == 0, result.stderr
@@ -180,10 +189,13 @@ def test_accepted_with_no_output_at_all_is_unknown(tmp_path):
     """A silent accept carries NO interpretable evidence: honest UNKNOWN."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
-        "--directive", "NoNewPrivileges",
+        "--directive",
+        "NoNewPrivileges",
         env_extra={"TJ_FAKE_MODE": "silent"},
     )
     assert result.returncode == 0, result.stderr
@@ -197,8 +209,10 @@ def test_full_table_rejected_by_manager_is_all_unsupported(tmp_path):
     """A manager rejecting every directive yields 13 UNSUPPORTED records."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
         env_extra={"TJ_FAKE_MODE": "reject"},
     )
@@ -216,8 +230,10 @@ def test_json_output_covers_every_directive_and_parses(tmp_path):
     """--json parses and carries one record per table directive."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
         "--json",
         env_extra={"TJ_FAKE_MODE": "passthrough"},
     )
@@ -238,9 +254,12 @@ def test_plain_text_mode_prints_verdict_and_summary(tmp_path):
     """Plain mode: one line per directive plus a final summary line."""
     fake = write_fake_systemd_run(tmp_path)
     result = run_probe(
-        "--systemd-run", str(fake),
-        "--scope", "user",
-        "--directive", "NoNewPrivileges",
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
+        "--directive",
+        "NoNewPrivileges",
         env_extra={"TJ_FAKE_MODE": "evidence"},
     )
     assert result.returncode == 0, result.stderr
@@ -258,10 +277,13 @@ def test_missing_systemd_run_is_all_unknown_exit_zero(tmp_path):
     """systemd-run not found -> all UNKNOWN, note, exit 0."""
     missing = tmp_path / "does-not-exist"
     result = run_probe(
-        "--systemd-run", str(missing),
-        "--scope", "user",
+        "--systemd-run",
+        str(missing),
+        "--scope",
+        "user",
         "--json",
-        "--directive", "NoNewPrivileges",
+        "--directive",
+        "NoNewPrivileges",
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)
@@ -326,13 +348,18 @@ def test_live_host_close_on_exec_control_and_enforcement():
     Skips (HOST-NO-SYSTEMD-RUN) on hosts/CI runners without one."""
     systemd_run = "/usr/bin/systemd-run"
     if not os.path.isfile(systemd_run) or not os.access(systemd_run, os.X_OK):
-        pytest.skip(
-            "HOST-NO-SYSTEMD-RUN: no systemd-run binary on this host"
-        )
+        pytest.skip("HOST-NO-SYSTEMD-RUN: no systemd-run binary on this host")
     try:
         canary = subprocess.run(
-            [systemd_run, "--user", "--pipe", "--wait", "--collect",
-             f"--unit=tj-probe-test-canary-{os.getpid()}", "/bin/true"],
+            [
+                systemd_run,
+                "--user",
+                "--pipe",
+                "--wait",
+                "--collect",
+                f"--unit=tj-probe-test-canary-{os.getpid()}",
+                "/bin/true",
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -347,12 +374,17 @@ def test_live_host_close_on_exec_control_and_enforcement():
         )
 
     result = run_probe(
-        "--systemd-run", systemd_run,
-        "--scope", "user",
+        "--systemd-run",
+        systemd_run,
+        "--scope",
+        "user",
         "--json",
-        "--directive", "CloseOnExec",
-        "--directive", "NoNewPrivileges",
-        "--directive", "TasksMax",
+        "--directive",
+        "CloseOnExec",
+        "--directive",
+        "NoNewPrivileges",
+        "--directive",
+        "TasksMax",
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)

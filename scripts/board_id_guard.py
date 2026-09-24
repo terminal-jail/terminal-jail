@@ -100,19 +100,14 @@ def scan_board(path: Path) -> BoardReport:
         try:
             value = json.loads(raw.decode("utf-8"))
         except UnicodeDecodeError as exc:
-            report.problems.append(
-                f"line {line_no}: not valid UTF-8 ({exc.reason})"
-            )
+            report.problems.append(f"line {line_no}: not valid UTF-8 ({exc.reason})")
             continue
         except json.JSONDecodeError as exc:
-            report.problems.append(
-                f"line {line_no}: malformed JSON ({exc.msg})"
-            )
+            report.problems.append(f"line {line_no}: malformed JSON ({exc.msg})")
             continue
         if not isinstance(value, dict):
             report.problems.append(
-                f"line {line_no}: row is not a JSON object "
-                f"({type(value).__name__})"
+                f"line {line_no}: row is not a JSON object ({type(value).__name__})"
             )
             continue
         if "id" not in value:
@@ -121,8 +116,7 @@ def scan_board(path: Path) -> BoardReport:
         task_id = value["id"]
         if not isinstance(task_id, str):
             report.problems.append(
-                f"line {line_no}: id is not a string "
-                f"({type(task_id).__name__})"
+                f"line {line_no}: id is not a string ({type(task_id).__name__})"
             )
             continue
         if not task_id.strip():
@@ -133,9 +127,7 @@ def scan_board(path: Path) -> BoardReport:
         seen.setdefault(task_id, []).append(line_no)
 
     report.duplicates = {
-        task_id: line_nos
-        for task_id, line_nos in seen.items()
-        if len(line_nos) > 1
+        task_id: line_nos for task_id, line_nos in seen.items() if len(line_nos) > 1
     }
     return report
 
@@ -154,10 +146,7 @@ def format_diagnostics(report: BoardReport) -> list[str]:
         for task_id in ordered:
             line_nos = report.duplicates[task_id]
             rendered = ", ".join(str(n) for n in line_nos)
-            out.append(
-                f"  {task_id}: lines {rendered} "
-                f"({len(line_nos)} occurrences)"
-            )
+            out.append(f"  {task_id}: lines {rendered} ({len(line_nos)} occurrences)")
 
     if report.ok:
         out.append(f"OK: {len(report.rows)} rows, {len(report.rows)} unique ids")

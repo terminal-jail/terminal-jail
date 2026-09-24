@@ -55,6 +55,7 @@ Requires PyYAML (a declared runtime dependency of this repo) and the repo's
 `plugin/` directory on sys.path (bootstrapped below, so running from the repo
 root works with the repo .venv python even when the package is not installed).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -322,8 +323,7 @@ def _parse_class(
     expected = cls.get("expected")
     if expected not in POSTURES:
         raise CatalogError(
-            f"{where}: 'expected' must be one of {'/'.join(POSTURES)}, "
-            f"got {expected!r}"
+            f"{where}: 'expected' must be one of {'/'.join(POSTURES)}, got {expected!r}"
         )
     note = cls.get("note", "")
     if not isinstance(note, str):
@@ -433,8 +433,7 @@ def render_text(report: SweepReport) -> str:
         lines.append(row)
     lines.append("")
     lines.append(
-        f"gtfobins-coverage: {matched}/{total} postures match expected "
-        f"({percent:.1f}%)"
+        f"gtfobins-coverage: {matched}/{total} postures match expected ({percent:.1f}%)"
     )
     lines.append(
         f"review backlog   : {len(review)} row(s) with no conscious posture yet "

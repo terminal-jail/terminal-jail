@@ -581,6 +581,7 @@ interruptor/
 from enum import Enum
 from dataclasses import dataclass
 
+
 class Action(Enum):
     ALLOW = "allow"
     BLOCK = "block"
@@ -588,13 +589,15 @@ class Action(Enum):
     WARN = "warn"
     LOG = "log"
 
+
 @dataclass
 class InterceptResult:
     action: Action
-    command: str           # original command
-    modified: str | None   # modified command (for MODIFY action)
-    rule_id: str | None    # which rule matched
-    reason: str            # human-readable reason
+    command: str  # original command
+    modified: str | None  # modified command (for MODIFY action)
+    rule_id: str | None  # which rule matched
+    reason: str  # human-readable reason
+
 
 def intercept(command: str, *, mode: str = "enforce") -> InterceptResult:
     """Evaluate a command against all rules and return a decision."""

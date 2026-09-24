@@ -59,9 +59,7 @@ DEFAULT_SUBID_START = 100000
 
 # Legacy mapping-less flags: the historical TJ-DF-015-era launch. Identity
 # display only — NO filesystem isolation (see module docstring).
-LEGACY_USER_FLAGS = (
-    "--user --pid --fork --kill-child=SIGKILL"
-)
+LEGACY_USER_FLAGS = "--user --pid --fork --kill-child=SIGKILL"
 
 # Mapped-launch template. The bash wrapper assembles the identical string
 # (its --kill-child token comes from adjacent string literals there — do not

@@ -24,6 +24,7 @@ into the pre-commit gate) and re-commit the regenerated catalog.
 Requires PyYAML (a declared runtime dependency of this repo;
 ``uv sync --dev`` or ``pip install pyyaml`` provides it).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -136,7 +137,7 @@ def render(rules: list[dict]) -> str:
     )
     out.append(
         "- A command matching **no** rule at all is ALLOWED (default-allow "
-        "posture); `\"rule_id\": null` on an allow verdict is that case, not "
+        'posture); `"rule_id": null` on an allow verdict is that case, not '
         "an approved decision."
     )
     out.append(
@@ -154,8 +155,12 @@ def render(rules: list[dict]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--check", action="store_true", help="exit 1 if the committed catalog drifted")
-    group.add_argument("--stdout", action="store_true", help="print the catalog, write nothing")
+    group.add_argument(
+        "--check", action="store_true", help="exit 1 if the committed catalog drifted"
+    )
+    group.add_argument(
+        "--stdout", action="store_true", help="print the catalog, write nothing"
+    )
     args = parser.parse_args()
 
     rendered = render(load_rules())

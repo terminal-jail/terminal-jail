@@ -104,7 +104,7 @@ _PAYLOADS: dict[str, tuple[str | None, str]] = {
     ),
     "NoNewPrivileges": (
         "NoNewPrivileges=true",
-        'echo NoNewPrivs_$(grep NoNewPrivs /proc/self/status | awk \'{print $2}\')',
+        "echo NoNewPrivs_$(grep NoNewPrivs /proc/self/status | awk '{print $2}')",
     ),
     "ProtectControlGroups": (
         "ProtectControlGroups=true",
@@ -112,7 +112,7 @@ _PAYLOADS: dict[str, tuple[str | None, str]] = {
     ),
     "TasksMax": (
         "TasksMax=256",
-        f'echo PIDS_MAX_$(cat {_CGDIR}/pids.max)',
+        f"echo PIDS_MAX_$(cat {_CGDIR}/pids.max)",
     ),
     "PrivateUsers": (
         "PrivateUsers=true",
@@ -124,7 +124,7 @@ _PAYLOADS: dict[str, tuple[str | None, str]] = {
     ),
     "CapabilityBoundingSet": (
         "CapabilityBoundingSet=",
-        'echo CAPBND_$(grep CapBnd /proc/self/status | awk \'{print $2}\')',
+        "echo CAPBND_$(grep CapBnd /proc/self/status | awk '{print $2}')",
     ),
     "RestrictAddressFamilies": (
         "RestrictAddressFamilies=~AF_INET AF_INET6 AF_NETLINK",
@@ -132,11 +132,11 @@ _PAYLOADS: dict[str, tuple[str | None, str]] = {
         # creatable, proving the deny-list (not a broken interpreter) is what
         # refused AF_INET.
         (
-            "python3 -c \"import socket; socket.socket(socket.AF_UNIX)\"; "
+            'python3 -c "import socket; socket.socket(socket.AF_UNIX)"; '
             "echo UNIX_RC=$?; "
-            "python3 -c \"import socket; socket.socket(socket.AF_INET)\" 2>/dev/null; "
+            'python3 -c "import socket; socket.socket(socket.AF_INET)" 2>/dev/null; '
             "echo INET_RC=$?; "
-            "python3 -c \"import socket; socket.socket(socket.AF_UNIX)\" 2>/dev/null "
+            'python3 -c "import socket; socket.socket(socket.AF_UNIX)" 2>/dev/null '
             "&& echo RAF_UNIX_OK"
         ),
     ),
@@ -151,11 +151,11 @@ _PAYLOADS: dict[str, tuple[str | None, str]] = {
     ),
     "ProtectHome": (
         "ProtectHome=true",
-        "test -e \"$HOME\" && echo HOME_VISIBLE || echo HOME_HIDDEN",
+        'test -e "$HOME" && echo HOME_VISIBLE || echo HOME_HIDDEN',
     ),
     "MemoryMax": (
         "MemoryMax=1G",
-        f'echo MEM_MAX_$(cat {_CGDIR}/memory.max)',
+        f"echo MEM_MAX_$(cat {_CGDIR}/memory.max)",
     ),
     # CloseOnExec=true: the negative control. specs/systemd.md documents it as
     # NOT a valid service-hardening directive; a correct manager rejects it at
@@ -190,7 +190,7 @@ def _field(stdout: str, prefix: str) -> str | None:
     """First line of stdout carrying `prefix`, stripped of the prefix."""
     for line in stdout.splitlines():
         if line.startswith(prefix):
-            return line[len(prefix):].strip()
+            return line[len(prefix) :].strip()
     return None
 
 
@@ -232,7 +232,9 @@ def _judge_memory_max(out: str, err: str, rc: int, scope: str) -> tuple[str, str
 
 def _judge_private_users(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
     # uid_map rows are space-indented; strip before testing the first char.
-    lines = [ln.split() for ln in out.splitlines() if ln.strip() and ln.strip()[0].isdigit()]
+    lines = [
+        ln.split() for ln in out.splitlines() if ln.strip() and ln.strip()[0].isdigit()
+    ]
     euid = _field(out, "EUID_")
     if not lines:
         return "UNKNOWN", f"no uid_map evidence (rc={rc}, stderr={err.strip()!r})"
@@ -246,7 +248,9 @@ def _judge_private_users(out: str, err: str, rc: int, scope: str) -> tuple[str, 
     return "ENFORCED", f"uid_map '{' '.join(first)}' (euid={euid})"
 
 
-def _judge_restrict_namespaces(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
+def _judge_restrict_namespaces(
+    out: str, err: str, rc: int, scope: str
+) -> tuple[str, str]:
     observed = _field(out, "RNS_RC=")
     if observed is None:
         return "UNKNOWN", f"no unshare evidence (rc={rc}, stderr={err.strip()!r})"
@@ -255,7 +259,9 @@ def _judge_restrict_namespaces(out: str, err: str, rc: int, scope: str) -> tuple
     return "NOT_ENFORCED", f"observed unshare --user --pid rc=0 ({scope} scope)"
 
 
-def _judge_capability_bounding(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
+def _judge_capability_bounding(
+    out: str, err: str, rc: int, scope: str
+) -> tuple[str, str]:
     value = _field(out, "CAPBND_")
     if value is not None:
         if set(value) == {"0"}:
@@ -281,7 +287,10 @@ def _judge_address_families(out: str, err: str, rc: int, scope: str) -> tuple[st
             "AF_UNIX control failed — payload interpreter broken, no verdict"
         )
     if inet_rc != "0":
-        return "ENFORCED", f"AF_INET socket denied (rc={inet_rc}); AF_UNIX ok (rc={unix_rc})"
+        return (
+            "ENFORCED",
+            f"AF_INET socket denied (rc={inet_rc}); AF_UNIX ok (rc={unix_rc})",
+        )
     return "NOT_ENFORCED", (
         f"observed AF_INET socket allowed (rc=0), deny-list not applied ({scope} scope)"
     )
@@ -290,7 +299,10 @@ def _judge_address_families(out: str, err: str, rc: int, scope: str) -> tuple[st
 def _judge_protect_proc(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
     line = _field(out, "PROC_")
     if line is None:
-        return "UNKNOWN", f"no /proc mountinfo evidence (rc={rc}, stderr={err.strip()!r})"
+        return (
+            "UNKNOWN",
+            f"no /proc mountinfo evidence (rc={rc}, stderr={err.strip()!r})",
+        )
     if "hidepid=invisible" in line:
         return "ENFORCED", f"/proc mount: {line}"
     return "NOT_ENFORCED", (
@@ -298,15 +310,18 @@ def _judge_protect_proc(out: str, err: str, rc: int, scope: str) -> tuple[str, s
     )
 
 
-def _judge_protect_control_groups(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
+def _judge_protect_control_groups(
+    out: str, err: str, rc: int, scope: str
+) -> tuple[str, str]:
     opts = _field(out, "CGOPTS_")
     if opts is None:
-        return "UNKNOWN", f"no cgroup mountinfo evidence (rc={rc}, stderr={err.strip()!r})"
+        return (
+            "UNKNOWN",
+            f"no cgroup mountinfo evidence (rc={rc}, stderr={err.strip()!r})",
+        )
     if "ro" in opts.split(","):
         return "ENFORCED", f"/sys/fs/cgroup mounted read-only ({opts})"
-    return "NOT_ENFORCED", (
-        f"observed writable cgroup mount ({scope} scope): {opts}"
-    )
+    return "NOT_ENFORCED", (f"observed writable cgroup mount ({scope} scope): {opts}")
 
 
 def _judge_protect_system(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
@@ -326,11 +341,16 @@ def _judge_protect_system(out: str, err: str, rc: int, scope: str) -> tuple[str,
 
 
 def _judge_protect_home(out: str, err: str, rc: int, scope: str) -> tuple[str, str]:
-    token = "HOME_HIDDEN" if "HOME_HIDDEN" in out else (
-        "HOME_VISIBLE" if "HOME_VISIBLE" in out else None
+    token = (
+        "HOME_HIDDEN"
+        if "HOME_HIDDEN" in out
+        else ("HOME_VISIBLE" if "HOME_VISIBLE" in out else None)
     )
     if token is None:
-        return "UNKNOWN", f"no home-visibility evidence (rc={rc}, stderr={err.strip()!r})"
+        return (
+            "UNKNOWN",
+            f"no home-visibility evidence (rc={rc}, stderr={err.strip()!r})",
+        )
     if token == "HOME_HIDDEN":
         return "ENFORCED", "$HOME not visible inside the unit"
     return "NOT_ENFORCED", (
@@ -640,10 +660,11 @@ def main(argv: list[str] | None = None) -> int:
 
     for record in records:
         prefix = " ".join(_scope_argv(record["scope"]))
-        location = f" ({prefix} {record['scope']})" if prefix else f" ({record['scope']})"
+        location = (
+            f" ({prefix} {record['scope']})" if prefix else f" ({record['scope']})"
+        )
         print(
-            f"{record['verdict']:<13} {record['value']}"
-            f"{location}: {record['evidence']}"
+            f"{record['verdict']:<13} {record['value']}{location}: {record['evidence']}"
         )
     print(
         f"SUMMARY: scope={scope} enforced={counts['ENFORCED']} "

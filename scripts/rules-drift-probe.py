@@ -135,8 +135,11 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int]:
         engine_rank = _ACTION_RANK.get(engine_rule.action, 3)
         installed_rank = _ACTION_RANK.get(rule.action, -1)
         direction = (
-            "weaker" if installed_rank < engine_rank else
-            "stronger" if installed_rank > engine_rank else "other"
+            "weaker"
+            if installed_rank < engine_rank
+            else "stronger"
+            if installed_rank > engine_rank
+            else "other"
         )
         drift += 1
         lines.append(
