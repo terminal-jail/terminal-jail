@@ -1,5 +1,25 @@
 ## [Unreleased]
 
+### Over-length fast path: long commands no longer freeze the engine (TJ-DF-024)
+
+- **Fix** (`plugin/terminal_jail/interruptor/__init__.py`): a command longer than
+  `TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` (default `4000` chars, read in
+  `interruptor/config.py`; `0` disables the guard) is now allowed **without regex
+  evaluation** and marked `rule_id="over-length-fastpath"` with a `[over-length] …`
+  reason naming the length, the budget, and the knob. Before: one 8KB argument cost
+  ~7.5s of pure CPU inside the matcher (polynomial backtracking in the blocklist
+  patterns) and 20KB+ never returned — a latency self-DoS on every shimmed shell
+  invocation. After: 8KB = 0.048s, 20KB = 0.066s, 200KB = 0.057s through the bridge
+  (measured; numbers and per-rule profile in
+  `docs/dogfood/2026-09-24-firewall-library-integration.md`).
+- **Posture unchanged:** the fast path is an allow-with-marker, never a block —
+  a legitimately long benign command still runs, and the marker is deliberately not a
+  rule id (no entry in any BUILTIN_* layer, no `00-builtins.yaml` mirror entry), so a
+  script can distinguish it from both an approved allow rule and a default-allow.
+  Verdicts for commands at or below the budget are byte-identical to before
+  (`plugin/test_over_length_fastpath.py`, 19 tests: acceptance payloads through the
+  real bridge, provenance, mode interactions, short-command parity, knob semantics).
+
 ## [1.2.0] — 2026-09-22
 
 ### `--uninstall`: the removal path (TJ-GAP-071)
