@@ -1,0 +1,73 @@
+commit aa129cacfaed2f21b5752048dd580d1889325ca8
+Merge: 7167b75 a255aaa
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Sep 24 15:14:44 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Sep 24 15:15:05 2026 -0500
+
+    merge: TJ-DF-024 required-substring prefilters from wt/TJ-DF-024
+    
+    # Conflicts:
+    #       CHANGELOG.md
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                                       |  19 ++
+ .../2026-09-24-firewall-library-integration.md     | 116 +++++++++++
+ plugin/terminal_jail/interruptor/matcher.py        |  67 ++++++-
+ plugin/test_tjdf024_prefilter.py                   | 222 +++++++++++++++++++++
+ 4 files changed, 421 insertions(+), 3 deletions(-)
+
+diff --cc CHANGELOG.md
+index 9c3e757,0e0802b..ca5a0a7
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@@ -1,29 -1,24 +1,48 @@@
+  ## [Unreleased]
+  
++ ### Interruptor: long commands no longer freeze the engine (TJ-DF-024)
++ 
++ - **Fix** (`plugin/terminal_jail/interruptor/matcher.py`): required-substring
++   prefilters for the four catastrophic-backtracking blocklist patterns. A
++   pattern whose first-lookahead alternatives each require a case-stable
++   literal ("socket"; "urlopen"/"requests"/"httpx"/"urllib"/".request("; "|"
++   for the fork-bomb form) is only evaluated when at least one literal is
++   present — absence of all of them proves the pattern cannot match, so the
++   skip is sound. Table keys are the EXACT builtin pattern strings, so
++   same-id user overrides with a different pattern are always evaluated and
++   new rules without an entry run by default. No length knob exists: the
++   deny list holds at ANY command length (an 8KB padded destructive command
++   blocks in 6ms; benign 8KB/20KB/200KB evaluate in 24–495ms; previously an
++   8KB argument cost ~7.5–10.5s and 20KB+ never returned).
++ - The earlier `TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` over-length
++   fastpath (allow-without-evaluation above 4000 chars) was reverted before
++   release: it let a block-rule trigger hide behind padding. Regression
++   tests in `plugin/test_tjdf024_prefilter.py` pin the soundness semantics.
++ 
+ +### `--list-rule-packs`: an unreadable pack is a skip, not a refusal (TJ-DF-025)
+ +
+ +- **Fix** (`scripts/rule-pack-tool.py list`): the informational listing no
+ +  longer exits `2` when a shipped pack cannot be parsed — on a fresh host
+ +  without PyYAML the shipped `db.yaml` is YAML-only, so the listing refused
+ +  and poisoned `install.sh --list-rule-packs && install.sh` bootstrap chains
+ +  (the plain install never ran; dogfooded 2026-09-24). The pack is now
+ +  reported as `<name>: unreadable (<reason>)` on stderr, every readable pack
+ +  still lists, and the exit stays `0` — mirroring the plain-install skip
+ +  semantics (DF-TERMINAL-JAIL-21). The explicit single-pack contract is
+ +  unchanged: `rule-pack-tool.py validate` (and therefore
+ +  `install.sh --rule-pack <name>`) keeps its exit-2 refusal for a pack the
+ +  user explicitly requested.
+ +- **Tests**: `plugin/test_rule_packs.py` (4 new: skip line + exit 0 with a
+ +  malformed pack; PyYAML-less listing via the PYTHONPATH ImportError shadow —
+ +  the skip reason itself proves the ImportError path; all-unreadable still
+ +  exits 0; explicit `validate` refusal unchanged) and
+ +  `plugin/test_install.py` (2 new: `--list-rule-packs` on a PyYAML-shadowed
+ +  host exits 0 with the unreadable line; the full `./install.sh
+ +  --list-rule-packs && ./install.sh` chain completes a real install against a
+ +  scratch HOME).
+ +- **Docs**: `specs/cli.md` `--list-rule-packs` row now states the
+ +  skip-and-exit-0 behavior.
+ +
+  ## [1.2.0] — 2026-09-22
+  
+  ### `--uninstall`: the removal path (TJ-GAP-071)
