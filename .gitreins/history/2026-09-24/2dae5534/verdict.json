@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-GAP-080",
+  "task_title": "COMPATIBILITY.md architecture corrections",
+  "task_criteria": [
+    "grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b9b9ba8279014ca391317dad5646f950638d98e8",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n6:18PM INF scanned ~5021140 bytes (5.02 MB) in 356ms\n6:18PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 160 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1444 passed, 7 skipped in 57.09s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff: All sub-checks verified. (1) `grep -c 'plugin wraps commands' docs/COMPATIBILITY.md` => 0 (exit 1). (2) standalone-CLI-wraps wording present: docs/COMPATIBILITY.md:30 'The standalone CLI is the component that wraps commands; the Hermes plugin is observability-only and cannot wrap commands' and :52 'The standalone CLI performs all command wrapping'. (3) --sandbox column: header at :36 retained but every cell now reads 'not shipped (never existed)' and :40 states 'The `--sandbox` flag named in this table's column **does not exist** ... the column is kept only to mark the flag as never shipped' \u2014 this satisfies the task's own acceptance_criteria ('the --sandbox column is dropped OR annotated as never-shipped'); cross-checked `grep -c -- '--sandbox' standalone/terminal-jail` => 0, so the annotation is factually correct. (4) bwrap/TERMINAL_JAIL_JAIL_BACKEND row present at :57 '| `bwrap` (optional) | bubblewrap >= 0.11.1 ... | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` | **fails closed: exit 2, command not run** |', matching standalone/terminal-jail:645-651 (exit 2, never silently downgraded). (5) file-only diff: `git show 89b73e0 --name-only` and `git diff --name-only 71ccde8^1 71ccde8` both list only docs/COMPATIBILITY.md. Docs-only change; no test references COMPATIBILITY.md (grep over tests/, plugin/, scripts/ returned nothing), so no test suite applies to this content criterion.\nCOMPATIBILITY.md corrections fully satisfy the criterion: 'plugin wraps commands' is gone, standalone-CLI-wraps wording added, the --sandbox column is annotated as never-shipped (permitted by the task's acceptance criteria), the bwrap/TERMINAL_JAIL_JAIL_BACKEND row exists, and the diff touches only docs/COMPATIBILITY.md.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff: All sub-checks verified. (1) `grep -c 'plugin wraps commands' docs/COMPATIBILITY.md` => 0 (exit 1). (2) standalone-CLI-wraps wording present: docs/COMPATIBILITY.md:30 'The standalone CLI is the component that wraps commands; the Hermes plugin is observability-only and cannot wrap commands' and :52 'The standalone CLI performs all command wrapping'. (3) --sandbox column: header at :36 retained but every cell now reads 'not shipped (never existed)' and :40 states 'The `--sandbox` flag named in this table's column **does not exist** ... the column is kept only to mark the flag as never shipped' \u2014 this satisfies the task's own acceptance_criteria ('the --sandbox column is dropped OR annotated as never-shipped'); cross-checked `grep -c -- '--sandbox' standalone/terminal-jail` => 0, so the annotation is factually correct. (4) bwrap/TERMINAL_JAIL_JAIL_BACKEND row present at :57 '| `bwrap` (optional) | bubblewrap >= 0.11.1 ... | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` | **fails closed: exit 2, command not run** |', matching standalone/terminal-jail:645-651 (exit 2, never silently downgraded). (5) file-only diff: `git show 89b73e0 --name-only` and `git diff --name-only 71ccde8^1 71ccde8` both list only docs/COMPATIBILITY.md. Docs-only change; no test references COMPATIBILITY.md (grep over tests/, plugin/, scripts/ returned nothing), so no test suite applies to this content criterion.\nCOMPATIBILITY.md corrections fully satisfy the criterion: 'plugin wraps commands' is gone, standalone-CLI-wraps wording added, the --sandbox column is annotated as never-shipped (permitted by the task's acceptance criteria), the bwrap/TERMINAL_JAIL_JAIL_BACKEND row exists, and the diff touches only docs/COMPATIBILITY.md.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff",
+                "status": "PASS",
+                "detail": "All sub-checks verified. (1) `grep -c 'plugin wraps commands' docs/COMPATIBILITY.md` => 0 (exit 1). (2) standalone-CLI-wraps wording present: docs/COMPATIBILITY.md:30 'The standalone CLI is the component that wraps commands; the Hermes plugin is observability-only and cannot wrap commands' and :52 'The standalone CLI performs all command wrapping'. (3) --sandbox column: header at :36 retained but every cell now reads 'not shipped (never existed)' and :40 states 'The `--sandbox` flag named in this table's column **does not exist** ... the column is kept only to mark the flag as never shipped' \u2014 this satisfies the task's own acceptance_criteria ('the --sandbox column is dropped OR annotated as never-shipped'); cross-checked `grep -c -- '--sandbox' standalone/terminal-jail` => 0, so the annotation is factually correct. (4) bwrap/TERMINAL_JAIL_JAIL_BACKEND row present at :57 '| `bwrap` (optional) | bubblewrap >= 0.11.1 ... | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` | **fails closed: exit 2, command not run** |', matching standalone/terminal-jail:645-651 (exit 2, never silently downgraded). (5) file-only diff: `git show 89b73e0 --name-only` and `git diff --name-only 71ccde8^1 71ccde8` both list only docs/COMPATIBILITY.md. Docs-only change; no test references COMPATIBILITY.md (grep over tests/, plugin/, scripts/ returned nothing), so no test suite applies to this content criterion.",
+                "resolution_probability": 0.47
+              }
+            ],
+            "summary": "COMPATIBILITY.md corrections fully satisfy the criterion: 'plugin wraps commands' is gone, standalone-CLI-wraps wording added, the --sandbox column is annotated as never-shipped (permitted by the task's acceptance criteria), the bwrap/TERMINAL_JAIL_JAIL_BACKEND row exists, and the diff touches only docs/COMPATIBILITY.md."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-080\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep 'plugin wraps commands' = 0; standalone-CLI-wraps wording; --sandbox column gone; bwrap/TERMINAL_JAIL_JAIL_BACKEND row present; file-only diff: All sub-checks verified. (1) `grep -c 'plugin wraps commands' docs/COMPATIBILITY.md` => 0 (exit 1). (2) standalone-CLI-wraps wording present: docs/COMPATIBILITY.md:30 'The standalone CLI is the component that wraps commands; the Hermes plugin is observability-only and cannot wrap commands' and :52 'The standalone CLI performs all command wrapping'. (3) --sandbox column: header at :36 retained but every cell now reads 'not shipped (never existed)' and :40 states 'The `--sandbox` flag named in this table's column **does not exist** ... the column is kept only to mark the flag as never shipped' \u2014 this satisfies the task's own acceptance_criteria ('the --sandbox column is dropped OR annotated as never-shipped'); cross-checked `grep -c -- '--sandbox' standalone/terminal-jail` => 0, so the annotation is factually correct. (4) bwrap/TERMINAL_JAIL_JAIL_BACKEND row present at :57 '| `bwrap` (optional) | bubblewrap >= 0.11.1 ... | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` | **fails closed: exit 2, command not run** |', matching standalone/terminal-jail:645-651 (exit 2, never silently downgraded). (5) file-only diff: `git show 89b73e0 --name-only` and `git diff --name-only 71ccde8^1 71ccde8` both list only docs/COMPATIBILITY.md. Docs-only change; no test references COMPATIBILITY.md (grep over tests/, plugin/, scripts/ returned nothing), so no test suite applies to this content criterion.\nCOMPATIBILITY.md corrections fully satisfy the criterion: 'plugin wraps commands' is gone, standalone-CLI-wraps wording added, the --sandbox column is annotated as never-shipped (permitted by the task's acceptance criteria), the bwrap/TERMINAL_JAIL_JAIL_BACKEND row exists, and the diff touches only docs/COMPATIBILITY.md.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T23:19:27.451716",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T23:19:27.487949+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show b9b9ba827901"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 36832,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-080"
+  }
+}

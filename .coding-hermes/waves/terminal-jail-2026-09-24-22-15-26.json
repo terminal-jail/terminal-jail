@@ -38,5 +38,7 @@
       "worker_provider": "zai-glm-default",
       "log": "/tmp/tj-wave320-TJ-GAP-080.log"
     }
-  ]
+  ],
+  "finished_at": "2026-09-24 18:25:59",
+  "finish_note": "3/3 merged (d9afb90, eb8e45c, 71ccde8) + tier2 PASS (26ef071e, 81b8fad0, 2dae5534); guard --full PASS 4/4 on merged tree; pushed through b9b9ba8; CI green; worktrees reaped."
 }
