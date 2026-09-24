@@ -45,7 +45,7 @@ markers = [
     "standalone_cli: tests for standalone/terminal-jail CLI script",
     "integration: tests requiring real unshare (skip on hosts that block --mount-proc)",
 ]
-testpaths = ["plugin"]
+testpaths = ["plugin", "tests"]
 pythonpath = ["."]
 
 [tool.ruff]

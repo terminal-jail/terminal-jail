@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests (unit only, skip integration)
         run: |
-          pytest plugin/ -v --tb=short -m "not integration"
+          pytest plugin/ tests/ -v --tb=short -m "not integration"
 
       - name: Validate canonical board task IDs
         run: python scripts/board_id_guard.py
