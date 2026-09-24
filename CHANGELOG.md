@@ -1,5 +1,24 @@
 ## [Unreleased]
 
+### Interruptor: long commands no longer freeze the engine (TJ-DF-024)
+
+- **Fix** (`plugin/terminal_jail/interruptor/matcher.py`): required-substring
+  prefilters for the four catastrophic-backtracking blocklist patterns. A
+  pattern whose first-lookahead alternatives each require a case-stable
+  literal ("socket"; "urlopen"/"requests"/"httpx"/"urllib"/".request("; "|"
+  for the fork-bomb form) is only evaluated when at least one literal is
+  present — absence of all of them proves the pattern cannot match, so the
+  skip is sound. Table keys are the EXACT builtin pattern strings, so
+  same-id user overrides with a different pattern are always evaluated and
+  new rules without an entry run by default. No length knob exists: the
+  deny list holds at ANY command length (an 8KB padded destructive command
+  blocks in 6ms; benign 8KB/20KB/200KB evaluate in 24–495ms; previously an
+  8KB argument cost ~7.5–10.5s and 20KB+ never returned).
+- The earlier `TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` over-length
+  fastpath (allow-without-evaluation above 4000 chars) was reverted before
+  release: it let a block-rule trigger hide behind padding. Regression
+  tests in `plugin/test_tjdf024_prefilter.py` pin the soundness semantics.
+
 ## [1.2.0] — 2026-09-22
 
 ### `--uninstall`: the removal path (TJ-GAP-071)

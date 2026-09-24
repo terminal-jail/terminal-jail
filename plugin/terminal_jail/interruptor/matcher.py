@@ -29,6 +29,54 @@ from .parser import Segment, SegmentType, is_sensitive_path
 
 _QUOTED_TOKEN_RE = re.compile(r"^['\"](.*)['\"]$")
 
+# Required-substring prefilters for the catastrophic-backtracking patterns
+# (TJ-DF-024). Each entry lists ALTERNATIVE required literals: the pattern
+# cannot match unless the candidate text contains AT LEAST ONE of them
+# (casefolded on both sides to match the IGNORECASE search). When NONE is
+# present the regex evaluation is skipped — absence of every alternative
+# proves the pattern cannot match, so the skip is provably safe.
+#
+# Soundness contract, per entry:
+# - The key must be the EXACT pattern string of the rule it describes. A
+#   same-id user override whose pattern differs never hits the key and is
+#   always evaluated — a stale or foreign pattern is never skipped by
+#   someone else's prefilter.
+# - Every listed literal must be LITERAL (casefold-stable) and the
+#   first-match-lookahead of the pattern must be a disjunction of
+#   alternatives each containing at least one listed literal. Socket-egress
+#   rules: every alternative of their first lookahead contains "socket"
+#   (even the bare ``socket\s*\(\s*\(`` form, i.e.
+#   ``from socket import socket``). The HTTP-upload rule: every alternative
+#   of its first lookahead contains one of "urlopen" / "requests" /
+#   "httpx" / "urllib" / ".request(". The fork-bomb pattern matches the
+#   backreference form ``name | name &`` — the literal "|" is unavoidable
+#   in any match.
+# - A rule pattern with NO entry here is ALWAYS evaluated. New rules are
+#   therefore safe by default; adding a prefilter is an optimization with a
+#   soundness obligation, never a requirement for correctness.
+_PATTERN_PREFILTERS: dict[str, tuple[str, ...]] = {
+    # builtin-fork-bomb
+    "([A-Za-z_]\\w*|:)\\s*\\(\\s*\\)\\s*\\{[^}]*(?<![\\w:])\\1\\s*\\|\\s*\\1(?![\\w:])[^}]*&[^}]*\\}\\s*;\\s*\\1(?![\\w:])": (
+        "|",
+    ),
+    # builtin-interp-egress-socket-shell
+    "(?=[\\s\\S]*(?:\\bsocket\\.(?:socket|create_connection)\\s*\\(|\\bsocket\\s*\\(\\s*\\)))(?=[\\s\\S]*(?:\\.connect\\s*\\(|create_connection\\s*\\())(?=[\\s\\S]*(?:\\b(?:os\\.)?dup2\\s*\\(|\\bpty\\.spawn\\s*\\())": (
+        "socket",
+    ),
+    # builtin-interp-egress-socket-file
+    "(?=[\\s\\S]*(?:\\bsocket\\.(?:socket|create_connection)\\s*\\(|\\bsocket\\s*\\(\\s*\\)))(?=[\\s\\S]*\\.send(?:all|file)?\\s*\\()(?=[\\s\\S]*(?:open\\s*\\([^)]*\\)\\s*\\.read(?:lines)?\\s*\\(|open\\s*\\([^)]*,\\s*['\\\"][rb]{1,2}['\\\"]|read_bytes\\s*\\(|read_text\\s*\\())": (
+        "socket",
+    ),
+    # builtin-interp-egress-http-file
+    "(?=[\\s\\S]*(?:urlopen\\s*\\(|requests\\s*\\.\\s*(?:post|put|patch)\\s*\\(|httpx\\s*\\.\\s*(?:post|put|patch)\\s*\\(|http\\s*\\.\\s*client\\s*\\.|urllib\\s*\\.\\s*request\\s*\\.\\s*Request\\s*\\(|\\.request\\s*\\(\\s*['\\\"](?:POST|PUT|PATCH)['\\\"]))(?=[\\s\\S]*(?:open\\s*\\([^)]*\\)\\s*\\.read(?:lines)?\\s*\\(|open\\s*\\([^)]*,\\s*['\\\"][rb]{1,2}['\\\"]|read_bytes\\s*\\(|read_text\\s*\\())": (
+        "urlopen",
+        "requests",
+        "httpx",
+        "urllib",
+        ".request(",
+    ),
+}
+
 
 def _normalize_quoted(text: str) -> str:
     """Strip a single matched outer quote pair from each whitespace-separated token.
@@ -131,15 +179,28 @@ class Matcher:
         except re.error:
             return MatchResult()
 
+        # Required-substring prefilter (TJ-DF-024): for patterns known to
+        # backtrack catastrophically on long tokens, skip the regex
+        # evaluation when NONE of the pattern's required alternative
+        # literals is present — that absence proves the pattern cannot
+        # match, so the skip is sound (see the soundness contract on
+        # _PATTERN_PREFILTERS). Patterns without an entry are always
+        # evaluated. Literals are casefolded to match the IGNORECASE
+        # search (casefold is an over-approximation of lower here and
+        # remains sound: if the casefolded haystack lacks the casefolded
+        # needle, no case variant of the needle can be present).
+        required = _PATTERN_PREFILTERS.get(pattern_str)
         candidates = (segment.raw, _normalize_quoted(segment.raw))
         for candidate in candidates:
+            if required is not None:
+                folded = candidate.casefold()
+                if all(needle.casefold() not in folded for needle in required):
+                    continue
             if regex.search(candidate):
                 return MatchResult(
                     matched=True,
                     matched_by="pattern",
-                    details=(
-                        f"Pattern '{pattern_str}' matched '{candidate}'"
-                    ),
+                    details=(f"Pattern '{pattern_str}' matched '{candidate}'"),
                 )
         return MatchResult()
 
