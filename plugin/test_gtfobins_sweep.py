@@ -155,9 +155,7 @@ class TestVerdictComputation:
         """Sweeping is a pure per-row evaluation, order preserved."""
         results = sweep_mod.sweep(seed_rows)
         assert len(results) == len(seed_rows)
-        assert [r.invocation for r in results] == [
-            row.invocation for row in seed_rows
-        ]
+        assert [r.invocation for r in results] == [row.invocation for row in seed_rows]
 
     def test_modify_verdict_is_recorded_verbatim(self, seed_report):
         """`env /bin/sh` is auto-sandboxed (modify), not allowed."""
@@ -432,9 +430,7 @@ class TestSeedCatalogIntegrity:
     def test_review_posture_is_present(self):
         """Review marks what has NOT been consciously accepted yet."""
         postures = {
-            cls["expected"]
-            for entry in _raw_seed_entries()
-            for cls in entry["classes"]
+            cls["expected"] for entry in _raw_seed_entries() for cls in entry["classes"]
         }
         assert sweep_mod.POSTURE_REVIEW in postures
         assert sweep_mod.POSTURE_BLOCKED in postures
@@ -515,9 +511,7 @@ class TestCatalogValidation:
         assert str(path) in err
         assert "rationale" in err
 
-    def test_invalid_posture_raises_system_exit_naming_the_path(
-        self, tmp_path, capsys
-    ):
+    def test_invalid_posture_raises_system_exit_naming_the_path(self, tmp_path, capsys):
         path = write_catalog(
             tmp_path,
             "schema_version: 1\nentries:\n"
@@ -613,9 +607,7 @@ class TestRendering:
         )
 
     def test_json_is_byte_stable(self, seed_report):
-        assert sweep_mod.render_json(seed_report) == sweep_mod.render_json(
-            seed_report
-        )
+        assert sweep_mod.render_json(seed_report) == sweep_mod.render_json(seed_report)
 
     def test_json_matrix_matches_the_row_data(self, seed_report):
         payload = json.loads(sweep_mod.render_json(seed_report))
@@ -679,9 +671,7 @@ class TestCli:
         assert "REVIEW" in out
         assert "[check] OK" in out
 
-    def test_check_mode_flags_an_allow_posture_that_now_blocks(
-        self, tmp_path, capsys
-    ):
+    def test_check_mode_flags_an_allow_posture_that_now_blocks(self, tmp_path, capsys):
         """Over-blocking is drift too: a conscious allow must stay allowed."""
         path = write_catalog(
             tmp_path,

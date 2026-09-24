@@ -64,9 +64,7 @@ def _link_real(bindir: Path, *names: str) -> None:
             (bindir / name).symlink_to(real)
 
 
-def _make_stub_path(
-    tmp_path: Path, *, bwrap: bool = True, unshare: bool = True
-) -> str:
+def _make_stub_path(tmp_path: Path, *, bwrap: bool = True, unshare: bool = True) -> str:
     """Curated PATH: bash/uname/id/grep/cut/env plus argv-recording stubs.
 
     A real /usr/bin/bwrap is deliberately NOT on this PATH, so "bwrap absent"
@@ -74,9 +72,7 @@ def _make_stub_path(
     """
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
-    _link_real(
-        bindir, "bash", "uname", "id", "grep", "cut", "head", "env", "sh", "cat"
-    )
+    _link_real(bindir, "bash", "uname", "id", "grep", "cut", "head", "env", "sh", "cat")
     for name, body, enabled in (
         ("bwrap", _BWRAP_STUB, bwrap),
         ("unshare", _UNSHARE_STUB, unshare),
@@ -242,7 +238,14 @@ def test_bwrap_preserves_argv_boundaries(tmp_path: Path) -> None:
     result = _run_cli("--no-interruptor", "cmd", *payload, env=env)
     assert result.returncode == 0, result.stderr
     launch = _records(Path(env["TJ_STUB_LOG"]))[1]
-    assert _payload_argv(launch) == ["bash", "-c", 'exec "$@"', "terminal-jail", "cmd", *payload]
+    assert _payload_argv(launch) == [
+        "bash",
+        "-c",
+        'exec "$@"',
+        "terminal-jail",
+        "cmd",
+        *payload,
+    ]
 
 
 @pytest.mark.standalone_cli
@@ -254,7 +257,14 @@ def test_unshare_backend_preserves_argv_boundaries(tmp_path: Path) -> None:
     result = _run_cli("--no-interruptor", "cmd", *payload, env=env)
     assert result.returncode == 0, result.stderr
     launch = _records(Path(env["TJ_UNSHARE_STUB_LOG"]))[1]
-    assert _payload_argv(launch) == ["bash", "-c", 'exec "$@"', "terminal-jail", "cmd", *payload]
+    assert _payload_argv(launch) == [
+        "bash",
+        "-c",
+        'exec "$@"',
+        "terminal-jail",
+        "cmd",
+        *payload,
+    ]
 
 
 # ── auto: absence / failure paths ──────────────────────────────────────────
@@ -303,7 +313,9 @@ def test_explicit_bwrap_fails_closed_when_binary_missing(tmp_path: Path) -> None
 @pytest.mark.standalone_cli
 def test_explicit_bwrap_fails_closed_when_probe_fails(tmp_path: Path) -> None:
     path = _make_stub_path(tmp_path)
-    env = _env(tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap", TJ_BWRAP_PROBE_EXIT="1")
+    env = _env(
+        tmp_path, path, TERMINAL_JAIL_JAIL_BACKEND="bwrap", TJ_BWRAP_PROBE_EXIT="1"
+    )
     result = _run_cli("--no-interruptor", "cmd", env=env)
     assert result.returncode == 2
     assert "bwrap namespace creation failed" in result.stderr

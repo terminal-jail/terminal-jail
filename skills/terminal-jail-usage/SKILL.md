@@ -128,9 +128,12 @@ echo '{"command": "echo hi"}' | python3 plugin/terminal_jail/interruptor_bridge.
 
 Engine-level (fast, no subprocess):
 ```python
-import sys; sys.path.insert(0, "plugin")
+import sys
+
+sys.path.insert(0, "plugin")
 from terminal_jail.interruptor import intercept
-r = intercept("sudo apt install cowsay")   # → block (builtin-sudo, priority 1000)
+
+r = intercept("sudo apt install cowsay")  # → block (builtin-sudo, priority 1000)
 ```
 
 ## User rules (WORKING since TJ-DF-004 — verified live 2026-08-19)

@@ -148,9 +148,7 @@ class TestPidnsDirectClassification:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(pidns_probe, "_nspid_values", lambda: ["4242"])
-        monkeypatch.setattr(
-            pidns_probe.subprocess, "run", self._fake_run(0)
-        )
+        monkeypatch.setattr(pidns_probe.subprocess, "run", self._fake_run(0))
         assert pidns_probe._classify() == "FULL"
 
     def test_degraded_on_fail_closed_message(
@@ -161,18 +159,14 @@ class TestPidnsDirectClassification:
             "terminal-jail: namespace creation failed (unshare exit 1); "
             "command not run — on unprivileged hosts try --user"
         )
-        monkeypatch.setattr(
-            pidns_probe.subprocess, "run", self._fake_run(2, stderr)
-        )
+        monkeypatch.setattr(pidns_probe.subprocess, "run", self._fake_run(2, stderr))
         assert pidns_probe._classify() == "DEGRADED"
 
     def test_unknown_on_unexpected_failure(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(pidns_probe, "_nspid_values", lambda: ["4242"])
-        monkeypatch.setattr(
-            pidns_probe.subprocess, "run", self._fake_run(1, "boom")
-        )
+        monkeypatch.setattr(pidns_probe.subprocess, "run", self._fake_run(1, "boom"))
         assert pidns_probe._classify().startswith("UNKNOWN")
 
 
@@ -250,9 +244,7 @@ class TestFsDirectClassification:
 
     @staticmethod
     def _completed(returncode: int, stdout: str = "", stderr: str = ""):
-        return subprocess.CompletedProcess(
-            ["unshare"], returncode, stdout, stderr
-        )
+        return subprocess.CompletedProcess(["unshare"], returncode, stdout, stderr)
 
     def test_degraded_when_mapping_denied(
         self, monkeypatch: pytest.MonkeyPatch
@@ -263,9 +255,11 @@ class TestFsDirectClassification:
         )
         legacy = self._completed(0, "", "")
         monkeypatch.setattr(
-            fs_probe, "_run_unshare", lambda flags, payload, timeout=15: (
+            fs_probe,
+            "_run_unshare",
+            lambda flags, payload, timeout=15: (
                 mapped if "map-users" in flags else legacy
-            )
+            ),
         )
         verdict = fs_probe._classify()
         assert verdict.startswith("DEGRADED: mapped launch failed")

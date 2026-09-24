@@ -104,7 +104,9 @@ def _bridge_main_inproc(
     stderr = io.StringIO()
     argv = [str(BRIDGE_SCRIPT)]
     env_overlay = (
-        mock.patch.dict(os.environ, extra_env) if extra_env else contextlib.nullcontext()
+        mock.patch.dict(os.environ, extra_env)
+        if extra_env
+        else contextlib.nullcontext()
     )
     with (
         env_overlay,
@@ -218,8 +220,7 @@ def test_cli_surfaces_user_rule_warn_override(cli_path: Path, tmp_path: Path) ->
     )
     stderr = result.stderr.decode("utf-8", errors="replace")
     assert "would have blocked" in stderr, (
-        f"warn override should print the would-have-blocked reason, "
-        f"got: {stderr!r}"
+        f"warn override should print the would-have-blocked reason, got: {stderr!r}"
     )
     assert "WARNING" in stderr, f"expected a WARNING line, got: {stderr!r}"
     assert "COMMAND BLOCKED" not in stderr, "warn override must not emit block box"
@@ -425,7 +426,7 @@ def test_interruptor_json_bridge_direct() -> None:
 BRIDGE_PARITY_INPUTS: tuple[tuple[str, dict[str, str] | None], ...] = (
     ('{"command": "echo hello"}', None),
     ('{"command": "rm -rf /"}', None),
-    ('{"command": "\'pytest\' \'--version\'"}', None),
+    ("{\"command\": \"'pytest' '--version'\"}", None),
     ("{}", None),
     ("null", None),
 )
@@ -647,9 +648,7 @@ rules:
 def test_bridge_missing_rules_dir_passes_through(tmp_path: Path) -> None:
     """Spec §14: missing rules dir via env → pass-through, no exception."""
     env = {
-        "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(
-            tmp_path / "does-not-exist"
-        ),
+        "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(tmp_path / "does-not-exist"),
         "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(tmp_path / "no-system-rules"),
     }
     response = _bridge_call_env("echo hi", env)
@@ -721,9 +720,7 @@ def test_bridge_blocks_all_quoted_argv_vectors() -> None:
                 f"{cmd!r} matched {response.get('rule_id')!r}, "
                 f"expected {expected_rule!r}"
             )
-    assert not failures, (
-        "Quoted-argv bypass re-opened:\n  " + "\n  ".join(failures)
-    )
+    assert not failures, "Quoted-argv bypass re-opened:\n  " + "\n  ".join(failures)
 
 
 @pytest.mark.standalone_cli
@@ -760,9 +757,7 @@ def test_bridge_sandboxes_quoted_pytest() -> None:
     modified = response.get("modified") or ""
     assert "pytest" in modified
     assert "--version" in modified
-    assert "unshare" in modified, (
-        "modified payload should wrap the command in unshare"
-    )
+    assert "unshare" in modified, "modified payload should wrap the command in unshare"
 
 
 @pytest.mark.standalone_cli
@@ -834,7 +829,9 @@ def test_cli_enforce_mode_blocks_quoted_rm_rf_root(cli_path: Path) -> None:
 # ── DF-TERMINAL-JAIL-6: bridge JSON schema contract ─────────────────────────
 
 
-def _run_bridge_raw(stdin_line: str) -> tuple[dict, "subprocess.CompletedProcess[bytes]"]:
+def _run_bridge_raw(
+    stdin_line: str,
+) -> tuple[dict, "subprocess.CompletedProcess[bytes]"]:
     """Feed one raw line to the bridge (in-process); return (response, record).
 
     Asserts the invariants every schema error must keep: exactly one
@@ -983,8 +980,7 @@ def test_cli_warn_mode_surfaces_quoted_block_warning(cli_path: Path) -> None:
     )
     stderr = result.stderr.decode("utf-8", errors="replace")
     assert "WARN" in stderr, (
-        f"warn mode should print a WARN line for blocked vector, "
-        f"got: {stderr!r}"
+        f"warn mode should print a WARN line for blocked vector, got: {stderr!r}"
     )
     assert "COMMAND BLOCKED" not in stderr, "warn mode must not emit block box"
     assert result.returncode != 126, (

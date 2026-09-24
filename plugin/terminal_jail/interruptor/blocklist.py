@@ -565,7 +565,6 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             "pattern": r"(?=[\s\S]*(?:urlopen\s*\(|requests\s*\.\s*(?:post|put|patch)\s*\(|httpx\s*\.\s*(?:post|put|patch)\s*\(|http\s*\.\s*client\s*\.|urllib\s*\.\s*request\s*\.\s*Request\s*\(|\.request\s*\(\s*['\"](?:POST|PUT|PATCH)['\"]))(?=[\s\S]*(?:open\s*\([^)]*\)\s*\.read(?:lines)?\s*\(|open\s*\([^)]*,\s*['\"][rb]{1,2}['\"]|read_bytes\s*\(|read_text\s*\())",
         },
     ),
-
     # ── DF-TERMINAL-JAIL-20: local-file upload / whole-tree-copy blocking ────
     # ── The four rules below used to be priority-700 AUTO-SANDBOX rules in ───
     # ── sandbox.py, described as "staged exfil" coverage. They never were: ───
@@ -762,7 +761,6 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             ),
         },
     ),
-
     # ── DF-TERMINAL-JAIL-30 ssh/scp/sftp-transport exfiltration ───────────────
     # ── Sibling of the raw-socket rules above, found in the same run: a ──────
     # ── local-file reader piped into ssh as the network client was a plain ──

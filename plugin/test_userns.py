@@ -146,9 +146,7 @@ class TestUsernsHelper:
         prefix = userns.unshare_prefix()
         assert prefix == f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
 
-    def test_unshare_prefix_forced_off(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_unshare_prefix_forced_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TERMINAL_JAIL_UID_MAP", "0")
         monkeypatch.setattr(userns, "_DECISION", None)
         prefix = userns.unshare_prefix()
@@ -369,9 +367,7 @@ def _wrapper_user_flags() -> str:
     anchor = "# --- namespace preflight"
     idx = text.index(anchor)
     instrumented = (
-        text[:idx]
-        + 'echo "FLAGS:${UNSHARE_FLAGS}" >&2\nexit 0\n'
-        + text[idx:]
+        text[:idx] + 'echo "FLAGS:${UNSHARE_FLAGS}" >&2\nexit 0\n' + text[idx:]
     )
     copy = PROJECT_ROOT / ".pytest_tj015_wrapper_extract"
     copy.write_text(instrumented, encoding="utf-8")
@@ -497,7 +493,7 @@ class TestDegradedFallback:
         assert 'UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"' in text
         bare_block = text[
             text.index('UNSHARE_FLAGS="--pid --fork') : text.index(
-                '# --- namespace preflight'
+                "# --- namespace preflight"
             )
         ]
         bare_branch = bare_block[
