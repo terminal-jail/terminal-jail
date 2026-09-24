@@ -72,3 +72,29 @@ jobs:
 
       - name: Run pip-audit
         run: pip-audit
+
+  drift-guards:
+    name: Drift guards (rule catalog + mirror parity + probes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Rule catalog drift check
+        run: python scripts/rule-catalog.py --check
+
+      - name: YAML mirror parity probe (shipped rules vs engine constants)
+        run: python scripts/yaml-mirror-parity-probe.py
+
+      - name: Installed-rules drift probe (CI gate mode)
+        run: python scripts/rules-drift-probe.py --fail-on-drift
+
+      - name: Backend parity battery (evidence collection, always exits 0)
+        run: python scripts/backend-parity-battery.py --json
