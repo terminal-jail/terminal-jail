@@ -202,7 +202,7 @@ unprivileged equivalent of `--map-users`, `auto` deliberately keeps the
 `unshare` backend for `--user` on hosts where the uid mapping works (real
 filesystem isolation), rather than silently trading it away.
 
-### 3b2. Scripting the firewall (the JSON bridge)
+### 3a2. Scripting the firewall (the JSON bridge)
 
 Integrators do not have to spawn the CLI to get firewall verdicts. The
 interruptor is exposed as a small line protocol over stdin/stdout by
