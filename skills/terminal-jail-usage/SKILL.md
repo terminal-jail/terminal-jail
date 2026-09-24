@@ -45,8 +45,16 @@ refreshed 2026-09-23 (plugin+seccomp angle: the quickstart §3d HERMES_PLUGINS
   adjtimex=159 — TJ-DF-020) and an echo payload cannot distinguish filter-on from
   filter-off (TJ-DF-023); `--user --seccomp` fails on 0700-home hosts because the
   mapped launch runs the loader as a subordinate uid that cannot traverse the home
-  (TJ-DF-019) — use bare --seccomp there or a world-traversable install path).
-version: 1.10.0
+  (TJ-DF-019) — use bare --seccomp there or a world-traversable install path),
+ refreshed 2026-09-24 (firewall-as-a-LIBRARY angle: the JSON bridge contract
+ verified from a scratch consumer — honest verdicts, structured fail-open
+ envelopes, engine failures fail closed; NEW pitfall 10: one 8KB argument
+ freezes the engine 7.5s / 20KB+ hangs forever (matcher.py:115 regex
+ backtracking) — bound command length before scripting long payloads;
+ pitfall 11: `--list-rule-packs` exits 2 on a PyYAML-less fresh host and
+ poisons `&&`-chained bootstrap scripts; uninstall leg verified clean:
+ user rules preserved, idempotent rc=0).
+ version: 1.11.0
 category: software-development
 ---
 
@@ -241,6 +249,26 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
    INSTALLER-side only; the engine-side name is documented only in
    `specs/interruptor.md`. **Always verify a pack with the bridge probe below,
    never by trusting the install output.**
+
+10. **Long commands freeze the firewall (2026-09-24, TJ-DF-024, P1)**: the
+   engine's rule regexes backtrack catastrophically on long arguments —
+   measured: one 8KB argument = 7.5s CPU inside `intercept()`
+   (`matcher.py:115 _match_pattern`, 145 `re.search` calls = 99.8% of
+   self-time; parser itself 4ms), 20KB+ never returns. The bridge evaluates
+   EVERY shimmed shell invocation, so any multi-KB command argument (base64
+   blobs, heredocs in variables, long prompt echoes) self-DoSes the shell.
+   If you script the bridge, bound the command length yourself and treat a
+   >10s no-answer as a hang, not an evaluation. Fix belongs in the engine
+   (length guard or per-rule match timeout) — file board rows, do not patch
+   from a consumer.
+11. **`--list-rule-packs` exits 2 on a fresh host without PyYAML
+   (2026-09-24, TJ-DF-025, P2)**: the INFORMATIONAL listing prints the pack
+   list, then refuses because the shipped db.yaml cannot be parsed
+   (PyYAML missing), rc=2. Bootstrap scripts that chain
+   `./install.sh --list-rule-packs && ./install.sh` abort before installing
+   anything (reproduced on a fresh bunker agent: first install attempt
+   produced zero files). Run the plain `./install.sh` first (its pack
+   handling is correctly skip-not-fail rc=0), or drop the listing step.
 
 ## Right-way patterns
 

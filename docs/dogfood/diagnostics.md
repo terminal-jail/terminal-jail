@@ -370,3 +370,56 @@ mapped launch → payload runs as subordinate uid 231072 → DAC denies traversa
 box. Lesson: "host classified FULL by the isolation probe" and "the mapped payload can read
 the loader path" are different properties; the wrapper already knows the first one and
 needs to check the second (TJ-DF-019).
+
+## 11. Errors and lessons of the 2026-09-24 run (firewall-as-a-library + uninstall angle)
+
+### 11.1 How the bridge really works (the consumer's map)
+
+`interruptor_bridge.py` is the whole library surface: one JSON line in
+(`{"command": "..."}`), one JSON line out (`{action, command, modified, rule_id, reason}`).
+Two failure envelopes with very different semantics — a script MUST read the `reason`
+prefix to tell them apart: transport failures (bad JSON, empty stdin, non-dict payload,
+missing/non-string `command`, engine ImportError) fail OPEN with
+`[bridge-error] <cause> — fail-open: allowing command`, because a shell that calls the
+bridge before every command would brick otherwise; engine-EVALUATION exceptions fail
+CLOSED (blocking verdict, TJ-GAP-070) because a security tool that silently stops
+protecting is worse than none. The verdict contract itself proved honest on every probe:
+matched allow rules name themselves (`allow-ls`), default-allow carries `rule_id: null`
+(pass-through, not approval — DF-12's fix confirmed from the consumer side), blocks name
+the rule and carry a human reason, modifies carry the rewritten command (`auto-make` →
+`unshare --user --pid --fork --kill-child=SIGKILL bash -c 'make test'`).
+
+### 11.2 The 8KB freeze: how it was found and where the time goes
+
+The consumer's "weird input a careful integrator worries about" probe (a 200KB argument)
+hung the bridge for 30s without returning — the first sign was subprocess timeout, not an
+error. Bisecting length: 500B→0.11s, 2KB→0.65s, 8KB→9.2s — superlinear. cProfile on
+`intercept()` localized it in one shot: `matcher.py:115 _match_pattern`, 145
+`re.Pattern.search` calls = 99.8% of self-time. The parser is innocent (4ms). Lesson: a
+regex deny-list evaluated per-invocation must bound its input BEFORE matching, or every
+rule regex becomes a latency DoS primitive against the very shell it protects (the shim
+paths this bridge before every command). Reproduce with the snippet in
+`docs/dogfood/2026-09-24-firewall-library-integration.md`.
+
+### 11.3 The install that silently didn't happen (and the leg that finally passed)
+
+First bunker attempt chained `./install.sh --list-rule-packs && ./install.sh`. The
+listing step exited 2 on the PyYAML-less fresh host (informational step refusing because
+a pack file cannot be PARSED), so the `&&` never reached the actual install; the smoke
+leg then proved `~/.local/bin/terminal-jail` did not exist. The plain install alone ran
+rc=0 and handled the same broken pack exactly as documented (skip + summary, rc=2 only
+when a pack was actually requested). Lesson: an informational subcommand exiting nonzero
+poisons every bootstrap script that chains it — DF-21's "skip, not a failure" contract
+should apply to `--list-rule-packs` too (TJ-DF-025). After the real install: smoke PASS
+in full (v1.2.0, probe FULL, jail PID-ns inode ≠ host inode, blocked test rc=126, allow
+works).
+
+### 11.4 The uninstall leg: first real use, clean pass
+
+Never exercised by runs 1–8 despite being documented since v1.0. Staged a user-authored
+rule (`99-mine.yaml`) before uninstalling, then checked every documented promise:
+wrapper removed, `~/.local/lib/terminal-jail/` removed, `00-builtins.yaml` removed,
+rc-file PATH block removed (grep count 0), user rule preserved and explicitly listed as
+`left in place (user-authored)`, second run idempotent rc=0. This leg passing first-try
+after 8 dogfood runs is itself the lesson: the surfaces nobody dogfoods are where
+regressions hide — the same argument that produced the warpfs mount findings.
