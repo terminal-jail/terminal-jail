@@ -93,3 +93,9 @@
 {"ts": 1790277166.2010002, "tokens_in": 713255, "tokens_out": 4432, "cache_read": 0, "cache_write": 0, "step": "tier2"}
 {"ts": 1790277276.3174171, "tokens_in": 135262, "tokens_out": 2505, "cache_read": 0, "cache_write": 0, "step": "tier2"}
 {"ts": 1790281287.2101774, "tokens_in": 776685, "tokens_out": 8858, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790285843.6790326, "tokens_in": 548638, "tokens_out": 4231, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790285903.7614315, "tokens_in": 46495, "tokens_out": 1180, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790285998.7921095, "tokens_in": 266045, "tokens_out": 4440, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790291756.3378518, "tokens_in": 5490527, "tokens_out": 137311, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790291883.1028447, "tokens_in": 138611, "tokens_out": 2815, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+{"ts": 1790291967.4357216, "tokens_in": 121708, "tokens_out": 3412, "cache_read": 0, "cache_write": 0, "step": "tier2"}
