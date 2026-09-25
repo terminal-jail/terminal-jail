@@ -64,8 +64,16 @@ description: >-
   (pitfall 12); probe RestrictNamespaces judge lacks a host-baseline control
   (pitfall 14); no release channel behind terminal-jail 1.2.0 — the upgrade
   cell expects PyPI (TJ-DF-032); bunker-qa.sh run ignores --server, use
-  BUNKER_QA_SERVER).
-version: 1.12.0
+  BUNKER_QA_SERVER),
+  refreshed 2026-09-25 (run 11, operator-tooling angle — the scripts/ gates:
+  drift probe, rule-catalog --check, rule-pack-tool, gtfobins-sweep,
+  kernel-watchdog all negative-tested and honest; NEW findings TJ-DF-033
+  metrics-export exports structurally-zero counters forever — no increment
+  site exists; TJ-DF-034 validator-approved custom packs have NO install
+  path — validate ≠ install; TJ-DF-035 pack-authoring schema learnable only
+  from source; TJ-DF-036 SKIPPED-install-bunker, all three bunker hosts down
+  — see §Operator gates and pitfalls 15-17),
+version: 1.13.0
 category: software-development
 ---
 
@@ -428,6 +436,54 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 - **Gateway interaction**: the Hermes gateway hardline may block probe
   commands containing literal dangerous tokens (`mkfs`, `dd of=/dev/...`)
   even as bridge DATA — build those strings at runtime in scratch files.
+- **Validate ≠ install for custom packs** (TJ-DF-034): `install.sh
+  --rule-pack <name>` only resolves packs shipped in the repo checkout;
+  an externally authored pack that passes the validator has no documented
+  install path — hand-copy to `terminal-jail-pack-<name>.yaml`.
+- **Pack schema has no front door** (TJ-DF-035): valid `match.type` values
+  (command/composite/heredoc/network/path/pattern/pipeline/subcommand/syscall)
+  appear only in validator refusals and specs/interruptor.md §3.4; expect
+  refusals when authoring from README alone, and read the refusal message.
+- **metrics-export.py is a zeros facade** (TJ-DF-033): the Metrics counters
+  have no increment site in non-test code — its JSON is 0 forever.
+- **`--interruptor` allow path takes argv, not a shell string**: quoted
+  `"echo hi"` fails with `exec: echo hi: not found` — pass `echo hi` as
+  separate args (block/modify paths re-parse, allow does not).
+- **The bridge is the rule-probe oracle**: banner output lies by verbosity;
+  `interruptor_bridge.py` stdin-JSON returns `rule_id` — script against it.
+
+## Operator gates (run 11, all verified live)
+
+The `scripts/` tools are the operator's hygiene battery — each guards a
+different trust boundary, and each is cron-safe:
+
+```bash
+python3 scripts/rule-catalog.py --check               # REPO: docs vs shipped mirror (55 rules)
+python3 scripts/rules-drift-probe.py --fail-on-drift  # HOST: installed mirror vs engine (the weak-mirror guard)
+python3 scripts/kernel-watchdog.sh --json             # KERNEL: userns/unshare health (state file gitignored)
+python3 scripts/gtfobins-sweep.py --check             # POLICY: conscious-allow postures vs live engine
+python3 scripts/rule-pack-tool.py list                # which packs this checkout ships
+```
+
+Negative-proven 2026-09-25: flip a mirror rule's action → drift probe prints
+`DRIFT <id>: engine action=<a> installed action=<b> (weaker)` and
+`--fail-on-drift` exits 1; the REAL consequence is that the bridge verdict for
+`rm -rf /` flips block→modify (command runs wrapped) — mirror drift is not
+cosmetic. Flip a seed posture → sweep exits 1 with `DRIFT-OVERBLOCKED`. Six
+malformed pack variants → validator refuses each with a one-line reason, exit
+2. Prove a rule fired through the bridge, never through banner output:
+
+```bash
+echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "...", "rule_id": "..."} — the honest oracle
+```
+
+Custom packs TODAY (until TJ-DF-034 lands): validate with
+`rule-pack-tool.py validate <file> --pack-name <name>`, then hand-copy to
+`~/.config/terminal-jail/rules.d/terminal-jail-pack-<name>.yaml` — the drift
+probe counts them as non-builtin info, uninstall does not manage them.
+`metrics-export.py` (T7.5) currently exports structurally-zero counters
+(TJ-DF-033) — do not chart it as telemetry.
 
 ## Board & history
 

@@ -423,3 +423,48 @@ rc-file PATH block removed (grep count 0), user rule preserved and explicitly li
 `left in place (user-authored)`, second run idempotent rc=0. This leg passing first-try
 after 8 dogfood runs is itself the lesson: the surfaces nobody dogfoods are where
 regressions hide — the same argument that produced the warpfs mount findings.
+
+## 12. Run 11 (2026-09-25): operator tooling — the gates work, the metrics don't
+
+How the operator gates fit together: `rule-catalog.py --check` guards the REPO
+(docs vs shipped rules mirror, 55 rules), `rules-drift-probe.py` guards the
+HOST (installed mirror vs engine constant — the same-id override mechanism
+means an old mirror silently weakens the firewall), `gtfobins-sweep.py` guards
+the CONSCIOUS-ALLOW surface (25 recorded postures vs live engine, `--check`
+fails on posture drift, `review` rows never fail — they are the human queue),
+and `kernel-watchdog.sh` guards the KERNEL the whole isolation story stands on
+(state file gitignored by design). All four plus the pack validator were
+negative-tested this run by inducing exactly the failure each exists to catch
+— flipped mirror rule, flipped seed posture, six malformed packs — and every
+one caught its failure with a precise one-line reason and the right exit code.
+The probes are trustworthy in the direction that matters: they do not pass
+broken hosts.
+
+The negative probe that also settled the TJ-GAP-069 question again: with a
+weakened mirror (`builtin-rm-rf-root` block→sandbox), the bridge returns
+`"action": "modify"` for `rm -rf /` — auto-sandbox wraps it and the command
+RUNS — while the healthy mirror returns `"action": "block"`. "Refused" vs
+"executed" really is what mirror drift buys an attacker, and the drift probe's
+`(weaker)` annotation is honest.
+
+Two things a fresh operator must know, both filed as rows:
+- **The metrics CLI is a facade over dead counters** (TJ-DF-033). Grep is the
+  proof: the 9-counter `Metrics` dataclass has no increment site outside
+  tests. Anything downstream (DuckBrain ingestion was the T7.5 design) would
+  chart a flat zero forever and call it telemetry.
+- **Validate ≠ install for custom packs** (TJ-DF-034): the validator's success
+  message names a destination that no documented command writes. Until a
+  `--rule-pack-file` exists, the working pattern is validate → hand-cp →
+  prove via the bridge (the bridge's JSON verdict — rule_id included — is the
+  honest oracle for "did my rule fire"; a wall of banner output is not).
+
+Method notes for the next runner: payload strings for firewall probes never
+belong on a command line (the Hermes gateway guard greps raw text — build
+them in files); `--interruptor <command>` passes args WITHOUT shell re-parsing
+on the allow path, so quoted-string invocations fail with a confusing
+`exec: <cmd>: not found`; and `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`
+pointed at a scratch rules copy is the zero-risk way to test mirror drift and
+engine behavior under it — no live config ever touched this run. The
+infra-half of this run also left a record: all three bunker hosts were down
+(las-02 bunkerd refusing plaintext binds, 26k restarts; las-03/04
+unreachable), so the install leg is an explicit SKIP (TJ-DF-036), not a pass.
