@@ -35,7 +35,7 @@ description: >-
   keep working; the db pack additionally blocks `sed`/`git commit`/read-only
   SELECT of the statement text while `psql -f <file>` that really drops the
   table is allowed — see pitfalls 8-9 and the pack-verification pattern).
-refreshed 2026-09-23 (plugin+seccomp angle: the quickstart §3d HERMES_PLUGINS
+  refreshed 2026-09-23 (plugin+seccomp angle: the quickstart §3d HERMES_PLUGINS
   env-var path does NOT exist in current Hermes core — plugins load from
   ~/.hermes/plugins/<name>/ gated by plugins.enabled, and the DEPLOYED terminal-jail
   plugin is v0.2.0/spin-veto while the repo ships v1.2.0/observability+interruptor, so
@@ -46,15 +46,26 @@ refreshed 2026-09-23 (plugin+seccomp angle: the quickstart §3d HERMES_PLUGINS
   filter-off (TJ-DF-023); `--user --seccomp` fails on 0700-home hosts because the
   mapped launch runs the loader as a subordinate uid that cannot traverse the home
   (TJ-DF-019) — use bare --seccomp there or a world-traversable install path),
- refreshed 2026-09-24 (firewall-as-a-LIBRARY angle: the JSON bridge contract
- verified from a scratch consumer — honest verdicts, structured fail-open
- envelopes, engine failures fail closed; NEW pitfall 10: one 8KB argument
- freezes the engine 7.5s / 20KB+ hangs forever (matcher.py:115 regex
- backtracking) — bound command length before scripting long payloads;
- pitfall 11: `--list-rule-packs` exits 2 on a PyYAML-less fresh host and
- poisons `&&`-chained bootstrap scripts; uninstall leg verified clean:
- user rules preserved, idempotent rc=0).
- version: 1.11.0
+  refreshed 2026-09-24 (firewall-as-a-LIBRARY angle: the JSON bridge contract
+  verified from a scratch consumer — honest verdicts, structured fail-open
+  envelopes, engine failures fail closed; NEW pitfall 10: one 8KB argument
+  freezes the engine 7.5s / 20KB+ hangs forever (matcher.py:115 regex
+  backtracking) — bound command length before scripting long payloads;
+  pitfall 11: `--list-rule-packs` exits 2 on a PyYAML-less fresh host and
+  poisons `&&`-chained bootstrap scripts; uninstall leg verified clean:
+  user rules preserved, idempotent rc=0),
+  refreshed 2026-09-25 (deploy-shim + systemd-probe angle, surfaces untouched
+  by runs 1-9: the shim's full belt verified live — NoNewPrivs=1, Seccomp=2/1,
+  caps all dropped — through setpriv→CLI→bwrap auto; firewall blocks
+  `rm -rf /` rc=126 with rule provenance; the doc's "PID = 1" expectation
+  breaks under the bwrap backend (bash=2, bwrap=1 — TJ-DF-030); the
+  empty-cmd banner path runs UNWRAPPED (pitfall 13); fresh Debian 13:
+  unshare orphan-teardown FAILS deterministically while bwrap passes
+  (pitfall 12); probe RestrictNamespaces judge lacks a host-baseline control
+  (pitfall 14); no release channel behind terminal-jail 1.2.0 — the upgrade
+  cell expects PyPI (TJ-DF-032); bunker-qa.sh run ignores --server, use
+  BUNKER_QA_SERVER).
+version: 1.12.0
 category: software-development
 ---
 
@@ -272,6 +283,25 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
    anything (reproduced on a fresh bunker agent: first install attempt
    produced zero files). Run the plain `./install.sh` first (its pack
    handling is correctly skip-not-fail rc=0), or drop the listing step.
+12. **The unshare backend's orphan teardown is kernel-dependent
+    (2026-09-25, TJ-DF-027, P1)**: on fresh Debian 13 (kernel 6.12) the
+    payload SURVIVES the wrapper's death —
+    `test_live_unshare_orphan_teardown` fails 3/3 deterministically there
+    while the bwrap twin passes on the same box and the unshare path passes
+    on the dev host (kernel 7.0.0-31). Do not quote the unshare
+    `--kill-child` guarantee to a user without knowing their kernel; the
+    bwrap backend carried the contract everywhere tested.
+13. **The deploy shim's empty-cmd path is unwrapped (2026-09-25,
+    TJ-DF-031, P3)**: `terminal-jail-sh -lic` with no command string (the
+    interactive/banner form) execs a PLAIN /bin/bash — no firewall, no
+    namespace, no seccomp, no warning. Only the `-c <command>` forms are
+    contained. If you test the shim, always pass a command string.
+14. **`systemd-directive-probe` RestrictNamespaces verdict lacks a host
+    baseline (2026-09-25, TJ-DF-029, P2)**: any nonzero in-unit unshare rc
+    reads ENFORCED; on hosts where unprivileged userns is globally denied
+    (Ubuntu AppArmor class) the directive effect is indistinguishable from
+    the host condition. Cross-check with a host-side
+    `unshare --user --pid true` before believing an ENFORCED there.
 
 ## Right-way patterns
 
