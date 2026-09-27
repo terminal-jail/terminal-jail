@@ -137,12 +137,75 @@ battery reports the affected cells as `KNOWN-LIMIT ... UNMEASURED` instead of
 guessing, and `plugin/test_backend_parity.py` skips the live cells with
 `HOST-DEGRADED-*` markers.
 
+## Kernel-matrix teardown status (TJ-DF-037)
+
+The dev-host table above is **one kernel's measurement, not a multi-kernel
+proof**. The committed runner for the orphan-teardown kernel matrix is
+`scripts/kernel-matrix-teardown.py` (verdict vocabulary `PASS` / `FAIL` /
+`UNMEASURED` / `UNAVAILABLE`; an unavailable kernel or backend is never
+converted into a pass). Current, honest status of that matrix:
+
+| Kernel | bwrap orphan teardown | unshare orphan teardown | Cell status |
+|---|---|---|---|
+| `7.0.0-31-generic` (this dev host) | PASS (battery cell 3, 20 ms) | PASS (battery cell 4, 20 ms) | MEASURED here — one host only |
+| Debian 13.7 / `6.12.107` | observed PASS on the external host | observed FAIL (orphan) on the external host | **UNVERIFIED external cell** — raw output was produced on an ephemeral agent (see `docs/dogfood/2026-09-25-deploy-shim-systemd-probe.md`) and was **not attached to this repo**; the row stays unresolved until that raw output is imported |
+| any third kernel | — | — | UNMEASURED — no measurement exists in this repo |
+
+Matrix verdict: **NOT GREEN.** One host is measured here, one external kernel
+awaits attached raw output, and no third kernel has any measurement. Release
+claims must not describe the kernel matrix as green or as verified from this
+repository.
+
+### The live cell (current host, executable)
+
+```console
+$ cd /home/kara/terminal-jail
+$ .venv/bin/python scripts/kernel-matrix-teardown.py            # human table
+$ .venv/bin/python scripts/kernel-matrix-teardown.py --json     # machine rows
+$ .venv/bin/python scripts/kernel-matrix-teardown.py --raw      # + evidence blocks
+$ .venv/bin/python scripts/kernel-matrix-teardown.py --selftest # offline validator selftest
+```
+
+Each row carries `uname -r` (kernel), backend, verdict, post-wrapper-death
+survival seconds, exit code, and raw evidence; launches are bounded (10 s
+launch wait, 15 s teardown budget). The script executes only on the host it
+runs on and never pretends to execute a remote kernel.
+
+### Attaching an external kernel's raw output
+
+Capture on the external kernel host (exact commands):
+
+```console
+$ git clone https://github.com/terminal-jail/terminal-jail && cd terminal-jail
+$ uname -r                                                # record the kernel string
+$ python3 scripts/kernel-matrix-teardown.py --json > cell-$(uname -r).json
+$ # keep the raw console output of that run too (the evidence text)
+```
+
+Then import on any host (pure parsing + classification — no remote execution,
+no network):
+
+```console
+$ .venv/bin/python scripts/kernel-matrix-teardown.py --import cell-6.12.107.json
+```
+
+Imported-file schema (v1): `{"rows": [row, ...]}` where each row is
+`{"kernel": str, "backend": "bwrap"|"unshare", "verdict":
+"PASS"|"FAIL"|"UNMEASURED"|"UNAVAILABLE", "survival_seconds": number|null,
+"exit_code": int|null, "captured": str, "evidence": str}`. PASS/FAIL rows
+must carry the observed numbers; UNMEASURED/UNAVAILABLE rows must carry
+nulls; malformed rows are rejected (reported on stderr), never repaired.
+The matrix counts as green only when **three or more distinct kernels** have
+a complete, measured bwrap+unshare pair and every cell is PASS — a
+single-host run can never satisfy this, by construction.
+
 ## How to re-run
 
 ```console
 $ cd /home/kara/terminal-jail
 $ .venv/bin/python scripts/backend-parity-battery.py          # human table
 $ .venv/bin/python scripts/backend-parity-battery.py --json   # structured cells
+$ .venv/bin/python scripts/kernel-matrix-teardown.py --json   # TJ-DF-037 matrix cell (this host)
 $ .venv/bin/python -m pytest plugin/test_backend_parity.py -v # contracts + live cells
 $ .venv/bin/python scripts/pidns-capability-probe.py          # host layer 1
 $ .venv/bin/python scripts/fs-isolation-probe.py              # host layer 2
