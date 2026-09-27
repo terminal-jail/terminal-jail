@@ -7,12 +7,13 @@ Thanks for helping make Hermes agent commands safer.
 ```bash
 git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
-python3 -m venv .venv
+uv sync --dev
 source .venv/bin/activate
-pip install -e ".[dev]"
 ```
 
-Dependencies: Python 3.11+, `unshare` (util-linux 2.32+), `bash`.
+Dependencies: Python 3.11+, [uv](https://docs.astral.sh/uv/), `unshare` (util-linux 2.32+), `bash`.
+
+`uv sync --dev` creates `.venv/` from `uv.lock` with the runtime dependency (`PyYAML`) plus the `dev` dependency group (`pytest`, `ruff`). Note that `dev` is a PEP 735 dependency group in `pyproject.toml`, not a pip extras section, so `pip install -e ".[dev]"` does not work here. Without uv, the same toolset installs with pip: `python3 -m pip install -e . pytest "ruff==0.16.8"`.
 
 ## Running Tests
 
@@ -25,9 +26,6 @@ python3 -m pytest plugin/ -v -m "not integration"
 
 # Integration tests (requires unshare --mount-proc support)
 python3 -m pytest plugin/ -v -m integration
-
-# With coverage
-python3 -m pytest plugin/ -v --cov=plugin/terminal_jail --cov-report=term-missing
 ```
 
 Integration tests gate on `_unshare_works()` which probes `unshare --user --pid --fork --mount-proc` with the exact flags the plugin uses. On hosts where unprivileged user namespaces can't mount `/proc` (Ubuntu 26.04 with kernel 7.0+), integration tests skip automatically. This is a kernel policy limitation, not a test defect.
@@ -45,7 +43,7 @@ Rules enforced:
 - Formatting via `ruff format`
 - Import sorting (I001)
 - Unused imports/variables (F401, F841)
-- Line length: 100 characters
+- Line length: 88 characters (set as `line-length` in `pyproject.toml`)
 
 No other formatters (black, isort, flake8) — ruff covers everything.
 
@@ -58,10 +56,13 @@ terminal-jail/
 │   ├── terminal_jail/
 │   │   ├── __init__.py
 │   │   └── plugin.py         # Core plugin: hooks, metrics, transform
-│   ├── test_plugin.py        # Unit tests (31 tests + 1 skipped)
-│   ├── test_integration.py   # Real unshare integration tests (25 tests)
-│   ├── test_install.py       # install.sh tests (11 tests)
-│   ├── test_standalone_cli.py # CLI tests (15 tests)
+│   ├── test_plugin.py        # Unit tests (16 tests)
+│   ├── ...                   # 21 further test modules; real-unshare integration
+│   │                         #   tests are marked @pytest.mark.integration
+│   │                         #   (test_env_scrub, test_userns, test_backend_parity,
+│   │                         #   test_backend_selection, test_host_probes)
+│   ├── test_install.py       # install.sh tests (66 tests)
+│   ├── test_standalone_cli.py # CLI tests (21 tests)
 │   └── test_metrics_export.py # Metrics export tests (21 tests)
 ├── standalone/terminal-jail   # Portable CLI wrapper (bash)
 ├── systemd/                   # systemd hardening drop-in files
