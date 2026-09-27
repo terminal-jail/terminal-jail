@@ -1,0 +1,24 @@
+commit cdbd722f7347864f0a6626ec07397e0dee67d0c0
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Sep 27 14:52:16 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Sep 27 14:52:16 2026 -0500
+
+    board: ingest RELEASE-TJ-003 releng hold
+    
+    Record the latest release-readiness hold and its unresolved containment and artifact-channel blockers.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .coding-hermes/board/events.jsonl | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.coding-hermes/board/events.jsonl b/.coding-hermes/board/events.jsonl
+index cb97b4d..a799e8f 100644
+--- a/.coding-hermes/board/events.jsonl
++++ b/.coding-hermes/board/events.jsonl
+@@ -494,3 +494,4 @@
+ {"id": 494, "timestamp": "2026-09-27 10:53:48.015127", "event_type": "task_created", "task_id": "QA-TERMINAL-JAIL-12", "actor": "carter-review", "detail": "{\"id\": \"QA-TERMINAL-JAIL-12\", \"status\": \"pending\", \"priority\": \"P3\", \"source\": \"carter review 2026-09-27 (hands-on, commit 6f614783)\"}", "tick_number": null}
+ {"id": 495, "timestamp": "2026-09-27 10:53:48.015127", "event_type": "task_created", "task_id": "INT-CI-2", "actor": "carter-review", "detail": "{\"id\": \"INT-CI-2\", \"status\": \"pending\", \"priority\": \"P3\", \"source\": \"carter review 2026-09-27 (hands-on, commit 6f614783)\"}", "tick_number": null}
+ {"id": 496, "timestamp": "2026-09-27 10:53:48.015127", "event_type": "task_created", "task_id": "DOC-8", "actor": "carter-review", "detail": "{\"id\": \"DOC-8\", \"status\": \"pending\", \"priority\": \"P3\", \"source\": \"carter review 2026-09-27 (hands-on, commit 6f614783)\"}", "tick_number": null}
++{"id":497,"timestamp":"2026-09-27 19:45:00","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"tick\":325,\"tick_type\":\"releng-hold\",\"idle_number\":null,\"summary\":\"Release hold ingested at candidate 7307ff6; no tag or publish authorized. Highest-value P0 remains blocked by clean-host unshare orphan teardown and unresolved artifact channel.\",\"git\":{\"head\":\"42ba903\",\"remote\":\"origin/main\",\"ahead\":0,\"behind\":0,\"board_commit\":\"42ba903\"},\"ci\":{\"repo\":\"terminal-jail/terminal-jail\",\"latest\":\"board: ingest RELEASE-TJ-003 releng hold\",\"status\":\"completed\",\"conclusion\":\"success\"},\"issues\":{\"pending_p0\":[\"RELEASE-TJ-002\",\"RELEASE-TJ-003\"],\"pending_p1\":[\"TJ-DF-037\",\"QA-TERMINAL-JAIL-13\"]},\"board\":{\"rows\":223,\"unique_ids\":223,\"pending_nonfixtures\":37,\"selected\":\"RELEASE-TJ-003\",\"selection\":\"P0 releng hold; no worker because row is a release gate/hold and requires separate authorization plus unresolved external evidence\"},\"judge\":{\"task\":\"RELEASE-TJ-003\",\"tier1\":\"PASS\",\"tier2\":\"unavailable\",\"reason\":\"foreground complete hung beyond 8 minutes; forced completion and async judge dispatched; job-209ea41d486045ee90c89a59876e2f90 still running at closeout\"},\"off_by_one\":{\"discover\":\"not_found for unshare-kill-child-orphan-teardown\",\"submitted\":\"not submitted because no new debugging was performed\"},\"verdict\":\"OK \u2014 board-only release-hold tick; no worker dispatch; hold preserved; judge remains async/infrastructure-pending.\"}","tick_number":325}
