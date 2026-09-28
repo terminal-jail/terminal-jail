@@ -27,7 +27,12 @@ Verdicts (one per directive):
                  (NOT_ENFORCED if a manager somehow accepts it, UNKNOWN on
                  other failures) — never ENFORCED.
 - UNKNOWN:       systemd-run is missing, the run timed out, the scope is
-                 unavailable, or the evidence could not be interpreted.
+                 unavailable, or the evidence could not be interpreted. For
+                 RestrictNamespaces specifically, also when the HOST itself
+                 denies unprivileged user namespaces (or the baseline control
+                 cannot run): an in-unit unshare failure is then
+                 indistinguishable from host policy, so no ENFORCED verdict
+                 is possible without an outside-unit control (TJ-DF-029).
 
 Scope selection (--scope): "user" probes through the caller's systemd user
 manager; "system" probes through the system manager via `sudo -n systemd-run`
@@ -58,6 +63,9 @@ Safety contract (grep-verifiable):
   tempfile.mkdtemp() directory (ReadWritePaths/ProtectSystem probe), removed
   afterwards.
 - No shell-string execution with interpolated host data: argv lists only.
+- The RestrictNamespaces host baseline (TJ-DF-029) runs the same `unshare
+  --user --pid true` control DIRECTLY on the host, outside any unit: one
+  bounded subprocess, argv list only, no unit switches, nothing persisted.
 
 Usage:
     python3 scripts/systemd-directive-probe.py              # plain text
@@ -81,6 +89,8 @@ from collections.abc import Callable
 # Rejection markers: systemd prints these when it refuses a directive at load.
 _REJECT_MARKERS = ("Unknown assignment", "Unknown lvalue", "Failed to load")
 _UNIT_PREFIX = "tj-probe"
+# Bounded timeout for the host-side unshare baseline control (TJ-DF-029).
+_HOST_BASELINE_TIMEOUT_S = 10
 
 
 def _uniq_unit() -> str:
@@ -248,15 +258,77 @@ def _judge_private_users(out: str, err: str, rc: int, scope: str) -> tuple[str, 
     return "ENFORCED", f"uid_map '{' '.join(first)}' (euid={euid})"
 
 
+# ── host baseline (TJ-DF-029) ──────────────────────────────────────────
+
+
+def _host_unshare_baseline(timeout: int, path: str | None = None):
+    """Run the RestrictNamespaces payload command DIRECTLY on the host,
+    outside any unit (TJ-DF-029). If the host itself denies unprivileged user
+    namespaces, an in-unit `unshare --user --pid` failure is indistinguishable
+    from host policy — so the outside-unit control is mandatory evidence.
+
+    Returns (rc, reason): rc is the host unshare exit code, or None when the
+    control cannot produce a comparable result (executable missing, cannot
+    exec, or timed out). A None rc must NEVER be read as enforcement.
+
+    No unit switches, no persistence: one bounded argv-list subprocess, the
+    same safety contract as the rest of the probe.
+    """
+    try:
+        unshare = shutil.which("unshare", path=path or os.environ.get("PATH"))
+    except (OSError, TypeError):
+        unshare = None
+    if not unshare:
+        return None, "unshare not available on host"
+
+    try:
+        result = subprocess.run(
+            [unshare, "--user", "--pid", "true"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"host unshare baseline timed out after {timeout}s"
+    except OSError as exc:
+        return (
+            None,
+            f"unshare not available on host (errno={getattr(exc, 'errno', 'n/a')})",
+        )
+    return result.returncode, "host unshare baseline rc"
+
+
 def _judge_restrict_namespaces(
     out: str, err: str, rc: int, scope: str
 ) -> tuple[str, str]:
+    """RestrictNamespaces judge (TJ-DF-029): the outside-unit unshare control
+    gates ENFORCED. Host rc nonzero/None -> UNKNOWN (host denies unprivileged
+    user namespaces, or the control is unobservable); host rc 0 -> ENFORCED
+    iff the in-unit probe fails, NOT_ENFORCED when it succeeds.
+    """
     observed = _field(out, "RNS_RC=")
     if observed is None:
         return "UNKNOWN", f"no unshare evidence (rc={rc}, stderr={err.strip()!r})"
+    baseline_rc, baseline_note = _host_unshare_baseline(_HOST_BASELINE_TIMEOUT_S)
+    if baseline_rc is None:
+        return "UNKNOWN", (
+            f"host-baseline unavailable ({baseline_note}); in-unit unshare "
+            f"rc={observed} cannot be attributed to the directive"
+        )
+    if baseline_rc != 0:
+        return "UNKNOWN", (
+            f"host denies unprivileged user namespaces (host-baseline "
+            f"unshare rc={baseline_rc}); in-unit rc={observed} is not "
+            f"attributable to the directive ({scope} scope)"
+        )
     if observed != "0":
-        return "ENFORCED", f"unshare --user --pid denied (rc={observed})"
-    return "NOT_ENFORCED", f"observed unshare --user --pid rc=0 ({scope} scope)"
+        return "ENFORCED", (
+            f"unshare --user --pid denied (rc={observed}); host-baseline rc=0"
+        )
+    return "NOT_ENFORCED", (
+        f"observed unshare --user --pid rc=0 ({scope} scope); host-baseline rc=0"
+    )
 
 
 def _judge_capability_bounding(

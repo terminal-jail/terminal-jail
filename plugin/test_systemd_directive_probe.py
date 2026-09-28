@@ -72,6 +72,8 @@ def write_fake_systemd_run(tmp_path: Path) -> Path:
       evidence    -> canned enforcing evidence on stdout, exit 0
       silent      -> accept, produce nothing, exit 0
       passthrough -> run the payload for real (local, no systemd)
+      rns         -> echo "RNS_RC=$TJ_FAKE_RNS_RC" (RestrictNamespaces
+                     in-unit evidence), exit 0
     """
     fake = tmp_path / "systemd-run"
     fake.write_text(
@@ -95,6 +97,10 @@ def write_fake_systemd_run(tmp_path: Path) -> Path:
         "  exit 0\n"
         "fi\n"
         'if [ "$MODE" = "silent" ]; then\n'
+        "  exit 0\n"
+        "fi\n"
+        'if [ "$MODE" = "rns" ]; then\n'
+        '  echo "RNS_RC=${TJ_FAKE_RNS_RC:-1}"\n'
         "  exit 0\n"
         "fi\n"
         "# passthrough: execute the payload exactly as a unit would\n"
@@ -205,6 +211,124 @@ def test_accepted_with_no_output_at_all_is_unknown(tmp_path):
     assert "no NoNewPrivs evidence" in record["evidence"]
 
 
+# ── offline: RestrictNamespaces host baseline (TJ-DF-029) ──────────
+
+
+def write_fake_unshare(tmp_path: Path, exit_code: int) -> Path:
+    """A fake `unshare` earlier on PATH so the probe's HOST baseline is
+    scriptable offline: TJ_FAKE_HOST_UNSHARE_RC (default exit_code) is its
+    exit status, or "timeout" to sleep past any sane probe timeout."""
+    bin_dir = tmp_path / "fake-bin"
+    bin_dir.mkdir(exist_ok=True)
+    fake = bin_dir / "unshare"
+    fake.write_text(
+        "#!/bin/sh\n"
+        "# Fake unshare for offline TJ-DF-029 tests (NOT a real namespace).\n"
+        'RC="${TJ_FAKE_HOST_UNSHARE_RC:-' + str(exit_code) + '}"\n'
+        'if [ "$RC" = "timeout" ]; then sleep 300; fi\n'
+        'exit "$RC"\n',
+        encoding="utf-8",
+    )
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return bin_dir
+
+
+def rns_probe_argv(fake, bin_dir):
+    """run_probe argv for RestrictNamespaces through the fake manager."""
+    return (
+        "--systemd-run",
+        str(fake),
+        "--scope",
+        "user",
+        "--json",
+        "--directive",
+        "RestrictNamespaces",
+    ), {"TJ_FAKE_MODE": "rns", "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+
+
+def test_rns_host_denies_is_unknown_despite_inunit_denial(tmp_path):
+    """Host baseline denies unprivileged unshare (rc!=0): the in-unit denial is
+    indistinguishable from host policy -> UNKNOWN, never ENFORCED."""
+    fake = write_fake_systemd_run(tmp_path)
+    bin_dir = write_fake_unshare(tmp_path, exit_code=1)
+    args, env_extra = rns_probe_argv(fake, bin_dir)
+    env_extra["TJ_FAKE_RNS_RC"] = "1"  # unit denies too
+    result = run_probe(*args, env_extra=env_extra)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    (record,) = report["records"]
+    assert record["verdict"] == "UNKNOWN"
+    assert "host denies" in record["evidence"]
+    assert "host-baseline" in record["evidence"]
+    assert record["scope"] == "user"  # honest scope; verdict is UNKNOWN
+
+
+def test_rns_host_allows_and_unit_denies_is_enforced(tmp_path):
+    """Host baseline allows unshare (rc=0) and the unit denies it -> ENFORCED,
+    with the baseline rc included in the evidence."""
+    fake = write_fake_systemd_run(tmp_path)
+    bin_dir = write_fake_unshare(tmp_path, exit_code=0)
+    args, env_extra = rns_probe_argv(fake, bin_dir)
+    env_extra["TJ_FAKE_RNS_RC"] = "1"  # unit denies
+    result = run_probe(*args, env_extra=env_extra)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    (record,) = report["records"]
+    assert record["verdict"] == "ENFORCED"
+    assert "unshare --user --pid denied (rc=1)" in record["evidence"]
+    assert "host-baseline" in record["evidence"]
+
+
+def test_rns_host_allows_and_unit_allows_is_not_enforced(tmp_path):
+    """Control: host allows AND the unit allows -> NOT_ENFORCED is retained."""
+    fake = write_fake_systemd_run(tmp_path)
+    bin_dir = write_fake_unshare(tmp_path, exit_code=0)
+    args, env_extra = rns_probe_argv(fake, bin_dir)
+    env_extra["TJ_FAKE_RNS_RC"] = "0"  # unit allows too
+    result = run_probe(*args, env_extra=env_extra)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    (record,) = report["records"]
+    assert record["verdict"] == "NOT_ENFORCED"
+    assert "observed unshare --user --pid rc=0 (user scope)" in record["evidence"]
+    assert "host-baseline rc=0" in record["evidence"]
+
+
+def test_rns_host_baseline_timeout_is_unknown(tmp_path):
+    """The host unshare control itself timing out -> UNKNOWN, never ENFORCED."""
+    fake = write_fake_systemd_run(tmp_path)
+    bin_dir = write_fake_unshare(tmp_path, exit_code=0)
+    args, env_extra = rns_probe_argv(fake, bin_dir)
+    env_extra["TJ_FAKE_HOST_UNSHARE_RC"] = "timeout"
+    env_extra["TJ_FAKE_RNS_RC"] = "1"
+    result = run_probe(*args, env_extra=env_extra)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    (record,) = report["records"]
+    assert record["verdict"] == "UNKNOWN"
+    assert "timed out" in record["evidence"]
+
+
+def test_host_baseline_missing_executable_is_unknown(tmp_path):
+    """Module-level contract: missing `unshare` -> (None, reason), which the
+    RestrictNamespaces judge must surface as UNKNOWN, never ENFORCED."""
+    probe = load_probe_module()
+    rc, reason = probe._host_unshare_baseline(
+        timeout=5, path=str(tmp_path / "no-such-bin-dir")
+    )
+    assert rc is None and "not available" in reason
+
+
+def test_host_baseline_executable_error_is_unknown(tmp_path):
+    """Module-level contract: `unshare` that cannot exec (permission denied)
+    -> (None, reason) -> UNKNOWN upstream, never ENFORCED."""
+    probe = load_probe_module()
+    bin_dir = write_fake_unshare(tmp_path, exit_code=0)
+    (bin_dir / "unshare").chmod(0o644)  # not executable
+    rc, reason = probe._host_unshare_baseline(timeout=5, path=str(bin_dir))
+    assert rc is None and "not available" in reason
+
+
 def test_full_table_rejected_by_manager_is_all_unsupported(tmp_path):
     """A manager rejecting every directive yields 13 UNSUPPORTED records."""
     fake = write_fake_systemd_run(tmp_path)
@@ -295,8 +419,11 @@ def test_missing_systemd_run_is_all_unknown_exit_zero(tmp_path):
 # ── safety invariants ───────────────────────────────────────────────
 
 
-def test_built_argv_never_touches_gateway_or_etc_or_control_verbs(tmp_path):
-    """Every systemd-run argv the probe builds is throwaway-unit only."""
+def test_built_argv_never_touches_gateway_or_etc_or_control_verbs(
+    tmp_path, monkeypatch
+):
+    """Every systemd-run argv the probe builds is throwaway-unit only; the
+    host-baseline control (TJ-DF-029) is captured as its own argv class."""
     probe = load_probe_module()
     captured: list[list[str]] = []
     real_run = subprocess.run
@@ -306,6 +433,9 @@ def test_built_argv_never_touches_gateway_or_etc_or_control_verbs(tmp_path):
         return real_run(argv, *a, **kw)
 
     fake = write_fake_systemd_run(tmp_path)
+    fake_unshare = write_fake_unshare(tmp_path, exit_code=0)
+    # Deterministic host-control argv: probe resolves `unshare` via PATH.
+    monkeypatch.setenv("PATH", f"{fake_unshare}{os.pathsep}{os.environ['PATH']}")
     original_run = probe.subprocess.run
     probe.subprocess.run = spy_run
     try:
@@ -323,10 +453,17 @@ def test_built_argv_never_touches_gateway_or_etc_or_control_verbs(tmp_path):
             assert token not in joined, f"forbidden {token!r} in argv {argv}"
         for verb in FORBIDDEN_VERBS:
             assert verb not in argv, f"forbidden systemctl verb {verb!r} in {argv}"
-        # Transient-only: every unit launch carries the throwaway switches.
-        if any("systemd-run" in part for part in argv):
+        # Transient-only: every unit launch carries the throwaway switches and
+        # a unique unit name; the bare host-baseline control (TJ-DF-029) is
+        # NOT a unit launch and must never carry unit switches.
+        if any(part.endswith("/systemd-run") or part == "systemd-run" for part in argv):
             assert "--wait" in argv and "--collect" in argv
             assert any(part.startswith("--unit=tj-probe-") for part in argv)
+        else:
+            assert "--wait" not in argv and "--collect" not in argv
+            assert not any(part.startswith("--unit=tj-probe-") for part in argv), (
+                f"host control argv carries unit switches: {argv}"
+            )
 
 
 def test_source_has_no_etc_write_path_no_gateway_unit_no_daemon_reload():
