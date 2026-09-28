@@ -28,14 +28,21 @@ Verdict rows:
 
 Non-builtin ids in the rules dirs are the documented extension mechanism
 (rule packs, user catch-alls); they are counted as informational, never drift.
-Corrupt YAML files are reported as WARNING (the loader fails open — a corrupt
-mirror means the builtin stays live), never as drift.
+An UNPARSEABLE rule file is a first-class finding (TJ-DF-039): it is counted in
+the RESULT line as ``corrupt=N`` and the WARNING names it, because the loader
+gets ZERO rules out of it — on a host without PyYAML every ``.yaml`` rule file
+is in that state (rules.py falls back to stdlib json), so an entire installed
+mirror can be inert while the probe previously said nothing but "drift=0"
+(observed on a fresh Debian agent, docs/dogfood/2026-09-28-fresh-install-smoke).
+No corrupt file is ever a DRIFT row — no id can be compared for it — the builtin
+stays live, and the file's own rules are simply absent.
 
 Classifier contract (pidns-capability-probe / fs-isolation-probe pattern):
 a BARE run always exits 0. Pass --fail-on-drift (CI/gate use) to exit 1 when
-any DRIFT row was printed. A deliberate same-id override (the documented
-"override to warn" escape hatch) WILL show as DRIFT — by design: the drift is
-no longer silent, and gate users opt in consciously.
+any DRIFT row was printed OR any installed rule file could not be parsed
+(corrupt > 0). A deliberate same-id override (the documented "override to
+warn" escape hatch) WILL show as DRIFT — by design: the drift is no longer
+silent, and gate users opt in consciously.
 
 Run from anywhere (paths resolved from this file's location):
     .venv/bin/python scripts/rules-drift-probe.py [--fail-on-drift]
@@ -88,7 +95,12 @@ def _installed_by_id(system_dir: str, user_dir: str) -> tuple[dict, list[str]]:
     for YAML semantics — same discipline as yaml-mirror-parity-probe) and the
     loader's documented resolution: system dir first, user dir second, lexical
     file order within a dir, later same-id entries replacing earlier ones.
-    Corrupt files fail open exactly like the engine (WARNING, not drift).
+    A file the loader cannot turn into rules (unparseable YAML/JSON, a
+    PyYAML-less host, a refused field schema, unreadable) contributes nothing
+    and is returned in ``corrupt`` — the engine's own action on it is
+    unchanged (fail open), but the CALLER must report it: rules the operator
+    installed are absent, and silence is what made the mirror look healthy
+    (TJ-DF-039).
     """
     by_id: dict = {}
     corrupt: list[str] = []
@@ -105,8 +117,15 @@ def _installed_by_id(system_dir: str, user_dir: str) -> tuple[dict, list[str]]:
     return by_id, corrupt
 
 
-def probe(system_dir: str, user_dir: str) -> tuple[list[str], int]:
-    """Classify one host. Returns (output_lines, drift_count)."""
+def probe(system_dir: str, user_dir: str) -> tuple[list[str], int, int]:
+    """Classify one host.
+
+    Returns (output_lines, drift_count, corrupt_count). Only ``drift`` counts
+    same-id ACTION deviations (the refused-vs-executed property this probe
+    exists for); ``corrupt`` counts installed rule files whose content never
+    became rules — reported, and failed under --fail-on-drift, but never
+    rendered as drift.
+    """
     lines: list[str] = []
     sys_files = _yaml_files(system_dir)
     usr_files = _yaml_files(user_dir)
@@ -121,7 +140,17 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int]:
 
     installed, corrupt = _installed_by_id(system_dir, user_dir)
     for path in corrupt:
-        lines.append(f"WARNING: unparseable rule file (engine fails open): {path}")
+        lines.append(
+            "WARNING: unparseable rule file — its rules are NOT loaded on this "
+            f"host (the loader gets zero rules from it): {path}"
+        )
+    if corrupt:
+        lines.append(
+            f"NOTE: {len(corrupt)} rule file(s) never became rules — the engine "
+            "enforces only its builtins for them. On a host without PyYAML that "
+            "is EVERY .yaml rule file (install python3-yaml / PyYAML); "
+            "--fail-on-drift treats this as a gate failure"
+        )
 
     overridden = sorted(set(installed) & set(ENGINE_RULES))
     extras = sorted(set(installed) - set(ENGINE_RULES))
@@ -156,7 +185,7 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int]:
             + ("" if overridden else " (rules dirs absent or carry no builtin ids)")
         )
     lines.append(
-        f"RESULT: drift={drift} overridden={len(overridden)} "
+        f"RESULT: drift={drift} overridden={len(overridden)} corrupt={len(corrupt)} "
         f"unoverridden={len(ENGINE_RULES) - len(overridden)} "
         f"non-builtin={len(extras)}"
     )
@@ -165,7 +194,7 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int]:
             "INFO: non-builtin rule id(s) present (extension mechanism, "
             f"never drift): {', '.join(extras)}"
         )
-    return lines, drift
+    return lines, drift, len(corrupt)
 
 
 def main() -> int:
@@ -175,17 +204,18 @@ def main() -> int:
     parser.add_argument(
         "--fail-on-drift",
         action="store_true",
-        help="exit 1 when any DRIFT row is printed (CI/gate use)",
+        help="exit 1 when any DRIFT row is printed or any installed rule file "
+        "is unparseable (CI/gate use)",
     )
     args = parser.parse_args()
     try:
         config = Config.from_environ()
-        lines, drift = probe(config.system_rules_dir, config.user_rules_dir)
+        lines, drift, corrupt = probe(config.system_rules_dir, config.user_rules_dir)
     except Exception as exc:  # noqa: BLE001 — classifier must never crash a host run
         print(f"UNKNOWN: probe error: {exc}")
         return 0
     print("\n".join(lines))
-    if args.fail_on_drift and drift:
+    if args.fail_on_drift and (drift or corrupt):
         return 1
     return 0
 

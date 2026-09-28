@@ -267,7 +267,10 @@ class RuleLoader:
     Two-stage leniency (TJ-GAP-070):
 
     - A file that cannot be PARSED (invalid YAML/JSON, unreadable) is skipped
-      and contributes no rules — DF-TERMINAL-JAIL-6's documented leniency.
+      and contributes no rules — DF-TERMINAL-JAIL-6's documented leniency. On a
+      host without PyYAML the JSON fallback is the ONLY path a ``.yaml`` file
+      can take, so the whole mirror lands here; that skip is announced with one
+      loud stderr note instead of being silent (TJ-DF-039).
     - A file that parses but whose FIELDS fail type validation (e.g.
       ``priority: not-a-number``) is REFUSED with a loud one-line stderr note
       naming the file, and the load ABORTS. Silently skipping it would be worse
@@ -277,7 +280,8 @@ class RuleLoader:
       allow, so a typo cannot silently remove protection.
 
     ``schema_notes`` collects the loud notes so callers/tests can assert them
-    without capturing stderr.
+    without capturing stderr. ``parse_notes`` collects the same for the
+    PyYAML-less JSON-fallback failure (TJ-DF-039), which stays fail-open.
     """
 
     def __init__(
@@ -290,6 +294,7 @@ class RuleLoader:
             Path.home() / ".config" / "terminal-jail" / "rules.d"
         )
         self.schema_notes: list[str] = []
+        self.parse_notes: list[str] = []
 
     def load_all(self) -> RuleSet:
         """Load all rules from system and user directories.
@@ -342,9 +347,12 @@ class RuleLoader:
         """Load rules from a single YAML file.
 
         The file is expected to contain a top-level ``rules`` list. A file that
-        cannot be PARSED returns empty (DF-TERMINAL-JAIL-6 leniency); a file
-        that parses but violates the field schema raises ``RuleSchemaError``
-        after writing one loud stderr note naming it (TJ-GAP-070).
+        cannot be PARSED returns empty (DF-TERMINAL-JAIL-6 leniency) — but when
+        the failure came from the PyYAML-less JSON fallback it is no longer
+        silent: ``_parse_file`` has already written one loud stderr note naming
+        the file (TJ-DF-039). A file that parses but violates the field schema
+        raises ``RuleSchemaError`` after writing one loud stderr note naming it
+        (TJ-GAP-070).
         """
         try:
             return self._parse_file(file_path)
@@ -376,10 +384,29 @@ class RuleLoader:
             else:
                 data = yaml.safe_load(content)
         except ImportError:
-            # Fall back to json
+            # Fall back to json. On a host WITHOUT PyYAML this is the ONLY path
+            # a ``.yaml`` rule file can take — and YAML is not JSON, so
+            # ``json.loads`` raises on the shipped mirror (TJ-DF-039): the file
+            # then contributes ZERO rules. DF-TERMINAL-JAIL-6's leniency is
+            # about the engine's ACTION on an unparseable file; it says nothing
+            # about the operator being told, and swallowing this quietly made a
+            # whole installed mirror inert with no message anywhere on the host.
+            # The note is one line, in the TJ-GAP-070 style, and the exception
+            # is re-raised so ``_load_file`` keeps its fail-open behaviour —
+            # action unchanged, silence removed.
             import json
 
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except Exception as exc:  # noqa: BLE001 — re-raised below
+                note = (
+                    f"terminal-jail: UNPARSEABLE rule file {file_path} "
+                    f"(PyYAML unavailable, JSON fallback failed: {exc}) "
+                    "— the rules in this file are NOT loaded"
+                )
+                self.parse_notes.append(note)
+                print(note, file=sys.stderr, flush=True)
+                raise
 
         # TJ-GAP-070: refuse a document the engine cannot EVALUATE. The parse
         # above succeeded, so DF-TERMINAL-JAIL-6's skip path (which is for

@@ -16,6 +16,11 @@ Contract (board-decided):
   ``priority`` — so a typo can no longer reach evaluation time. Files the
   schema pass cannot PARSE keep DF-TERMINAL-JAIL-6's skip-with-warning
   behavior.
+- TJ-DF-039: when the parse failure comes from the PyYAML-less JSON fallback
+  (on such a host that fallback is the ONLY path a ``.yaml`` rule file can
+  take, so an entire installed mirror is affected) the skip stops being
+  silent: one loud stderr note names the file and the cause. The engine's
+  ACTION is unchanged — still fail open, nothing propagates.
 """
 
 from __future__ import annotations
@@ -650,3 +655,123 @@ rules:
             with pytest.raises(RuleSchemaError):
                 RuleLoader(system_dir=str(rules_dir)).load_all()
         assert "bool-prio.yaml" in stderr.getvalue()
+
+
+# ── E. Loader: PyYAML-less host — the inert mirror is now LOUD (TJ-DF-039) ──
+
+
+class TestLoaderPyYAMLLessMirrorIsLoud:
+    """On a host without PyYAML the stdlib json fallback is the ONLY path a
+    ``.yaml`` rule file can take (rules.py), and YAML is not JSON — so every
+    installed rule file contributes ZERO rules. DF-TERMINAL-JAIL-6's fail-open
+    ACTION is unchanged (the Python builtins stay live, nothing propagates);
+    what changes is that the skip is no longer silent: one loud stderr note
+    names the file and the cause, and ``loader.parse_notes`` carries it for
+    callers that cannot capture stderr.
+    """
+
+    @staticmethod
+    def _install_shipped_mirror(tmp_path: Path) -> Path:
+        """The shipped mirror in the dir an installed host reads (user dir)."""
+        rules_dir = tmp_path / "rules.d"
+        rules_dir.mkdir()
+        shipped = (
+            PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "00-builtins.yaml"
+        )
+        (rules_dir / shipped.name).write_bytes(shipped.read_bytes())
+        return rules_dir
+
+    def test_control_shipped_mirror_loads_its_rules_with_pyyaml(
+        self, tmp_path: Path
+    ) -> None:
+        """Control for the case below: with PyYAML present the SAME fixture is
+        a non-empty rule set — so the [] there is caused by the missing parser,
+        not by a broken fixture."""
+        from terminal_jail.interruptor.rules import RuleLoader
+
+        rules_dir = self._install_shipped_mirror(tmp_path)
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
+            ruleset = loader.load_all()
+        assert len(ruleset) > 0
+        assert stderr.getvalue() == ""
+        assert loader.parse_notes == []
+
+    def test_mirror_fails_open_loudly_without_pyyaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # ``sys.modules["yaml"] = None`` makes `import yaml` raise ImportError
+        # deterministically — the fresh-host-without-PyYAML simulation (same
+        # seam as test_rule_packs.py's PyYAML-less cases).
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        from terminal_jail.interruptor.rules import RuleLoader
+
+        rules_dir = self._install_shipped_mirror(tmp_path)
+        mirror = rules_dir / "00-builtins.yaml"
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
+            ruleset = loader.load_all()  # must NOT raise: fail open is retained
+        err = stderr.getvalue()
+        assert len(ruleset) == 0, "no rule can be read without a YAML parser"
+        # exactly one loud line, naming the file and the cause
+        assert err.count("\n") == 1, f"exactly one loud line, got: {err!r}"
+        assert str(mirror) in err, f"note must name the file, got: {err!r}"
+        assert "PyYAML unavailable" in err, f"note must name the cause: {err!r}"
+        assert "NOT loaded" in err, f"note must say the rules are absent: {err!r}"
+        assert loader.parse_notes == [err.rstrip("\n")]
+        assert loader.schema_notes == []
+
+    def test_engine_verdict_is_unchanged_without_pyyaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Removing the silence must not change the DECISION: a builtin-covered
+        command still BLOCKs with the same rule id on a PyYAML-less host."""
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        from terminal_jail.interruptor import Action
+
+        rules_dir = self._install_shipped_mirror(tmp_path)
+        config = Config(
+            mode="enforce",
+            system_rules_dir=str(tmp_path / "absent-system"),
+            user_rules_dir=str(rules_dir),
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            result = intercept("rm -rf /", config=config)
+        assert result.action == Action.BLOCK
+        assert result.rule_id == "builtin-rm-rf-root"
+
+    def test_a_json_rule_file_still_loads_without_pyyaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fallback is real: a JSON rules document (the one shape the
+        fallback CAN read) still loads with no note and no stderr noise."""
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        from terminal_jail.interruptor.rules import RuleLoader
+
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(
+            rules_dir,
+            "10-json.yaml",
+            json.dumps(
+                {
+                    "rules": [
+                        {
+                            "id": "json-block",
+                            "priority": 100,
+                            "action": "block",
+                            "match": {"type": "pattern", "pattern": "danger-tool"},
+                        }
+                    ]
+                }
+            ),
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
+            ruleset = loader.load_all()
+        assert ruleset.by_id("json-block") is not None
+        assert stderr.getvalue() == ""
+        assert loader.parse_notes == []

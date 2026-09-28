@@ -13,7 +13,9 @@ dirs: every run points TERMINAL_JAIL_INTERRUPTOR_RULES_DIR and
 TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR at tmp_path fixtures (deliberately
 downgraded copies, clean dirs, absent dirs, corrupt YAML). Nothing outside
 tmp is written or read. The classifier contract is pinned: a bare run ALWAYS
-exits 0; only --fail-on-drift may exit non-zero.
+exits 0; only --fail-on-drift may exit non-zero — and since TJ-DF-039 that
+mode fails on an UNPARSEABLE installed rule file too (corrupt=N in RESULT),
+which is what a PyYAML-less host produces for every .yaml rule file.
 """
 
 from __future__ import annotations
@@ -41,6 +43,11 @@ ENV_USER = "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"
 DOWNGRADED_ID = "builtin-kill-all"
 ENGINE_ACTION = "block"
 DOWNGRADED_ACTION = "sandbox"
+
+# One rule file the engine's loader can never turn into rules. On a host
+# WITHOUT PyYAML this is what EVERY .yaml rule file looks like to the loader
+# (rules.py falls back to stdlib json) — the TJ-DF-039 host state.
+CORRUPT_YAML = 'rules: [ { id: "unterminated", action: '
 
 
 def load_probe_module():
@@ -260,20 +267,20 @@ class TestNotDrift:
         assert "my-catch-all" in result.stdout
         assert "never drift" in result.stdout
 
-    def test_corrupt_yaml_is_warning_not_drift(self, tmp_path: Path) -> None:
+    def test_corrupt_yaml_produces_no_drift_row(self, tmp_path: Path) -> None:
         # The engine's loader fails open on an unparseable file (the builtin
-        # stays live), so corruption is reported as WARNING, never as drift.
+        # stays live), so corruption is never rendered as a DRIFT row — but it
+        # IS counted and reported (TJ-DF-039): see TestCorruptInstalledFile.
         user_dir = write_rules_dir(
-            tmp_path / "user",
-            {"00-builtins.yaml": 'rules: [ { id: "unterminated", action: '},
+            tmp_path / "user", {"00-builtins.yaml": CORRUPT_YAML}
         )
         result = run_probe(
-            "--fail-on-drift",
-            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)},
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)}
         )
         assert result.returncode == 0, result.stdout
-        assert "WARNING: unparseable rule file" in result.stdout
         assert "DRIFT" not in result.stdout
+        assert "RESULT: drift=0" in result.stdout
+        assert "corrupt=1" in result.stdout
 
     def test_non_yaml_files_are_ignored(self, tmp_path: Path) -> None:
         user_dir = write_rules_dir(
@@ -311,19 +318,113 @@ class TestNotDrift:
         assert str(system_dir / "00-builtins.yaml") not in result.stdout
 
 
+# ── TJ-DF-039: unparseable installed file is a first-class finding ─────────
+
+
+class TestCorruptInstalledFile:
+    """A rule file the loader gets ZERO rules out of must not read as healthy.
+
+    That is the PyYAML-less host state (every .yaml rule file is unparseable
+    there), where the old output was a bare WARNING plus ``drift=0`` / exit 0 —
+    i.e. the tool whose job is catching a broken mirror called it clean.
+    """
+
+    def test_warning_names_file_and_says_rules_are_not_loaded(
+        self, tmp_path: Path
+    ) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user", {"00-builtins.yaml": CORRUPT_YAML}
+        )
+        result = run_probe(
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)}
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "WARNING: unparseable rule file" in result.stdout
+        assert "NOT loaded" in result.stdout
+        assert str(user_dir / "00-builtins.yaml") in result.stdout
+
+    def test_bare_run_still_exits_zero_with_corrupt_file(self, tmp_path: Path) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user", {"00-builtins.yaml": CORRUPT_YAML}
+        )
+        result = run_probe(
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)}
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "corrupt=1" in result.stdout
+
+    def test_fail_on_drift_exits_one_on_corrupt_file(self, tmp_path: Path) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user", {"00-builtins.yaml": CORRUPT_YAML}
+        )
+        result = run_probe(
+            "--fail-on-drift",
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)},
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "corrupt=1" in result.stdout
+        # no same-id comparison was possible for that file, so the failure is
+        # the corrupt count alone — the RESULT line must say both
+        assert "drift=0" in result.stdout
+
+    def test_corrupt_file_does_not_mask_a_real_drift_row(self, tmp_path: Path) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user",
+            {
+                "00-builtins.yaml": CORRUPT_YAML,
+                "10-downgraded.yaml": downgraded_yaml(DOWNGRADED_ACTION),
+            },
+        )
+        result = run_probe(
+            "--fail-on-drift",
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)},
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert f"DRIFT: {DOWNGRADED_ID}" in result.stdout
+        assert "RESULT: drift=1" in result.stdout
+        assert "corrupt=1" in result.stdout
+
+    def test_clean_host_reports_corrupt_zero(self, tmp_path: Path) -> None:
+        result = run_probe(
+            env_extra={
+                ENV_SYSTEM: str(tmp_path / "no-system"),
+                ENV_USER: str(tmp_path / "no-user"),
+            }
+        )
+        assert result.returncode == 0
+        assert "corrupt=0" in result.stdout
+        assert "WARNING" not in result.stdout
+
+
 # ── in-process unit tests: probe() structure + classifier never-crash ──────
 
 
 class TestProbeInProcess:
-    def test_probe_returns_lines_and_drift_count(self, tmp_path: Path) -> None:
+    def test_probe_returns_lines_drift_and_corrupt_counts(self, tmp_path: Path) -> None:
         user_dir = write_rules_dir(
-            tmp_path / "user", {"00-builtins.yaml": downgraded_yaml(DOWNGRADED_ACTION)}
+            tmp_path / "user",
+            {
+                "00-builtins.yaml": downgraded_yaml(DOWNGRADED_ACTION),
+                "10-corrupt.yaml": CORRUPT_YAML,
+            },
         )
-        lines, drift = probe_mod.probe(str(tmp_path / "absent"), str(user_dir))
+        lines, drift, corrupt = probe_mod.probe(str(tmp_path / "absent"), str(user_dir))
         assert drift == 1
+        assert corrupt == 1
         joined = "\n".join(lines)
         assert f"DRIFT: {DOWNGRADED_ID}" in joined
         assert any(line.startswith("DRIFT: ") for line in lines)
+        assert any(line.startswith("WARNING: unparseable rule file") for line in lines)
+        assert "corrupt=1" in joined
+
+    def test_probe_counts_zero_corrupt_on_a_clean_mirror(self, tmp_path: Path) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user", {"00-builtins.yaml": downgraded_yaml(DOWNGRADED_ACTION)}
+        )
+        lines, drift, corrupt = probe_mod.probe(str(tmp_path / "absent"), str(user_dir))
+        assert drift == 1
+        assert corrupt == 0
+        assert not [line for line in lines if line.startswith("WARNING")]
 
     def test_probe_names_source_file_per_drift_row(self, tmp_path: Path) -> None:
         # Two downgraded ids in two different files: each DRIFT row must name
@@ -335,7 +436,9 @@ class TestProbeInProcess:
             tmp_path / "user",
             {"00-a.yaml": downgraded_yaml(DOWNGRADED_ACTION), "10-b.yaml": second},
         )
-        lines, drift = probe_mod.probe(str(tmp_path / "absent"), str(tmp_path / "user"))
+        lines, drift, _ = probe_mod.probe(
+            str(tmp_path / "absent"), str(tmp_path / "user")
+        )
         assert drift == 2
         sources = [line for line in lines if line.startswith("    installed copy")]
         assert len(sources) == 2
