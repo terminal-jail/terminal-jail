@@ -165,6 +165,51 @@ def test_missing_unshare(cli_path: Path, tmp_path: Path) -> None:
     assert "unshare is required" in result.stderr.decode("utf-8")
 
 
+@pytest.mark.standalone_cli
+def test_missing_uname_on_linux_host(cli_path: Path, tmp_path: Path) -> None:
+    """PATH lacks uname on a Linux host (stripped container): the preflight
+    must fall back to /proc and NOT claim 'requires Linux' (TJ-DF-038)."""
+    test_bin = tmp_path / "nounamebin"
+    test_bin.mkdir(exist_ok=True)
+    (test_bin / "bash").symlink_to("/usr/bin/bash")
+    (test_bin / "python3").symlink_to("/usr/bin/python3")
+    (test_bin / "grep").symlink_to("/usr/bin/grep")
+    (test_bin / "cat").symlink_to("/usr/bin/cat")
+
+    orig_path = os.environ["PATH"]
+    try:
+        os.environ["PATH"] = str(test_bin)
+        # (a) no uname, /proc/version present (Linux host): the /proc fallback
+        # lets the platform check pass, so the CLI reaches the unshare
+        # preflight — and never claims "requires Linux".
+        result = _run_cli(cli_path, "echo", "hello")
+        stderr = result.stderr.decode("utf-8")
+        assert result.returncode == 2
+        assert "unshare is required" in stderr
+        assert "requires Linux" not in stderr
+        assert "uname" not in stderr
+        # (b) fail-closed: stub uname reporting Darwin still exits 2 with the
+        # genuine platform message.
+        stub_bin = tmp_path / "stubbin"
+        stub_bin.mkdir(exist_ok=True)
+        (stub_bin / "bash").symlink_to("/usr/bin/bash")
+        (stub_bin / "python3").symlink_to("/usr/bin/python3")
+        (stub_bin / "grep").symlink_to("/usr/bin/grep")
+        (stub_bin / "cat").symlink_to("/usr/bin/cat")
+        fake_uname = stub_bin / "uname"
+        fake_uname.write_text("#!/bin/bash\necho Darwin\n")
+        fake_uname.chmod(
+            fake_uname.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+        )
+        os.environ["PATH"] = str(stub_bin)
+        result = _run_cli(cli_path, "echo", "hello")
+        stderr = result.stderr.decode("utf-8")
+        assert result.returncode == 2
+        assert "requires Linux PID namespaces" in stderr
+    finally:
+        os.environ["PATH"] = orig_path
+
+
 # ── Command execution (host-constrained: unshare --mount-proc may fail) ─────
 
 

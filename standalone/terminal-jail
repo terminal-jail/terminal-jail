@@ -449,7 +449,20 @@ MODIFIED="${MODIFIED:-0}"
 
 # --- preflight ----------------------------------------------------------------
 
-if [ "$(uname -s)" != "Linux" ]; then
+_uname_s="$(uname -s 2>/dev/null)" || true
+if [ -z "$_uname_s" ]; then
+    # uname missing from PATH (stripped containers): fall back to /proc
+    # rather than misreporting a missing dependency as a platform limit.
+    if [ -r /proc/sys/kernel/ostype ] && [ "$(cat /proc/sys/kernel/ostype 2>/dev/null)" = "Linux" ]; then
+        _uname_s="Linux"
+    elif [ -r /proc/version ] && grep -q "Linux version" /proc/version 2>/dev/null; then
+        _uname_s="Linux"
+    else
+        echo "terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)" >&2
+        exit 2
+    fi
+fi
+if [ "$_uname_s" != "Linux" ]; then
     echo "terminal-jail: this CLI requires Linux PID namespaces" >&2
     exit 2
 fi
