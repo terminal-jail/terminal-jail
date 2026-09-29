@@ -676,7 +676,11 @@ value exits 2 before anything runs. Backends are documented in `specs/cli.md`
 **Does `--user` isolate the filesystem?**
 Only when the host allows a **uid mapping** (checked by preflight; marker
 `TERMINAL_JAIL_FS_ISOLATION=mapped`). A mapping-less `--user` namespace is
-an identity display only: `id` shows 65534, but file permissions still
+an identity display only: `id` shows 65534 — but **only under the `unshare`
+backend** (`TERMINAL_JAIL_JAIL_BACKEND=unshare`, or `auto` on hosts where bwrap
+is absent/unusable); under the `bubblewrap` backend `--user` keeps the caller's
+uid (`id` shows 1000, not 65534), since bwrap re-labels rather than maps.
+Either way, file permissions still
 evaluate as the calling user, so mode-600 files stay readable and home files
 writable. When the mapping cannot be created (e.g. Ubuntu AppArmor profile
 `unprivileged_userns` denies setuid/setgid inside unprivileged user
