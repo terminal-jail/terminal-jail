@@ -1498,3 +1498,35 @@ tasks:
   status: complete
   created_at: '2026-09-28T23:14:09.953642+00:00'
   completed_at: '2026-09-28T23:26:09.028435+00:00'
+- id: TJ-DF-038
+  title: Preflight misdiagnoses missing uname as non-Linux
+  criteria:
+  - preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression
+    tests green
+  status: complete
+  created_at: '2026-09-29T10:06:22.709758+00:00'
+  completed_at: '2026-09-29T10:13:12.980928+00:00'
+- id: REVIEW-TJ-006
+  title: FAQ 4 uid 65534 claim is backend-dependent
+  criteria:
+  - docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller
+    uid
+  status: complete
+  created_at: '2026-09-29T13:41:51.222625+00:00'
+  completed_at: '2026-09-29T13:42:29.432018+00:00'
+- id: TJ-DF-035
+  title: Pack-authoring schema discoverable from documented material only
+  criteria:
+  - A pack author following only README + --help produces a valid pack in <=2 attempts;
+    documented example carries action, priority, match.type=pattern, pattern, message
+  status: complete
+  created_at: '2026-09-29T15:51:07.321935+00:00'
+  completed_at: '2026-09-29T16:03:24.057590+00:00'
+- id: REVIEW-TJ-005
+  title: Refresh live Hermes plugin 0.2.0->1.2.0
+  criteria:
+  - plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood
+    record committed and pushed
+  status: complete
+  created_at: '2026-09-29T22:32:34.904408+00:00'
+  completed_at: '2026-09-29T22:35:47.799733+00:00'
