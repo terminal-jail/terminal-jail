@@ -28,7 +28,7 @@ python3 -m pip install -e ".[dev]" 2>/dev/null || true
 ## 2. Test Suite (10 min)
 
 - [ ] `python3 -m pytest plugin/ -v --tb=short` — all tests pass or skip with reason
-- [ ] `python3 -m pytest plugin/test_integration.py -v` — integration tests pass (or skip on blocked kernel)
+- [ ] `python3 -m pytest plugin/test_interruptor_integration.py -v` — integration tests pass (or skip on blocked kernel)
 - [ ] `python3 -m pytest plugin/test_seccomp.py -v` — seccomp tests pass
 - [ ] `python3 -m pytest plugin/test_plugin.py -v` — unit tests pass
 - [ ] Record test counts: `passed=N, skipped=N, failed=0`
