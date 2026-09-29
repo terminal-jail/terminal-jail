@@ -1476,3 +1476,25 @@ tasks:
   status: complete
   created_at: '2026-09-28T02:55:02.183822+00:00'
   completed_at: '2026-09-28T03:19:02.238910+00:00'
+- id: TJ-DF-029
+  title: Add host-baseline control to RestrictNamespaces probe
+  criteria:
+  - The systemd directive probe runs the unshare test outside the transient unit as
+    a host baseline; classify RestrictNamespaces ENFORCED only when host rc=0 and
+    unit rc!=0, and classify UNKNOWN with a host-denies explanation when host rc!=0.
+    Add tests covering both host outcomes and preserve existing behavior for other
+    directives.
+  status: pending
+  created_at: '2026-09-28T18:15:20.520134+00:00'
+- id: TJ-DF-039
+  title: 'PyYAML-less host: rule mirror fails open silently + drift probe blind'
+  criteria:
+  - '1) rules.py JSON-fallback path emits a loud stderr note naming the file when
+    the fallback cannot parse it (PyYAML absent, non-JSON rule file) and a regression
+    test covers it. 2) rules-drift-probe reports unparseable installed rule files
+    as a drift-grade finding: RESULT line carries corrupt count and --fail-on-drift
+    (and bare-run exit policy per file docstring) reflect it; probe test updated.
+    3) Full pytest suite green on repo venv.'
+  status: complete
+  created_at: '2026-09-28T23:14:09.953642+00:00'
+  completed_at: '2026-09-28T23:26:09.028435+00:00'
