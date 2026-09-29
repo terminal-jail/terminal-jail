@@ -1,0 +1,31 @@
+# terminal-jail EXAMPLE rule pack — a minimal, copy-paste authoring reference.
+#
+# This file is NOT part of the default rule set and is not installed by any
+# installer step: it exists so a pack author can see the schema without
+# reading source. Print the same schema from the CLI:
+#
+#     python3 scripts/rule-pack-tool.py schema
+#
+# Validate this file (or your own) before installing:
+#
+#     python3 scripts/rule-pack-tool.py validate \
+#         plugin/terminal_jail/rules/packs/example-pack.yaml \
+#         --pack-name example
+#
+# THE ONE MISTAKE THAT COSTS A PACK (TJ-DF-035): writing `match.type: regex`.
+# `regex` is NOT a match type — the valid types are
+#     command, composite, heredoc, network, path, pattern, pipeline,
+#     subcommand, syscall
+# and `regex` is only an accepted ALIAS for the `pattern` FIELD of a `pattern`
+# match. The correct spelling is `match.type: pattern` with the regex in
+# `pattern:` (or `regex:`). Full contract: specs/interruptor.md §3.4.
+
+rules:
+  - id: "pack-example-block-demo"
+    description: "A minimal demonstration rule — a pattern match that blocks."
+    priority: 950
+    action: block
+    block_message: "Blocked by the example pack: this shape is always refused."
+    match:
+      type: pattern
+      pattern: "^rm -rf /"

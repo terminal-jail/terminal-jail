@@ -6,6 +6,7 @@ decision is made here, BEFORE the installer writes anything::
 
     rule-pack-tool.py validate <pack.yaml> --pack-name <name> [--rules-dir <dir>]
     rule-pack-tool.py list
+    rule-pack-tool.py schema
     rule-pack-tool.py --help
 
 ``validate`` exits 0 and prints one summary line when the pack is installable,
@@ -52,6 +53,7 @@ from typing import Any
 
 USAGE = """usage: rule-pack-tool.py validate <pack.yaml> --pack-name <name> [--rules-dir <dir>]
        rule-pack-tool.py list
+       rule-pack-tool.py schema
        rule-pack-tool.py --help
 
 validate  Refuse (exit 2, one-line reason on stderr) or accept (exit 0) a rule
@@ -60,7 +62,11 @@ validate  Refuse (exit 2, one-line reason on stderr) or accept (exit 0) a rule
           builtin rule set plus every rule file installed in --rules-dir.
 list      Print <name>\\t<path>\\t<rule count> for every pack shipped next to
           this script (plugin/terminal_jail/rules/packs/*.yaml). A pack that
-          cannot be read is skipped with a one-line reason (exit stays 0)."""
+          cannot be read is skipped with a one-line reason (exit stays 0).
+schema    Print the rule-pack authoring schema: the rule fields, every
+          match.type the engine can dispatch (with the fields each expects),
+          a minimal valid example pack, and a pointer to
+          specs/interruptor.md §3.4. Exits 0."""
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -71,6 +77,32 @@ PACK_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
 VALID_ACTIONS = ("block", "sandbox", "allow", "warn")
 PACK_FILE_PREFIX = "terminal-jail-pack-"
 PACK_FILE_SUFFIX = ".yaml"
+
+# Per-type field notes for ``schema`` (TJ-DF-035). The TYPE list itself is
+# derived from the engine at run time by ``_engine_match_types()`` (never
+# hardcoded, so it cannot drift from what ``validate`` accepts); this map only
+# annotates each type with the match fields its matcher handler reads — the
+# ``match_def.get(...)`` calls in plugin/terminal_jail/interruptor/matcher.py.
+_MATCH_TYPE_FIELDS: dict[str, tuple[str, ...]] = {
+    "command": ("match.command: the command's first word",),
+    "composite": (
+        "match.operator (and/or/not)",
+        "match.conditions (a list of nested matches)",
+        "match.not (optional)",
+    ),
+    "heredoc": ("match.pattern: regex tested against a heredoc body",),
+    "network": ("match.network: regex tested against host/URL tokens (optional)",),
+    "path": ("match.path: regex tested against arguments containing '/'",),
+    "pattern": (
+        "match.pattern (or match.regex): regex tested against the command text",
+    ),
+    "pipeline": ("match.pattern: regex tested against each '|'-separated part",),
+    "subcommand": (
+        "match.subcommand: the subcommand word",
+        "match.parent: the parent command (optional)",
+    ),
+    "syscall": ("no fields — a heuristic over dangerous syscall commands",),
+}
 
 
 class PackParseError(Exception):
@@ -440,6 +472,88 @@ def cmd_list(args: list[str]) -> int:
     return 0
 
 
+def cmd_schema(args: list[str]) -> int:
+    """Print the rule-pack authoring schema (TJ-DF-035).
+
+    The valid ``match.type`` values are derived from the engine's matcher at
+    run time (the same derivation ``validate`` uses), so the printed list can
+    never drift from what ``validate`` accepts. The per-type field notes are
+    documentation of matcher.py's ``match_def.get(...)`` reads; a type the
+    engine dispatches but ``_MATCH_TYPE_FIELDS`` does not annotate still
+    prints (with a generic note) rather than being dropped.
+    """
+    if args:
+        return _refuse(
+            f"schema takes no arguments (got {len(args)}) — "
+            "see rule-pack-tool.py --help"
+        )
+    try:
+        match_types = _engine_match_types()
+    except Exception as exc:  # noqa: BLE001 — refusal path: any failure refuses
+        return _refuse(
+            "cannot read the engine's matcher to derive the match types "
+            f"({exc.__class__.__name__}: {exc}) — refusing rather than "
+            "printing a guessed list"
+        )
+    if not match_types:
+        return _refuse(
+            "cannot derive the engine's match types from "
+            "interruptor/matcher.py — refusing"
+        )
+
+    valid_types = ", ".join(sorted(match_types))
+    lines = [
+        "Rule-pack authoring schema (TJ-DF-035).",
+        "",
+        "A pack file is a YAML mapping with one top-level key, `rules`, a list",
+        "of rule mappings. Rule fields:",
+        "",
+        "  id            string, REQUIRED — `pack-<name>-<suffix>` (pack namespace)",
+        "  description   string, optional",
+        "  priority      integer, default 50 — packs: 950 block, 650 sandbox",
+        "  action        string, REQUIRED — block | sandbox | allow | warn",
+        "  block_message string, optional — shown on block/warn",
+        "  match         mapping, REQUIRED — `type` plus the fields below",
+        "  modify        mapping, optional — sandbox/rewrite config",
+        "",
+        "match.type values — the ONLY values the engine can dispatch. `regex` is",
+        "NOT a type: it is an accepted alias for the `pattern` FIELD of a",
+        "`pattern` match, so `match.type: regex` is refused and `type: pattern`",
+        "with a `pattern:` (or `regex:`) field is the valid spelling.",
+        "",
+        f"Valid match.type values: {valid_types}",
+        "",
+    ]
+    for mtype in sorted(match_types):
+        fields = _MATCH_TYPE_FIELDS.get(mtype)
+        if fields is None:
+            lines.append(f"  {mtype:<11}(no documented fields — see matcher.py)")
+        elif not fields:
+            lines.append(f"  {mtype:<11}no fields — a heuristic matcher")
+        else:
+            for position, field in enumerate(fields):
+                prefix = f"  {mtype:<11}" if position == 0 else " " * 13
+                lines.append(f"{prefix}{field}")
+    lines += [
+        "",
+        "Minimal valid pack (save as my-pack.yaml, then validate with",
+        "`python3 scripts/rule-pack-tool.py validate my-pack.yaml --pack-name my-pack`):",
+        "",
+        "  rules:",
+        '    - id: "pack-my-pack-demo"',
+        "      action: block",
+        "      priority: 950",
+        '      block_message: "Blocked by the example pack."',
+        "      match:",
+        "        type: pattern",
+        '        pattern: "^rm -rf /"',
+        "",
+        "Full precedence and validation contract: specs/interruptor.md §3.4.",
+    ]
+    print("\n".join(lines))
+    return 0
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(USAGE, file=sys.stderr)
@@ -452,7 +566,11 @@ def main(argv: list[str]) -> int:
         return cmd_validate(argv[1:])
     if command == "list":
         return cmd_list(argv[1:])
-    return _refuse(f"unknown subcommand {command!r} (expected 'validate' or 'list')")
+    if command == "schema":
+        return cmd_schema(argv[1:])
+    return _refuse(
+        f"unknown subcommand {command!r} (expected 'validate', 'list', or 'schema')"
+    )
 
 
 if __name__ == "__main__":

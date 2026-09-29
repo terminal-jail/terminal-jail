@@ -14,6 +14,7 @@ Two surfaces:
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -29,7 +30,22 @@ from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKS_DIR = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs"
 DB_PACK = PACKS_DIR / "db.yaml"
+EXAMPLE_PACK = PACKS_DIR / "example-pack.yaml"
 PACK_TOOL = PROJECT_ROOT / "scripts" / "rule-pack-tool.py"
+
+# The valid match.type vocabulary the engine's matcher dispatches — the same
+# list the refusal message names and ``rule-pack-tool.py schema`` must print.
+VALID_MATCH_TYPES = (
+    "command",
+    "composite",
+    "heredoc",
+    "network",
+    "path",
+    "pattern",
+    "pipeline",
+    "subcommand",
+    "syscall",
+)
 
 # DF-TERMINAL-JAIL-28: documented stderr banners the validator's process may
 # emit BESIDES its one refusal line. The tool imports the engine builtins, and
@@ -903,3 +919,46 @@ class TestValidatorEngineDefaults:
 
         assert result.returncode == 2, (result.stdout, result.stderr)
         assert "are already installed in" in result.stderr, result.stderr
+
+
+class TestValidatorSchema:
+    """TJ-DF-035: the pack-authoring schema is discoverable from the CLI and a
+    shipped, self-validating example pack — without reading source."""
+
+    def test_schema_lists_every_valid_match_type(self) -> None:
+        result = _run_tool("schema")
+
+        assert result.returncode == 0, result.stderr
+        for mtype in VALID_MATCH_TYPES:
+            assert re.search(rf"\b{re.escape(mtype)}\b", result.stdout), (
+                f"match type {mtype!r} not named in schema output:\n{result.stdout}"
+            )
+
+    def test_schema_prints_a_minimal_example_and_pointer(self) -> None:
+        result = _run_tool("schema")
+
+        assert result.returncode == 0, result.stderr
+        assert "type: pattern" in result.stdout, result.stdout
+        assert "pattern:" in result.stdout, result.stdout
+        assert "priority" in result.stdout, result.stdout
+        assert "action" in result.stdout, result.stdout
+        assert "block_message" in result.stdout, result.stdout
+        assert "specs/interruptor.md" in result.stdout, result.stdout
+
+    def test_schema_takes_no_arguments(self) -> None:
+        result = _run_tool("schema", "extra")
+
+        assert result.returncode == 2
+        assert "takes no arguments" in result.stderr
+
+    def test_help_mentions_schema(self) -> None:
+        result = _run_tool("--help")
+
+        assert result.returncode == 0, result.stderr
+        assert "schema" in result.stdout, result.stdout
+
+    def test_shipped_example_pack_validates_first_try(self) -> None:
+        result = _run_tool("validate", str(EXAMPLE_PACK), "--pack-name", "example")
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "pack 'example' valid" in result.stdout, result.stdout

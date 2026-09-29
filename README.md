@@ -129,6 +129,25 @@ Two practical notes: installing a pack requires `python3`, and parsing a YAML pa
 
 **Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules carry new ids, so they evaluate after the built-in blocklist, allow-list and auto-sandbox layers (they can tighten, never loosen, the default set). A user file that sorts after the pack file (say `zz-local.yaml`) can same-id override a pack rule — including overriding one to `warn`, the same escape hatch the built-ins offer. Pack priorities are 950 for blocks and 650 for sandboxes, sitting between the built-in tiers (1000 / 700 / 500); that orders pack rules against each other, it does not move them between engine layers. The full contract is `specs/interruptor.md` §3.4.
 
+#### Authoring a pack
+
+`scripts/rule-pack-tool.py schema` prints the whole authoring schema — every rule field, every valid `match.type` with the fields each expects, a minimal valid example, and a pointer to `specs/interruptor.md` §3.4. The shipped `plugin/terminal_jail/rules/packs/example-pack.yaml` is that minimal example, commented, and it passes the tool's own `validate` command first try.
+
+The minimal shape:
+
+```yaml
+rules:
+  - id: "pack-example-block-demo"
+    action: block
+    priority: 950
+    block_message: "Blocked by the example pack."
+    match:
+      type: pattern
+      pattern: "^rm -rf /"
+```
+
+The one mistake that wastes the first several attempts: `match.type: regex` is **not** valid. `regex` is not a match type — the valid types are `command`, `composite`, `heredoc`, `network`, `path`, `pattern`, `pipeline`, `subcommand`, `syscall`. `regex` is only an accepted alias for the `pattern` *field* of a `pattern` match, so the correct spelling is `match.type: pattern` with the regex in `pattern:` (or `regex:`).
+
 ### Release mode
 
 Release-mode installs (downloading the wrapper from a published release plus its SHA-256 checksum, verified and atomically installed) are supported by `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`, but no release assets are published yet and release mode is therefore **opt-in only** — without the flag the installer refuses instead of hitting a dead URL. The git-clone path above is the supported install path.
