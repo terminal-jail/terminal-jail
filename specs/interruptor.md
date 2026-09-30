@@ -669,6 +669,22 @@ esac
 | `TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL` | `WARNING` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Master enable for both jail + interruptor |
 
+**No command-length knob exists.** An earlier
+`TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` proposal (an over-length
+allow-with-marker fastpath) was rejected as a security regression and
+removed with the revert; the engine never skips rule evaluation based on
+command length. `Config.from_environ()`
+(`plugin/terminal_jail/interruptor/config.py`) reads only the four
+`TERMINAL_JAIL_INTERRUPTOR_*` variables above — a test pins that `Config`
+has no length field. The literal-precheck optimization instead
+(`_PATTERN_PREFILTERS`, `plugin/terminal_jail/interruptor/matcher.py`)
+skips only patterns that provably cannot match (none of their trigger
+literals is present) and evaluates every pattern at ANY command length, so
+the deny list holds at any length — proof sketch in
+`docs/dogfood/2026-09-24-firewall-library-integration.md` lines 232-251:
+8 KB padded destructive commands still `block`, and benign 8 KB/20 KB/200 KB
+commands are evaluated and allowed (never skipped, no over-length marker).
+
 ## 12. Test Scenarios
 
 ### 12.1 Blocklist Tests
