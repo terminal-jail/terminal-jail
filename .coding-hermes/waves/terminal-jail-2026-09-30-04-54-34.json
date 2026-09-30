@@ -1,0 +1,14 @@
+{
+  "tick_id": "terminal-jail-2026-09-30-04-54-34",
+  "created_at": "2026-09-30T05:10:00-05:00",
+  "tasks": ["DOC-4", "DOC-5", "DOC-6"],
+  "branches": ["wt/DOC-4", "wt/DOC-5", "wt/DOC-6"],
+  "worktrees": ["~/worktrees/terminal-jail-DOC-4", "~/worktrees/terminal-jail-DOC-5", "~/worktrees/terminal-jail-DOC-6"],
+  "status": "finished",
+  "outcomes": {
+    "DOC-4": {"commit": "53cd7e8", "merged": true, "tier2": "COMPLETE", "pushed": true},
+    "DOC-5": {"commit": "9c5c9b1", "merged": true, "tier2": "COMPLETE", "pushed": true},
+    "DOC-6": {"commit": null, "merged": false, "tier2": "n/a", "pushed": false, "reason": "invalid premise - ADR-006 does not exist; row closed no-change"}
+  },
+  "finished_at": "2026-09-30T07:25:00-05:00"
+}
