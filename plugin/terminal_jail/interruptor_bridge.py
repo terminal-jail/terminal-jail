@@ -5,7 +5,13 @@ Protocol:
   Read one JSON line from stdin:  {"command": "<shell command>"}
   Write one JSON line to stdout:  {"action": "allow"|"block"|"modify",
                                    "command": "...", "modified": "...",
-                                   "rule_id": "...", "reason": "..."}
+                                   "rule_id": "...", "reason": "...",
+                                   "layer": "engine"|"yaml"|"user"|"pack"|null}
+
+``layer`` (TJ-GAP-085) names the rule source that decided the verdict —
+an engine builtin constant, the shipped YAML mirror, an operator rule,
+or an installed rule pack — and is ``null`` on the error envelopes
+(where no rule decided anything).
 
 The bridge imports the interruptor engine and must work regardless of
 whether it is invoked from the plugin/ or standalone/ directory.
@@ -93,6 +99,7 @@ def main() -> None:
         "modified": result.modified,
         "rule_id": result.rule_id,
         "reason": result.reason,
+        "layer": getattr(result, "layer", None),
     }
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
@@ -114,6 +121,7 @@ def _emit_fail_open(reason: str) -> None:
         "modified": None,
         "rule_id": None,
         "reason": f"[bridge-error] {reason} — fail-open: allowing command",
+        "layer": None,
     }
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
@@ -139,6 +147,7 @@ def _emit_fail_closed(detail: str) -> None:
         "reason": (
             f"[bridge-error] {detail} — fail-closed: blocking command (enforce mode)"
         ),
+        "layer": None,
     }
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
