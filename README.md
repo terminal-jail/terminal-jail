@@ -84,6 +84,8 @@ The default rule set is deliberately lean and **identical on every host**: the b
 ./install.sh --rule-pack db        # opt in (repeatable, for more packs)
 ./install.sh --unrule-pack db      # opt out
 ./install.sh --list-rule-packs     # what this checkout ships
+./install.sh --rule-pack-file ~/my-pack.yaml        # external pack file
+./install.sh --uninstall-rule-pack-file ~/my-pack.yaml
 ```
 
 #### The `db` pack
@@ -115,6 +117,23 @@ A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SA
 
 `--unrule-pack` is removal, not installation, and stays available in every scope.
 
+#### Externally-authored pack files (`--rule-pack-file`)
+
+A pack does not have to live in `plugin/terminal_jail/rules/packs/` to be installable. `--rule-pack-file <path>` takes any rule-pack file you wrote elsewhere (an absolute or relative path, repeatable) and runs the SAME pipeline as `--rule-pack`: validate with `scripts/rule-pack-tool.py`, then byte-copy into the resolved rules directory. `--uninstall-rule-pack-file <path>` removes that copy again:
+
+```bash
+./install.sh --rule-pack-file ~/policy/my-team-pack.yaml
+./install.sh --uninstall-rule-pack-file ~/policy/my-team-pack.yaml
+```
+
+Three rules shape the external path:
+
+- **The pack name comes from the file name.** `~/policy/my-team-pack.yaml` installs as `terminal-jail-pack-my-team-pack.yaml` — basename, extension (`yaml` / `yml` / `json`) stripped — into the same resolved rules dir a named `--rule-pack` lands in. The derived name must be `[a-z0-9-]+`; anything else (`My Pack.yaml`, `../db`) is refused at parse time with exit `2` and nothing written. The file's internal rule ids must live in that derived namespace (`pack-my-team-pack-*`), exactly like a shipped pack.
+- **Invalid means non-zero, nothing written.** A file the validator refuses (bad schema, malformed YAML, id collision, id outside the namespace) is a loud DF-TERMINAL-JAIL-21 skip: one stderr reason, no file written for that pack, the base install completes, and the run exits `2`. Same `python3` + PyYAML requirements, same prefix-scope skip (DF-TERMINAL-JAIL-22), and the same checkout-only availability — release mode has no validator, so both file flags are refused there like `--rule-pack`.
+- **An external file never replaces an installed pack.** If a pack is already installed under the derived name — including the shipped `db` pack — the external file is skipped with a message naming the installed path, even when the contents differ. Remove the installed pack first (`--unrule-pack <name>`) if replacement is what you want.
+
+`--uninstall-rule-pack-file` derives the same name from the same file and asserts instead of best-effort cleaning: if nothing is installed under the derived name it exits `1` with an explicit reason (`is not installed at <path>`), unlike the idempotent `--unrule-pack`. Removing a file that was installed under the same name by other means works the same way — only the derived `terminal-jail-pack-<name>.yaml` is ever touched.
+
 **Packs are validated before anything is written** (`scripts/rule-pack-tool.py`, run by the installer — POSIX `sh` cannot parse YAML):
 
 - **schema** — every rule needs `id` / `action` / `match` with a match type the engine can dispatch, and a non-empty `pattern` for pattern rules;
@@ -125,7 +144,7 @@ A refusal is a **loud skip, not an abort** (DF-TERMINAL-JAIL-21): the validator 
 
 > **Why collisions are refused.** A `rules.d` entry whose id matches a built-in **replaces** that built-in in its layer, so a pack reusing a built-in id could silently downgrade (or resurrect) a built-in rule. Refusal at install time, never a silent override.
 
-Two practical notes: installing a pack requires `python3`, and parsing a YAML pack additionally requires **PyYAML** (`apt install python3-yaml`, `dnf install python3-yaml`, or `pip install pyyaml`). On a host without PyYAML the installer skips YAML packs with a message naming the missing dependency and both remedies — it never aborts the base install, and a pack stored as plain JSON still installs through the validator's stdlib-JSON fallback. `--unrule-pack` needs no Python at all. Packs come from the repository checkout, so they are unavailable in release mode.
+Two practical notes: installing a pack requires `python3`, and parsing a YAML pack additionally requires **PyYAML** (`apt install python3-yaml`, `dnf install python3-yaml`, or `pip install pyyaml`). On a host without PyYAML the installer skips YAML packs with a message naming the missing dependency and both remedies — it never aborts the base install, and a pack stored as plain JSON still installs through the validator's stdlib-JSON fallback. `--unrule-pack` needs no Python at all. Packs come from the repository checkout, so they are unavailable in release mode (`--rule-pack-file` has the same checkout requirement — the validator it runs ships in the checkout).
 
 **Precedence: engine built-ins → packs → your own `rules.d` files.** Pack rules carry new ids, so they evaluate after the built-in blocklist, allow-list and auto-sandbox layers (they can tighten, never loosen, the default set). A user file that sorts after the pack file (say `zz-local.yaml`) can same-id override a pack rule — including overriding one to `warn`, the same escape hatch the built-ins offer. Pack priorities are 950 for blocks and 650 for sandboxes, sitting between the built-in tiers (1000 / 700 / 500); that orders pack rules against each other, it does not move them between engine layers. The full contract is `specs/interruptor.md` §3.4.
 
@@ -164,7 +183,7 @@ Release-mode installs (downloading the wrapper from a published release plus its
 
 - the wrapper `terminal-jail` in `$TERMINAL_JAIL_INSTALL_DIR` (default `~/.local/bin` — the same variable controls both install and removal)
 - the lib tree `~/.local/lib/terminal-jail/` (`<prefix>/lib/terminal-jail/` for a custom install dir)
-- in the resolved rules directory: `00-builtins.yaml`, installed rule packs (`terminal-jail-pack-*.yaml`) and the `.bak-*` backups a re-install creates
+- in the resolved rules directory: `00-builtins.yaml`, installed rule packs (`terminal-jail-pack-*.yaml`, named packs and `--rule-pack-file` copies alike) and the `.bak-*` backups a re-install creates
 - the `# terminal-jail` PATH block (marker line + `export PATH=…` line) from the rc file the installer appended it to — only that marked block; any other content in your rc files is never touched
 
 What it deliberately preserves:
