@@ -22,6 +22,7 @@ import logging
 from typing import Any
 
 from .terminal_jail.plugin import (
+    _bump,
     _enabled_from_environment,
     _unshare_executable_from_environment,
 )
@@ -38,6 +39,11 @@ def _on_pre_tool_call(
 
     This fires before every tool call. We can only observe/log — we cannot
     transform the command here (the hook only supports block/allow).
+
+    Metrics (TJ-DF-033): the pass-through arms increment
+    ``commands_passed_disabled`` (jail off) and
+    ``commands_passed_no_unshare`` (jail on but unshare unavailable); the
+    wrap-path counters increment in the interruptor engine's ``intercept()``.
     """
     if tool_name != "terminal":
         return
@@ -57,8 +63,10 @@ def _on_pre_tool_call(
             "terminal-jail: jail enabled but unshare not found; "
             "running command without isolation"
         )
+        _bump("commands_passed_no_unshare")
     elif not jail_enabled:
         logger.debug("terminal-jail: disabled, passing through")
+        _bump("commands_passed_disabled")
 
 
 def _on_transform_terminal_output(
@@ -71,7 +79,18 @@ def _on_transform_terminal_output(
 
     Stub — returns the output unchanged. Output annotation is not
     implemented (observability-only plugin; see specs/plugin.md §10.1).
+
+    Metrics (TJ-DF-033): the post-exec hook observes the return code, so a
+    non-zero exit from a sandboxed (namespace-wrapped) command increments
+    ``jail_crashes`` — best-effort: only commands still carrying the jail
+    wrap prefix can be attributed here.
     """
+    if (
+        returncode != 0
+        and isinstance(command, str)
+        and command.lstrip().startswith("unshare ")
+    ):
+        _bump("jail_crashes")
     return None  # Don't modify output
 
 
