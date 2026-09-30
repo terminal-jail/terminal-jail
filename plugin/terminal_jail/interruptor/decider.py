@@ -11,6 +11,8 @@ in priority order. Algorithm:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .allowlist import BUILTIN_ALLOWLIST
 from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
@@ -24,7 +26,7 @@ from .parser import (
 )
 from .rules import Rule, RuleLoader, RuleSet, inherit_override_message
 from .sandbox import BUILTIN_SANDBOX
-from .types import Action, InterceptResult
+from .types import Action, InterceptResult, Layer
 from .userns import unshare_prefix
 
 # The unshare namespace prefix used by both the built-in auto-sandbox
@@ -34,6 +36,15 @@ from .userns import unshare_prefix
 # mapping-less flags otherwise — see plugin/terminal_jail/interruptor/
 # userns.py and scripts/fs-isolation-probe.py (TJ-DF-015).
 _UNSHARE_PREFIX = unshare_prefix()
+
+# The file name install.sh gives every rule pack it installs into a
+# rules.d directory (install.sh: "terminal-jail-pack-<name>.yaml").
+_PACK_FILE_PREFIX = "terminal-jail-pack-"
+
+# The shipped rules mirror's file name. Loaded from the system rules dir
+# it IS the shipped mirror; loaded from the user rules dir it is
+# TJ-GAP-051's silent-downgrade shape (mirror entries REPLACING builtins).
+_SHIPPED_MIRROR_NAMES = frozenset({"00-builtins.yaml"})
 
 
 class Decider:
@@ -51,6 +62,13 @@ class Decider:
     in its layer (same-ID override, per blocklist.py's contract and spec
     T-I38); user rules with brand-new ids are evaluated in Layer 4 after
     auto-sandbox, highest priority first, first match wins (spec §4(d)).
+
+    Rule provenance (TJ-GAP-085): every matched rule carries a ``layer``
+    saying which source it came from — engine builtin, the shipped YAML
+    mirror, an operator rule, or an installed rule pack. The mapping is
+    built once per Decider by re-walking the same directories the
+    RuleLoader walked, in the same order, so a same-id override resolves
+    to the source that LOADED LAST — exactly the rule the loader kept.
     """
 
     def __init__(self, config: Config) -> None:
@@ -61,12 +79,64 @@ class Decider:
             user_dir=config.user_rules_dir,
         ).load_all()
         self._user_rules = user_rules
+        self._rule_layers = self._build_rule_layers(
+            system_rules_dir=config.system_rules_dir,
+            user_rules_dir=config.user_rules_dir,
+        )
         (
             self._blocklist,
             self._allowlist,
             self._sandbox,
             self._layer4,
         ) = self._build_layers(user_rules)
+
+    @staticmethod
+    def _build_rule_layers(
+        system_rules_dir: str, user_rules_dir: str
+    ) -> dict[str, str]:
+        """Map each loaded rule id → the layer string it was loaded from.
+
+        Re-walks the loader's directory pair in the loader's own order
+        (system then user, lexical file order within each), classifying
+        every file by name. ``dict`` assignment gives same-id rules the
+        LAST loaded source — the loader's own override keeps exactly that
+        rule (``load_all`` replaces earlier same-id entries), so the map
+        and the RuleSet always agree on provenance.
+
+        A rule id that is in NO file — i.e. it resolved from a BUILTIN_*
+        engine constant — is simply absent from the map; callers treat a
+        missing id as ``Layer.ENGINE``.
+
+        Pack files load under the installer's ``terminal-jail-pack-*.yaml``
+        name; the shipped mirror is ``00-builtins.yaml`` (TJ-GAP-051: that
+        file loaded as a USER rule is precisely the silent downgrade this
+        field makes visible). Anything else in a rules dir is operator
+        territory → ``Layer.USER``.
+        """
+        layers: dict[str, str] = {}
+        for directory, is_user_dir in (
+            (system_rules_dir, False),
+            (user_rules_dir, True),
+        ):
+            path = Path(directory)
+            if not path.is_dir():
+                continue
+            for file_path in sorted(path.iterdir()):
+                if file_path.suffix not in (".yaml", ".yml"):
+                    continue
+                if file_path.name in _SHIPPED_MIRROR_NAMES:
+                    layer = Layer.YAML
+                elif file_path.name.startswith(_PACK_FILE_PREFIX):
+                    layer = Layer.PACK
+                elif is_user_dir:
+                    layer = Layer.USER
+                else:
+                    # A hand-authored file in the system rules dir: not the
+                    # shipped mirror and not a pack — operator-managed.
+                    layer = Layer.USER
+                for rule_id in _rule_ids_in_file(file_path):
+                    layers[rule_id] = layer
+        return layers
 
     def _build_layers(
         self, user_rules: RuleSet
@@ -121,6 +191,9 @@ class Decider:
             MODIFY keeps the ORIGINAL command's shell structure (operators,
             redirections, whitespace) and carries the rule id that rewrote the
             first modified segment (TJ-GAP-066); see ``_rebuild_modified``.
+            Every rule-decided verdict also carries the ``layer`` naming the
+            rule source that decided (TJ-GAP-085); a verdict with NO rule_id
+            (default-allow) keeps the ``engine`` default.
         """
         if not segments:
             return InterceptResult(action=Action.ALLOW, command=original)
@@ -149,12 +222,7 @@ class Decider:
                 continue
             match_result = self.matcher.match_segment(full_segment, rule.match)
             if match_result:
-                return InterceptResult(
-                    action=Action.BLOCK,
-                    command=original,
-                    rule_id=rule.id,
-                    reason=rule.block_message,
-                )
+                return self._result_for(rule, action=Action.BLOCK, command=original)
 
         # Then check each segment individually
         replacements: dict[int, str] = {}
@@ -172,6 +240,11 @@ class Decider:
         # segment (segment order) — for the built-in auto-sandbox layer that is
         # the first matching sandbox rule.
         modify_rule_id: str | None = None
+        # TJ-GAP-085: the layer of the rule behind the aggregate verdict,
+        # tracked next to its rule id through the same precedence.
+        allow_layer: str | None = None
+        modify_layer: str | None = None
+        warn_layer: str | None = None
 
         for index, segment in enumerate(segments):
             result = self._evaluate_segment(segment)
@@ -182,6 +255,7 @@ class Decider:
                 replacements[index] = result.modified or segment.raw
                 if modify_rule_id is None:
                     modify_rule_id = result.rule_id
+                    modify_layer = result.layer
             elif result.action == Action.ALLOW:
                 # Preserve a would-have-blocked warn reason (TJ-DF-012): a
                 # same-ID user rule with action=warn replaces a builtin and
@@ -191,6 +265,7 @@ class Decider:
                 if result.reason and not any_warn_reason:
                     any_warn_reason = result.reason
                     warn_rule_id = result.rule_id
+                    warn_layer = result.layer
                 # DF-TERMINAL-JAIL-12: a plain allowlist match (no warn
                 # reason) also carries its rule id here. Determinism: the
                 # first matched allow rule in segment order wins; a warn
@@ -198,11 +273,13 @@ class Decider:
                 # return below.
                 elif result.rule_id and allow_rule_id is None:
                     allow_rule_id = result.rule_id
+                    allow_layer = result.layer
             else:
                 # WARN / LOG — allow through
                 if getattr(result, "reason", "") and not any_warn_reason:
                     any_warn_reason = result.reason
                     warn_rule_id = result.rule_id
+                    warn_layer = result.layer
 
         if any_modified:
             return InterceptResult(
@@ -211,6 +288,7 @@ class Decider:
                 modified=self._rebuild_modified(original, segments, replacements),
                 rule_id=modify_rule_id,
                 reason="Command modified by auto-sandbox",
+                layer=modify_layer or Layer.ENGINE,
             )
 
         if any_warn_reason:
@@ -219,16 +297,18 @@ class Decider:
                 command=original,
                 rule_id=warn_rule_id,
                 reason=any_warn_reason,
+                layer=warn_layer or Layer.ENGINE,
             )
 
         # DF-TERMINAL-JAIL-12: the aggregate allow carries the first matched
         # allow rule's id (segment order). rule_id stays None when NO rule
         # matched — that is default-allow (the blocklist is a deny-list), not
-        # an approved decision.
+        # an approved decision; the layer keeps its ``engine`` default there.
         return InterceptResult(
             action=Action.ALLOW,
             command=original,
             rule_id=allow_rule_id,
+            layer=allow_layer or Layer.ENGINE,
         )
 
     def _rebuild_modified(
@@ -299,6 +379,16 @@ class Decider:
 
         return InterceptResult(action=Action.ALLOW, command=raw)
 
+    def _layer_for(self, rule: Rule) -> str:
+        """The provenance layer of ``rule``: from the loaded-files map, or engine.
+
+        A rule id absent from the map is a BUILTIN_* engine constant — either
+        no rules file loaded, or no same-id override replaced it. The unknown-
+        action fail-safe branch passes ``layer=None`` straight through so the
+        InterceptResult keeps its ``engine`` default there too.
+        """
+        return self._rule_layers.get(rule.id, Layer.ENGINE)
+
     def _rule_result(self, rule: Rule, raw: str) -> InterceptResult:
         """Build the InterceptResult for a matched rule (any layer).
 
@@ -317,12 +407,14 @@ class Decider:
         - anything else: fail-safe ALLOW with a warning reason (never block
           on an unknown action value)
         """
+        layer = self._layer_for(rule)
         if rule.action == Action.BLOCK:
             return InterceptResult(
                 action=Action.BLOCK,
                 command=raw,
                 rule_id=rule.id,
                 reason=rule.block_message,
+                layer=layer,
             )
         if rule.action in (Action.MODIFY, Action.SANDBOX):
             modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(raw)}"
@@ -332,6 +424,7 @@ class Decider:
                 modified=modified,
                 rule_id=rule.id,
                 reason="Auto-sandbox: wrapped command in namespace isolation",
+                layer=layer,
             )
         if rule.action == Action.WARN:
             return InterceptResult(
@@ -339,9 +432,12 @@ class Decider:
                 command=raw,
                 rule_id=rule.id,
                 reason=f"would have blocked: {rule.block_message}",
+                layer=layer,
             )
         if rule.action == Action.ALLOW:
-            return InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id)
+            return InterceptResult(
+                action=Action.ALLOW, command=raw, rule_id=rule.id, layer=layer
+            )
         return InterceptResult(
             action=Action.ALLOW,
             command=raw,
@@ -349,7 +445,65 @@ class Decider:
                 f"User rule {rule.id!r} has unknown action {rule.action!r} "
                 "— allowing (fail-safe)"
             ),
+            layer=layer,
         )
+
+    def _result_for(self, rule: Rule, action: str, command: str) -> InterceptResult:
+        """The whole-command BLOCK path's result (evaluate()'s blocklist pass).
+
+        This pass runs before ``_rule_result``'s action dispatch matters: the
+        loop only admits BLOCK rules, so the result is a plain BLOCK naming
+        the rule's id, message, and (TJ-GAP-085) provenance layer.
+        """
+        return InterceptResult(
+            action=action,
+            command=command,
+            rule_id=rule.id,
+            reason=rule.block_message,
+            layer=self._layer_for(rule),
+        )
+
+
+def _rule_ids_in_file(file_path: Path) -> list[str]:
+    """The rule ids a rules file contributes, read with the loader's semantics.
+
+    Mirrors ``RuleLoader._parse_file``'s leniency: PyYAML when importable,
+    the stdlib JSON fallback otherwise, and ANY parse failure (or a document
+    that is not a mapping, or a non-list ``rules``) contributes nothing —
+    exactly what ``RuleLoader`` would load from this file, so the
+    provenance map can never name a rule the loader does not actually hold.
+    Schema-refused files raise inside the loader's ``_load_file``; the ids
+    this helper returns for such a file are the ones the REFUSAL conversation
+    is about, and the loader loads none of them — the map may name ids the
+    engine never evaluates, which is harmless (provenance is only read for
+    rules that matched).
+    """
+    try:
+        with open(file_path) as f:
+            content = f.read()
+    except OSError:
+        return []
+    data = None
+    try:
+        import yaml  # type: ignore[import-untyped]
+
+        if hasattr(yaml, "CSafeLoader"):
+            data = yaml.load(content, Loader=yaml.CSafeLoader)
+        else:
+            data = yaml.safe_load(content)
+    except Exception:  # noqa: BLE001 — same leniency as the loader
+        import json
+
+        try:
+            data = json.loads(content)
+        except Exception:  # noqa: BLE001 — unparseable → no ids
+            return []
+    if not isinstance(data, dict):
+        return []
+    raw_rules = data.get("rules", [])
+    if not isinstance(raw_rules, list):
+        return []
+    return [raw.get("id") for raw in raw_rules if isinstance(raw, dict)]
 
 
 def _escape_for_shell(cmd: str) -> str:
