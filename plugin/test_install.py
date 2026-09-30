@@ -1614,9 +1614,185 @@ def test_install_help_documents_the_rule_pack_flags(tmp_path: Path) -> None:
     out = (result.stdout + result.stderr).decode("utf-8", "replace")
 
     assert result.returncode == 0, out
-    for flag in ("--rule-pack <name>", "--unrule-pack <name>", "--list-rule-packs"):
+    for flag in (
+        "--rule-pack <name>",
+        "--unrule-pack <name>",
+        "--rule-pack-file <path>",
+        "--uninstall-rule-pack-file <path>",
+        "--list-rule-packs",
+    ):
         assert flag in out, out
     _assert_nothing_written(tmp_path)
+
+
+# ── TJ-DF-034: externally-authored rule pack files (--rule-pack-file) ───────
+
+_EXTERNAL_PACK_BODY = """rules:
+  - id: "pack-my-pack-block-demo"
+    description: "externally-authored pack file (TJ-DF-034)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the external pack."
+    match:
+      type: pattern
+      pattern: "^rm -rf /"
+"""
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_install_then_uninstall_round_trip(tmp_path: Path) -> None:
+    """--rule-pack-file validates an externally-authored pack file and
+    byte-copies it to the resolved rules dir (the SAME destination a shipped
+    --rule-pack lands at); --uninstall-rule-pack-file removes that copy.
+
+    DF-TERMINAL-JAIL-22: run in the ENGINE-LOADED scope (explicit
+    TERMINAL_JAIL_RULES_DIR), like the shipped-pack tests above."""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+
+    install = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(external), extra_env=env
+    )
+    out = (install.stdout + install.stderr).decode("utf-8", "replace")
+
+    assert install.returncode == 0, out
+    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
+    assert pack.exists(), out
+    assert pack.read_bytes() == external.read_bytes(), out
+    assert (rules_dir / "00-builtins.yaml").exists(), out
+    assert f"installed rule pack file '{external}' to {pack}" in out, out
+    assert "rule-pack-tool: pack 'my-pack' valid" in out, out
+
+    remove = _run_repo_install(
+        tmp_path, "--uninstall-rule-pack-file", str(external), extra_env=env
+    )
+    out = (remove.stdout + remove.stderr).decode("utf-8", "replace")
+
+    assert remove.returncode == 0, out
+    assert not pack.exists(), out
+    assert f"removed rule pack file '{external}' ({pack})" in out, out
+    # the removal touched only the pack file: the default rules file survives
+    assert (rules_dir / "00-builtins.yaml").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_refused_by_the_validator_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A file the validator refuses (schema-invalid rule) is a loud
+    DF-TERMINAL-JAIL-21 skip: nothing is written for the pack, the base
+    install completes, and the run exits 2 — the file path's
+    non-zero-on-invalid contract."""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    bad = tmp_path / "broken.yaml"
+    bad.write_text(_SCHEMA_INVALID_PACK, encoding="utf-8")
+
+    result = _run_repo_install(tmp_path, "--rule-pack-file", str(bad), extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "has no 'match' mapping" in out, out
+    assert (
+        f"skipped: pack file '{bad}' — REFUSED by the validator, nothing was written"
+        in out
+    ), out
+    assert not (rules_dir / "terminal-jail-pack-broken.yaml").exists(), out
+    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+
+
+@pytest.mark.standalone_cli
+def test_uninstall_rule_pack_file_fails_when_nothing_is_installed(
+    tmp_path: Path,
+) -> None:
+    """The removal twin is an assertion, not best-effort cleanup: no installed
+    copy under the derived name -> exit 1 with an explicit reason — unlike the
+    idempotent --unrule-pack."""
+    env, _rules_dir = _install_env_for_scope(tmp_path, "live")
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+
+    result = _run_repo_install(
+        tmp_path, "--uninstall-rule-pack-file", str(external), extra_env=env
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 1, out
+    assert "is not installed at" in out, out
+    assert "nothing was removed" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_with_an_unusable_name_is_refused(tmp_path: Path) -> None:
+    """A file name that derives no [a-z0-9-] pack name is a caller error:
+    exit 2 at once, nothing written — the destination cannot even be named
+    safely, so this is stricter than the validator-skip path."""
+    env, _rules_dir = _install_env_for_scope(tmp_path, "live")
+    weird = tmp_path / "My Pack.yaml"
+    weird.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+
+    result = _run_repo_install(tmp_path, "--rule-pack-file", str(weird), extra_env=env)
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "cannot derive a [a-z0-9-] pack name from" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_never_shadows_an_installed_pack_name(
+    tmp_path: Path,
+) -> None:
+    """The pack name comes from the FILE NAME: an external db.yaml whose
+    contents differ from the installed shipped 'db' pack is skipped — an
+    external file can never silently replace a pack installed under that
+    name. (Re-installing the identical file stays a no-op: the validator
+    excludes the destination from its collision check, so this name pre-check
+    is what guards the name itself.)"""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    shipped = _run_repo_install(tmp_path, "--rule-pack", "db", extra_env=env)
+    assert shipped.returncode == 0, shipped.stderr.decode("utf-8", "replace")
+    pack = rules_dir / "terminal-jail-pack-db.yaml"
+    before = pack.read_bytes()
+
+    impostor = tmp_path / "db.yaml"
+    impostor.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+
+    result = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(impostor), extra_env=env
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "is already installed at" in out, out
+    assert pack.read_bytes() == before, out
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_needs_the_checkout_like_named_packs(tmp_path: Path) -> None:
+    """Release mode has no validator (it ships in the checkout): both file
+    flags are refused exactly like --rule-pack, nothing written."""
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+    result = subprocess.run(
+        ["sh", str(INSTALL_SCRIPT), "--rule-pack-file", str(external)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "TERMINAL_JAIL_INSTALL_DIR": str(tmp_path / "bin"),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "need the repository checkout" in out, out
 
 
 # ── TJ-GAP-065: the PATH hint follows the ACTUAL install dir ────────────────

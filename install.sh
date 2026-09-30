@@ -124,6 +124,21 @@ UNRULE_PACKS=""
 LIST_RULE_PACKS=0
 UNINSTALL=0
 UNINSTALL_SYSTEMD=0
+# TJ-DF-034: externally-authored pack FILES. RULE_PACK_FILES installs a pack
+# from a path OUTSIDE the checkout (validated, then byte-copied under the
+# name derived from the file's basename); UNINSTALL_RULE_PACK_FILES removes
+# the installed copy under that derived name. Unlike the name-based knobs
+# above, the removal asserts (exit 1 when nothing is installed) — the caller
+# named a specific file and silence would read as success.
+RULE_PACK_FILES=""
+UNINSTALL_RULE_PACK_FILES=""
+# The file queues are NEWLINE-delimited (TJ-DF-034): unlike the name-based
+# queues above, a file path may legitimately contain spaces (a directory in
+# the path, never the [a-z0-9-] basename), so space-splitting iteration would
+# corrupt it. nl is the portable newline variable the queues are iterated
+# with; basename-derived names are charset-checked at parse time.
+nl="
+"
 # --hermes-plugin (TJ-DF-022): deploy/refresh mode. The optional positional
 # argument is captured here and overrides the default/env target when present.
 HERMES_PLUGIN=0
@@ -160,6 +175,37 @@ add_unrule_pack() {
     esac
 }
 
+# TJ-DF-034: queue an external pack file for validate-then-copy. The pack NAME
+# (and so the destination file name) is derived from the basename with the
+# extension stripped, and restricted to the same [a-z0-9-] charset the
+# name-based --rule-pack enforces — a name outside it is refused AT PARSE TIME
+# (nothing written), before the release gate or the validator ever run.
+add_rule_pack_file() {
+    file_name="$(basename -- "$1")"
+    pack_name="$(printf '%s' "$file_name" | sed -e 's/\.yaml$//' -e 's/\.yml$//' -e 's/\.json$//')"
+    if ! valid_pack_name "$pack_name"; then
+        echo "terminal-jail installer: --rule-pack-file: cannot derive a [a-z0-9-] pack name from '$1' (derived: '$pack_name'); rename the file (my-pack.yaml) or use --rule-pack <name> for a pack shipped in this checkout" >&2
+        exit 2
+    fi
+    case "$nl$RULE_PACK_FILES$nl" in
+        *"$nl$1$nl"*) ;; # already queued — installing a file twice is a no-op
+        *) RULE_PACK_FILES="${RULE_PACK_FILES:+$RULE_PACK_FILES$nl}$1" ;;
+    esac
+}
+
+add_uninstall_rule_pack_file() {
+    file_name="$(basename -- "$1")"
+    pack_name="$(printf '%s' "$file_name" | sed -e 's/\.yaml$//' -e 's/\.yml$//' -e 's/\.json$//')"
+    if ! valid_pack_name "$pack_name"; then
+        echo "terminal-jail installer: --uninstall-rule-pack-file: cannot derive a [a-z0-9-] pack name from '$1' (derived: '$pack_name'); rename the file (my-pack.yaml) or use --unrule-pack <name> for a pack installed by name" >&2
+        exit 2
+    fi
+    case "$nl$UNINSTALL_RULE_PACK_FILES$nl" in
+        *"$nl$1$nl"*) ;;
+        *) UNINSTALL_RULE_PACK_FILES="${UNINSTALL_RULE_PACK_FILES:+$UNINSTALL_RULE_PACK_FILES$nl}$1" ;;
+    esac
+}
+
 usage() {
     cat <<'USAGE'
 terminal-jail installer — POSIX sh
@@ -180,6 +226,26 @@ Options:
   --unrule-pack <name>  Remove an installed rule pack. Only
                         terminal-jail-pack-<name>.yaml is touched — the default
                         rules file and every other pack are never modified.
+  --rule-pack-file <path>
+                        Install an EXTERNALLY-authored rule pack file from any
+                        path (repeatable). The pack name — and so the
+                        destination terminal-jail-pack-<name>.yaml — is derived
+                        from the file's basename (extension stripped) and must
+                        be [a-z0-9-]+. The file is validated with
+                        scripts/rule-pack-tool.py validate BEFORE anything is
+                        written: an invalid pack is skipped loudly (one stderr
+                        reason, nothing written for it) and the run exits 2 at
+                        the end. An external file is never allowed to replace
+                        a pack already installed under the same derived name —
+                        it is skipped. Same python3/PyYAML requirements and
+                        checkout-only availability as --rule-pack.
+  --uninstall-rule-pack-file <path>
+                        Remove the installed copy of an external pack file —
+                        the terminal-jail-pack-<name>.yaml derived from the
+                        file's basename, exactly as --rule-pack-file wrote it.
+                        Unlike --unrule-pack this asserts: if no such pack is
+                        installed the run exits 1 with an explicit reason
+                        instead of reporting a no-op.
   --list-rule-packs     List the rule packs this checkout ships (exit 0).
   --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
                         __init__.py, terminal_jail/) into dir (default:
@@ -243,6 +309,30 @@ while [ $# -gt 0 ]; do
             ;;
         --unrule-pack=*)
             add_unrule_pack "${1#--unrule-pack=}"
+            shift
+            ;;
+        --rule-pack-file)
+            if [ $# -lt 2 ]; then
+                echo "terminal-jail installer: --rule-pack-file requires a pack file path" >&2
+                exit 2
+            fi
+            add_rule_pack_file "$2"
+            shift 2
+            ;;
+        --rule-pack-file=*)
+            add_rule_pack_file "${1#--rule-pack-file=}"
+            shift
+            ;;
+        --uninstall-rule-pack-file)
+            if [ $# -lt 2 ]; then
+                echo "terminal-jail installer: --uninstall-rule-pack-file requires a pack file path" >&2
+                exit 2
+            fi
+            add_uninstall_rule_pack_file "$2"
+            shift 2
+            ;;
+        --uninstall-rule-pack-file=*)
+            add_uninstall_rule_pack_file "${1#--uninstall-rule-pack-file=}"
             shift
             ;;
         --list-rule-packs)
@@ -373,8 +463,9 @@ fi
 # repository script, so both knobs are refused in release mode rather than
 # half-working: nothing is written.
 if [ -z "$LOCAL_WRAPPER" ]; then
-    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
-        echo "terminal-jail installer: --rule-pack/--unrule-pack need the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] \
+        || [ -n "$RULE_PACK_FILES" ] || [ -n "$UNINSTALL_RULE_PACK_FILES" ]; then
+        echo "terminal-jail installer: --rule-pack/--unrule-pack/--rule-pack-file/--uninstall-rule-pack-file need the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
         exit 2
     fi
 fi
@@ -384,16 +475,18 @@ fi
 # combination leaves the filesystem untouched. Pack flags belong to an install
 # run; mixing them with uninstall is a caller error, not a best-effort.
 if [ "$UNINSTALL" -eq 1 ]; then
-    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] || [ "$LIST_RULE_PACKS" -eq 1 ]; then
-        echo "terminal-jail installer: --uninstall cannot be combined with --rule-pack/--unrule-pack/--list-rule-packs — run them separately (nothing was written)" >&2
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] || [ "$LIST_RULE_PACKS" -eq 1 ] \
+        || [ -n "$RULE_PACK_FILES" ] || [ -n "$UNINSTALL_RULE_PACK_FILES" ]; then
+        echo "terminal-jail installer: --uninstall cannot be combined with --rule-pack/--unrule-pack/--rule-pack-file/--uninstall-rule-pack-file/--list-rule-packs — run them separately (nothing was written)" >&2
         exit 2
     fi
 fi
 # TJ-DF-022: --hermes-plugin is a standalone mode exactly like --uninstall and
 # --list-rule-packs — parse-time refusals, nothing written.
 if [ "$HERMES_PLUGIN" -eq 1 ]; then
-    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
-        echo "terminal-jail installer: --hermes-plugin cannot be combined with --rule-pack/--unrule-pack — run them separately (nothing was written)" >&2
+    if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] \
+        || [ -n "$RULE_PACK_FILES" ] || [ -n "$UNINSTALL_RULE_PACK_FILES" ]; then
+        echo "terminal-jail installer: --hermes-plugin cannot be combined with --rule-pack/--unrule-pack/--rule-pack-file/--uninstall-rule-pack-file — run them separately (nothing was written)" >&2
         exit 2
     fi
     if [ "$UNINSTALL" -eq 1 ] || [ "$LIST_RULE_PACKS" -eq 1 ]; then
@@ -752,7 +845,8 @@ skip_rule_pack() {
 }$1"
 }
 
-if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] \
+    || [ -n "$RULE_PACK_FILES" ] || [ -n "$UNINSTALL_RULE_PACK_FILES" ]; then
     pack_tool="$SCRIPT_DIR/scripts/rule-pack-tool.py"
     if [ ! -f "$pack_tool" ]; then
         # DF-TERMINAL-JAIL-21: a checkout missing its validator skips every
@@ -760,6 +854,13 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
         for pack in $RULE_PACKS; do
             skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — rule packs need ${pack_tool}, which is missing from this checkout"
         done
+        # newline-delimited queue (TJ-DF-034): iterate line-wise, main shell
+        while IFS= read -r pack_file; do
+            [ -n "$pack_file" ] || continue
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — rule packs need ${pack_tool}, which is missing from this checkout"
+        done <<EOF
+$RULE_PACK_FILES
+EOF
     else
     install_rule_pack() {
         pack="$1"
@@ -835,6 +936,96 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
     for pack in $UNRULE_PACKS; do
         remove_rule_pack "$pack"
     done
+
+    # TJ-DF-034: externally-authored pack files. The same rules dir, the same
+    # terminal-jail-pack-<name>.yaml destination, one more gate before the
+    # validator: a file whose DERIVED NAME is already installed is skipped
+    # without running the validator — an external file can never replace a
+    # pack installed under that name (re-installing the identical external
+    # file is included; the validator deliberately does not catch this because
+    # it excludes the destination from its own collision check).
+    install_rule_pack_file() {
+        pack_file="$1"
+        # The name was derived and charset-checked at parse time; derive it
+        # again here (same expression) to build the destination.
+        file_name="$(basename -- "$pack_file")"
+        pack_name="$(printf '%s' "$file_name" | sed -e 's/\.yaml$//' -e 's/\.yml$//' -e 's/\.json$//')"
+        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack_name}.yaml"
+        if [ "$RULES_SCOPE" = "prefix" ]; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — the resolved rules dir ${RESOLVED_RULES_DIR} is prefix-local config the engine does NOT load (it reads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only). Nothing was written for this file. Remediation, pick one: (1) re-run with TERMINAL_JAIL_RULES_DIR=<engine-loaded dir> (explicit target, always wins); (2) re-run with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<engine-loaded dir> exported when BOTH installing and running the CLI (the engine reads this env var at run time); (3) re-run with the default install dir (no custom TERMINAL_JAIL_INSTALL_DIR) so the live ~/.config/terminal-jail/rules.d is targeted."
+            return 0
+        fi
+        if [ ! -f "$pack_file" ]; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — file not found; give the path to the rule pack YAML you want to install"
+            return 0
+        fi
+        if [ -f "$pack_dest" ]; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — a pack with the derived name '${pack_name}' is already installed at ${pack_dest}; an external file never replaces an installed pack. Re-run with --unrule-pack ${pack_name} first if you really want to replace it."
+            return 0
+        fi
+        if ! command -v python3 >/dev/null 2>&1; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — python3 is required to validate a pack BEFORE installing it and was not found; install python3 and re-run this installer"
+            return 0
+        fi
+        # Same PyYAML preflight as the named --rule-pack path (DF-TERMINAL-JAIL-21).
+        if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+            if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$pack_file" >/dev/null 2>&1; then
+                skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — PyYAML is required to parse YAML rule packs and was not found; install the distro package (Debian/Ubuntu: apt install python3-yaml, Fedora/RHEL: dnf install python3-yaml) or run pip install pyyaml, then re-run this installer"
+                return 0
+            fi
+        fi
+        # FAIL CLOSED: validate before writing anything. The validator refuses
+        # invalid schema, malformed YAML, ids outside the pack's namespace, and
+        # id collisions (engine builtins / installed rule files). A refusal
+        # here is the --rule-pack-file shape of "exits non-zero": the skip is
+        # remembered and the installer exits 2 at the very end.
+        if ! python3 "$pack_tool" validate "$pack_file" --pack-name "$pack_name" --rules-dir "$RESOLVED_RULES_DIR"; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — REFUSED by the validator, nothing was written (see the validator reason above)"
+            return 0
+        fi
+        mkdir -p "$RESOLVED_RULES_DIR"
+        cp -- "$pack_file" "$pack_dest"
+        echo "terminal-jail installer: installed rule pack file '${pack_file}' to ${pack_dest}"
+    }
+
+    uninstall_rule_pack_file() {
+        pack_file="$1"
+        # Derive the destination exactly like install_rule_pack_file did.
+        file_name="$(basename -- "$pack_file")"
+        pack_name="$(printf '%s' "$file_name" | sed -e 's/\.yaml$//' -e 's/\.yml$//' -e 's/\.json$//')"
+        pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack_name}.yaml"
+        if [ -f "$pack_dest" ]; then
+            rm -f "$pack_dest"
+            echo "terminal-jail installer: removed rule pack file '${pack_file}' (${pack_dest})"
+        else
+            # The file flag ASSERTS: the caller named a specific file, so a
+            # missing installed copy is an error (exit 1), not an idempotent
+            # no-op like --unrule-pack.
+            echo "terminal-jail installer: ERROR — pack file '${pack_file}' is not installed at ${pack_dest} — nothing was removed" >&2
+            UNINSTALL_FILE_FAILURES=$((UNINSTALL_FILE_FAILURES + 1))
+        fi
+    }
+
+    UNINSTALL_FILE_FAILURES=0
+    # newline-delimited queues (TJ-DF-034): iterate line-wise; the counter
+    # lives in the MAIN shell (a while-read pipe would run uninstall_rule_
+    # pack_file in a subshell and lose every increment).
+    while IFS= read -r pack_file; do
+        [ -n "$pack_file" ] || continue
+        install_rule_pack_file "$pack_file"
+    done <<EOF
+$RULE_PACK_FILES
+EOF
+    while IFS= read -r pack_file; do
+        [ -n "$pack_file" ] || continue
+        uninstall_rule_pack_file "$pack_file"
+    done <<EOF
+$UNINSTALL_RULE_PACK_FILES
+EOF
+    if [ "$UNINSTALL_FILE_FAILURES" -gt 0 ]; then
+        echo "terminal-jail installer: SUMMARY — ${UNINSTALL_FILE_FAILURES} --uninstall-rule-pack-file target(s) were not installed; nothing was removed for them" >&2
+        exit 1
+    fi
 fi
 
 # --- install -----------------------------------------------------------------
