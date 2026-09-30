@@ -252,6 +252,14 @@ Three checks, cheapest first:
 # 1. Host capability — PID namespace (FULL/DEGRADED + cause, always exit 0)
 python3 scripts/pidns-capability-probe.py
 python3 scripts/fs-isolation-probe.py          # filesystem isolation tier
+python3 scripts/fs-isolation-probe.py          # filesystem isolation tier
+
+### Audit tooling
+
+| Script | What it proves | Run |
+|---|---|---|
+| `scripts/gtfobins-sweep.py` | The deliberate GTFOBins allow-surface: sweeps a seed catalog of real GTFOBins invocation shapes through the live engine and reports the verdict matrix, posture coverage, POSTURE-DRIFT and unreviewed ALLOW verdicts (TJ-GAP-059). | `python3 scripts/gtfobins-sweep.py` |
+| `scripts/e2e-battery-live-probe.py` | Live-engine E2E battery for the interruptor firewall: every case exercises the real verdict path (JSON bridge subprocess) and asserts action AND provenance rule_id against a pinned matrix, with a positive control (TJ-GAP-074). | `python3 scripts/e2e-battery-live-probe.py` |
 
 # 2. Containment — the jailed command must land in a NEW PID namespace
 ./standalone/terminal-jail sh -c 'readlink /proc/self/ns/pid'
