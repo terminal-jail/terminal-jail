@@ -142,6 +142,15 @@ assert v["action"] == "modify" and v["modified"].startswith("unshare --user")
 
 ### Attempt 1 — REJECTED (length fastpath; foreman verdict: security regression)
 
+> **SUPERSEDED BY REVERT — the knob below no longer exists.** The length
+> fastpath and its `TERMINAL_JAIL_INTERRUPTOR_MAX_COMMAND_LENGTH` knob were
+> removed with the revert; see "Attempt 2 — SHIPPED" below (lines 206-260)
+> for the shipped required-substring prefilters, and
+> `Config.from_environ()` in `plugin/terminal_jail/interruptor/config.py`,
+> which reads only MODE / RULES_DIR / USER_RULES_DIR / LOG_LEVEL — the knob
+> is not read by anything. This subsection is kept as the audit trail of
+> the rejected attempt only.
+
 **Fix:** an engine-side length guard in `intercept()` (`plugin/terminal_jail/interruptor/__init__.py`),
 ahead of parse and every regex layer. A command longer than the matching budget is
 ALLOWED without regex evaluation and marked `rule_id="over-length-fastpath"` with a
