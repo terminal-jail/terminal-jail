@@ -478,12 +478,23 @@ echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge
 # → {"action": "...", "rule_id": "..."} — the honest oracle
 ```
 
-Custom packs TODAY (until TJ-DF-034 lands): validate with
-`rule-pack-tool.py validate <file> --pack-name <name>`, then hand-copy to
-`~/.config/terminal-jail/rules.d/terminal-jail-pack-<name>.yaml` — the drift
-probe counts them as non-builtin info, uninstall does not manage them.
-`metrics-export.py` (T7.5) currently exports structurally-zero counters
-(TJ-DF-033) — do not chart it as telemetry.
+Custom packs TODAY (2026-10-01, --rule-pack-file is LIVE since 7aadde8 — the
+TJ-DF-034-era hand-copy note above is obsolete): author the pack with ids in
+the `pack-<derived-name>-*` namespace (<derived-name> = the file's basename,
+extension stripped, [a-z0-9-]+), validate with
+`rule-pack-tool.py validate <file> --pack-name <derived-name>`, install with
+`./install.sh --rule-pack-file <file>` (base install completes even if the
+pack is refused: loud skip + exit 2; check the exit code). Iterate with
+`./install.sh --unrule-pack <name> && ./install.sh --rule-pack-file …` —
+a changed external file NEVER replaces an installed pack silently (TJ-DF-041
+asks for a --replace flag / printed destination). THE FRESH-HOST TRAP
+(TJ-DF-040, P1): on a host without PyYAML the engine prints
+"UNPARSEABLE rule file … NOT loaded" per verdict and ALLOWS EVERYTHING
+(fail-open) while the sandbox still runs — install python3-yaml (distro
+package; pip needs --break-system-packages on Debian 13) and re-verify with
+a bridge verdict (`action=block layer=pack`, not `layer=engine`) before
+trusting pack rules. `metrics-export.py` (T7.5) currently exports
+structurally-zero counters (TJ-DF-033) — do not chart it as telemetry.
 
 ## Board & history
 

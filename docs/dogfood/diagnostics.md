@@ -498,3 +498,32 @@ pattern is to pipe the script over ssh stdin (`cat script.sh | ssh … "cat >
 /tmp/smoke.sh && bash /tmp/smoke.sh"`) exactly as earlier runs recorded; the
 same-day bunker leg needed no tree transfer at all because the repo is
 public and clones fine.
+
+## 14. Run 13 (2026-10-01): pack-authoring angle — the loop works, the no-PyYAML runtime fail-open is live
+
+Angle: the pack-authoring feature (7aadde8). The documented loop
+(schema → write → validate → --rule-pack-file → drive → iterate → uninstall)
+works end to end on a checkout host with PyYAML, and, after manually
+installing PyYAML, on a fresh Debian 13 bunker agent. Two defects found:
+TJ-DF-040 (P1, the big one) — on a PyYAML-less host the ENGINE treats an
+unparseable 00-builtins.yaml as a silent allow-everything: bridge verdict
+action=allow layer=engine for shapes builtins must block, wrapper rc=0.
+The drift-probe half-fix (TJ-DF-039) catches the authoring side but never
+the runtime side, and the fresh-install smoke passes because install-side
+validation still succeeds via the stub. Verified live with before/after
+PyYAML bridge verdicts on agent df-tj-1001 (destroyed after). TJ-DF-041
+(P2) — editing an installed pack requires a manual --unrule-pack dance;
+no path prints, no --replace flag. TJ-DF-042 (P3) — warn action runtime
+semantics (command still runs, stderr banner only) undocumented.
+
+Perf: warm --rule-pack-file redeploy 13.6ms ± 1.0ms (hyperfine 10); cold
+install to a fresh rules dir 30-58ms across hosts. Nothing user-noticeable
+→ no PERF rows.
+
+Bunker leg mechanics (worked, with one workaround): 100.69.3.13 SSH publickey
+FAILED for kara/root aliases (rotated key?) but bunker CLI spawn/exec worked
+first try via config.yaml; BUNKER_SESSION_TARGET must be set per session for
+exec. The --script uploader shell-escapes single quotes as '\'' and mangles
+Python heredocs — write probe scripts with NO single quotes (chr(123)
+construction or temp-file indirection instead). Not a repo bug: an
+exec-script remotely triggerable quoting path, noted here for the next run.
