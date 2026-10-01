@@ -19,6 +19,14 @@ EXPECTED_SHEBANG = "#!/usr/bin/env bash"
 FAKE_BINARY = EXPECTED_SHEBANG + "\necho 'terminal-jail v0.1.0'\n"
 
 
+# Budget for one full install.sh round trip (install/uninstall + pack
+# validation + engine load). Sub-second on an idle box, but a loaded host
+# (loadavg 30+) stretches a single call past the historical 30s ceiling, which
+# showed up as spurious TimeoutExpired in this file (QA-TERMINAL-JAIL-15).
+# Override per host with TERMINAL_JAIL_TEST_TIMEOUT.
+INSTALL_TIMEOUT_S = int(os.environ.get("TERMINAL_JAIL_TEST_TIMEOUT", "90"))
+
+
 def _shutil_which(name: str) -> str | None:
     import shutil
 
@@ -1274,7 +1282,12 @@ def _install_env_for_scope(tmp_path: Path, scope: str) -> tuple[dict[str, str], 
 def _run_repo_install(
     tmp_path: Path, *args: str, extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[bytes]:
-    """Run the real checkout's installer (cwd=repo root => local mode)."""
+    """Run the real checkout's installer (cwd=repo root => local mode).
+
+    The rule-pack-file round trip drives install.sh + the pack validator + an
+    engine load; see INSTALL_TIMEOUT_S for why the subprocess budget is
+    load-tolerant instead of the historical 30s (QA-TERMINAL-JAIL-15).
+    """
     env = _install_env(tmp_path)
     if extra_env:
         env.update(extra_env)
@@ -1283,7 +1296,7 @@ def _run_repo_install(
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=INSTALL_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=env,
     )
@@ -1298,12 +1311,15 @@ def _run_checkout_install(
     env = _install_env(tmp_path)
     if extra_env:
         env.update(extra_env)
+    # QA-TERMINAL-JAIL-15: same full install.sh round trip as _run_repo_install
+    # (this is the one that starved at loadavg 31 in the 2026-10-01 run of
+    # test_rules_bak_retention_capped), so it shares the load-tolerant budget.
     return subprocess.run(
         ["sh", "install.sh", *args],
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=INSTALL_TIMEOUT_S,
         cwd=str(checkout),
         env=env,
     )
