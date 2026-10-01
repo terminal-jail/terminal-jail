@@ -1530,3 +1530,37 @@ tasks:
   status: complete
   created_at: '2026-09-29T22:32:34.904408+00:00'
   completed_at: '2026-09-29T22:35:47.799733+00:00'
+- id: DOC-4
+  title: DOC-4 wave docs task
+  criteria:
+  - docs-only change per board row acceptance criteria
+  status: complete
+  created_at: '2026-09-30T07:06:12.498740+00:00'
+  completed_at: '2026-09-30T07:06:18.618833+00:00'
+- id: DOC-5
+  title: DOC-5 wave docs task
+  criteria:
+  - docs-only change per board row acceptance criteria
+  status: complete
+  created_at: '2026-09-30T07:06:13.430122+00:00'
+  completed_at: '2026-09-30T07:09:08.660928+00:00'
+- id: DOC-7
+  title: audit tooling doc pointer
+  criteria:
+  - gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one
+    hop
+  status: complete
+  created_at: '2026-09-30T13:35:06.402264+00:00'
+  completed_at: '2026-09-30T13:38:48.748078+00:00'
+- id: TJ-GAP-085
+  title: Expose rule resolution provenance in verdict
+  criteria:
+  - A 'layer' field exists on InterceptResult (engine/yaml/user/pack) populated in
+    Decider based on which rule source matched; shipped-mirror-as-user-dir shadowing
+    and same-id downgrade are visible at decision time; JSON bridge serializes layer
+    on engine verdicts and null on error envelopes; tests pin builtin/yaml/user/pack
+    layers including the downgraded-builtin case; .venv/bin/python -m pytest plugin/test_interruptor.py
+    passes with the new assertions.
+  status: complete
+  created_at: '2026-10-01T04:22:01.280173+00:00'
+  completed_at: '2026-10-01T04:26:02.750401+00:00'
