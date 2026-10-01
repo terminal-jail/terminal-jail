@@ -78,22 +78,6 @@ tasks:
   status: complete
   created_at: '2026-08-10T00:43:30.353029+00:00'
   completed_at: '2026-08-10T00:49:26.925197+00:00'
-- id: tj-df-001
-  title: Fix rm -rf root blocklist bypass (order-independent flags + root-only target)
-  criteria:
-  - "Engine blocks all 4 P0 bypass forms plus canonical and root glob: rm -rf /, rm\
-    \ -rf --no-preserve-root /, rm -r -f /, rm --recursive --force /, rm -rf/, rm\
-    \ -rf /* \u2014 action=block rule builtin-rm-rf-root"
-  - 'Benign commands stay allowed: rm -rf /tmp/foo, rm -rf ./build, rm -r /var, rm
-    -f /var, rm -rf /var, rm file'
-  - Quoted argv form 'rm' '-rf' '/' blocked via _normalize_quoted path
-  - 'Both live copies updated and in sync: plugin/terminal_jail/interruptor/blocklist.py
-    and plugin/terminal_jail/rules/00-builtins.yaml'
-  - Full suite passes (252 passed, 6 env skips) and gitreins guard 4/4 PASS
-  - 'Commit bda5077 includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-DF-001'
-  status: complete
-  created_at: '2026-08-10T06:08:13.918255+00:00'
-  completed_at: '2026-08-10T06:09:47.881435+00:00'
 - id: TJ-DF-002
   title: Fix seccomp loader path resolution in installed layout
   criteria:
@@ -1477,15 +1461,19 @@ tasks:
   created_at: '2026-09-28T02:55:02.183822+00:00'
   completed_at: '2026-09-28T03:19:02.238910+00:00'
 - id: TJ-DF-029
-  title: Add host-baseline control to RestrictNamespaces probe
+  title: systemd-directive-probe RestrictNamespaces missing host-baseline negative
+    control
   criteria:
-  - The systemd directive probe runs the unshare test outside the transient unit as
-    a host baseline; classify RestrictNamespaces ENFORCED only when host rc=0 and
-    unit rc!=0, and classify UNKNOWN with a host-denies explanation when host rc!=0.
-    Add tests covering both host outcomes and preserve existing behavior for other
-    directives.
-  status: pending
-  created_at: '2026-09-28T18:15:20.520134+00:00'
+  - 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe
+    once OUTSIDE the transient unit and stores the host rc. 2) Verdict = ENFORCED
+    only when host rc==0 AND unit rc!=0. 3) When host rc!=0 the verdict is UNKNOWN
+    with a message naming the host denial. 4) CloseOnExec=true control remains UNSUPPORTED
+    (classifier sanity). 5) plugin/test_packaging.py or a new test asserts the UNKNOWN
+    branch on a simulated host-deny scenario. 6) Full pytest suite passes, gitreins
+    guard --full 4/4.
+  status: complete
+  created_at: '2026-10-01T06:24:17.123090+00:00'
+  completed_at: '2026-10-01T06:36:17.395780+00:00'
 - id: TJ-DF-039
   title: 'PyYAML-less host: rule mirror fails open silently + drift probe blind'
   criteria:
@@ -1564,3 +1552,23 @@ tasks:
   status: complete
   created_at: '2026-10-01T04:22:01.280173+00:00'
   completed_at: '2026-10-01T04:26:02.750401+00:00'
+- id: TJ-DF-034
+  title: install.sh --rule-pack-file for external packs
+  criteria:
+  - install.sh --rule-pack-file <path> validates via rule-pack-tool.py then byte-copies
+    to resolved rules dir; README lines 87-88 and 120-147 document the flag; live
+    probe with TERMINAL_JAIL_INSTALL_DIR=/tmp/tj-test-pack shows correct DF-TERMINAL-JAIL-22
+    scope warning when target is prefix-local
+  status: complete
+  created_at: '2026-10-01T07:05:00.116525+00:00'
+  completed_at: '2026-10-01T07:10:02.714190+00:00'
+- id: QA-TERMINAL-JAIL-15
+  title: Fix rule-pack-file test timeout under load
+  criteria:
+  - plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip
+    and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg
+    30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable
+    via env var; full suite green at loadavg 30+
+  status: complete
+  created_at: '2026-10-01T07:54:20.392645+00:00'
+  completed_at: '2026-10-01T09:40:55.680364+00:00'
