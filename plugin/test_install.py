@@ -19,12 +19,19 @@ EXPECTED_SHEBANG = "#!/usr/bin/env bash"
 FAKE_BINARY = EXPECTED_SHEBANG + "\necho 'terminal-jail v0.1.0'\n"
 
 
-# Budget for one full install.sh round trip (install/uninstall + pack
-# validation + engine load). Sub-second on an idle box, but a loaded host
-# (loadavg 30+) stretches a single call past the historical 30s ceiling, which
-# showed up as spurious TimeoutExpired in this file (QA-TERMINAL-JAIL-15).
-# Override per host with TERMINAL_JAIL_TEST_TIMEOUT.
-INSTALL_TIMEOUT_S = int(os.environ.get("TERMINAL_JAIL_TEST_TIMEOUT", "90"))
+# Budget for one subprocess this file drives: an install.sh round trip
+# (install/uninstall + pack validation + engine load) or a jail CLI run. Both
+# are sub-second on an idle box, but this host under fleet load stalls
+# individual calls by tens of seconds — measured back-to-back with one identical
+# install command: 0.14s / 59.41s / 6.22s at loadavg 35, one call past 90s at
+# loadavg 32.7, and a jail CLI run past 20s while the same test passed in the
+# neighbouring suite run. The historical 15/20/30s budgets turned those stalls
+# into spurious subprocess.TimeoutExpired failures (QA-TERMINAL-JAIL-15, and the
+# sibling 20s CLI site); the default is ~3x the largest observed stall so a host
+# stall is not a test failure, and it is overridable per host with
+# TERMINAL_JAIL_TEST_TIMEOUT. The two subprocess.run sites that pass no timeout
+# at all stay unbounded and do not use this.
+SUBPROCESS_TIMEOUT_S = int(os.environ.get("TERMINAL_JAIL_TEST_TIMEOUT", "180"))
 
 
 def _shutil_which(name: str) -> str | None:
@@ -61,7 +68,7 @@ def _run_install(
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env=env,
         cwd=cwd,
     )
@@ -240,7 +247,7 @@ def test_successful_install(install_script: Path, tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -277,7 +284,7 @@ def test_bad_shebang_rejected(install_script: Path, tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -310,7 +317,7 @@ def test_checksum_fail(install_script: Path, tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -337,7 +344,7 @@ def test_creates_install_dir(install_script: Path, tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -365,7 +372,7 @@ def test_tmp_files_cleaned_after_install(install_script: Path, tmp_path: Path) -
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -399,7 +406,7 @@ def test_release_mode_requires_opt_in(install_script: Path, tmp_path: Path) -> N
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -432,7 +439,7 @@ def test_local_install_ships_lib_tree(install_script: Path, tmp_path: Path) -> N
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -476,7 +483,7 @@ def test_local_install_ships_default_rules_to_user_rules_dir(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -520,7 +527,7 @@ def test_local_install_backs_up_customized_user_rules(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -568,7 +575,7 @@ def test_prefix_install_does_not_touch_home_rules(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -619,7 +626,7 @@ def test_prefix_install_missing_parent_no_cd_error_no_dotdot(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -674,7 +681,7 @@ def test_explicit_rules_dir_wins_over_install_scope(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -714,7 +721,7 @@ def test_default_install_dir_keeps_live_rules_target(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -748,7 +755,7 @@ def test_installed_binary_blocks_with_shipped_bridge(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -763,7 +770,7 @@ def test_installed_binary_blocks_with_shipped_bridge(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(home),
@@ -797,7 +804,7 @@ def test_bare_wrapper_fails_closed_without_bridge(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(home),
@@ -836,7 +843,7 @@ def test_bare_wrapper_warn_mode_passes(install_script: Path, tmp_path: Path) -> 
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(home),
@@ -869,7 +876,7 @@ def _run_installed_loader(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env=env,
     )
 
@@ -907,7 +914,7 @@ def test_bare_wrapper_unshare_failure_exits_2(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(home),
@@ -944,7 +951,7 @@ def test_installed_seccomp_loader_imports_plugin_and_runs_command(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -1079,7 +1086,7 @@ def _run_local_install(
         capture_output=True,
         text=False,
         check=False,
-        timeout=20,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
@@ -1285,7 +1292,7 @@ def _run_repo_install(
     """Run the real checkout's installer (cwd=repo root => local mode).
 
     The rule-pack-file round trip drives install.sh + the pack validator + an
-    engine load; see INSTALL_TIMEOUT_S for why the subprocess budget is
+    engine load; see SUBPROCESS_TIMEOUT_S for why the subprocess budget is
     load-tolerant instead of the historical 30s (QA-TERMINAL-JAIL-15).
     """
     env = _install_env(tmp_path)
@@ -1296,7 +1303,7 @@ def _run_repo_install(
         capture_output=True,
         text=False,
         check=False,
-        timeout=INSTALL_TIMEOUT_S,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=env,
     )
@@ -1319,7 +1326,7 @@ def _run_checkout_install(
         capture_output=True,
         text=False,
         check=False,
-        timeout=INSTALL_TIMEOUT_S,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(checkout),
         env=env,
     )
@@ -1605,7 +1612,7 @@ def test_list_rule_packs_then_plain_install_completes_with_a_broken_pack(
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(checkout),
         env=env,
     )
@@ -1796,7 +1803,7 @@ def test_rule_pack_file_needs_the_checkout_like_named_packs(tmp_path: Path) -> N
         capture_output=True,
         text=False,
         check=False,
-        timeout=15,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -1918,7 +1925,7 @@ def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=env,
     )
@@ -1937,7 +1944,7 @@ def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=env,
     )
@@ -2010,7 +2017,7 @@ def test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base(
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=extra_env,
     )
@@ -2050,7 +2057,7 @@ def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(checkout),
         env=extra_env,
     )
@@ -2081,7 +2088,7 @@ def test_install_with_no_python3_skips_the_pack_but_installs_the_base(
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         cwd=str(PROJECT_ROOT),
         env=extra_env,
     )
@@ -2545,7 +2552,7 @@ def test_hermes_plugin_works_without_release_mode_opt_in(tmp_path: Path) -> None
         capture_output=True,
         text=False,
         check=False,
-        timeout=30,
+        timeout=SUBPROCESS_TIMEOUT_S,
         env={
             **os.environ,
             "HOME": str(tmp_path / "home"),
