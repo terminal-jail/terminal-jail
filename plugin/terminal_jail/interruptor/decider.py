@@ -476,7 +476,10 @@ def _rule_ids_in_file(file_path: Path) -> list[str]:
     this helper returns for such a file are the ones the REFUSAL conversation
     is about, and the loader loads none of them — the map may name ids the
     engine never evaluates, which is harmless (provenance is only read for
-    rules that matched).
+    rules that matched). Since TJ-DF-040 the same is true of the
+    PyYAML-less JSON-fallback class: the loader REFUSES it (fail closed)
+    before any map is built, so this helper's empty-contribution result is
+    never consulted for a file of that class either.
     """
     try:
         with open(file_path) as f:

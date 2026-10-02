@@ -283,7 +283,10 @@ printf 'not json {\n' | python3 plugin/terminal_jail/interruptor_bridge.py
 `action: "allow"`, rc=0).
 
 An **engine-evaluation** failure — `intercept()` itself raising, e.g. a rule
-file that parses but carries fields the engine cannot evaluate — fails
+file that parses but carries fields the engine cannot evaluate, or a rule
+file the PyYAML-less JSON fallback cannot parse (TJ-DF-040: on a host
+without PyYAML the installed `.yaml` rules are unreadable to the engine, so
+it refuses to allow instead of silently allowing everything) — fails
 **closed** instead: the verdict is a normal-shaped BLOCK with the sentinel
 `rule_id: "[bridge-error]"` and a `[bridge-error] … — fail-closed: blocking
 command (enforce mode)` reason (the refusal detail is also printed to

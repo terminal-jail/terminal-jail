@@ -13,14 +13,20 @@ Contract (board-decided):
   mode; empty or non-JSON bridge stdout blocks in enforce mode too.
 - The rule loader refuses (loud one-line stderr note naming the file) any
   rule file whose rules fail type validation — e.g. a non-numeric
-  ``priority`` — so a typo can no longer reach evaluation time. Files the
-  schema pass cannot PARSE keep DF-TERMINAL-JAIL-6's skip-with-warning
-  behavior.
+  ``priority`` — so a typo can no longer reach evaluation time.
 - TJ-DF-039: when the parse failure comes from the PyYAML-less JSON fallback
   (on such a host that fallback is the ONLY path a ``.yaml`` rule file can
-  take, so an entire installed mirror is affected) the skip stops being
-  silent: one loud stderr note names the file and the cause. The engine's
-  ACTION is unchanged — still fail open, nothing propagates.
+  take, so an entire installed mirror is affected) the skip is announced with
+  one loud stderr note naming the file and the cause.
+- TJ-DF-040: that same PyYAML-less JSON-fallback failure now also FAILS
+  CLOSED (``RuleParseError`` aborts the load, the bridge emits the blocking
+  ``[bridge-error]`` verdict). A fresh host without PyYAML used to degrade
+  the whole installed firewall to allow-everything while the sandbox layer
+  still ran; now the engine refuses to allow on a policy it cannot read.
+  The retained fail-open arms are NARROW and named in ``_load_file``: an
+  UNREADABLE file (OSError), and a syntax error a real YAML parser rejected
+  (yaml.YAMLError — DF-TERMINAL-JAIL-6's skip-with-warning, only reachable
+  when a real parser is present).
 """
 
 from __future__ import annotations
@@ -663,11 +669,12 @@ rules:
 class TestLoaderPyYAMLLessMirrorIsLoud:
     """On a host without PyYAML the stdlib json fallback is the ONLY path a
     ``.yaml`` rule file can take (rules.py), and YAML is not JSON — so every
-    installed rule file contributes ZERO rules. DF-TERMINAL-JAIL-6's fail-open
-    ACTION is unchanged (the Python builtins stay live, nothing propagates);
-    what changes is that the skip is no longer silent: one loud stderr note
-    names the file and the cause, and ``loader.parse_notes`` carries it for
-    callers that cannot capture stderr.
+    installed rule file fails the fallback. Since TJ-DF-040 that failure is
+    FAIL-CLOSED: one loud stderr note names the file and the cause (kept
+    from TJ-DF-039), ``loader.parse_notes`` carries it for callers that
+    cannot capture stderr, and the load ABORTS so the bridge emits the
+    blocking ``[bridge-error]`` verdict instead of silently allowing
+    everything.
     """
 
     @staticmethod
@@ -698,23 +705,28 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
         assert stderr.getvalue() == ""
         assert loader.parse_notes == []
 
-    def test_mirror_fails_open_loudly_without_pyyaml(
+    def test_mirror_fails_closed_loudly_without_pyyaml(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # ``sys.modules["yaml"] = None`` makes `import yaml` raise ImportError
         # deterministically — the fresh-host-without-PyYAML simulation (same
         # seam as test_rule_packs.py's PyYAML-less cases).
         monkeypatch.setitem(sys.modules, "yaml", None)
-        from terminal_jail.interruptor.rules import RuleLoader
+        from terminal_jail.interruptor.rules import (
+            RuleFallbackParseError,
+            RuleLoader,
+        )
 
         rules_dir = self._install_shipped_mirror(tmp_path)
         mirror = rules_dir / "00-builtins.yaml"
         stderr = io.StringIO()
         with mock.patch.object(sys, "stderr", stderr):
             loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
-            ruleset = loader.load_all()  # must NOT raise: fail open is retained
+            # TJ-DF-040: the load ABORTS — a policy the engine cannot read
+            # must never come back as an empty, silently-allowed ruleset.
+            with pytest.raises(RuleFallbackParseError):
+                loader.load_all()
         err = stderr.getvalue()
-        assert len(ruleset) == 0, "no rule can be read without a YAML parser"
         # exactly one loud line, naming the file and the cause
         assert err.count("\n") == 1, f"exactly one loud line, got: {err!r}"
         assert str(mirror) in err, f"note must name the file, got: {err!r}"
@@ -723,23 +735,23 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
         assert loader.parse_notes == [err.rstrip("\n")]
         assert loader.schema_notes == []
 
-    def test_engine_verdict_is_unchanged_without_pyyaml(
+    def test_without_pyyaml_builtin_still_blocks_via_engine_constants(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Removing the silence must not change the DECISION: a builtin-covered
-        command still BLOCKs with the same rule id on a PyYAML-less host."""
+        """The PyYAML-less BLOCK capability still exists — via the ENGINE
+        builtins with NO rules files at all (dirs absent, nothing to parse).
+        On a PyYAML-less host with an INSTALLED mirror the load aborts
+        instead (see the tests above); this pins that the fail-closed
+        posture removed the mirror path, not the engine's own protection."""
         monkeypatch.setitem(sys.modules, "yaml", None)
         from terminal_jail.interruptor import Action
 
-        rules_dir = self._install_shipped_mirror(tmp_path)
         config = Config(
             mode="enforce",
             system_rules_dir=str(tmp_path / "absent-system"),
-            user_rules_dir=str(rules_dir),
+            user_rules_dir=str(tmp_path / "absent-user"),
         )
-        stderr = io.StringIO()
-        with mock.patch.object(sys, "stderr", stderr):
-            result = intercept("rm -rf /", config=config)
+        result = intercept("rm -rf /", config=config)
         assert result.action == Action.BLOCK
         assert result.rule_id == "builtin-rm-rf-root"
 
@@ -775,3 +787,208 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
         assert ruleset.by_id("json-block") is not None
         assert stderr.getvalue() == ""
         assert loader.parse_notes == []
+
+
+# ── F. TJ-DF-040: PyYAML-less JSON-fallback failure FAILS CLOSED ────────────
+
+
+class TestPyYAMLLessParseFailureFailsClosed:
+    """TJ-DF-040. TJ-DF-039 made the PyYAML-less JSON-fallback parse failure
+    LOUD but kept it fail-open: on a fresh host without PyYAML the entire
+    installed mirror (00-builtins.yaml and every operator ``.yaml`` file —
+    the fallback is the ONLY path a ``.yaml`` file can take there) unloaded
+    and the firewall silently degraded to allow-everything while the sandbox
+    layer still ran. The loud stderr note does not change the verdict.
+
+    The new posture follows the TJ-GAP-070 shape: the fallback failure
+    raises ``RuleParseError`` after its one loud note, ``load_all`` ABORTS,
+    and the bridge converts it into the blocking ``[bridge-error]``
+    verdict — the engine refuses to allow on a policy it cannot read.
+
+    Fail-open survives only for two NARROW, named classes (tests below):
+    an UNREADABLE file (OSError — one bad permission must not brick the
+    whole ruleset) and a syntax error a REAL YAML parser rejected
+    (yaml.YAMLError — DF-TERMINAL-JAIL-6's documented skip-with-warning;
+    only reachable when PyYAML is actually importable).
+    """
+
+    YAML_ONLY_USER_RULE = """\
+rules:
+  - id: pack-testonly-yaml-rule
+    priority: 100
+    action: block
+    block_message: blocked by the yaml-only rule
+    match:
+      type: pattern
+      pattern: "danger-tool"
+"""
+
+    @staticmethod
+    def _yaml_only_rules_dir(tmp_path: Path) -> Path:
+        """A rules dir whose ONLY file is YAML a JSON fallback cannot read."""
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(rules_dir, "99-df040.yaml", TestPyYAMLLessParseFailureFailsClosed.YAML_ONLY_USER_RULE)  # fmt: skip
+        return rules_dir
+
+    def test_control_yaml_only_rule_blocks_with_pyyaml(self, tmp_path: Path) -> None:
+        """(a) Control: WITH PyYAML the yaml-only rule blocks through the
+        bridge — the fixture is a real policy, not a broken file."""
+        rules_dir = self._yaml_only_rules_dir(tmp_path)
+        proc = _bridge_main_inproc(
+            '{"command": "danger-tool --do-it"}',
+            extra_env={
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(tmp_path / "absent-system"),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+            },
+        )
+        assert proc.returncode == 0
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "block", response
+        assert response["rule_id"] == "pack-testonly-yaml-rule", response
+
+    def test_without_pyyaml_bridge_verdict_is_not_a_plain_allow(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """(b) The defect: without PyYAML the same policy must NOT yield a
+        plain allow verdict — the bridge must return the blocking
+        ``[bridge-error]`` envelope (fail closed), not ``{"action":
+        "allow"}`` with ``rule_id: null``."""
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        rules_dir = self._yaml_only_rules_dir(tmp_path)
+        proc = _bridge_main_inproc(
+            '{"command": "danger-tool --do-it"}',
+            extra_env={
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(tmp_path / "absent-system"),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+            },
+        )
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "block", (
+            f"PyYAML-less parse failure must fail CLOSED, got {response!r}"
+        )
+        assert response["rule_id"] == "[bridge-error]", response
+        assert response["reason"].startswith("[bridge-error]"), response
+        assert "fail-closed" in response["reason"], response
+        # The TJ-DF-039 loud note stays — the in-proc harness captures it
+        # into proc.stderr (the outer mock would race the harness's own
+        # capture, and the detail belongs on the bridge's stderr anyway).
+        err = proc.stderr.decode()
+        assert str(rules_dir / "99-df040.yaml") in err, err
+        assert "UNPARSEABLE" in err, err
+
+    def test_without_pyyaml_load_all_raises_rule_parse_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The loader aborts (TJ-GAP-070 style) instead of returning a
+        ruleset that silently omits every ``.yaml`` file."""
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        from terminal_jail.interruptor.rules import (
+            RuleLoader,
+            RuleParseError,
+        )
+
+        rules_dir = self._yaml_only_rules_dir(tmp_path)
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
+            with pytest.raises(RuleParseError):
+                loader.load_all()
+        assert loader.parse_notes, "the loud note is still recorded"
+
+    def test_without_pyyaml_installed_mirror_aborts_intercept(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fresh-host shape: the INSTALLED mirror (shipped
+        00-builtins.yaml in the user dir) is YAML-only too, so on a
+        PyYAML-less host ``intercept()`` itself must raise rather than
+        decide on an empty ruleset (allow-everything)."""
+        monkeypatch.setitem(sys.modules, "yaml", None)
+        from terminal_jail.interruptor import Action
+        from terminal_jail.interruptor.rules import RuleFallbackParseError
+
+        rules_dir = TestLoaderPyYAMLLessMirrorIsLoud._install_shipped_mirror(tmp_path)
+        config = Config(
+            mode="enforce",
+            system_rules_dir=str(tmp_path / "absent-system"),
+            user_rules_dir=str(rules_dir),
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            with pytest.raises(RuleFallbackParseError):
+                intercept("echo benign", config=config)
+        # The loud note still names the mirror (the raise's detail).
+        assert "00-builtins.yaml" in stderr.getvalue()
+        assert Action.BLOCK  # (import liveness; the posture is the raise)
+
+    def test_unreadable_rule_file_still_fails_open_named_class(
+        self, tmp_path: Path
+    ) -> None:
+        """The retained NARROW fail-open arm: a file that cannot be READ
+        (OSError, e.g. permission) is skipped with the loud-note shape so
+        one bad permission cannot brick the whole ruleset. Named explicitly
+        in ``_load_file``'s comment — this test pins that it did not grow
+        back into a blanket ``except Exception``."""
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(
+            rules_dir,
+            "10-good.yaml",
+            """\
+rules:
+  - id: good-block-df040
+    priority: 100
+    action: block
+    match:
+      type: pattern
+      pattern: "danger-tool"
+""",
+        )
+        unreadable = rules_dir / "20-locked.yaml"
+        unreadable.write_text("rules: []\n")
+        unreadable.chmod(0o000)
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            from terminal_jail.interruptor.rules import RuleLoader
+
+            try:
+                ruleset = RuleLoader(
+                    system_dir=str(rules_dir), user_dir="/nonexistent"
+                ).load_all()
+            finally:
+                unreadable.chmod(0o644)  # let tmp cleanup delete it
+        assert ruleset.by_id("good-block-df040") is not None
+        # The skip is loud (TJ-DF-039's shape, kept for this class).
+        err = stderr.getvalue()
+        assert "20-locked.yaml" in err, f"note must name the file: {err!r}"
+
+    def test_yaml_parser_syntax_error_still_skips_df6_leniency(
+        self, tmp_path: Path
+    ) -> None:
+        """DF-TERMINAL-JAIL-6's original leniency survives for the class it
+        was written for: a SYNTAX error a real YAML parser rejected
+        (yaml.YAMLError). Only reachable with PyYAML present — without it
+        the same content fails closed via the JSON fallback (test above)."""
+        from terminal_jail.interruptor.rules import RuleLoader
+
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(rules_dir, "broken.yaml", "rules: [unclosed")
+        _write_rule_file(
+            rules_dir,
+            "good.yaml",
+            """\
+rules:
+  - id: good-block-df040
+    priority: 100
+    action: block
+    match:
+      type: pattern
+      pattern: "danger-tool"
+""",
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            ruleset = RuleLoader(
+                system_dir=str(rules_dir), user_dir="/nonexistent"
+            ).load_all()
+        assert ruleset.by_id("good-block-df040") is not None, (
+            "DF-6 skip-with-warning survives for real-parser syntax errors"
+        )

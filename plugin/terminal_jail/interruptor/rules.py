@@ -124,11 +124,42 @@ class RuleSet:
 class RuleSchemaError(ValueError):
     """A rule file LOADED but carries a field whose type the engine cannot use.
 
-    Distinct from a file that cannot be parsed at all (DF-TERMINAL-JAIL-6 keeps
-    skipping those): this is a well-formed YAML document whose field values
-    would explode during EVALUATION — ``priority: not-a-number`` reaches
-    ``RuleSet._sort`` and raises ``TypeError`` inside ``intercept()``, which the
-    bridge used to swallow into a fail-open allow (TJ-GAP-070).
+    Distinct from a file that cannot be parsed at all: that split is now
+    two-stage (TJ-DF-040). A syntax error a REAL YAML parser rejected
+    (``RuleParseError``) is still skipped with a loud note — DF-TERMINAL-
+    JAIL-6's leniency. The PyYAML-less JSON-fallback failure
+    (``RuleFallbackParseError``) ABORTS the load, because without PyYAML
+    that fallback is the only path a ``.yaml`` file can take and skipping
+    would silently unload the entire installed policy. This error — a
+    well-formed document whose field values would explode during
+    EVALUATION — always aborts: ``priority: not-a-number`` reaches
+    ``RuleSet._sort`` and raises ``TypeError`` inside ``intercept()``,
+    which the bridge used to swallow into a fail-open allow (TJ-GAP-070).
+    """
+
+
+class RuleParseError(RuntimeError):
+    """A rule file could not be PARSED into a rules document.
+
+    Raised by ``_parse_file`` after its one loud stderr note naming the
+    file. ``_load_file`` treats the plain form as DF-TERMINAL-JAIL-6's
+    leniency class — skipped, but no longer silent — and the
+    ``RuleFallbackParseError`` subclass as a refusal (load aborts,
+    TJ-DF-040).
+    """
+
+
+class RuleFallbackParseError(RuleParseError):
+    """The PyYAML-less JSON fallback could not parse a ``.yaml`` file.
+
+    TJ-DF-040: on a host without PyYAML the stdlib-json fallback is the
+    ONLY path a ``.yaml`` file can take, and YAML is not JSON — so every
+    installed rule file (the shipped 00-builtins.yaml mirror included)
+    fails here. Skipping would silently unload the whole policy while the
+    sandbox layer still ran: the firewall would degrade to
+    allow-everything with nothing on the verdict saying so. The load
+    ABORTS instead; the bridge converts the raise into the blocking
+    ``[bridge-error]`` verdict (TJ-GAP-070 shape).
     """
 
 
@@ -264,24 +295,35 @@ def inherit_override_message(override: Rule, replaced: Rule | None) -> Rule:
 class RuleLoader:
     """Loads rules from YAML files in one or more directories.
 
-    Two-stage leniency (TJ-GAP-070):
+    Failure posture (TJ-GAP-070 as narrowed by TJ-DF-040):
 
-    - A file that cannot be PARSED (invalid YAML/JSON, unreadable) is skipped
-      and contributes no rules — DF-TERMINAL-JAIL-6's documented leniency. On a
-      host without PyYAML the JSON fallback is the ONLY path a ``.yaml`` file
-      can take, so the whole mirror lands here; that skip is announced with one
-      loud stderr note instead of being silent (TJ-DF-039).
+    - A file the PyYAML-less JSON fallback cannot parse REFUSES the load:
+      on a host without PyYAML that fallback is the ONLY path a ``.yaml``
+      file can take, so the whole installed mirror (00-builtins.yaml
+      included) lands there — skipping it would silently unload the
+      operator's entire policy while the sandbox layer still ran, i.e.
+      allow-everything with nothing on the verdict saying so. The refusal
+      is announced with one loud stderr note naming the file (TJ-DF-039)
+      and ABORTS the load; the bridge turns it into a blocking
+      ``[bridge-error]`` verdict.
+    - A file whose content a REAL YAML parser rejected (PyYAML importable)
+      is still skipped with a loud one-line stderr note — that is
+      DF-TERMINAL-JAIL-6's documented leniency, now narrowed to the class
+      it was written for. Same for a file that cannot be READ (OSError):
+      one bad permission must not brick the whole ruleset, and the skip
+      is announced, never silent.
     - A file that parses but whose FIELDS fail type validation (e.g.
-      ``priority: not-a-number``) is REFUSED with a loud one-line stderr note
-      naming the file, and the load ABORTS. Silently skipping it would be worse
-      than either extreme: the operator's policy would appear installed while
-      being absent. Aborting is also what makes the failure fail CLOSED — the
-      bridge turns it into a blocking ``[bridge-error]`` verdict instead of an
-      allow, so a typo cannot silently remove protection.
+      ``priority: not-a-number``) is REFUSED with a loud one-line stderr
+      note naming the file, and the load ABORTS. Silently skipping it
+      would be worse than either extreme: the operator's policy would
+      appear installed while being absent. Aborting is also what makes
+      the failure fail CLOSED — the bridge turns it into a blocking
+      ``[bridge-error]`` verdict instead of an allow, so a typo cannot
+      silently remove protection.
 
-    ``schema_notes`` collects the loud notes so callers/tests can assert them
-    without capturing stderr. ``parse_notes`` collects the same for the
-    PyYAML-less JSON-fallback failure (TJ-DF-039), which stays fail-open.
+    ``schema_notes`` collects the loud notes so callers/tests can assert
+    them without capturing stderr. ``parse_notes`` collects the same for
+    the parse-side failures (TJ-DF-039).
     """
 
     def __init__(
@@ -344,30 +386,72 @@ class RuleLoader:
         return rules
 
     def _load_file(self, file_path: str) -> list[Rule]:
-        """Load rules from a single YAML file.
+        """Load rules from a single file (TJ-DF-040 posture).
 
-        The file is expected to contain a top-level ``rules`` list. A file that
-        cannot be PARSED returns empty (DF-TERMINAL-JAIL-6 leniency) — but when
-        the failure came from the PyYAML-less JSON fallback it is no longer
-        silent: ``_parse_file`` has already written one loud stderr note naming
-        the file (TJ-DF-039). A file that parses but violates the field schema
-        raises ``RuleSchemaError`` after writing one loud stderr note naming it
-        (TJ-GAP-070).
+        The file is expected to contain a top-level ``rules`` list. Three
+        failure classes, deliberately NOT one blanket catch:
+
+        - REFUSES (load ABORTS, fail closed): a file the PyYAML-less JSON
+          fallback cannot parse (``RuleFallbackParseError``) — on such a
+          host that fallback is the ONLY path a ``.yaml`` file can take,
+          so skipping would silently unload the entire installed policy
+          (shipped mirror included). Same refusal/verdict path as
+          ``RuleSchemaError`` (TJ-GAP-070). Also refused: a file that
+          parses but violates the field schema.
+        - SKIPS with one loud stderr note (fail open, DF-TERMINAL-JAIL-6's
+          documented leniency, narrowed): a file whose content a REAL YAML
+          parser rejected (``RuleParseError``) — only reachable when
+          PyYAML is importable.
+        - SKIPS with one loud stderr note (fail open, named arm): a file
+          that cannot be READ (OSError). One bad permission must not brick
+          the whole ruleset; the file's absence is announced, so it is a
+          skip with warning, never a silent one.
         """
         try:
             return self._parse_file(file_path)
         except RuleSchemaError:
+            # TJ-GAP-070: bad field types refuse the load (fail closed).
             raise
-        except Exception:  # noqa: BLE001 — fail-open on file parse errors
+        except RuleFallbackParseError:
+            # TJ-DF-040: without PyYAML this failure class covers EVERY
+            # ``.yaml`` file on the host (the shipped mirror included) —
+            # skipping it is the allow-everything degradation, so refuse
+            # like a schema violation instead.
+            raise
+        except RuleParseError:
+            # DF-TERMINAL-JAIL-6: a real YAML parser rejected the syntax.
+            # Only reachable when PyYAML is importable (the fallback path
+            # raises the RuleFallbackParseError subclass above), so this
+            # skip cannot mask the fresh-host shape. Still loud via the
+            # note ``_parse_file`` already wrote.
+            return []
+        except OSError:
+            # Named fail-open arm: UNREADABLE file (permissions, race on
+            # delete, loop). Load-time note printed by _parse_file.
             return []
 
     def _parse_file(self, file_path: str) -> list[Rule]:
         """Parse a YAML file and return a list of Rules.
 
-        Uses stdlib json as fallback if PyYAML is not available.
+        Uses stdlib json as fallback if PyYAML is not available. Parse
+        failures raise typed errors AFTER the one loud stderr note naming
+        the file: ``RuleFallbackParseError`` for the PyYAML-less fallback
+        (refused by ``_load_file`` — fail closed, TJ-DF-040) and
+        ``RuleParseError`` for a real YAML parser's syntax rejection
+        (skipped by ``_load_file`` — DF-TERMINAL-JAIL-6 leniency, loud
+        since TJ-DF-039).
         """
-        with open(file_path) as f:
-            content = f.read()
+        try:
+            with open(file_path) as f:
+                content = f.read()
+        except OSError as exc:
+            note = (
+                f"terminal-jail: UNREADABLE rule file {file_path} "
+                f"({exc}) — the rules in this file are NOT loaded"
+            )
+            self.parse_notes.append(note)
+            print(note, file=sys.stderr, flush=True)
+            raise
 
         rules: list[Rule] = []
 
@@ -379,26 +463,43 @@ class RuleLoader:
             # semantics, ~10x faster. The pure-Python loader costs ~9ms per
             # call once install.sh ships the full builtins file into the user
             # rules dir, regressing the warm-start benchmark (E2E-001-GAP-07).
-            if hasattr(yaml, "CSafeLoader"):
-                data = yaml.load(content, Loader=yaml.CSafeLoader)
-            else:
-                data = yaml.safe_load(content)
+            try:
+                if hasattr(yaml, "CSafeLoader"):
+                    data = yaml.load(content, Loader=yaml.CSafeLoader)
+                else:
+                    data = yaml.safe_load(content)
+            except yaml.YAMLError as exc:
+                # DF-TERMINAL-JAIL-6 leniency class (narrowed by TJ-DF-040):
+                # a REAL parser rejected the SYNTAX. One loud note, then a
+                # typed error ``_load_file`` skips the file for.
+                note = (
+                    f"terminal-jail: UNPARSEABLE rule file {file_path} "
+                    f"(invalid YAML: {exc}) — the rules in this file are "
+                    "NOT loaded"
+                )
+                self.parse_notes.append(note)
+                print(note, file=sys.stderr, flush=True)
+                raise RuleParseError(note) from exc
         except ImportError:
             # Fall back to json. On a host WITHOUT PyYAML this is the ONLY path
             # a ``.yaml`` rule file can take — and YAML is not JSON, so
             # ``json.loads`` raises on the shipped mirror (TJ-DF-039): the file
-            # then contributes ZERO rules. DF-TERMINAL-JAIL-6's leniency is
+            # would contribute ZERO rules. DF-TERMINAL-JAIL-6's leniency is
             # about the engine's ACTION on an unparseable file; it says nothing
             # about the operator being told, and swallowing this quietly made a
-            # whole installed mirror inert with no message anywhere on the host.
-            # The note is one line, in the TJ-GAP-070 style, and the exception
-            # is re-raised so ``_load_file`` keeps its fail-open behaviour —
-            # action unchanged, silence removed.
+            # whole installed mirror inert with no message anywhere on the host
+            # (TJ-DF-039). TJ-DF-040 goes one step further: on such a host
+            # skipping EVERY ``.yaml`` file silently degrades the firewall to
+            # allow-everything while the sandbox layer still runs, so this
+            # class is REFUSED (``RuleFallbackParseError``; ``_load_file``
+            # aborts the load and the bridge emits the blocking
+            # ``[bridge-error]`` verdict). The note stays one line, in the
+            # TJ-GAP-070 style.
             import json
 
             try:
                 data = json.loads(content)
-            except Exception as exc:  # noqa: BLE001 — re-raised below
+            except Exception as exc:  # noqa: BLE001 — re-raised typed below
                 note = (
                     f"terminal-jail: UNPARSEABLE rule file {file_path} "
                     f"(PyYAML unavailable, JSON fallback failed: {exc}) "
@@ -406,7 +507,7 @@ class RuleLoader:
                 )
                 self.parse_notes.append(note)
                 print(note, file=sys.stderr, flush=True)
-                raise
+                raise RuleFallbackParseError(note) from exc
 
         # TJ-GAP-070: refuse a document the engine cannot EVALUATE. The parse
         # above succeeded, so DF-TERMINAL-JAIL-6's skip path (which is for

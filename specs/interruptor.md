@@ -131,10 +131,21 @@ Every field value the engine reads is type-checked when a rule file is loaded:
 | `match.conditions` | list |
 | `match.not` | mapping or list |
 
-Load has two distinct failure paths, and they must not be conflated:
+Load has distinct failure paths, and they must not be conflated (TJ-GAP-070
+as narrowed by TJ-DF-040):
 
-- **Cannot PARSE** (invalid YAML/JSON, unreadable file) → the file is
-  **skipped** and contributes no rules (DF-TERMINAL-JAIL-6 leniency; §14).
+- **Cannot PARSE via the PyYAML-less JSON fallback** (a host without PyYAML;
+  there the fallback is the ONLY path a `.yaml` file can take, so the whole
+  installed mirror lands here) → the file is **REFUSED**: one loud one-line
+  note naming the file is written to stderr and the load **ABORTS**
+  (`RuleFallbackParseError`). Skipping would let the firewall silently
+  degrade to allow-everything while the sandbox layer still ran; the abort
+  reaches the bridge as an engine exception and becomes the fail-closed
+  verdict below (TJ-DF-040).
+- **Cannot PARSE with a real YAML parser** (PyYAML importable, syntax
+  error) or **cannot be READ** (OSError) → the file is **skipped** and
+  contributes no rules, loudly (one stderr line naming the file;
+  DF-TERMINAL-JAIL-6 leniency, §14 — fail open, but never silent).
 - **Parses but a field has the wrong TYPE** (e.g. `priority: not-a-number`) →
   the file is **REFUSED**: one loud one-line note naming the file is written to
   stderr and the load **ABORTS** (``RuleSchemaError``). It is never silently
@@ -755,9 +766,19 @@ commands are evaluated and allowed (never skipped, no over-length marker).
 
 ## 14. Error Handling
 
-- Invalid rule file → **two paths, never conflated** (TJ-GAP-070, §3.5):
-  - *unparseable* (invalid YAML/JSON, unreadable) → skip with warning, continue
-    loading others;
+- Invalid rule file → **distinct paths, never conflated** (TJ-GAP-070,
+  §3.5, TJ-DF-040):
+  - *unparseable via the PyYAML-less JSON fallback* (a host without PyYAML;
+    there the fallback is the ONLY path a `.yaml` file can take, so the
+    whole installed mirror lands here) → REFUSE with one loud one-line
+    stderr note naming the file, and abort the load. The refusal reaches
+    the bridge as an engine exception and becomes a blocking
+    `[bridge-error]` verdict (fail CLOSED — §3.6): the engine refuses to
+    allow on a policy it cannot read, instead of the old silent
+    allow-everything degradation (TJ-DF-040).
+  - *unparseable with a real YAML parser* (PyYAML importable) or
+    *unreadable* (OSError) → skip with a loud one-line warning, continue
+    loading others (DF-TERMINAL-JAIL-6 leniency, narrowed by TJ-DF-040);
   - *parses but a field has the wrong type* (e.g. `priority: not-a-number`) →
     REFUSE with one loud one-line stderr note naming the file, and abort the
     load. The refusal reaches the bridge as an engine exception and becomes a
