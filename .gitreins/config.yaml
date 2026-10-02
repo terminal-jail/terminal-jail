@@ -10,6 +10,16 @@ guards:
   # Pinning the repo venv here makes the tests lane independent of PATH ordering.
   test_command: .venv/bin/python -m pytest -x --tb=short
   static_analysis: true
+  # TJ-DF-043 (2026-10-02): the suite grew past the engine-default test_timeout
+  # (180s) — measured standalone runs: 511s (load 25), 515s, 848s (load 25-50).
+  # The engine's own timeout message prescribes this knob; 900 is the
+  # fleet-proven rung (gitreins' own config). hook_timeout (the WHOLE-run
+  # budget, default 300s) must rise with it: raising test_timeout alone moves
+  # the kill into the hook budget, and the smaller budget wins — a commit that
+  # lands on the hook-timeout FAIL-OPEN early-return is NOT gate-verified.
+  # 1200 covers the 900s tests lane plus secrets/lint/static.
+  test_timeout: 900
+  hook_timeout: 1200
   # TRUST-001 default for a repo whose ticks commit board data (.coding-hermes/**)
   # and harness records only: a DEGENERATE run (no gradable staged file, so lint
   # and tests legitimately skip) exits 0 instead of blocking the commit. A gate

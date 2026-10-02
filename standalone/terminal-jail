@@ -151,6 +151,14 @@ Environment:
                  documented fallback. A requested backend that cannot run
                  fails closed (exit 2) — isolation is never silently
                  downgraded. See specs/cli.md section 4 "Jail backends".
+  TERMINAL_JAIL_UID_MAP=0|off|false
+                 Force the mapping-less --user launch (skip the uid-mapping
+                 preflight). The uid-MAPPED launch re-arms the parent-death
+                 signal with `setpriv --pdeathsig=SIGKILL` after its
+                 setuid/setgid (the kernel clears PR_SET_PDEATHSIG on
+                 credential changes — TJ-DF-043); a host whose setpriv
+                 cannot re-arm fails the flag-identical probe and falls
+                 back mapping-less LOUDLY, never silently.
 EOF
 }
 
@@ -520,7 +528,22 @@ if [ "$USE_USER_NS" -eq 1 ]; then
     _tj_subgid=$(_tj_subid_start /etc/subgid "$_tj_user")
     _tj_nobody_uid=65534
     _tj_nobody_gid=65534
-    _TJ_MAPPED_FLAGS="--user --map-users=${_tj_nobody_uid}:${_tj_subuid}:1 --map-groups=${_tj_nobody_gid}:${_tj_subgid}:1 -S ${_tj_nobody_uid} -G ${_tj_nobody_gid} --pid --fork $_KC=$_SIG"
+    # TJ-DF-043: the mapped launch ends with a setpriv exec tail that
+    # RE-ARMS the parent-death signal AFTER the -S/-G setgid/setuid. The
+    # kernel clears the PDEATHSIG setting on any thread-credential change
+    # (man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds), and
+    # util-linux arms the child-termination flag ($_KC) BEFORE those
+    # changes — so on hosts that reach the mapped launch (e.g. Debian 13,
+    # kernel 6.12) the payload was namespace PID 1 with NO parent-death
+    # linkage: the launcher's SIGKILL left a real orphan. setpriv
+    # --pdeathsig re-arms after the cred change and preserves the payload
+    # argv; it ships in util-linux itself. A host whose setpriv lacks
+    # --pdeathsig (util-linux < 2.36, below the documented floor) fails the
+    # flag-identical probe and the launch falls back mapping-less with the
+    # existing loud warning. The tail lives inside $_TJ_MAPPED_FLAGS so the
+    # probe exercises the exact launch.
+    _TJ_PD="setpriv --pdeathsig=$_SIG"
+    _TJ_MAPPED_FLAGS="--user --map-users=${_tj_nobody_uid}:${_tj_subuid}:1 --map-groups=${_tj_nobody_gid}:${_tj_subgid}:1 -S ${_tj_nobody_uid} -G ${_tj_nobody_gid} --pid --fork $_KC=$_SIG $_TJ_PD"
 
     case "${TERMINAL_JAIL_UID_MAP:-}" in
         0|off|false)

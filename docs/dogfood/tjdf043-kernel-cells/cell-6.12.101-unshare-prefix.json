@@ -1,0 +1,13 @@
+{
+  "rows": [
+    {
+      "kernel": "6.12.101+deb13-amd64",
+      "backend": "unshare",
+      "verdict": "FAIL",
+      "survival_seconds": 5.0,
+      "exit_code": -9,
+      "captured": "2026-10-02T11:01:00-0700",
+      "evidence": "TJ-DF-043 cell on 6.12.101+deb13-amd64 (bunker-las-02), wrapper=/tmp/tj043-fix/terminal-jail-prefix, 2 repetitions, per-rep teardown: 5000 ms, 5000 ms; ORPHAN: payload pid 51814 survived the wrapper's SIGKILL for the full 5s budget | ORPHAN: payload pid 51850 survived the wrapper's SIGKILL for the full 5s budget"
+    }
+  ]
+}

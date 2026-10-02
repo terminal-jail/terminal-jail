@@ -1,5 +1,31 @@
 ## [Unreleased]
 
+### Standalone CLI: the uid-mapped launch keeps its parent-death signal (TJ-DF-043)
+
+- **Fix** (`standalone/terminal-jail`,
+  `plugin/terminal_jail/interruptor/userns.py`): the uid-mapped `--user`
+  launch ends with a `setpriv --pdeathsig=SIGKILL` exec tail. util-linux
+  arms `--kill-child`'s `PR_SET_PDEATHSIG` in the forked child BEFORE the
+  `-S`/`-G` setgid/setuid, and the kernel clears the parent-death setting
+  on any effective uid/gid change (man 2 prctl; `kernel/cred.c`
+  `commit_creds()`), so the mapped payload ran with the signal cleared and
+  survived the wrapper's SIGKILL as a real orphan — measured on Debian
+  13.7 / kernel 6.12.107 (`docs/dogfood/tjdf043-kernel-cells/`), where the
+  dev host never saw it because its AppArmor policy denies the mapped
+  launch entirely. Post-fix teardown on those kernels: 20 ms, 3/3 reps.
+  The tail is inside the flag string, so the preflight probe exercises the
+  exact launch: a host whose `setpriv` cannot re-arm (util-linux < 2.36)
+  fails the probe and falls back mapping-less with the existing loud
+  warning — fail-closed, never silent.
+- **Contract pins**: `plugin/test_tjdf043_pdeathsig_rearm.py` (the mapped
+  template must re-arm; the mapping-less launch is unchanged), the
+  interruptor launch-contract fixtures reject the tail-less mapped shape
+  (the defect shape), and `scripts/kernel-matrix-teardown.py` gained a
+  `--gate` CI cell that exits 1 only when an orphan is OBSERVED on the
+  running host (a fail-closed host SKIPs honestly, never counted as a
+  pass). Root cause and citations: `docs/backend-parity.md` known-limit
+  (e) + release-hold re-evaluation.
+
 ### Interruptor: long commands no longer freeze the engine (TJ-DF-024)
 
 - **Fix** (`plugin/terminal_jail/interruptor/matcher.py`): required-substring

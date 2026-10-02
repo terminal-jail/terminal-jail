@@ -244,6 +244,8 @@ Without the flag, an existing drop-in is reported with a NOTE instead of being r
 
 `--kill-child=SIGKILL` ensures that when the namespace init exits, every descendant is killed immediately — even processes that double-fork or change session leaders.
 
+> **Parent-death signal and the uid-mapped launch (TJ-DF-043).** The kernel clears `PR_SET_PDEATHSIG` whenever a process changes its effective uid/gid (man 2 prctl; `kernel/cred.c` `commit_creds()`). The uid-mapped `--user` launch (`--map-users … -S 65534 -G 65534`) changes exactly those credentials, so the mapped payload runs with the signal cleared and would survive the wrapper's death as a real orphan (measured on Debian 13, kernel 6.12.107: orphan; the dev host never reaches this shape because its AppArmor policy denies the mapped launch outright — "passes here" proves nothing about hosts where the mapping works). The mapped launch therefore ends with a `setpriv --pdeathsig=SIGKILL` exec tail that re-arms the signal AFTER the credential change (util-linux ≥ 2.36, same package as `unshare`); the preflight probe carries the identical flags, so a host whose `setpriv` cannot re-arm fails the probe and falls back mapping-less with the loud `no filesystem isolation` warning — never silently. Raw per-kernel evidence: `docs/backend-parity.md` and `docs/dogfood/tjdf043-kernel-cells/`.
+
 ### Verifying a deploy
 
 Three checks, cheapest first:
@@ -656,7 +658,7 @@ Every layer degrades independently.
 ## Requirements
 
 - Linux (kernel 3.8+ for user namespaces, 4.3+ for `--kill-child`)
-- `util-linux` 2.32+ (`unshare` with `--kill-child`)
+- `util-linux` 2.32+ (`unshare` with `--kill-child`); the uid-mapped launch additionally uses `setpriv --pdeathsig` (util-linux 2.36+ — same package; without it the mapped preflight fails and the launch falls back mapping-less loudly, TJ-DF-043)
 - `bash`
 - **Optional:** systemd drop-in (`systemd/` snippets) — gateway-hardening convenience (process visibility, privilege, cgroup limits), not a containment or PID-namespace boundary. The primary isolation layer is the standalone CLI's `unshare`/`bwrap` backend
 - **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`). It is an external runtime dependency resolved from `PATH`, exactly like `util-linux`, and never a requirement: without it the CLI uses the `unshare` backend, and `install.sh` only prints an advisory note (a missing `bwrap` never fails an install). An explicit `TERMINAL_JAIL_JAIL_BACKEND=bwrap` still fails closed — exit 2, command not run. Packaging/legal boundary: see [Bubblewrap backend](#bubblewrap-backend-v12)

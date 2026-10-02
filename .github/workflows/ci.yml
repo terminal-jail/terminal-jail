@@ -116,3 +116,9 @@ jobs:
 
       - name: Backend parity battery (evidence collection, always exits 0)
         run: python scripts/backend-parity-battery.py --json
+
+      - name: TJ-DF-043 orphan-teardown gate (fails only on an OBSERVED orphan)
+        # Red exactly when this runner's kernel orphans the payload; a runner
+        # whose wrapper fails closed (no namespaces) SKIPs honestly (exit 0,
+        # reason printed) — a skip is never counted as a pass.
+        run: python scripts/kernel-matrix-teardown.py --gate

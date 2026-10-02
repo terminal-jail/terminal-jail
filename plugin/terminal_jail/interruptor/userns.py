@@ -63,13 +63,31 @@ LEGACY_USER_FLAGS = "--user --pid --fork --kill-child=SIGKILL"
 
 # Mapped-launch template. The bash wrapper assembles the identical string
 # (its --kill-child token comes from adjacent string literals there — do not
-# inline that literal in the wrapper). Parity is pinned by test_userns.py.
+# inline that literal in the wrapper). Parity is pinned by test_userns.py
+# and by plugin/test_tjdf043_pdeathsig_rearm.py.
+#
+# TJ-DF-043: the template ENDS with a `setpriv --pdeathsig=SIGKILL` exec
+# tail. util-linux arms --kill-child's PR_SET_PDEATHSIG in its forked child
+# BEFORE the -S/-G setgid/setuid, and the kernel CLEARS the parent-death
+# setting on any thread-credential change (man 2 prctl PR_SET_PDEATHSIG;
+# kernel/cred.c commit_creds sets task->pdeath_signal = 0). Without the
+# re-arm the mapped payload is namespace PID 1 with NO parent-death
+# linkage: the launcher's SIGKILL leaves a real orphan (measured on Debian
+# 13.7 / kernel 6.12.107; the dev host never ran this shape because its
+# AppArmor policy denies setuid inside unprivileged user namespaces, so the
+# mapped probe failed and the wrapper fell back mapping-less). setpriv
+# --pdeathsig re-arms the signal AFTER the cred changes and preserves the
+# payload argv (exec tail); it ships in util-linux itself. A host whose
+# setpriv lacks --pdeathsig (util-linux < 2.36, outside the documented
+# floor) fails the flag-identical probe and the launch falls back
+# mapping-less with the existing loud warning — fail-closed, never silent.
 _MAPPED_FLAGS_TEMPLATE = (
     "--user"
     " --map-users={nobody_uid}:{subuid_start}:1"
     " --map-groups={nobody_gid}:{subgid_start}:1"
     " -S {nobody_uid} -G {nobody_gid}"
     " --pid --fork --kill-child=SIGKILL"
+    " setpriv --pdeathsig=SIGKILL"
 )
 
 _PREFIX_SUFFIX = " bash -c "

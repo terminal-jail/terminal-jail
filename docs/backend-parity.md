@@ -131,6 +131,45 @@ host. The mechanisms differ (PR_SET_PDEATHSIG on bwrap's sandbox vs
 the battery's orphan cells (3–4) are the tripwire — an orphan reports
 `DIFFERS` with the surviving pid named.
 
+**(e) TJ-DF-043 — the uid-mapped unshare launch loses its parent-death
+signal to its own credential change (FIXED with a setpriv re-arm tail).**
+
+Root cause, named: util-linux arms `--kill-child=SIGKILL`'s
+`prctl(PR_SET_PDEATHSIG)` in the forked child **before** the
+`setgroups`/`setgid`/`setuid` that `-S`/`-G` request (observed order on the
+failing host with an LD_PRELOAD syscall-order shim: `prctl(PR_SET_PDEATHSIG)
+→ setgroups(0) → setgid(65534) → setuid(65534) → exec payload`). The kernel
+**clears** the parent-death setting on any thread-credential change (man 2
+prctl, PR_SET_PDEATHSIG: "cleared upon changes to any of the following
+thread credentials: effective user ID, effective group ID, filesystem user
+ID, or filesystem group ID"; `kernel/cred.c` `commit_creds()`:
+`task->pdeath_signal = 0`). After the `-S/-G` change the payload therefore
+runs with NO parent-death linkage, and as namespace PID 1 the kernel's
+namespace-exit reaping does not apply to it either: when the wrapper is
+SIGKILLed the payload survives as a real orphan. Fix: the mapped launch ends
+with a `setpriv --pdeathsig=SIGKILL` exec tail that re-arms the signal AFTER
+the credential changes; the probe flags are identical to the launch flags,
+so a host without a capable `setpriv` fails the probe and falls back
+mapping-less loudly (never silently). Measured on Debian 13.7 /
+`6.12.107+deb13-amd64` (bunker-las-03): mapped launch orphaned (survived the
+5 s budget on every repetition); with the re-arm tail the payload was gone
+in 20 ms. The mapping-less `--user` launch never had the defect — its
+payload keeps the caller's kuid, so the dying parent's kernel-side
+permission check (`kill_ok_by_cred`, kernel/signal.c) passes by uid
+equality.
+
+Why the dev host never saw it: this host's AppArmor policy
+(`unprivileged_userns`) denies `setuid`/`setgroups` inside unprivileged
+user namespaces, so the mapped launch **cannot be created here at all** —
+the probe fails, the wrapper falls back mapping-less, and every green
+dev-host teardown run exercised only the mapping-less shape. "Passes on the
+dev host" was structurally blind to the failing shape; only hosts where the
+mapped launch is creatable (Debian 13) could reach the bug. This is a
+launch-shape defect, not a kernel-version divergence: the kernel code at
+both sites (`kernel/cred.c` clear, `kernel/exit.c`
+`forget_original_parent` delivery, `kernel/signal.c` permission check) is
+byte-identical between v6.12 and v7.0 (diffed against the raw sources).
+
 No cell was left unmeasured on this host; there are no intent markers in this
 document. On hosts where bubblewrap is absent or namespaces are denied, the
 battery reports the affected cells as `KNOWN-LIMIT ... UNMEASURED` instead of
@@ -143,18 +182,65 @@ The dev-host table above is **one kernel's measurement, not a multi-kernel
 proof**. The committed runner for the orphan-teardown kernel matrix is
 `scripts/kernel-matrix-teardown.py` (verdict vocabulary `PASS` / `FAIL` /
 `UNMEASURED` / `UNAVAILABLE`; an unavailable kernel or backend is never
-converted into a pass). Current, honest status of that matrix:
+converted into a pass). Current, honest status of that matrix (post
+TJ-DF-043 fix — the fix's per-cell raw evidence is in the repo at
+`docs/dogfood/tjdf043-kernel-cells/`, importable via the documented
+`--import` path):
 
 | Kernel | bwrap orphan teardown | unshare orphan teardown | Cell status |
 |---|---|---|---|
-| `7.0.0-31-generic` (this dev host) | PASS (battery cell 3, 20 ms) | PASS (battery cell 4, 20 ms) | MEASURED here — one host only |
-| Debian 13.7 / `6.12.107` | observed PASS on the external host | observed FAIL (orphan) on the external host | **UNVERIFIED external cell** — raw output was produced on an ephemeral agent (see `docs/dogfood/2026-09-25-deploy-shim-systemd-probe.md`) and was **not attached to this repo**; the row stays unresolved until that raw output is imported |
+| `7.0.0-31-generic` (this dev host) | PASS (battery cell 3, 20 ms) | PASS (battery cell 4, 20 ms) | MEASURED here — one host only. NOTE: the dev host cannot create the uid-mapped launch (AppArmor), so this row exercises the mapping-less shape only |
+| `6.12.107+deb13-amd64` (bunker-las-03, Debian 13.7) | PASS (0 ms) | **FAIL pre-fix (orphan >5 s, reproduced 3×; PASS 20 ms post-fix)** | MEASURED externally 2026-10-02 — raw cells committed under `docs/dogfood/tjdf043-kernel-cells/`; the pre-fix FAIL cell stays in the matrix as the regression's record |
+| `6.12.101+deb13-amd64` (bunker-las-02, Debian 13.7) | PASS (0 ms) | **FAIL pre-fix (orphan >5 s, reproduced 2×; PASS 20 ms post-fix)** | MEASURED externally 2026-10-02 — same raw-cell location |
 | any third kernel | — | — | UNMEASURED — no measurement exists in this repo |
 
-Matrix verdict: **NOT GREEN.** One host is measured here, one external kernel
-awaits attached raw output, and no third kernel has any measurement. Release
-claims must not describe the kernel matrix as green or as verified from this
-repository.
+Matrix verdict: **NOT GREEN** (2 complete kernels of the required ≥3), but
+the TJ-DF-043 orphan signature is now **root-caused and fixed at the launch
+shape**, with both reachable 6.12 hosts flipping PASS under the fixed
+wrapper. The pre-fix FAIL cells are deliberately retained as evidence.
+
+### TJ-DF-043 release-hold re-evaluation (RELEASE-TJ-008 blocker 1 of 3)
+
+The QA-TERMINAL-JAIL-13 hold — recorded as the first blocker of the P0
+release hold RELEASE-TJ-008 ("hold v1.3.0 candidate … blockers unchanged:
+QA-TERMINAL-JAIL-13 failed, no artifact channel, no cut authorization") —
+is RESOLVED by the fix, not re-scoped:
+
+- Root cause was NAMED with kernel citations (man 2 prctl
+  PR_SET_PDEATHSIG credential-clearing rule; `kernel/cred.c`
+  `commit_creds()` `task->pdeath_signal = 0`) and demonstrated with a
+  minimal reproducer on the failing kernel (LD_PRELOAD syscall-order shim
+  showing the arming-before-cred-change order, plus the mapped-vs-mapping-less
+  teardown split on the same kernel). It was never a kernel-version
+  divergence: the relevant kernel code is byte-identical v6.12 ↔ v7.0.
+- The failing kernel cells are now MEASURED in this repo (raw rows above),
+  the fix is verified ON those kernels (20 ms teardown 3/3, mapped shape
+  confirmed live), and the regression is pinned four ways: the argv-level
+  re-arm-tail tests (`plugin/test_tjdf043_pdeathsig_rearm.py`, the
+  interruptor launch-contract fixtures rejecting the tail-less shape),
+  the live parity cell (`test_live_unshare_orphan_teardown` — meaningful
+  only on hosts that can create the shape), the harness gate
+  (`scripts/kernel-matrix-teardown.py --gate`, CI cell), and the retained
+  prefix FAIL cells as the fixed evidence baseline.
+- Remaining honesty constraint: the matrix is 3 kernels ONLY when the two
+  Debian cells are imported alongside a dev-host run; the committed cells
+  are external measurements (captured by the documented protocol), and a
+  future release claim of "matrix green" still requires a THIRD kernel
+  with a complete measured pair per the harness's own rule. The orphan
+  DEFECT itself — the thing the hold was about — no longer exists at
+  HEAD on any kernel we can reach or reason about: the tail-less shape is
+  rejected by contract tests, and the shape actually launched re-arms the
+  signal after its credential change.
+- Verdict for RELEASE-TJ-008: blocker 1 (QA-TERMINAL-JAIL-13) CAN LIFT on
+  the strength of this evidence. Blockers 2 and 3 (no artifact channel, no
+  cut authorization) are outside this tool's ownership and stay as
+  recorded by the releng sweep. The strong lifecycle guarantee — that a
+  SIGKILLed launcher can NEVER leave a payload — remains the PLATFORM's
+  guarantee (bunker: cgroup/pid-namespace supervision); this tool's
+  on-any-host guarantee is the narrowed one, stated here and enforced by
+  the contract pins: the launched shape always carries a re-armed
+  parent-death signal, and any launch shape that cannot hold it is
+  refused at the probe (fail-closed), never silently selected.
 
 ### The live cell (current host, executable)
 

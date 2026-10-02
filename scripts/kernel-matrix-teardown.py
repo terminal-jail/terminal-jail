@@ -434,6 +434,70 @@ def print_human(rows: list[dict], summary: dict, *, show_raw: bool) -> None:
                 print(f"  {line}")
 
 
+# ── TJ-DF-043 gate (CI cell) ────────────────────────────────────────────────
+
+
+def gate_verdict(rows: list[dict]) -> tuple[str, str]:
+    """TJ-DF-043 CI gate over live current-host rows.
+
+    Returns (verdict, reason) with verdict exactly one of:
+      PASS   every live current-host cell is PASS — teardown held here;
+      FAIL   at least one live current-host cell is FAIL (an orphan was
+             OBSERVED on this host — the containment defect is live);
+      SKIP   no live current-host cell could launch (wrapper fail-closed:
+             no namespaces, missing binaries — a HOST condition, and an
+             unlaunchable wrapper cannot produce an orphan).
+
+    A row from another kernel can never gate this host: only rows whose
+    kernel equals host_kernel() are considered, and UNMEASURED/UNAVAILABLE
+    rows carry no observed evidence by schema (validate_row enforces the
+    nulls), so they classify as SKIP evidence, never as PASS.
+    """
+    this = host_kernel()
+    live = [r for r in rows if r["kernel"] == this]
+    if not live:
+        return "SKIP", (
+            f"no live cell for this host's kernel {this}: the wrapper failed "
+            "closed (namespaces unavailable/absent binaries) — an unlaunchable "
+            "wrapper produces no payload and no orphan; nothing to gate here"
+        )
+    failures = [r for r in live if r["verdict"] == "FAIL"]
+    if failures:
+        names = ", ".join(sorted({r["backend"] for r in failures}))
+        return "FAIL", (
+            f"orphan observed on this host ({this}): backend(s) {names} "
+            "survived the wrapper's SIGKILL past the budget — TJ-DF-043 "
+            "containment defect is LIVE here"
+        )
+    passing = [r for r in live if r["verdict"] == "PASS"]
+    if len(passing) != len(live):
+        return "SKIP", (
+            f"current-host cells present but not all measured "
+            f"({len(passing)}/{len(live)} PASS; the rest UNAVAILABLE/UNMEASURED) "
+            "— no orphan was observed, but teardown was not fully proven either"
+        )
+    times = ", ".join(
+        f"{r['backend']}={r['survival_seconds'] * 1000:.0f} ms" for r in passing
+    )
+    return "PASS", f"teardown held on {this} ({times})"
+
+
+def run_gate() -> int:
+    """Exit semantics of the TJ-DF-043 gate (the ONE gating surface):
+
+    0 = PASS (teardown held) or SKIP (wrapper fail-closed on this host —
+        recorded honestly, never counted as a pass);
+    1 = FAIL (an orphan was observed: the defect is live on this kernel).
+    """
+    row = run_backend_cell("unshare")
+    verdict, reason = gate_verdict([row])
+    print(f"TJ-DF-043 teardown gate: {verdict} — {reason}")
+    if verdict == "FAIL":
+        print(f"  cell: {json.dumps(row)}", file=sys.stderr)
+        return 1
+    return 0
+
+
 # ── offline, non-vacuous selftest ───────────────────────────────────────────
 
 _VALID_ROW = {
@@ -544,10 +608,21 @@ def main() -> int:
         action="store_true",
         help="offline parser/validator selftest (no jail launched)",
     )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help=(
+            "TJ-DF-043 CI gate: measure the unshare backend's orphan teardown "
+            "on THIS host; exit 1 only when an orphan is OBSERVED, 0 on PASS "
+            "or on an honest fail-closed SKIP (no namespaces/binary here)"
+        ),
+    )
     args = parser.parse_args()
 
     if args.selftest:
         return run_selftest()
+    if args.gate:
+        return run_gate()
 
     rejections: list[str] = []
     rows: list[dict] = []

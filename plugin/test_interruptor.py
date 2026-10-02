@@ -2430,7 +2430,8 @@ def _write_user_rules(tmp_path, yaml_text: str):
 #   mapping-less : unshare --user --pid --fork --kill-child=SIGKILL bash -c
 #   uid-mapped   : unshare --user --map-users=<n>:<n>:1
 #                  --map-groups=<n>:<n>:1 -S <n> -G <n>
-#                  --pid --fork --kill-child=SIGKILL bash -c
+#                  --pid --fork --kill-child=SIGKILL
+#                  setpriv --pdeathsig=SIGKILL bash -c
 #
 # userns.unshare_prefix() selects the mapped form only when /etc/subuid and
 # /etc/subgid carry a range for the caller AND the file-access preflight
@@ -2443,18 +2444,23 @@ def _write_user_rules(tmp_path, yaml_text: str):
 # The subordinate-ID NUMBERS are deliberately NOT pinned here — they are
 # read from /etc/subuid|/etc/subgid and change per host. What IS pinned is
 # everything that is not host state: the `--pid --fork --kill-child=SIGKILL`
-# flags, their order, and their position immediately before the `bash -c`
-# payload introducer.
-_LAUNCH_CONTRACT = "--pid --fork --kill-child=SIGKILL bash -c "
+# flags, their order, their position immediately before the `bash -c`
+# payload introducer, and (mapped only, TJ-DF-043) the `setpriv
+# --pdeathsig=SIGKILL` re-arm tail: the kernel clears the parent-death
+# setting on the mapped launch's -S/-G credential change (man 2 prctl,
+# kernel/cred.c commit_creds), so a mapped launch WITHOUT the tail is the
+# orphan-producing defect shape and is REJECTED.
+_LAUNCH_INTRODUCER = " bash -c "
 
-_LEGACY_LAUNCH_RE = re.compile(rf"^unshare --user {re.escape(_LAUNCH_CONTRACT)}$")
+_LEGACY_LAUNCH_RE = re.compile(r"^unshare --user --pid --fork --kill-child=SIGKILL$")
 
 _MAPPED_LAUNCH_RE = re.compile(
     rf"^unshare --user"
     rf" --map-users={userns.NOBODY_UID}:\d+:1"
     rf" --map-groups={userns.NOBODY_GID}:\d+:1"
     rf" -S {userns.NOBODY_UID} -G {userns.NOBODY_GID}"
-    rf" {re.escape(_LAUNCH_CONTRACT)}$"
+    rf" --pid --fork --kill-child=SIGKILL"
+    rf" setpriv --pdeathsig=(?:SIGKILL|KILL)$"
 )
 
 
@@ -2465,18 +2471,23 @@ _MAPPED_LAUNCH_RE = re.compile(
 _MAPPED_SUBID_FIXTURES = (userns.DEFAULT_SUBID_START, 493216, 1803936)
 
 
-def _mapped_launch_prefix(subid_start: int) -> str:
+def _mapped_launch_prefix(subid_start: int, *, with_tail: bool = True) -> str:
     """A uid-mapped launch prefix for an ARBITRARY subordinate-ID start.
 
     The start value is a parameter on purpose: a real host's value comes from
     /etc/subuid and must never be baked into an assertion or a fixture.
+    ``with_tail`` (default True) appends the TJ-DF-043 setpriv re-arm tail —
+    the shape the engine emits since the fix; ``with_tail=False`` produces
+    the PRE-FIX orphan-producing shape, used as a negative fixture.
     """
     return (
         "unshare --user"
         f" --map-users={userns.NOBODY_UID}:{subid_start}:1"
         f" --map-groups={userns.NOBODY_GID}:{subid_start}:1"
         f" -S {userns.NOBODY_UID} -G {userns.NOBODY_GID}"
-        f" {_LAUNCH_CONTRACT}"
+        " --pid --fork --kill-child=SIGKILL"
+        + (" setpriv --pdeathsig=SIGKILL" if with_tail else "")
+        + " bash -c "
     )
 
 
@@ -2487,22 +2498,23 @@ def _assert_sandboxed_modify(result: InterceptResult, command: str) -> str:
     the assertion holds on a host that selects the uid-mapped launch (subuid/
     subgid ranges present, QA-TERMINAL-JAIL-8) and on one that cannot map at
     all. The parts that are NOT host state are pinned strictly — the
-    `--pid --fork --kill-child=SIGKILL bash -c` contract and its order, its
-    position immediately before the payload, and the payload being the
-    ORIGINAL command as ONE shell-quoted argument (a missing/incorrect
-    contract or an unquoted payload is refused).
+    `--pid --fork --kill-child=SIGKILL` flags (presence, order, position
+    immediately before the payload introducer), the mapped launch's
+    `setpriv --pdeathsig=SIGKILL` re-arm tail (TJ-DF-043: the kernel clears
+    the parent-death setting on the mapped launch's own -S/-G credential
+    change, so the tail is what makes the teardown contract hold), and the
+    payload being the ORIGINAL command as ONE shell-quoted argument (a
+    missing/incorrect contract or an unquoted payload is refused).
 
     Returns the accepted launch prefix so callers can inspect it.
     """
     modified = result.modified
     assert modified is not None, "MODIFY verdict carries no rewritten payload"
-    launch_prefix, contract, payload = modified.partition(_LAUNCH_CONTRACT)
-    assert contract == _LAUNCH_CONTRACT, (
-        f"the rewrite must carry the stable launch contract "
-        f"{_LAUNCH_CONTRACT!r} immediately before its payload — got "
-        f"{modified!r}"
+    launch_prefix, introducer, payload = modified.partition(_LAUNCH_INTRODUCER)
+    assert introducer == _LAUNCH_INTRODUCER, (
+        f"the rewrite must carry the `bash -c ` payload introducer — got {modified!r}"
     )
-    launch = launch_prefix + contract
+    launch = launch_prefix
     matched = _LEGACY_LAUNCH_RE.match(launch) or _MAPPED_LAUNCH_RE.match(launch)
     assert matched is not None, (
         "the rewrite launched an unexpected unshare prefix — expected either "
@@ -2514,7 +2526,7 @@ def _assert_sandboxed_modify(result: InterceptResult, command: str) -> str:
         f"the rewrite must carry the original command as ONE quoted argument: "
         f"expected {expected_payload!r}, got {payload!r}"
     )
-    return launch
+    return launch + _LAUNCH_INTRODUCER
 
 
 class TestUserRules:
@@ -2677,7 +2689,7 @@ rules:
 
     def test_contract_accepts_the_mapping_less_launch(self) -> None:
         """The historical launch (no /etc/subuid entry) still matches."""
-        prefix = f"unshare --user {_LAUNCH_CONTRACT}"
+        prefix = "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
         assert (
             _assert_sandboxed_modify(self._rewrite(prefix), "danger-tool --wipe")
             == prefix
@@ -2687,7 +2699,7 @@ rules:
     def test_contract_accepts_the_uid_mapped_launch(self, subid_start: int) -> None:
         """A host WITH subuid/subgid allocation must pass (the reported red)."""
         prefix = _mapped_launch_prefix(subid_start)
-        assert prefix != f"unshare --user {_LAUNCH_CONTRACT}", (
+        assert prefix != "unshare --user --pid --fork --kill-child=SIGKILL bash -c ", (
             "fixture is not representative: the mapped prefix must differ "
             "from the mapping-less one"
         )
@@ -2716,7 +2728,7 @@ rules:
         host that selects the uid-mapped prefix. The contract assertion must
         accept exactly that mapped rewrite.
         """
-        literal_legacy = f"unshare --user {_LAUNCH_CONTRACT}"
+        literal_legacy = "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
         prefix = _mapped_launch_prefix(493216)
         assert not prefix.startswith(literal_legacy), (
             "fixture is not representative: the mapped rewrite must NOT match "
@@ -2776,25 +2788,37 @@ rules:
                 "mapped without -S/-G",
                 "unshare --user --map-users=65534:424242:1"
                 " --map-groups=65534:424242:1"
-                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+                " --pid --fork --kill-child=SIGKILL bash -c 'danger-tool --wipe'",
             ),
             (
                 "mapped with -S/-G swapped",
                 "unshare --user --map-users=65534:424242:1"
                 " --map-groups=65534:424242:1 -G 65534 -S 65534"
-                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+                " --pid --fork --kill-child=SIGKILL bash -c 'danger-tool --wipe'",
             ),
             (
                 "mapped -S/-G not the nobody IDs",
                 "unshare --user --map-users=65534:424242:1"
                 " --map-groups=65534:424242:1 -S 0 -G 0"
-                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+                " --pid --fork --kill-child=SIGKILL bash -c 'danger-tool --wipe'",
             ),
             (
                 "mapped to more than one subordinate ID",
                 "unshare --user --map-users=65534:424242:65536"
                 " --map-groups=65534:424242:65536 -S 65534 -G 65534"
-                f" {_LAUNCH_CONTRACT}'danger-tool --wipe'",
+                " --pid --fork --kill-child=SIGKILL bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "mapped WITHOUT the pdeathsig re-arm tail (TJ-DF-043 defect shape)",
+                _mapped_launch_prefix(424242, with_tail=False)
+                + " bash -c 'danger-tool --wipe'",
+            ),
+            (
+                "mapped with the tail armed to the wrong signal",
+                _mapped_launch_prefix(424242).replace(
+                    "setpriv --pdeathsig=SIGKILL", "setpriv --pdeathsig=SIGTERM"
+                )
+                + " bash -c 'danger-tool --wipe'",
             ),
         ),
     )

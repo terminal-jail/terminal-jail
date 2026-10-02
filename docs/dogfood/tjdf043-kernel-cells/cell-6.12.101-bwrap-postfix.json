@@ -1,0 +1,13 @@
+{
+  "rows": [
+    {
+      "kernel": "6.12.101+deb13-amd64",
+      "backend": "bwrap",
+      "verdict": "PASS",
+      "survival_seconds": 0.02,
+      "exit_code": -9,
+      "captured": "2026-10-02T11:01:24-0700",
+      "evidence": "TJ-DF-043 cell on 6.12.101+deb13-amd64 (bunker-las-02), wrapper=/tmp/tj043-fix/terminal-jail, 2 repetitions, per-rep teardown: 20 ms, 20 ms; wrapper pid 51934 SIGKILLed; payload pid 51964 (host-side 'sleep 300', diffed vs pre-launch scan) disappeared in 20 ms | wrapper pid 51969 SIGKILLed; payload pid 51999 (host-side 'sleep 300', diffed vs pre-launch scan) disappeared in 20 ms"
+    }
+  ]
+}

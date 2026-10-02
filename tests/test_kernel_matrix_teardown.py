@@ -456,3 +456,127 @@ def test_harness_human_mode_names_the_host_condition() -> None:
     assert "MATRIX GREEN" not in out.replace("MATRIX NOT GREEN", "")
     for backend in BACKENDS:
         assert backend in out
+
+
+# ── TJ-DF-043 gate: the classifier arms (offline, non-vacuous) ──────────────
+
+
+def test_gate_pass_on_current_host_pass_cell(harness, monkeypatch) -> None:
+    this = harness.host_kernel()
+    verdict, reason = harness.gate_verdict(
+        [
+            harness.validate_row(
+                _valid_row(
+                    kernel=this,
+                    backend="unshare",
+                    verdict="PASS",
+                    survival_seconds=0.02,
+                    exit_code=-9,
+                )
+            )[0]
+        ]
+    )
+    assert verdict == "PASS", reason
+    assert "teardown held" in reason
+
+
+def test_gate_fail_on_current_host_fail_cell(harness, monkeypatch) -> None:
+    this = harness.host_kernel()
+    verdict, reason = harness.gate_verdict(
+        [
+            harness.validate_row(
+                _valid_row(
+                    kernel=this,
+                    backend="unshare",
+                    verdict="FAIL",
+                    survival_seconds=15.0,
+                    exit_code=-9,
+                )
+            )[0]
+        ]
+    )
+    assert verdict == "FAIL"
+    assert "orphan observed" in reason
+    assert "TJ-DF-043" in reason
+
+
+def test_gate_ignores_foreign_kernel_rows(harness) -> None:
+    """A FAIL cell from ANOTHER kernel must never fail THIS host's gate
+    (and a foreign PASS must never pass it either — no live row here)."""
+    verdict, reason = harness.gate_verdict(
+        [
+            harness.validate_row(
+                _valid_row(
+                    kernel="0.0.1-not-this-host",
+                    verdict="FAIL",
+                )
+            )[0]
+        ]
+    )
+    assert verdict == "SKIP", reason
+    assert "fail" in reason.lower() or "no live cell" in reason
+
+
+def test_gate_skip_on_unavailable_cell(harness) -> None:
+    """UNAVAILABLE carries no numbers by schema: an unlaunchable wrapper
+    produces no payload and no orphan — SKIP, never FAIL, never PASS."""
+    this = harness.host_kernel()
+    verdict, reason = harness.gate_verdict(
+        [
+            harness.validate_row(
+                _valid_row(
+                    kernel=this,
+                    backend="unshare",
+                    verdict="UNAVAILABLE",
+                    survival_seconds=None,
+                    exit_code=None,
+                )
+            )[0]
+        ]
+    )
+    assert verdict == "SKIP", reason
+
+
+def test_gate_fail_on_partial_pass_with_fail(harness) -> None:
+    """A FAIL cell next to a PASS cell is still FAIL (any orphan counts)."""
+    this = harness.host_kernel()
+    rows = [
+        harness.validate_row(
+            _valid_row(
+                kernel=this,
+                backend="unshare",
+                verdict="FAIL",
+                survival_seconds=15.0,
+                exit_code=-9,
+            )
+        )[0],
+        harness.validate_row(
+            _valid_row(
+                kernel=this,
+                backend="bwrap",
+                verdict="PASS",
+                survival_seconds=0.02,
+                exit_code=-9,
+            )
+        )[0],
+    ]
+    verdict, reason = harness.gate_verdict(rows)
+    assert verdict == "FAIL"
+    assert "unshare" in reason
+
+
+def test_gate_mutation_control_reason_tracks_the_cell(harness) -> None:
+    """Non-vacuity: flip the cell's verdict and the gate's verdict follows."""
+    this = harness.host_kernel()
+    pass_row = harness.validate_row(
+        _valid_row(
+            kernel=this,
+            backend="unshare",
+            verdict="PASS",
+            survival_seconds=0.02,
+            exit_code=-9,
+        )
+    )[0]
+    fail_row = dict(pass_row, verdict="FAIL", survival_seconds=15.0)
+    assert harness.gate_verdict([pass_row])[0] == "PASS"
+    assert harness.gate_verdict([fail_row])[0] == "FAIL"
