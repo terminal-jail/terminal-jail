@@ -35,7 +35,18 @@ jobs:
         # README "Development > Coverage" records the numbers). Floor sits at/below the
         # measured value on purpose — a regression guard, not an aspirational target.
         run: |
-          pytest plugin/ tests/ -v --tb=short -m "not integration" --cov=terminal_jail --cov-report=term --cov-fail-under=74
+          pytest plugin/ tests/ -v --tb=short -m "not integration" --cov=terminal_jail --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under=74
+
+      - name: Upload coverage artifact
+        # machine-readable coverage report (INT-CI-2 criterion 4); the
+        # human-readable TOTAL prints in the step above. `if: always()` so the
+        # report uploads even when the floor trips.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: warn
 
       - name: Validate canonical board task IDs
         run: python scripts/board_id_guard.py
