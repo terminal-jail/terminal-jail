@@ -722,7 +722,21 @@ skills/            Repo-local agent skill (skills/terminal-jail-usage/SKILL.md)
 uv sync --dev && uv run pytest plugin -q
 ```
 
-`uv sync --dev` creates `.venv/` with the runtime dependency (`PyYAML`) plus the `dev` dependency group (`pytest`); `uv run pytest plugin -q` then runs the suite (the skips are environment-gated: SIGHUP reload, seccomp requiring `CAP_SYS_ADMIN`, and namespace integration tests). The exact pass/skip counts depend on the host environment, so this document deliberately hardcodes none — run the command above for the live number. `pyproject.toml` sets `pythonpath = ["."]`, so `plugin/` imports resolve without extra configuration.
+`uv sync --dev` creates `.venv/` with the runtime dependency (`PyYAML`) plus the `dev` dependency group (`pytest`, `pytest-cov`); `uv run pytest plugin -q` then runs the suite (the skips are environment-gated: SIGHUP reload, seccomp requiring `CAP_SYS_ADMIN`, and namespace integration tests). The exact pass/skip counts depend on the host environment, so this document deliberately hardcodes none — run the command above for the live number. `pyproject.toml` sets `pythonpath = ["."]`, so `plugin/` imports resolve without extra configuration.
+
+### Coverage
+
+```bash
+uv sync --dev --python 3.11 && uv run pytest plugin -q --cov=terminal_jail --cov-report=term-missing
+```
+
+**Measured baseline (2026-10-02, this host — plugin/terminal_jail engine):** **TOTAL 75%** (1255 statements, 316 missed; 1510 passed, 7 skipped in ~148s). CI (`.github/workflows/ci.yml`) runs a slightly wider scope (`plugin/ tests/`, integration marker deselected) and measured **74.82%** on the same day, so its `--cov-fail-under=74` floor sits below both numbers and intentionally does not chase the last fraction of a point.
+
+Caveats, honestly stated:
+
+- **Excluded from measurement:** the tests themselves, and everything pytest never executes on this host. The 7 skips are host/platform-gated paths (bare-mode PID-namespace host-conditional tests, the seccomp filter requiring `CAP_SYS_ADMIN`, and the SIGHUP-reload path); code exercised only by those paths is invisible to the run, so the percentage is **host-dependent** — a host that can run them measures higher.
+- **Not a proxy for assertion quality:** line coverage does not weight how thoroughly the covered lines are asserted.
+- The two 0% entries (`__init__.py`, `plugin.py`) are the Hermes plugin-entry surfaces — their runtime host is a gateway process, not this suite.
 
 Docs that move with the code: [docs/quickstart.md](docs/quickstart.md) (component selection, install paths, FAQ) · [docs/rule-catalog.md](docs/rule-catalog.md) (generated per-rule catalog) · [specs/interruptor.md](specs/interruptor.md) (firewall contract) · [specs/cli.md](specs/cli.md) (CLI contract) · [specs/systemd.md](specs/systemd.md) (hardening profile) · [docs/deploy-to-karahermes.md](docs/deploy-to-karahermes.md) (staged activation).
 

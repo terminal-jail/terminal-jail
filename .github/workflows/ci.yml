@@ -27,11 +27,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest
+          pip install pytest-cov
           pip install pyyaml
 
       - name: Run tests (unit only, skip integration)
+        # Coverage floor = measured baseline (74.82% CI-scope on 2026-10-02, host venv 3.11;
+        # README "Development > Coverage" records the numbers). Floor sits at/below the
+        # measured value on purpose — a regression guard, not an aspirational target.
         run: |
-          pytest plugin/ tests/ -v --tb=short -m "not integration"
+          pytest plugin/ tests/ -v --tb=short -m "not integration" --cov=terminal_jail --cov-report=term --cov-fail-under=74
 
       - name: Validate canonical board task IDs
         run: python scripts/board_id_guard.py
