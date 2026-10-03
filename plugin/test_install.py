@@ -1818,6 +1818,159 @@ def test_rule_pack_file_needs_the_checkout_like_named_packs(tmp_path: Path) -> N
     assert "need the repository checkout" in out, out
 
 
+# ── TJ-DF-041: one-command edit-iterate (--replace-rule-packs) ───────────────
+
+# The replacement body is a DIFFERENT valid pack under the SAME derived name:
+# same `pack-my-pack-*` namespace, different rule (so byte-identity assertions
+# can tell v1 from v2), no escaping pitfalls in the pattern.
+_EXTERNAL_PACK_BODY_V2 = """rules:
+  - id: "pack-my-pack-block-curl-evil"
+    description: "replaced pack body (TJ-DF-041)"
+    priority: 950
+    action: block
+    block_message: "Blocked by the replaced pack."
+    match:
+      type: pattern
+      pattern: "^curl -s http://evil"
+"""
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_over_an_existing_pack_still_skips_without_the_flag(
+    tmp_path: Path,
+) -> None:
+    """Pins today's behavior (TJ-DF-034): --rule-pack-file over an installed
+    pack name skips loudly — and now points at --replace-rule-packs. The
+    installed pack survives byte-identical and no .bak-* backup appears."""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+
+    first = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(external), extra_env=env
+    )
+    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
+    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
+    before = pack.read_bytes()
+
+    # Edit-iterate WITHOUT the flag: the file on disk changed; the installed
+    # copy must not.
+    external.write_text(_EXTERNAL_PACK_BODY_V2, encoding="utf-8")
+    result = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(external), extra_env=env
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "is already installed at" in out, out
+    assert "--replace-rule-packs" in out, out
+    assert pack.read_bytes() == before, out
+    assert list(rules_dir.glob("*.bak-*")) == [], out
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_replace_replaces_the_pack_and_writes_one_bak(
+    tmp_path: Path,
+) -> None:
+    """--replace-rule-packs turns the edit-iterate loop into ONE command: the
+    installed pack is backed up to <dest>.bak-<timestamp>, the replacement is
+    validated (it is: this run exits 0), and the installed copy matches the
+    new file byte-for-byte."""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+    first = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(external), extra_env=env
+    )
+    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
+    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
+    v1 = pack.read_bytes()
+
+    external.write_text(_EXTERNAL_PACK_BODY_V2, encoding="utf-8")
+    result = _run_repo_install(
+        tmp_path,
+        "--rule-pack-file",
+        str(external),
+        "--replace-rule-packs",
+        extra_env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert pack.read_bytes() == external.read_bytes(), out
+    backups = sorted(rules_dir.glob("terminal-jail-pack-my-pack.yaml.bak-*"))
+    assert len(backups) == 1, out
+    assert backups[0].read_bytes() == v1, out
+    assert "backed up existing rule pack" in out, out
+    assert f"installed rule pack file '{external}' to {pack}" in out, out
+    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+
+
+@pytest.mark.standalone_cli
+def test_rule_pack_file_replace_refused_by_the_validator_keeps_the_pack(
+    tmp_path: Path,
+) -> None:
+    """Validate-FIRST, then replace: a replacement the validator refuses (this
+    body's rule id sits outside the pack-my-pack-* namespace AND has no
+    'match' mapping) leaves the installed pack byte-identical and writes no
+    .bak-* backup — the backup happens only after the validator passes."""
+    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+    external = tmp_path / "my-pack.yaml"
+    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
+    first = _run_repo_install(
+        tmp_path, "--rule-pack-file", str(external), extra_env=env
+    )
+    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
+    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
+    before = pack.read_bytes()
+
+    external.write_text(_SCHEMA_INVALID_PACK, encoding="utf-8")
+    result = _run_repo_install(
+        tmp_path,
+        "--rule-pack-file",
+        str(external),
+        "--replace-rule-packs",
+        extra_env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "REFUSED by the validator, nothing was written" in out, out
+    assert pack.read_bytes() == before, out
+    assert list(rules_dir.glob("*.bak-*")) == [], out
+    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+
+
+@pytest.mark.standalone_cli
+def test_replace_rule_packs_without_pack_files_errors_cleanly(
+    tmp_path: Path,
+) -> None:
+    """--replace-rule-packs is a modifier of --rule-pack-file, never a mode of
+    its own: alone (no pack files) it is refused at parse time with a message
+    naming both flags — nothing written."""
+    result = _run_repo_install(tmp_path, "--replace-rule-packs")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 2, out
+    assert "--replace-rule-packs" in out, out
+    assert "--rule-pack-file" in out, out
+    _assert_nothing_written(tmp_path)
+
+
+@pytest.mark.standalone_cli
+def test_help_documents_the_replace_rule_packs_flag(tmp_path: Path) -> None:
+    """Usage text and the quickstart doc name the new flag (TJ-DF-041
+    acceptance: documented in usage text and one doc file)."""
+    result = _run_repo_install(tmp_path, "--help")
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    assert "--replace-rule-packs" in out, out
+
+    quickstart = (PROJECT_ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8")
+    assert "--replace-rule-packs" in quickstart, quickstart[-2000:]
+    assert "--rule-pack-file" in quickstart, quickstart[-2000:]
+
+
 # ── TJ-GAP-065: the PATH hint follows the ACTUAL install dir ────────────────
 
 

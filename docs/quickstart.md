@@ -777,3 +777,30 @@ See `specs/interruptor.md`.
 - [docs/supply-chain.md](supply-chain.md) — release & supply-chain integrity
 - [docs/pentest-plan.md](pentest-plan.md) — adversarial verification plan
 - [docs/COMPATIBILITY.md](COMPATIBILITY.md) — host/kernel compatibility matrix
+
+## The pack edit-iterate loop (`--rule-pack-file --replace-rule-packs`)
+
+Iterating on an externally-authored pack is one command. `--rule-pack-file`
+refuses to overwrite an installed pack by design (fail-closed); the
+`--replace-rule-packs` modifier is the explicit opt-in that makes replacement
+safe and first-class:
+
+```bash
+./install.sh --rule-pack-file ~/policy/my-team-pack.yaml --replace-rule-packs
+```
+
+What the modifier does, in order:
+
+1. The replacement is **validated first** — a pack the validator refuses
+   (bad schema, malformed YAML, id outside the derived namespace) skips
+   loudly, and the installed pack is left untouched.
+2. Only after validation passes, the existing
+   `terminal-jail-pack-<name>.yaml` is backed up to
+   `<dest>.bak-<UTC timestamp>` **once** for the run (never a second backup
+   of an already-replaced copy), then the new file is written.
+3. Without the modifier nothing changes: the installed pack is skipped with
+   a hint naming this flag.
+
+`--replace-rule-packs` is a modifier, never a mode: alone (without
+`--rule-pack-file`), in release mode, or combined with `--uninstall` /
+`--hermes-plugin` it is refused with exit `2` and nothing written.

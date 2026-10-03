@@ -132,6 +132,12 @@ UNINSTALL_SYSTEMD=0
 # named a specific file and silence would read as success.
 RULE_PACK_FILES=""
 UNINSTALL_RULE_PACK_FILES=""
+# TJ-DF-041: REPLACE_RULE_PACKS is a MODIFIER of --rule-pack-file, never a
+# mode of its own. Unset it means today's behavior exactly: an external file
+# whose derived name is already installed is skipped loudly. Set, it turns
+# the edit-iterate loop into one command: the installed copy is backed up
+# once per run, then the replacement is validated (fail-closed) and written.
+REPLACE_RULE_PACKS=0
 # The file queues are NEWLINE-delimited (TJ-DF-034): unlike the name-based
 # queues above, a file path may legitimately contain spaces (a directory in
 # the path, never the [a-z0-9-] basename), so space-splitting iteration would
@@ -246,6 +252,15 @@ Options:
                         Unlike --unrule-pack this asserts: if no such pack is
                         installed the run exits 1 with an explicit reason
                         instead of reporting a no-op.
+  --replace-rule-packs  With --rule-pack-file: REPLACE the installed
+                        terminal-jail-pack-<name>.yaml instead of skipping.
+                        The existing pack is backed up to <dest>.bak-<UTC
+                        timestamp> (once per run, not per pack) BEFORE the
+                        replacement is written, and only AFTER the new file
+                        passes the validator — a refused replacement leaves
+                        the installed pack untouched. Without this flag the
+                        previous behavior holds: an installed name is skipped
+                        with a hint pointing here.
   --list-rule-packs     List the rule packs this checkout ships (exit 0).
   --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
                         __init__.py, terminal_jail/) into dir (default:
@@ -334,6 +349,16 @@ while [ $# -gt 0 ]; do
         --uninstall-rule-pack-file=*)
             add_uninstall_rule_pack_file "${1#--uninstall-rule-pack-file=}"
             shift
+            ;;
+        --replace-rule-packs)
+            REPLACE_RULE_PACKS=1
+            shift
+            ;;
+        --replace-rule-packs=*)
+            # Boolean-style flag: only the bare spelling (and its implicit
+            # value) is meaningful — an explicit value is a caller error.
+            echo "terminal-jail installer: --replace-rule-packs takes no value (it is a flag, not an option); use it bare alongside --rule-pack-file" >&2
+            exit 2
             ;;
         --list-rule-packs)
             LIST_RULE_PACKS=1
@@ -470,6 +495,20 @@ if [ -z "$LOCAL_WRAPPER" ]; then
     fi
 fi
 
+# --- TJ-DF-041: --replace-rule-packs is a MODIFIER, never a mode --------------
+# A modifier the installer silently ignores is the defect this flag exists to
+# remove: alone (no pack files), in release mode, or combined with a mode that
+# never reaches the pack path, it is refused loudly instead of inert. Nothing
+# is written by any of these refusals (they precede every mkdir/write).
+if [ "$REPLACE_RULE_PACKS" -eq 1 ] && [ -z "$RULE_PACK_FILES" ]; then
+    echo "terminal-jail installer: --replace-rule-packs only means something together with --rule-pack-file <path> (nothing was written); example: ./install.sh --rule-pack-file ~/my-pack.yaml --replace-rule-packs" >&2
+    exit 2
+fi
+if [ "$REPLACE_RULE_PACKS" -eq 1 ] && [ -z "$LOCAL_WRAPPER" ]; then
+    echo "terminal-jail installer: --replace-rule-packs needs the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
+    exit 2
+fi
+
 # --- --uninstall refuses pack/flag mixing (TJ-GAP-071) -----------------------
 # Parse-time refusals: nothing has been created or written yet, so a rejected
 # combination leaves the filesystem untouched. Pack flags belong to an install
@@ -478,6 +517,10 @@ if [ "$UNINSTALL" -eq 1 ]; then
     if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ] || [ "$LIST_RULE_PACKS" -eq 1 ] \
         || [ -n "$RULE_PACK_FILES" ] || [ -n "$UNINSTALL_RULE_PACK_FILES" ]; then
         echo "terminal-jail installer: --uninstall cannot be combined with --rule-pack/--unrule-pack/--rule-pack-file/--uninstall-rule-pack-file/--list-rule-packs — run them separately (nothing was written)" >&2
+        exit 2
+    fi
+    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
+        echo "terminal-jail installer: --replace-rule-packs cannot be combined with --uninstall — run them separately (nothing was written)" >&2
         exit 2
     fi
 fi
@@ -491,6 +534,10 @@ if [ "$HERMES_PLUGIN" -eq 1 ]; then
     fi
     if [ "$UNINSTALL" -eq 1 ] || [ "$LIST_RULE_PACKS" -eq 1 ]; then
         echo "terminal-jail installer: --hermes-plugin cannot be combined with --uninstall/--list-rule-packs — run them separately (nothing was written)" >&2
+        exit 2
+    fi
+    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
+        echo "terminal-jail installer: --hermes-plugin cannot be combined with --replace-rule-packs — run them separately (nothing was written)" >&2
         exit 2
     fi
 fi
@@ -959,8 +1006,8 @@ EOF
             skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — file not found; give the path to the rule pack YAML you want to install"
             return 0
         fi
-        if [ -f "$pack_dest" ]; then
-            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — a pack with the derived name '${pack_name}' is already installed at ${pack_dest}; an external file never replaces an installed pack. Re-run with --unrule-pack ${pack_name} first if you really want to replace it."
+        if [ -f "$pack_dest" ] && [ "$REPLACE_RULE_PACKS" -ne 1 ]; then
+            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — a pack with the derived name '${pack_name}' is already installed at ${pack_dest}; an external file never replaces an installed pack. Re-run with --replace-rule-packs to replace it in one step, or --unrule-pack ${pack_name} to remove it first."
             return 0
         fi
         if ! command -v python3 >/dev/null 2>&1; then
@@ -982,6 +1029,17 @@ EOF
         if ! python3 "$pack_tool" validate "$pack_file" --pack-name "$pack_name" --rules-dir "$RESOLVED_RULES_DIR"; then
             skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — REFUSED by the validator, nothing was written (see the validator reason above)"
             return 0
+        fi
+        # TJ-DF-041 replace path: the validator has PASSED, so this is the
+        # first moment the installed copy may be touched. Back the old copy
+        # up next to itself (<dest>.bak-<UTC ts>, the same .bak- family
+        # --uninstall already sweeps), ONCE per destination per run — a
+        # second file deriving the same name re-replaces silently and never
+        # stacks a second backup of the already-new copy. Fresh installs
+        # (no existing dest) skip the backup entirely.
+        if [ -f "$pack_dest" ] && [ ! -f "${pack_dest}.bak-${REPLACE_TS}" ]; then
+            cp -- "$pack_dest" "${pack_dest}.bak-${REPLACE_TS}"
+            echo "terminal-jail installer: backed up existing rule pack '${pack_name}' to ${pack_dest}.bak-${REPLACE_TS}"
         fi
         mkdir -p "$RESOLVED_RULES_DIR"
         cp -- "$pack_file" "$pack_dest"
@@ -1007,6 +1065,13 @@ EOF
     }
 
     UNINSTALL_FILE_FAILURES=0
+    # TJ-DF-041: one UTC timestamp for the whole run, so "backed up once" is
+    # name-addressable: every backup this run creates carries this suffix and
+    # a destination already backed up under it is never backed up again.
+    REPLACE_TS=""
+    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
+        REPLACE_TS="$(date -u +%Y%m%dT%H%M%SZ)"
+    fi
     # newline-delimited queues (TJ-DF-034): iterate line-wise; the counter
     # lives in the MAIN shell (a while-read pipe would run uninstall_rule_
     # pack_file in a subshell and lose every increment).
