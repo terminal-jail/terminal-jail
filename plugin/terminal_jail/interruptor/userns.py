@@ -98,8 +98,14 @@ _DECISION: str | None = None
 
 # Probe budgets. A preflight that can hang is worse than no preflight: both
 # probes are bounded and a timeout counts as FAILURE (fall back to legacy).
-_PROBE_TIMEOUT = 15
-_PROPERTY_TIMEOUT = 15
+# 3s, not 15s (TJ-GAP-089): inside a container the mapped launch's failed
+# `--fork` child can survive as a zombie holding the capture pipe, so the
+# probe's wall clock is the timeout — a real capable host answers in
+# milliseconds (measured <10ms), and a 15s per-probe budget made every
+# bridge verdict inside a container take ~15-30s and timed out the 2026-10-01
+# host probes entirely.
+_PROBE_TIMEOUT = 3
+_PROPERTY_TIMEOUT = 3
 
 # The exact last line the property payload prints when BOTH file-access
 # checks succeeded (read_rc=0: caller-owned mode-600 file readable;

@@ -171,8 +171,12 @@ _LEGACY_FLAGS = "--user --pid --fork"
 
 
 def _run_unshare(
-    flags: str, payload: str, timeout: int = 15
+    flags: str, payload: str, timeout: int = 3
 ) -> subprocess.CompletedProcess[str]:
+    # 3s default budget (TJ-GAP-089): a capable host answers in milliseconds;
+    # inside a container the failed mapped launch's forked child can hold the
+    # capture pipe open so the timeout IS the answer path. The DF-TERMINAL-
+    # JAIL-18 jail detection short-circuits before any launch when jailed.
     return subprocess.run(
         ["unshare", *flags.split(), "bash", "-c", payload],
         capture_output=True,

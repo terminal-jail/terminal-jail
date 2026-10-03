@@ -176,6 +176,26 @@ battery reports the affected cells as `KNOWN-LIMIT ... UNMEASURED` instead of
 guessing, and `plugin/test_backend_parity.py` skips the live cells with
 `HOST-DEGRADED-*` markers.
 
+**(f) TJ-GAP-089 — composed mode: inside a container the backends are
+unreachable by design, and the tool composes instead of refusing.**
+Measured in `docker run --rm python:3.11-slim` (the bunker-agent stand-in,
+bunker GAP-179): no `CAP_SYS_ADMIN` (CapEff `00000000a80425fb`, bit 21 clear)
+and the container seccomp profile (host Seccomp state 2) deny inner namespace
+creation — BOTH backends' launch (`unshare --pid --fork …` and the mapped
+`--user` shape) fail with EPERM in ~1–2 ms, so neither backend can run there
+and the plain-host contract would refuse every command. Composed mode
+(`TERMINAL_JAIL_COMPOSED=auto|on|off`, default `auto`) detects the outer
+layer and runs the command with firewall (tool) + platform namespace
+containment, stating per layer what is enforced (`jail_layer=platform`;
+seccomp explicitly NOT applied by the tool). The launcher-level parity table
+above describes what each backend provides; composed mode is the documented
+alternative when NEITHER backend can run. Three-cell battery:
+`scripts/composed-mode-battery.py` (host / platform / both, per-layer
+properties); live transcript: `docs/dogfood/2026-10-03-composed-mode.md`.
+Launch-probe budgets are 3s (was 15s): inside a container the failed mapped
+launch's forked child can survive as a zombie holding the capture pipe, so
+probes answer by timeout — a capable host answers in milliseconds.
+
 ## Kernel-matrix teardown status (TJ-DF-037)
 
 The dev-host table above is **one kernel's measurement, not a multi-kernel

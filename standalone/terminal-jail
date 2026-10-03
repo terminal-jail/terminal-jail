@@ -159,6 +159,21 @@ Environment:
                  credential changes — TJ-DF-043); a host whose setpriv
                  cannot re-arm fails the flag-identical probe and falls
                  back mapping-less LOUDLY, never silently.
+  TERMINAL_JAIL_COMPOSED=auto|on|off
+                 Composed deployment (TJ-GAP-089, default auto): when
+                 namespace creation fails AND an outer containment layer is
+                 detected (container / bunker platform — /.dockerenv,
+                 /run/.containerenv, PID-ns identity, overlay root, cgroup
+                 root), run the command with the interruptor firewall plus
+                 the OUTER layer's namespace containment instead of
+                 refusing. Per-layer enforcement is stated on stderr
+                 (firewall by this tool; PID ns/proc by the platform; no
+                 inner seccomp). on forces this behavior, off always fails
+                 closed. An explicitly requested backend
+                 (TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare) is never
+                 silently downgraded, in composed mode or out of it. See
+                 README "Composed deployment (inside a container/bunker)"
+                 and bunker GAP-179.
 EOF
 }
 
@@ -238,6 +253,7 @@ while [ $# -gt 0 ]; do
             ;;
         --seccomp)
             USE_SECCOMP=1
+            TERMINAL_JAIL_SECCOMP_REQUESTED=1
             shift
             ;;
         --interruptor)
@@ -273,6 +289,22 @@ case "$TJ_BACKEND_REQUEST" in
         ;;
     *)
         echo "terminal-jail: unknown TERMINAL_JAIL_JAIL_BACKEND='${TJ_BACKEND_REQUEST}' (expected auto, bwrap, or unshare); command not run" >&2
+        exit 2
+        ;;
+esac
+
+# Composed-mode request (TJ-GAP-089): like the backend request, the value is
+# validated BEFORE any namespace work (fail fast on a typo; the detection
+# itself runs lazily, only in the namespace-creation-failure branch).
+#   auto (default) detect an outer containment layer when ns creation fails
+#   on             force composed behavior (operator decision)
+#   off            plain-host fail-closed refusal exactly as before
+TJ_COMPOSED_MODE_REQUEST="${TERMINAL_JAIL_COMPOSED:-auto}"
+case "$TJ_COMPOSED_MODE_REQUEST" in
+    auto|on|off)
+        ;;
+    *)
+        echo "terminal-jail: unknown TERMINAL_JAIL_COMPOSED='${TJ_COMPOSED_MODE_REQUEST}' (expected auto, on, or off); command not run" >&2
         exit 2
         ;;
 esac
@@ -703,6 +735,153 @@ case "$TJ_BACKEND_REQUEST" in
         ;;
 esac
 
+# --- composed mode (TJ-GAP-089) -------------------------------------------------
+# Some deployments run this tool INSIDE an outer containment layer that already
+# provides the namespace properties this wrapper creates for a payload — a
+# bunker-agent container or any OCI container: its own PID namespace, a
+# platform-owned lifecycle, and (typically) its own seccomp profile. On such a
+# layer the inner `unshare` cannot create ANOTHER namespace (the container
+# grants no CAP_SYS_ADMIN — measured CapEff 00000000a80425fb, bit 21 clear —
+# and its seccomp profile denies the inner user namespace), and the plain-host
+# fail-closed refusal would make the composed stack, the strongest deployment
+# this project has, unusable out of the box.
+#
+# Composed behavior: refuse nothing, run the command with the layers that DO
+# exist — the interruptor firewall verdict above (this tool) plus the outer
+# layer's namespace containment (the platform) — and state per layer, on
+# stderr, what is enforced and by whom. Nothing is re-provided and nothing is
+# over-claimed: PID/namespace isolation comes from the outer layer here, the
+# firewall verdict from this tool, and an inner seccomp filter is NOT applied
+# (see _tj_launch_composed). The platform counterpart of this contract is
+# bunker GAP-179 (what a bunker agent container must permit and expose).
+#
+# Detection is heuristic and gated behind ns-creation FAILURE (auto never
+# changes behavior on a host where ns creation succeeds), runs in pure procfs
+# reads bounded by `timeout 1` (<2s total; the 2026-10-01 container evidence
+# measured host probes hanging at their 15s budget inside a container), and is
+# cached for this invocation. No single signal is trusted alone EXCEPT the
+# sentinel files dockerd/podman create (`.dockerenv`, `.containerenv`), which
+# are container-specific by construction.
+
+_tj_outer_layer_signals() {
+    # Collects containment signals into $_tj_signals (may stay empty).
+    # Pure procfs reads, bounded by `timeout 1` (<2s total; the 2026-10-01
+    # container evidence measured host probes hanging at their 15s budget
+    # inside a container). No output.
+    _tj_signals=""
+    if [ -e /.dockerenv ]; then
+        _tj_signals="${_tj_signals}sentinel: /.dockerenv present
+"
+    fi
+    if [ -e /run/.containerenv ]; then
+        _tj_signals="${_tj_signals}sentinel: /run/.containerenv present
+"
+    fi
+    # Namespace identity: this shell's PID-ns link vs the one /proc/1 shows.
+    # Inside an outer layer /proc/1 IS the layer's init, so the links match
+    # INSIDE that layer's view; an uncontainerd host shows distinct inodes
+    # (or an unreadable /proc/1 link — not a signal either way). readlink,
+    # not cat: cat on an nsfs link misbehaves ("Is a directory").
+    _tj_ns_self="$(timeout 1 readlink /proc/self/ns/pid 2>/dev/null || true)"
+    _tj_ns_init="$(timeout 1 readlink /proc/1/ns/pid 2>/dev/null || true)"
+    if [ -n "$_tj_ns_self" ] && [ -n "$_tj_ns_init" ]; then
+        if [ "$_tj_ns_self" = "$_tj_ns_init" ]; then
+            _tj_signals="${_tj_signals}namespace: /proc/self/ns/pid == /proc/1/ns/pid (${_tj_ns_self}): this process already sits in the same PID namespace as the init above it
+"
+        else
+            _tj_signals="${_tj_signals}namespace: /proc/self/ns/pid (${_tj_ns_self}) != /proc/1/ns/pid (${_tj_ns_init}): a PID-namespace boundary exists above this process
+"
+        fi
+    fi
+    # Container root filesystems are overwhelmingly overlayfs; an ext4/xfs
+    # root is evidence against the container hypothesis, not for it. Parse
+    # the ROOT MOUNT's fstype exactly (field 5 "/" is the mountpoint, the
+    # fstype follows the " - " separator) — a loose substring probe matched
+    # a plain host's subdirectory bind and false-positived (measured).
+    _tj_root_fs="$(timeout 1 awk '$4 == "/" && $5 == "/" { for (i = 1; i <= NF; i++) if ($i == "-") { print $(i + 1); exit } }' /proc/self/mountinfo 2>/dev/null || true)"
+    if [ "$_tj_root_fs" = "overlay" ]; then
+        _tj_signals="${_tj_signals}filesystem: root mount is overlayfs (/proc/self/mountinfo)
+"
+    fi
+    # Modern cgroup v2 containers carry an empty per-container cgroup path.
+    if [ "$(timeout 1 cut -d: -f3 /proc/self/cgroup 2>/dev/null || true)" = "/" ]; then
+        _tj_signals="${_tj_signals}cgroup: /proc/self/cgroup path is / (cgroup v2 container root)
+"
+    fi
+}
+
+_tj_report_signals() {
+    [ -n "$_tj_signals" ] && printf '%s' "$_tj_signals" >&2 || :
+}
+
+_tj_composed_decision() {
+    # The one composed-mode decision (TJ-GAP-089), shared by the bare-mode
+    # and modify-rewrite failure branches. Sets:
+    #   _TJ_COMPOSED_DETECTED   1 when the payload may run composed
+    #   _TJ_COMPOSED_OUTER_SEEN 1 when an outer layer was actually detected
+    #   _TJ_COMPOSED_FORCED     1 when TERMINAL_JAIL_COMPOSED=on forced this
+    # Reports the evidence it acted on. Detection result is cached in
+    # _tj_signals for the rest of the invocation.
+    _TJ_COMPOSED_DETECTED=0
+    _TJ_COMPOSED_OUTER_SEEN=0
+    _TJ_COMPOSED_FORCED=0
+    case "$TJ_COMPOSED_MODE_REQUEST" in
+        off)
+            :  # plain-host fail-closed, exactly as before
+            ;;
+        on)
+            # Operator override: compose even when detection finds nothing —
+            # but then say loudly that NO layer provides namespace isolation.
+            _TJ_COMPOSED_FORCED=1
+            _TJ_COMPOSED_DETECTED=1
+            _tj_outer_layer_signals
+            if [ -n "$_tj_signals" ]; then
+                _TJ_COMPOSED_OUTER_SEEN=1
+                _tj_report_signals
+            else
+                echo "terminal-jail: WARNING: TERMINAL_JAIL_COMPOSED=on forced composed mode but no outer containment layer was detected — NO layer of this launch provides namespace isolation (operator decision)" >&2
+            fi
+            ;;
+        *)
+            # auto: heuristic detection gates; sentinels alone are
+            # conclusive, heuristic signals need the namespace corroboration
+            # so a plain host cannot compose by accident.
+            if _tj_outer_layer_signals && [ -n "$_tj_signals" ]; then
+                case "$_tj_signals" in
+                    *"sentinel: "*|*"namespace: "*)
+                        _TJ_COMPOSED_DETECTED=1
+                        _TJ_COMPOSED_OUTER_SEEN=1
+                        _tj_report_signals
+                        ;;
+                esac
+            fi
+            ;;
+    esac
+}
+
+_tj_launch_composed() {
+    # Run the payload WITHOUT creating an inner namespace. States every layer
+    # honestly and never claims what it does not provide:
+    #   firewall          — enforced BY THIS TOOL (verdict already applied)
+    #   PID ns / procfs   — enforced BY THE OUTER LAYER when one was detected;
+    #                       when composed was forced without detection, NOT
+    #                       enforced by any layer of this launch
+    #   seccomp           — an inner filter is NOT applied here; if the
+    #                       platform applies its own profile, that profile is
+    #                       the active seccomp state, not this tool's.
+    echo "terminal-jail: COMPOSED MODE — running without an inner namespace" >&2
+    if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
+        echo "terminal-jail: composed layers — jail_layer=platform (outer containment: PID namespace/proc provided by the platform/container, NOT by this tool); firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool (the outer layer's own profile, if any, is the active seccomp state); filesystem: NOT isolated by this tool" >&2
+    else
+        echo "terminal-jail: composed layers — jail_layer=platform claimed by operator override but NO outer layer detected: pid-namespace/proc NOT enforced by any layer in this launch; firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool; filesystem: NOT isolated by this tool" >&2
+    fi
+    if [ "${TERMINAL_JAIL_SECCOMP_REQUESTED:-0}" -eq 1 ]; then
+        echo "terminal-jail: WARNING: --seccomp requested but the seccomp filter is NOT applied in composed mode — the loader path needs the inner namespace this layer cannot create; the outer layer's own seccomp profile (if any) remains the active filter (composed mode runs with the firewall only)" >&2
+        export TERMINAL_JAIL_SECCOMP_LOAD=0
+    fi
+    exec bash -c 'exec "$@"' terminal-jail "$@"
+}
+
 # DF-TERMINAL-JAIL-11: when the interruptor bridge already supplied a namespace
 # prefix (action=modify), the command that will actually run is the REWRITE —
 # not this wrapper's bare-mode launch — so the bare-mode probe is not
@@ -735,8 +914,28 @@ if [ "$MODIFIED" -eq 1 ]; then
                 :  # rewrite prefix probe green — proceed to launch
             else
                 prefix_rc=$?
-                echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
-                exit 2
+                # TJ-GAP-089: the rewrite's namespace is not creatable here.
+                # Explicit backend demands stay fail-closed (never silently
+                # downgraded). Otherwise the same composed-mode decision as
+                # the bare-mode failure applies — but the decision MUST land
+                # in this branch: the command that would run is the REWRITE,
+                # so falling through to the bare-mode probe would measure
+                # flags that are not representative of it.
+                if [ "$TJ_BACKEND_REQUEST" = "bwrap" ] || [ "$TJ_BACKEND_REQUEST" = "unshare" ]; then
+                    echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                    exit 2
+                fi
+                _tj_composed_decision
+                if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+                    # Composed: run the rewrite as-is below (its prefix is
+                    # already in CMD_STR; the announce line prints there).
+                    _TJ_COMPOSED_NS_FAILED=1
+                else
+                    echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                    echo "terminal-jail: cause: namespace creation needs privileges this context does not grant — a missing CAP_SYS_ADMIN (bit 21, e.g. inside a container: grep CapEff /proc/self/status) or a container seccomp/AppArmor profile denying unshare/unprivileged user namespaces (plain hosts: the AppArmor profile 'unprivileged_userns')" >&2
+                    echo "terminal-jail: options: run on the outer host, grant inner namespace creation (allow CAP_SYS_ADMIN / permit the userns syscall in the container seccomp profile), or set TERMINAL_JAIL_COMPOSED=on to run with the firewall plus the outer layer's containment (composed mode, see README \"Composed deployment\")" >&2
+                    exit 2
+                fi
             fi
             ;;
     esac
@@ -745,9 +944,60 @@ elif [ "$TJ_BACKEND" = "unshare" ]; then
         :  # probe green — proceed to launch
     else
         probe_rc=$?
+        # --- TJ-GAP-089: the composed-mode decision point ---------------
+        # An explicitly demanded backend never downgrades (existing
+        # contract); this branch is only reached with backend=auto|unshare.
+        # `unshare` pin = the byte-identical v1.1 contract (fail closed).
+        if [ "$TJ_BACKEND_REQUEST" = "unshare" ]; then
+            echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+            exit 2
+        fi
+        # Composed mode: the one shared decision (auto detects, on forces,
+        # off refuses). Detection runs HERE and only here (lazily — never on
+        # the happy path), bounded (<2s) and cached for this invocation.
+        _tj_composed_decision
+        if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+            # Composed: run with the layers that exist. The seccomp warning
+            # fires only when the payload path would have carried the filter.
+            if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+                TERMINAL_JAIL_SECCOMP_REQUESTED=1
+            fi
+            _tj_launch_composed "$@"
+        fi
+        # Plain host (or composed=off): the fail-closed refusal, unchanged
+        # in its first sentence, now naming the cause and the options.
         echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+        echo "terminal-jail: cause: namespace creation needs privileges this context does not grant — a missing CAP_SYS_ADMIN (bit 21, e.g. inside a container: grep CapEff /proc/self/status) or a container seccomp/AppArmor profile denying unshare/unprivileged user namespaces (plain hosts: the AppArmor profile 'unprivileged_userns')" >&2
+        echo "terminal-jail: options: run on the outer host, grant inner namespace creation (allow CAP_SYS_ADMIN / permit the userns syscall in the container seccomp profile), or set TERMINAL_JAIL_COMPOSED=on to run with the firewall plus the outer layer's containment (composed mode, see README \"Composed deployment\")" >&2
         exit 2
     fi
+fi
+
+# TJ-GAP-089: a firewall rewrite whose own namespace prefix failed the probe
+# reaches here only when composed mode was decided ON (the off/plain-host
+# arm refused inside the rewrite branch). Run the rewrite's PAYLOAD, not the
+# rewrite: its `unshare <flags> bash -c <payload>` prefix cannot be created
+# on this layer, and the namespace containment it would have added is
+# exactly what the outer layer already provides. Strip the verified prefix
+# shape (`unshare <flags> bash -c `) and execute the payload via bash -c —
+# the same trampoline the unmodified rewrite path uses, so the firewall's
+# verdict is honored without double-wrapping or re-running the denied
+# namespace syscall. The launcher state (MODIFIED=1, args unset, CMD_STR)
+# below makes the bottom-of-file `exec bash -c "$CMD_STR"` run it.
+if [ "${_TJ_COMPOSED_NS_FAILED:-0}" -eq 1 ]; then
+    echo "terminal-jail: COMPOSED MODE — the firewall's rewrite namespace cannot be created on this layer; running its payload (pid-namespace/proc: enforced by the OUTER LAYER when present; firewall: enforced by terminal-jail)" >&2
+    case "$CMD_STR" in
+        unshare\ -*" bash -c "*)
+            _tj_payload="${CMD_STR#* bash -c }"
+            CMD_STR="$_tj_payload"
+            unset -v _tj_payload
+            ;;
+        *)
+            # A rewrite without the verified prefix shape adds no namespace
+            # at this layer — nothing to strip (defensive arm).
+            :
+            ;;
+    esac
 fi
 
 if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then

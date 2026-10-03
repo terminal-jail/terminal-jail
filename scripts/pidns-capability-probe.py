@@ -109,13 +109,17 @@ def _classify() -> str:
             cwd=str(_PROJECT_ROOT),
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=3,
             check=False,
         )
     except FileNotFoundError:
         return f"UNKNOWN: {_CLI} not found"
     except subprocess.TimeoutExpired:
-        return "UNKNOWN: probe timed out after 15s"
+        # 3s, not 15s (TJ-GAP-089): inside a container the wrapper's own
+        # bridge probes could previously burn 15s before this timeout even
+        # started. A capable host answers the bare launch in milliseconds;
+        # anything still running at 3s cannot be classified from here.
+        return "UNKNOWN: probe timed out after 3s"
 
     if result.returncode == 0:
         return "FULL"

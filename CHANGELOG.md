@@ -1,5 +1,52 @@
 ## [Unreleased]
 
+### Composed mode: terminal-jail inside a container/bunker runs as the inner layer (TJ-GAP-089)
+
+- **Feature** (`standalone/terminal-jail`): when namespace creation fails AND
+  the tool detects it already runs inside an outer containment layer (OCI
+  container / bunker agent — sentinels `/.dockerenv`, `/run/.containerenv`,
+  PID-namespace identity vs `/proc/1`, overlay root, cgroup-v2 root;
+  detection is bounded `<2s` and runs only on the failure path), the command
+  now RUNS with the layers that exist — the interruptor firewall (this tool)
+  plus the platform's namespace/lifecycle containment — instead of dying
+  with `namespace creation failed (unshare exit 1)`. The per-layer state is
+  stated on stderr and nothing is over-claimed: `jail_layer=platform` for
+  the outer namespace/proc, firewall by the tool, an inner seccomp filter
+  explicitly NOT applied (the platform's own profile is the active seccomp
+  state), filesystem isolation NOT added. Platform counterpart: bunker
+  GAP-179.
+- **Env knob** `TERMINAL_JAIL_COMPOSED=auto|on|off` (default `auto`):
+  `auto` composes only when detection confirms an outer layer; `on` is the
+  operator override (and reports loudly when NO layer provides namespace
+  isolation); `off` keeps the plain-host refusal; an unknown value exits 2
+  before any namespace work. Documented in `--help` and README
+  ("Composed deployment (inside a container/bunker)").
+- **Regression guards hold:** a plain host (no outer layer detectable)
+  still refuses fail-closed — the original refusal sentence is preserved
+  verbatim and is now followed by a one-line cause (missing CAP_SYS_ADMIN /
+  container seccomp or AppArmor profile) and options (outer host, permit
+  inner userns, or `TERMINAL_JAIL_COMPOSED=on`). An explicitly requested
+  backend (`TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare`) is NEVER silently
+  downgraded, in composed mode or out of it. The firewall block arm is
+  unchanged (exit 126 + rule_id). A firewall `modify` rewrite whose own
+  namespace prefix cannot be created runs its payload composed (prefix
+  stripped, verdict honored) instead of leaking the raw unshare error.
+- **Probes fail fast (3s, was 15s):** `plugin/terminal_jail/interruptor/
+  userns.py` `_PROBE_TIMEOUT`/`_PROPERTY_TIMEOUT`, and the subprocess
+  budgets in `scripts/pidns-capability-probe.py` and
+  `scripts/fs-isolation-probe.py`. Measured cause of the old 15s hangs
+  inside containers: the failed mapped launch's forked child survives as a
+  zombie holding the capture pipe, so the probe's wall clock is the timeout;
+  a capable host answers in milliseconds.
+- **Battery + evidence:** `scripts/composed-mode-battery.py` measures the
+  three cells (tool alone / platform alone / BOTH) with per-layer
+  properties (PID-ns inode, `/proc` entry count, `/proc/1` identity,
+  seccomp state) and honest UNAVAILABLE semantics (never counted green);
+  `docs/dogfood/2026-10-03-composed-mode.md` records the live docker
+  transcript; `tests/test_composed_mode.py` pins the contract (composed
+  detection, in-container behavior with skip markers, plain-host refusal
+  regression, explicit-backend no-downgrade, battery validation).
+
 ### Standalone CLI: the uid-mapped launch keeps its parent-death signal (TJ-DF-043)
 
 - **Fix** (`standalone/terminal-jail`,

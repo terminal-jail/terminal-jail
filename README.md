@@ -303,9 +303,9 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
 | `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Reserved — not yet read by the plugin (logging is fixed; no level knob exists) |
 | `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Reserved — not yet read by the plugin (namespace isolation comes from the CLI `--user` / `TERMINAL_JAIL_UID_MAP`) |
 | `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable the seccomp BPF filter (`1`/`true`/`yes`/`on`) — **only honored when the CLI is also invoked with `--seccomp`; the env var alone does not activate the filter.** Note: no `HERMES_TERMINAL_JAIL_` prefix — legacy naming from the pre-plugin seccomp module |
-| `USE_INTERRUPTOR` | `1` | Standalone wrapper. Default `1`: every command is evaluated against the interruptor firewall before execution. `USE_INTERRUPTOR=0` disables the firewall entirely — the bridge is never invoked and no rule evaluation happens (no verdict, no fail-closed exit; seccomp/namespace flags still apply). The `--interruptor` / `--no-interruptor` CLI flags override this variable (read at `standalone/terminal-jail:112`, flags parsed at `standalone/terminal-jail:236`/`:240`, guard at `standalone/terminal-jail:285`) |
-| `TERMINAL_JAIL_SECCOMP_LOADER` | unset (auto-discover) | Standalone wrapper. Explicit path to the seccomp loader (`seccomp-loader.py`), used verbatim when `--seccomp` is active — also the file the uid-mapped launch readability probe tests and the script the jail exec trampoline runs. Unset, the wrapper probes `standalone/seccomp-loader.py` then the installed lib layout. An explicit value that is missing or not a regular file fails closed with exit 2, "seccomp loader not found" (read at `standalone/terminal-jail:99-109`, fail-closed at `standalone/terminal-jail:731`) |
-| `TERMINAL_JAIL_SECCOMP_READ_PROBE` | unset (real probes) | Internal/test-only seam — not a supported operator knob. Standalone wrapper, consulted only under `--user --seccomp` (default uid mapping on, loader resolved). When set, its value is run via `bash -c` **instead of both mapped-launch promotion probes** (mapped-launch creation + loader readability); exit 0 promotes the launch to the uid-mapped form, any other exit degrades to the mapping-less `--user` launch with the "seccomp loader not readable" warning. A seam-forced promotion still performs the real mapped launch, so tests drive the failure outcome through the seam or exercise the real path (`standalone/terminal-jail:541-557`) |
+| `USE_INTERRUPTOR` | `1` | Standalone wrapper. Default `1`: every command is evaluated against the interruptor firewall before execution. `USE_INTERRUPTOR=0` disables the firewall entirely — the bridge is never invoked and no rule evaluation happens (no verdict, no fail-closed exit; seccomp/namespace flags still apply). The `--interruptor` / `--no-interruptor` CLI flags override this variable (read at `standalone/terminal-jail:112`, flags parsed at `standalone/terminal-jail:250`/`:254`, guard at `standalone/terminal-jail:325`) |
+| `TERMINAL_JAIL_SECCOMP_LOADER` | unset (auto-discover) | Standalone wrapper. Explicit path to the seccomp loader (`seccomp-loader.py`), used verbatim when `--seccomp` is active — also the file the uid-mapped launch readability probe tests and the script the jail exec trampoline runs. Unset, the wrapper probes `standalone/seccomp-loader.py` then the installed lib layout. An explicit value that is missing or not a regular file fails closed with exit 2, "seccomp loader not found" (read at `standalone/terminal-jail:99-109`, fail-closed at `standalone/terminal-jail:1005`) |
+| `TERMINAL_JAIL_SECCOMP_READ_PROBE` | unset (real probes) | Internal/test-only seam — not a supported operator knob. Standalone wrapper, consulted only under `--user --seccomp` (default uid mapping on, loader resolved). When set, its value is run via `bash -c` **instead of both mapped-launch promotion probes** (mapped-launch creation + loader readability); exit 0 promotes the launch to the uid-mapped form, any other exit degrades to the mapping-less `--user` launch with the "seccomp loader not readable" warning. A seam-forced promotion still performs the real mapped launch, so tests drive the failure outcome through the seam or exercise the real path (`standalone/terminal-jail:596-620`) |
 
 ### systemd hardening (lightweight — 4 active directives)
 
@@ -652,6 +652,40 @@ Every layer degrades independently.
 **Auto-sandbox (`modify`) rewrites are not gated by the bare-mode verdict (DF-TERMINAL-JAIL-11).** The interruptor bridge supplies the rewrite's own `unshare --user` prefix, and the wrapper probes **that** prefix instead of its own bare-mode launch — so on a DEGRADED host `terminal-jail bash script.sh` (and every other auto-sandbox class) runs the rewrite and returns the inner command's exit code. A rewrite whose own prefix this host cannot create exits `2` with an `auto-sandbox modify unavailable` verdict naming the flags probed — not the generic namespace-creation message.
 
 **E2E battery (PID-NS layer).** Every run is labeled **FULL** or **DEGRADED** by `scripts/pidns-capability-probe.py` (`FULL` when the namespace works, `DEGRADED` when the host refuses creation, `UNKNOWN` otherwise — always exits 0). On a DEGRADED host, bare-mode tests **skip** with a `HOST-DEGRADED-PIDNS` marker instead of silently passing, so the battery never reports "ALL GREEN" without actually verifying PID-namespace containment; on FULL hosts the containment test asserts the jailed command lands in a new PID namespace inode.
+
+---
+
+## Composed deployment (inside a container/bunker)
+
+Terminal-jail is a building block, and the strongest deployment is the **composed stack**: the tool running INSIDE an outer containment layer (a bunker-agent container, or any OCI container). The platform owns the ambient namespace/lifecycle primitives; the tool owns per-command judgment. Each layer does what it is good at.
+
+**What changes in composed mode (TJ-GAP-089).** A container grants no `CAP_SYS_ADMIN` (measured CapEff `00000000a80425fb`, bit 21 clear) and its seccomp profile denies inner namespace creation, so the inner `unshare` cannot run — and the plain-host contract would refuse *everything*. Composed mode instead runs the command with the layers that exist and states each one on stderr:
+
+```
+terminal-jail: COMPOSED MODE — running without an inner namespace
+sentinel: /.dockerenv present
+namespace: /proc/self/ns/pid == /proc/1/ns/pid (pid:[…]): this process already sits in the same PID namespace as the init above it
+filesystem: root mount is overlayfs (/proc/self/mountinfo)
+cgroup: /proc/self/cgroup path is / (cgroup v2 container root)
+terminal-jail: composed layers — jail_layer=platform (outer containment: PID namespace/proc provided by the platform/container, NOT by this tool); firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool (the outer layer's own profile, if any, is the active seccomp state); filesystem: NOT isolated by this tool
+```
+
+Nothing is over-claimed: the firewall verdict is this tool's; the PID namespace, private `/proc` and process lifecycle belong to the OUTER layer; an inner seccomp filter is NOT applied (the platform's own profile is the active seccomp state); filesystem isolation is NOT added. The firewall still blocks (`rm -rf /` → exit 126, `builtin-rm-rf-root`), and exit codes pass through unchanged.
+
+**The knob: `TERMINAL_JAIL_COMPOSED=auto|on|off`** (default `auto`):
+
+| Value | Behavior when namespace creation fails |
+|---|---|
+| `auto` (default) | Detect an outer layer (sentinels `/.dockerenv` and `/run/.containerenv`; PID-ns identity; overlay root; cgroup root — detection is bounded `<2s`, never a 15s hang). Outer layer found → run composed with the per-layer report above; not found → the fail-closed refusal with a one-line cause and options |
+| `on` | Operator override: run composed even where detection finds nothing — and then say loudly that NO layer of the launch provides namespace isolation |
+| `off` | Plain-host behavior exactly: the original refusal sentence, plus cause + options |
+| *(anything else)* | Exits 2 before any namespace work |
+
+**Contracts that do not move:** an explicitly requested backend (`TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare`) is never silently downgraded — it still fails closed in composed mode (exit 2). A firewall `modify` rewrite whose own namespace prefix cannot be created runs its **payload** composed (prefix stripped, verdict honored). `--seccomp` in composed mode prints a loud warning and does not apply the filter (the loader path needs the inner namespace).
+
+**Platform counterpart (bunker GAP-179):** what a bunker-agent container must permit and expose for the inner layer to add value — namely, keep denying inner namespace creation (the platform owns it) and let the tool see enough of `/proc` for detection. The shared per-layer matrix and the composed-stack docs live on the bunker side; `scripts/composed-mode-battery.py` measures the three cells (tool alone / platform alone / BOTH) with per-layer properties (PID-ns inode, `/proc` entry count, `/proc/1` identity, seccomp state), and `docs/dogfood/2026-10-03-composed-mode.md` records the live docker transcript.
+
+**Host-capability probes fail fast (3s).** Inside a container the bridge's launch probes previously waited out a 15s budget (a failed `unshare --fork` child can survive as a zombie holding the capture pipe); all launch probes are now bounded at 3s — a capable host answers in milliseconds — so `scripts/pidns-capability-probe.py` and `scripts/fs-isolation-probe.py` answer instead of timing out.
 
 ---
 
