@@ -1,0 +1,3 @@
+{"wave_id":"terminal-jail-foreman-2026-10-03-12-15-01","budget":2,"workers":[
+{"task_id":"TJ-DF-041","brief":"/tmp/tj-brief-df041.md","worktree":"/home/kara/worktrees/terminal-jail-TJ-DF-041","branch":"wt/TJ-DF-041"},
+{"task_id":"TJ-DF-042","brief":"/tmp/tj-brief-df042.md","worktree":"/home/kara/worktrees/terminal-jail-TJ-DF-042","branch":"wt/TJ-DF-042"}],"dispatched_at":"2026-10-03T12:20:00-05:00"}
