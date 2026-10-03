@@ -221,7 +221,7 @@ The four extended options change the launch shape as follows:
 
 ### Jail backends (v1.2)
 
-The wrapper has two jail backends. Selection is **runtime-detected** from the environment variable `TERMINAL_JAIL_JAIL_BACKEND`; there are no new CLI flags (the flag contract in section 3 is unchanged, and a bare `--bwrap` is still just a payload command name).
+The wrapper has two jail backends. Selection is **runtime-detected** from the environment variable `TERMINAL_JAIL_JAIL_BACKEND`; the flag contract of section 3 is otherwise unchanged (a bare `--bwrap` is still just a payload command name). TJ-GAP-088 adds one opt-in flag, `--private-proc`, paired with `TERMINAL_JAIL_PRIVATE_PROC=required` — both documented after the table below.
 
 | Value | Behavior | Exit status when the backend cannot run |
 |---|---|---|
@@ -229,6 +229,10 @@ The wrapper has two jail backends. Selection is **runtime-detected** from the en
 | `bwrap` | Demand bubblewrap. | `2` — bwrap missing, or the bwrap probe failed; the command does not run and isolation is **never** silently downgraded to `unshare` |
 | `unshare` | Pin the v1.1 backend byte-for-byte; bwrap is not probed or invoked. | `2` on namespace-creation failure (unchanged v1.1 message) |
 | anything else | Rejected before any namespace work. | `2` — message names the value and the accepted set |
+
+**Private-`/proc` demand (TJ-GAP-088).** Private procfs is a **bwrap-only** property on this host class (`--proc /proc` mounts a fresh procfs; measured experiment closed the unshare mapped-root route on Ubuntu/AppArmor — uid_map EPERM). Two equivalent ways to make the demand enforceable, both validated before any namespace work: the CLI flag `--private-proc` or `TERMINAL_JAIL_PRIVATE_PROC=required`. When set, backend selection **refuses** — exit `2`, command not run — unless the resolved backend can deliver a private procfs: bwrap absent, a failing bwrap probe, the `unshare` backend in any mode, and the composed launch (no inner procfs) all refuse. Any other value is rejected like the other control variables. **Default (unset): the pre-TJ-GAP-088 behavior is unchanged** — the known limit stays prose-only, nothing refuses.
+
+**Per-run `/proc`-view attribution.** Every launch (with or without the demand) states which `/proc` view the caller actually got, on stderr: `proc_view=private` (bwrap's fresh procfs), `proc_view=host` (any `unshare` launch — the documented known limit), `proc_view=platform-owned` (composed launch; the outer layer's procfs), `proc_view=none` (composed forced with no outer layer detected). Attribution is observation, not a new guarantee: it names the view that was delivered. Standing probe: parity battery cells 8–9 (`scripts/backend-parity-battery.py`), with the live `/proc` entry count + `/proc/1` identity assertions in cells 1–2 and `plugin/test_backend_parity.py` pinning the contracts host-independently.
 
 Selection rules and the reasons they exist:
 
@@ -360,7 +364,7 @@ For a signal-terminated payload, the invoking shell reports the platform's norma
 |---:|---|---|
 | `0` | Successful wrapper action or payload success. | Help/version, or payload. |
 | `1` | Conventional payload command failure. | Payload/unshare execution path; passed through unchanged. |
-| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, missing seccomp loader, unknown `TERMINAL_JAIL_JAIL_BACKEND` value, or a requested backend that cannot run (bwrap missing / bwrap probe failed). | Wrapper only. |
+| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, missing seccomp loader, unknown `TERMINAL_JAIL_JAIL_BACKEND` value, unknown `TERMINAL_JAIL_PRIVATE_PROC` value, a requested backend that cannot run (bwrap missing / bwrap probe failed), or the private-`/proc` demand (`--private-proc` / `TERMINAL_JAIL_PRIVATE_PROC=required`) over a backend that cannot deliver one. | Wrapper only. |
 | `126` | Command blocked by the interruptor (enforce mode) — either a rule `block` verdict or an unavailable bridge (fail-closed; see section 7). | Interruptor block box on stderr; also the payload's own `126` (permission denied) passes through unchanged. |
 | `3` | Reserved for a future explicit jail setup/configuration error. v1 does not intentionally emit it. | Wrapper only. |
 | `4` | Reserved for a future explicit resource/quota setup error. v1 does not intentionally emit it. | Wrapper only. |
@@ -379,6 +383,8 @@ Important compatibility rule: Unix exit statuses are only 8 bits, and arbitrary 
 | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but bubblewrap is not installed | Wrapper preflight | Say bubblewrap is not installed, name the system package, and state that the command was not run — never fall back silently. | 2 |
 | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but the bwrap probe fails | Wrapper preflight | Say bwrap namespace creation failed and that the requested backend is never silently downgraded; the command is not run. | 2 |
 | `TERMINAL_JAIL_JAIL_BACKEND=auto`, bubblewrap present but its probe fails | Wrapper preflight | Warn on stderr that the fallback does **not** provide a private `/proc`, then continue with the `unshare` backend. | Payload (or `2` if `unshare` also fails) |
+| `TERMINAL_JAIL_PRIVATE_PROC` set to an unknown value | Wrapper preflight (before any namespace work) | Name the value and the accepted set (`required`, or unset for the default); the command is not run. | 2 |
+| `TERMINAL_JAIL_PRIVATE_PROC=required` (or `--private-proc`) and the resolved backend cannot deliver a private procfs (bwrap absent, bwrap probe failed, any `unshare` launch, or the composed launch) | Wrapper backend resolution, after the backend probes | Name the resolved backend and state that it cannot provide a private `/proc`; the command is not run (TJ-GAP-088). | 2 |
 | Bridge-supplied `modify` rewrite whose own `unshare` prefix cannot be created | Wrapper preflight, probe of the rewrite's own flags | Say the auto-sandbox rewrite is unavailable, name the flags probed and their status, and state that the command was not run. Never the generic bare-mode namespace-creation message — a rewrite is executed by its own prefix, not by the wrapper's launch (DF-TERMINAL-JAIL-11). | 2 |
 | Kernel denies namespace creation (`EPERM`, disabled user namespaces, missing capabilities, container policy) | Selected backend's probe | Preserve the backend's stderr and returned status exactly. Do not hide it or retry with weaker flags. | Pass-through (probe failure on an explicitly requested backend: `2`) |
 | Interruptor bridge unavailable (bridge not found via the module path or `TERMINAL_JAIL_BRIDGE`, or the bridge exits nonzero) — `enforce` mode | Interruptor evaluation, before preflight/launch | Print the `COMMAND BLOCKED — interruptor-bridge-unavailable` block box on stderr naming the fix paths (reinstall via `install.sh` / set `TERMINAL_JAIL_BRIDGE` / opt out via `TERMINAL_JAIL_INTERRUPTOR_MODE=warn`); the payload is never executed. | 126 |

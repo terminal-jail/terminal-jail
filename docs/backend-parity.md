@@ -5,6 +5,17 @@ actually **measured** on the host below. It is evidence, not a plan. The battery
 a classifier in the house style of `scripts/pidns-capability-probe.py` and
 `scripts/fs-isolation-probe.py`: it always exits 0 and never gates anything.
 
+**Method note (TJ-GAP-088): an auto-backend run is NOT evidence about the
+unshare path.** `TERMINAL_JAIL_JAIL_BACKEND=auto` (the default) prefers bwrap
+whenever it is installed and its probe passes, so on this host an unqualified
+`./standalone/terminal-jail …` run exercises **bwrap** — a pass proves nothing
+about what the `unshare` backend would have done. Claims about the unshare
+path require a **forced** run (`TERMINAL_JAIL_JAIL_BACKEND=unshare`); the
+earlier "bare mode" probe that motivated this note was in fact the auto
+backend. Every launch now names the view it delivered on stderr
+(`proc_view=private|host|platform-owned|none`), so a run's /proc evidence is
+read off its own output instead of inferred from the absence of a flag.
+
 ## Measured on
 
 | | |
@@ -103,7 +114,25 @@ bwrap (host ≈ 1340). A user namespace cannot mount `/proc` unprivileged, so th
 `--user` launch leaves the host procfs visible; bwrap's `--proc /proc` mounts a
 fresh procfs and the jail sees only its own PIDs. This is the one containment
 property where the backends genuinely differ; specs/cli.md documents it and
-`test_live_unshare_user_exposes_host_proc` pins it.
+`test_live_unshare_user_exposes_host_proc` pins it. **Nothing stops a
+deployment that assumes containment from silently getting the host view by
+default** — which is exactly why the demand exists (below) and every launch
+now attributes its view (`proc_view=host` on this path, read off stderr).
+
+**The enforceable demand and per-run attribution (TJ-GAP-088).** A deployment
+that NEEDS private procfs says so explicitly: `--private-proc` (CLI flag) or
+`TERMINAL_JAIL_PRIVATE_PROC=required` (env, same effect). With the demand set,
+backend selection **fails closed** — exit 2, command not run — unless the
+resolved backend can deliver a private procfs: bwrap absent, a failing bwrap
+probe, any `unshare` launch, and the composed launch (no inner procfs) all
+refuse. Without the demand, behavior is unchanged (the limit above stays
+prose-only). Independently of the demand, **every launch states the delivered
+view on stderr**: `proc_view=private` (bwrap), `proc_view=host` (unshare),
+`proc_view=platform-owned` (composed; the outer layer's procfs), or
+`proc_view=none` (composed forced with no outer layer). Standing probe:
+battery cells 1–2 (entry count + `/proc/1` identity per backend), cell 8
+(the demand enforced, fail-closed, host-independent), cell 9 (the
+attribution, host-independent).
 
 **(b) The payload is namespace PID 2 under bwrap, not PID 1.**
 bubblewrap's reaper occupies PID 1 of the jail; the payload runs as PID 2

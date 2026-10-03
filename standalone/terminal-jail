@@ -119,6 +119,7 @@ Usage: terminal-jail <command> [args...]
        terminal-jail --user --seccomp <command> [args...]
        terminal-jail --interruptor <command> [args...]
        terminal-jail --no-interruptor <command> [args...]
+       terminal-jail --private-proc <command> [args...]
        terminal-jail --help
        terminal-jail --version
 
@@ -141,6 +142,10 @@ Options:
   --interruptor  Enable the Bash command firewall (default). Evaluates
                  commands against a rule engine before execution.
   --no-interruptor  Disable the Bash command firewall.
+  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
+                 backend cannot deliver one, the command does not run
+                 (exit 2) — isolation is never silently downgraded. Same
+                 as TERMINAL_JAIL_PRIVATE_PROC=required.
 
 Environment:
   TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
@@ -174,6 +179,17 @@ Environment:
                  silently downgraded, in composed mode or out of it. See
                  README "Composed deployment (inside a container/bunker)"
                  and bunker GAP-179.
+  TERMINAL_JAIL_PRIVATE_PROC=required
+                 Demand a private /proc (TJ-GAP-088): backend selection
+                 refuses (exit 2, command not run) when the resolved
+                 backend cannot deliver one — bwrap absent or its probe
+                 failing, the unshare backend (all modes; --user exposes
+                 the host /proc, bare mode is fail-closed first), or the
+                 composed launch (proc owned by the outer layer). A run
+                 that launches always states the delivered view on stderr
+                 as proc_view=private|host|platform-owned|none. Default
+                 (unset) keeps the fail-open prose behavior. See
+                 specs/cli.md section 4 "Jail backends".
 EOF
 }
 
@@ -243,8 +259,8 @@ if [ $# -eq 1 ]; then
     esac
 fi
 
-# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor
-# (any order, all before command).
+# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor,
+# --private-proc (any order, all before command).
 while [ $# -gt 0 ]; do
     case "$1" in
         --user)
@@ -262,6 +278,10 @@ while [ $# -gt 0 ]; do
             ;;
         --no-interruptor)
             USE_INTERRUPTOR=0
+            shift
+            ;;
+        --private-proc)
+            TJ_PRIVATE_PROC_REQUIRED=1
             shift
             ;;
         *)
@@ -308,6 +328,27 @@ case "$TJ_COMPOSED_MODE_REQUEST" in
         exit 2
         ;;
 esac
+
+# Private-/proc demand (TJ-GAP-088). Default: unset/empty — the historical
+# fail-open prose behavior, byte-for-byte (no proc_view line, no refusal).
+# required (via env or --private-proc): backend selection must REFUSE —
+# exit 2, command not run — whenever the resolved backend cannot deliver a
+# private procfs; a launch that does happen carries a proc_view=<view>
+# attribution line on stderr. anything else: rejected before any namespace
+# work, exactly like the other control variables.
+TJ_PRIVATE_PROC_REQUIRED="${TJ_PRIVATE_PROC_REQUIRED:-0}"
+TJ_PRIVATE_PROC_REQUEST="${TERMINAL_JAIL_PRIVATE_PROC:-}"
+if [ -n "$TJ_PRIVATE_PROC_REQUEST" ]; then
+    case "$TJ_PRIVATE_PROC_REQUEST" in
+        required)
+            TJ_PRIVATE_PROC_REQUIRED=1
+            ;;
+        *)
+            echo "terminal-jail: unknown TERMINAL_JAIL_PRIVATE_PROC='${TJ_PRIVATE_PROC_REQUEST}' (expected required, or unset for the default behavior); command not run" >&2
+            exit 2
+            ;;
+    esac
+fi
 
 # Rebuild the command string from remaining arguments (preserving argv boundaries)
 CMD_STR=""
@@ -735,6 +776,33 @@ case "$TJ_BACKEND_REQUEST" in
         ;;
 esac
 
+# --- private-/proc demand: enforcement + per-run attribution (TJ-GAP-088) -------
+# A private procfs is deliverable ONLY by the bwrap backend (--proc /proc
+# mounts a fresh procfs). The unshare backend cannot, in any mode: bare mode
+# needs CAP_SYS_ADMIN for --mount-proc and fails closed before reaching here,
+# and --user deliberately omits --mount-proc (it is incompatible with
+# unprivileged user namespaces) so the HOST /proc view is exposed — measured:
+# ~1084 entries with /proc/1 = systemd (docs/backend-parity.md known limit a).
+# With the demand set (TERMINAL_JAIL_PRIVATE_PROC=required or --private-proc),
+# backend selection REFUSES (exit 2, command not run) unless bwrap was
+# resolved and its probe passed; otherwise the run states the delivered view:
+#   proc_view=private         bwrap's fresh procfs
+#   proc_view=host            any unshare launch (documented known limit)
+#   proc_view=platform-owned  composed launch (the outer layer's procfs)
+#   proc_view=none            composed forced with NO outer layer detected
+# Without the demand, the proc_view line still prints on every LAUNCH (attribution
+# is free) and the historical behavior is otherwise byte-for-byte unchanged.
+if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ] && [ "$TJ_BACKEND" != "bwrap" ]; then
+    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend '${TJ_BACKEND}' cannot provide a private /proc; command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a)); the unshare --user path exposes the HOST /proc view" >&2
+    exit 2
+fi
+# TJ-GAP-088 attribution: the delivered /proc view is stated at LAUNCH time
+# (after the namespace probes — a run that is refused states nothing,
+# because nothing was delivered), in the exec dispatch at the bottom of this
+# file: proc_view=private (bwrap's fresh procfs) / proc_view=host (the
+# unshare backend). The composed launchers state their own view
+# (platform-owned / none) inside their COMPOSED MODE report.
+
 # --- composed mode (TJ-GAP-089) -------------------------------------------------
 # Some deployments run this tool INSIDE an outer containment layer that already
 # provides the namespace properties this wrapper creates for a payload — a
@@ -870,6 +938,12 @@ _tj_launch_composed() {
     #                       platform applies its own profile, that profile is
     #                       the active seccomp state, not this tool's.
     echo "terminal-jail: COMPOSED MODE — running without an inner namespace" >&2
+    # TJ-GAP-088 attribution: the composed launch creates no inner procfs.
+    if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
+        echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
+    else
+        echo "terminal-jail: proc_view=none (composed mode forced without a detected outer layer: no procfs of any kind is provided by this launch)" >&2
+    fi
     if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
         echo "terminal-jail: composed layers — jail_layer=platform (outer containment: PID namespace/proc provided by the platform/container, NOT by this tool); firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool (the outer layer's own profile, if any, is the active seccomp state); filesystem: NOT isolated by this tool" >&2
     else
@@ -925,6 +999,11 @@ if [ "$MODIFIED" -eq 1 ]; then
                     echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
                     exit 2
                 fi
+                if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
+                    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the firewall's rewrite namespace cannot be created and the composed launch provides no procfs of its own (the outer layer's view, when present, is platform-owned); command not run" >&2
+                    exit 2
+                fi
+                _TJ_COMPOSED_DECIDED=1
                 _tj_composed_decision
                 if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
                     # Composed: run the rewrite as-is below (its prefix is
@@ -955,6 +1034,11 @@ elif [ "$TJ_BACKEND" = "unshare" ]; then
         # Composed mode: the one shared decision (auto detects, on forces,
         # off refuses). Detection runs HERE and only here (lazily — never on
         # the happy path), bounded (<2s) and cached for this invocation.
+        if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
+            echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend 'unshare' cannot provide a private /proc (and its launch just failed: unshare exit ${probe_rc}); command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a))" >&2
+            exit 2
+        fi
+        _TJ_COMPOSED_DECIDED=1
         _tj_composed_decision
         if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
             # Composed: run with the layers that exist. The seccomp warning
@@ -986,6 +1070,7 @@ fi
 # below makes the bottom-of-file `exec bash -c "$CMD_STR"` run it.
 if [ "${_TJ_COMPOSED_NS_FAILED:-0}" -eq 1 ]; then
     echo "terminal-jail: COMPOSED MODE — the firewall's rewrite namespace cannot be created on this layer; running its payload (pid-namespace/proc: enforced by the OUTER LAYER when present; firewall: enforced by terminal-jail)" >&2
+    echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
     case "$CMD_STR" in
         unshare\ -*" bash -c "*)
             _tj_payload="${CMD_STR#* bash -c }"
@@ -1010,9 +1095,11 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
     # backends use the identical argv-preserving trampoline; the `--` below is
     # bubblewrap's option/payload separator.
     if [ "$TJ_BACKEND" = "bwrap" ]; then
+        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
     fi
+    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
     exec unshare \
         $UNSHARE_FLAGS \
         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
@@ -1022,9 +1109,11 @@ elif [ "$MODIFIED" -eq 1 ]; then
     exec bash -c "$CMD_STR"
 else
     if [ "$TJ_BACKEND" = "bwrap" ]; then
+        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec "$@"' terminal-jail "$@"
     fi
+    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
     exec unshare \
         $UNSHARE_FLAGS \
         bash -c 'exec "$@"' terminal-jail "$@"

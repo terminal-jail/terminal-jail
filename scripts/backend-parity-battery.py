@@ -22,6 +22,13 @@ Cells:
      fails must exit 2 with the command not run and a marker file the
      payload would have created left ABSENT (host-independent)
   7  host classification summary via the two shipped probes
+  8  the private-/proc demand (TERMINAL_JAIL_PRIVATE_PROC=required /
+     --private-proc) enforced: backend selection refuses (exit 2, command
+     not run) when the resolved backend cannot deliver a private procfs
+     (TJ-GAP-088, host-independent)
+  9  per-launch proc_view attribution: the same host resolves to
+     proc_view=private under bwrap and proc_view=host under unshare
+     (TJ-GAP-088, host-independent)
 
 Verdict vocabulary: SAME | DIFFERS | KNOWN-LIMIT | FAIL-CLOSED-PROVEN.
 A cell that cannot be measured on this host is labelled KNOWN-LIMIT with an
@@ -55,6 +62,9 @@ FSISO_PROBE = PROJECT_ROOT / "scripts" / "fs-isolation-probe.py"
 ESCAPE_WAVES = PROJECT_ROOT / "plugin" / "test_escape_waves.py"
 
 PROC_COUNT_SNIPPET = 'ls /proc | grep -c "^[0-9]\\+$"'
+# /proc/1 identity (TJ-GAP-088): a private procfs shows the jail's own init
+# (the payload `sh`); a host view shows the host init (e.g. `systemd`).
+PROC1_IDENT_SNIPPET = "cat /proc/1/comm 2>/dev/null || echo unreadable"
 ORPHAN_WAIT_LAUNCH = 10.0
 ORPHAN_WAIT_TEARDOWN = 15.0
 
@@ -127,7 +137,14 @@ def _last_int(stdout: str) -> int | None:
 # ── cells 1+2: private /proc ───────────────────────────────────────────────
 
 
-def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
+def _host_proc1_comm() -> str:
+    try:
+        return pathlib.Path("/proc/1/comm").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _proc_cell(backend: str, host_count: int, host_proc1: str) -> dict[str, str]:
     if backend == "bwrap":
         name = "1 private /proc — bwrap backend"
     else:
@@ -160,6 +177,19 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
             "a handful of entries, far below the host count",
             "no numeric count",
         )
+    # TJ-GAP-088: /proc/1 identity + the wrapper's own proc_view attribution.
+    ident = _run(
+        [str(CLI), "--no-interruptor", "--user", "sh", "-c", PROC1_IDENT_SNIPPET],
+        env=_cli_env(backend),
+        timeout=30,
+    )
+    proc1_comm = ident.stdout.strip().splitlines()[-1] if ident.stdout.strip() else ""
+    if proc1_comm and proc1_comm != host_proc1:
+        proc1 = f"{proc1_comm} (the jail's own init — private procfs)"
+    elif proc1_comm:
+        proc1 = f"{proc1_comm} (HOST init visible — /proc is not private)"
+    else:
+        proc1 = "unreadable"
     if backend == "bwrap":
         # private /proc: the jail sees only its own processes — a handful of
         # entries (reaper + trampoline + payload), never a fraction of the host.
@@ -167,7 +197,7 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
         verdict = "SAME" if ok else "DIFFERS"
         note = (
             f"jail sees {count} numeric /proc entries vs {host_count} on the host; "
-            "--proc /proc mounts a fresh procfs"
+            f"/proc/1 = {proc1}; --proc /proc mounts a fresh procfs"
             if ok
             else (
                 f"bwrap jail sees {count} numeric /proc entries vs {host_count} on "
@@ -178,7 +208,7 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
         return _cell(
             name,
             backend,
-            f"{count} entries (host: {host_count})",
+            f"{count} entries (host: {host_count}); /proc/1 = {proc1}",
             "a handful of entries, far below the host count",
             verdict,
             note,
@@ -190,13 +220,13 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
     return _cell(
         name,
         backend,
-        f"{count} entries (host: {host_count})",
+        f"{count} entries (host: {host_count}); /proc/1 = {proc1}",
         "≈ host count (documented known limit)",
         verdict,
         (
             f"unshare --user exposes the host /proc ({count} vs {host_count} "
-            "entries) — specs/cli.md documents this, docs/backend-parity.md "
-            "known limit (a)"
+            f"entries; /proc/1 = {proc1}) — specs/cli.md documents this, "
+            "docs/backend-parity.md known limit (a)"
             if exposed
             else f"jail sees {count} vs {host_count} host entries"
         ),
@@ -417,6 +447,166 @@ def _fail_closed_cell(backend: str) -> dict[str, str]:
         )
 
 
+# ── cells 8+9: the private-/proc demand and per-run attribution (TJ-GAP-088) ──
+
+
+def _private_proc_demand_cell() -> dict[str, str]:
+    """TERMINAL_JAIL_PRIVATE_PROC=required must make backend selection
+    REFUSE whenever the resolved backend cannot deliver a private procfs.
+    Measured shape: PATH stubs (bwrap absent, unshare's probe failing) so
+    auto resolves to unshare; the demand must turn the launch into an
+    exit-2 refusal with the command not run and no marker side effect."""
+    name = "8 private-proc demand enforced (fail closed)"
+    expected = "exit 2, command not run, marker file ABSENT"
+    with tempfile.TemporaryDirectory(prefix="tj-parity-pproc-") as tmp:
+        root = pathlib.Path(tmp)
+        bindir = root / "bin"
+        bindir.mkdir()
+        for tool in (
+            "bash",
+            "uname",
+            "id",
+            "grep",
+            "cut",
+            "head",
+            "env",
+            "sh",
+            "cat",
+            "touch",
+        ):
+            real = shutil.which(tool)
+            if real:
+                (bindir / tool).symlink_to(real)
+        # bwrap ABSENT from PATH (curated, system dirs excluded so the real
+        # bubblewrap cannot leak in); unshare present but its probe fails:
+        # the wrapper's auto backend resolves to unshare — the shape that
+        # used to silently expose the host /proc.
+        stub = bindir / "unshare"
+        stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        stub.chmod(0o755)
+        marker = root / "marker-required"
+        env = dict(os.environ)
+        env.update(
+            {
+                "PATH": str(bindir),
+                "TERMINAL_JAIL_JAIL_BACKEND": "auto",
+                "TERMINAL_JAIL_PRIVATE_PROC": "required",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
+            }
+        )
+        try:
+            result = _run(
+                [str(CLI), "--no-interruptor", "touch", str(marker)],
+                env=env,
+                timeout=30,
+            )
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            return _unmeasured(name, "both", expected, f"run failed: {exc}")
+        absent = not marker.exists()
+        proven = (
+            result.returncode == 2
+            and absent
+            and result.stdout == ""
+            and "PRIVATE_PROC=required" in result.stderr
+            and "command not run" in result.stderr
+        )
+        return _cell(
+            name,
+            "both",
+            f"rc={result.returncode}, stdout={result.stdout!r}, "
+            f"marker={'ABSENT' if absent else 'PRESENT'}",
+            expected,
+            "FAIL-CLOSED-PROVEN" if proven else "DIFFERS",
+            (
+                "TERMINAL_JAIL_PRIVATE_PROC=required over a backend that "
+                "cannot deliver a private procfs (bwrap absent; unshare "
+                "probe-failing) — selection refuses, the payload never ran"
+                if proven
+                else f"stderr: {result.stderr.strip()[:200]}"
+            ),
+        )
+
+
+def _proc_view_attribution_cell() -> dict[str, str]:
+    """Every launch states which /proc view the caller actually got
+    (proc_view=private|host|platform-owned|none) on stderr."""
+    name = "9 proc_view attribution per launch"
+    expected = "stderr names the delivered view: proc_view=..."
+    with tempfile.TemporaryDirectory(prefix="tj-parity-pv-") as tmp:
+        root = pathlib.Path(tmp)
+        bindir = root / "bin"
+        bindir.mkdir()
+        nobwrap = root / "bin-nobwrap"
+        nobwrap.mkdir()
+        for tool in (
+            "bash",
+            "uname",
+            "id",
+            "grep",
+            "cut",
+            "head",
+            "env",
+            "sh",
+            "cat",
+            "true",
+            "unshare",
+        ):
+            real = shutil.which(tool)
+            if real:
+                (bindir / tool).symlink_to(real)
+                (nobwrap / tool).symlink_to(real)
+        # bwrap recorder stub whose probe succeeds -> auto resolves to bwrap
+        # (proc_view=private). A curated PATH WITHOUT bwrap (and WITHOUT the
+        # system dirs that hold the real one) makes auto resolve to unshare
+        # (proc_view=host). Same payload, same host, two views.
+        stub = bindir / "bwrap"
+        stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        stub.chmod(0o755)
+        views: dict[str, str] = {}
+        for label, path in (
+            ("bwrap", str(bindir)),
+            ("unshare (bwrap absent)", str(nobwrap)),
+        ):
+            env = dict(os.environ)
+            env.update(
+                {
+                    "PATH": path,
+                    "TERMINAL_JAIL_JAIL_BACKEND": "auto",
+                    "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
+                }
+            )
+            try:
+                result = _run(
+                    [str(CLI), "--no-interruptor", "--user", "true"],
+                    env=env,
+                    timeout=30,
+                )
+            except (subprocess.TimeoutExpired, OSError) as exc:
+                views[label] = f"run failed: {exc}"
+                continue
+            found = [
+                line for line in result.stderr.splitlines() if "proc_view=" in line
+            ]
+            views[label] = found[0].strip() if found else "(no proc_view line)"
+        bwrap_view = views["bwrap"]
+        unshare_view = views["unshare (bwrap absent)"]
+        ok = (
+            result.returncode == 0
+            and "proc_view=private" in bwrap_view
+            and "proc_view=host" in unshare_view
+        )
+        return _cell(
+            name,
+            "both",
+            f"bwrap: {bwrap_view}; unshare: {unshare_view}",
+            expected,
+            "SAME" if ok else "DIFFERS",
+            "same host, same payload: the auto backend resolves to bwrap "
+            "when present (proc_view=private) and to unshare otherwise "
+            "(proc_view=host) — the run states which /proc view it delivered",
+        )
+
+
 # ── cell 7: host classification ────────────────────────────────────────────
 
 
@@ -485,15 +675,18 @@ def _environment() -> dict[str, str]:
 
 def collect_cells() -> list[dict[str, str]]:
     host_count = _host_proc_count()
+    host_proc1 = _host_proc1_comm()
     cells = [
-        _proc_cell("bwrap", host_count),
-        _proc_cell("unshare", host_count),
+        _proc_cell("bwrap", host_count, host_proc1),
+        _proc_cell("unshare", host_count, host_proc1),
         _orphan_cell("bwrap"),
         _orphan_cell("unshare"),
         _escape_cell(),
         _escape_live_slice_cell(),
         _fail_closed_cell("bwrap"),
         _fail_closed_cell("unshare"),
+        _private_proc_demand_cell(),
+        _proc_view_attribution_cell(),
     ]
     cells.extend(_classification_cells())
     return cells
