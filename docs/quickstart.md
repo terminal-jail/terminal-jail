@@ -354,6 +354,54 @@ not an approved decision (a matched allow rule names itself, e.g. `"rule_id":"al
 For deny-by-default, add your own rules under `~/.config/terminal-jail/rules.d/`: a catch-all
 `block` rule with a new id denies everything the built-in allow rules do not already match.
 
+### 3b2. The `warn` action (runtime contract)
+
+`action: warn` is a rule-level action — distinct from the `TERMINAL_JAIL_INTERRUPTOR_MODE=warn`
+mode (§3b). A rule with `action: warn` is **advisory**: it never blocks, in any mode.
+
+**What happens at verdict time (per command, every invocation):**
+
+1. The engine evaluates the rule to an ALLOW that carries the warning in `reason`:
+   `"would have blocked: <the rule's block_message>"`, with `"rule_id"` naming the warn rule
+   itself (TJ-DF-012).
+2. The wrapper prints the warning **to stderr** as one line —
+   `terminal-jail: WARNING — would have blocked: <block_message>` — and **the command still
+   executes**. The warning is advisory output, not a gate: nothing pauses, nothing waits for
+   input, no confirmation is requested.
+3. The exit code is **the command's own** — the warn path does not alter it. A warned command
+   that fails exits with the command's failure code, a successful one exits 0.
+
+**Interplay with `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` (the mode downgrade).** A *block* rule
+under warn mode evaluates to ALLOW with provenance `"[WARN MODE] Would have blocked: <reason>"`
+and `"rule_id": null` (no rule decided to allow — the mode downgraded the block). The wrapper
+prints it on stderr the same way and the command runs, exit code untouched. So there are two
+ways a "would have blocked" warning can appear: a same-shape command matched a `warn` rule
+(rule named in `rule_id`), or a `block` rule matched but warn mode downgraded it
+(`rule_id: null`, `[WARN MODE]` prefix). Enforce mode + a `block` rule is the only
+combination that actually stops the command (exit 126, no execution).
+
+Observed live (TJ-DF-042 probe, 2026-10-03 — scratch rules dir, `--user` mode; the
+`no filesystem isolation` line is the expected `--user` degradation on this host, unrelated
+to the firewall):
+
+```text
+$ terminal-jail --user printf tjdf042-warn-probe-RAN
+terminal-jail: WARNING — would have blocked: DF042 probe message (warn action)   ← stderr
+tjdf042-warn-probe-RAN                                                           ← stdout: the command RAN
+EXIT=0
+
+$ TERMINAL_JAIL_INTERRUPTOR_MODE=warn terminal-jail --user printf tjdf042-block-probe-RAN
+terminal-jail: WARNING — [WARN MODE] Would have blocked: DF042 probe message (block action)
+tjdf042-block-probe-RAN
+EXIT=0
+```
+
+The bridge verdict for both shapes is `"action": "allow"` with the warning carried in
+`reason` — the bridge's `action` field never says `warn`; consumers scripting the bridge
+(§3a2) should branch on `reason` content, exactly as the wrapper does. Other warn-mode
+stderr notices (bridge unavailable / unusable verdict → command runs UNGUARDED) are
+covered in FAQ §4 below.
+
 ### 3c. Privilege + syscall hardening
 
 ```bash
