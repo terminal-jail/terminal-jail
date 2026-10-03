@@ -659,6 +659,8 @@ Every layer degrades independently.
 
 Terminal-jail is a building block, and the strongest deployment is the **composed stack**: the tool running INSIDE an outer containment layer (a bunker-agent container, or any OCI container). The platform owns the ambient namespace/lifecycle primitives; the tool owns per-command judgment. Each layer does what it is good at.
 
+See [docs/composed-deployment.md](docs/composed-deployment.md) for the full composed deployment guide and shared per-layer guarantee matrix.
+
 **What changes in composed mode (TJ-GAP-089).** A container grants no `CAP_SYS_ADMIN` (measured CapEff `00000000a80425fb`, bit 21 clear) and its seccomp profile denies inner namespace creation, so the inner `unshare` cannot run — and the plain-host contract would refuse *everything*. Composed mode instead runs the command with the layers that exist and states each one on stderr:
 
 ```
