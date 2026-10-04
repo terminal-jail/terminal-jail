@@ -22,7 +22,7 @@
 **Contents**
 
 - [Architecture](#architecture) · [Install](#install) · [Uninstall](#uninstall)
-- [Quick start](#quick-start) · [Verifying a deploy](#verifying-a-deploy) · [Audit tooling](#audit-tooling)
+- [Quick start](#quick-start) · [Verifying a deploy](#verifying-a-deploy) · [What containment do I actually get on MY host?](#what-containment-do-i-actually-get-on-my-host) · [Audit tooling](#audit-tooling)
 - [The Interruptor firewall](#the-interruptor-bash-command-firewall)
   - [Verdict model](#verdict-model) · [Default-allow posture](#default-allow-posture) · [Fail-open vs fail-closed](#fail-open-vs-fail-closed) · [Scope](#scope-the-top-level-command-string-only) · [Engine layers](#engine-layers) · [Modes](#modes)
   - [Rule catalog](#rule-catalog) · [Data-Out Boundary](#data-out-boundary)
@@ -266,17 +266,27 @@ echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge
 # → {"action":"block","command":"rm -rf /","rule_id":"builtin-rm-rf-root",…}
 ```
 
-### What containment do I get on MY host?
+### What containment do I actually get on MY host?
 
-Don't guess — run the two probes above (they classify any host, always exit 0),
-then read [docs/capability-matrix.md](docs/capability-matrix.md): one matrix of
-enforced / degraded / unavailable per enforcement layer (PID namespace,
-identity/env scrub, private `/proc`, filesystem isolation, seccomp, egress)
-across the launch shapes (bwrap, unshare, `--user`, composed-in-container),
-with the commands that reproduce every cell. The Ubuntu AppArmor case is stated
-there with remediation: filesystem isolation is unavailable on Ubuntu 24.04+ by
-default. Worked example with measured numbers: Ubuntu 26.04, kernel
-7.0.0-31.
+Don't guess — run the two probes above (both are classifiers: any host, always
+exit 0):
+
+```bash
+python3 scripts/pidns-capability-probe.py     # PID-namespace layer: FULL / DEGRADED
+python3 scripts/fs-isolation-probe.py         # filesystem-isolation tier + cause
+```
+
+then read **[docs/capability-matrix.md](docs/capability-matrix.md)**: one
+per-host capability matrix — enforced / degraded / unavailable per enforcement
+layer (PID namespace, identity/env scrub, private `/proc`, filesystem
+isolation, seccomp, egress) across the launch shapes (bwrap backend, unshare
+bare, `unshare --user`, composed-in-container) — with the exact commands that
+produce every cell, so you can generate your own row. The Ubuntu AppArmor case
+is stated in the matrix with the remediation: **filesystem isolation is
+unavailable on Ubuntu 24.04+ by default** (the probe prints the cause). The
+worked example carries measured numbers for Ubuntu 26.04.1 LTS, kernel
+7.0.0-31, and re-verifies the shared per-layer numbers of
+[docs/composed-deployment.md](docs/composed-deployment.md) §3.
 
 ### Audit tooling
 
