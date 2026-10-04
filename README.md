@@ -16,7 +16,7 @@
 |---|---|
 | **What it is** | Three independent layers around agent-run shell commands: a **bash command firewall** (allow / block / modify, every verdict carrying rule provenance), **namespace containment** (PID namespace via `unshare`, with an optional bubblewrap backend), and **observability** (Hermes plugin hooks, metrics, logging). |
 | **What it is not** | Not a VM, not a network containment layer, and not a boundary to rely on alone. Rules match the **top-level command string** — script bodies are never inspected (see [Scope](#scope-the-top-level-command-string-only)), and the network is never restricted (see [Data-Out Boundary](#data-out-boundary)). |
-| **Version** | v1.2.0 — CI green, ~1,400 tests, rule set catalogued and drift-checked |
+| **Version** | v1.2.0 — CI green, rule set catalogued and drift-checked. Test count is **derived, not hand-restated**: run `.venv/bin/python -m pytest plugin tests --collect-only -q` (the full suite across `plugin/` and `tests/`) — it printed **1660 collected** when this line was last refreshed (v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008). Rule counts below follow the same derived-not-restated discipline ([Rule catalog](#rule-catalog)) |
 | **Platform** | Linux, `bash`, `util-linux` 2.32+ (`unshare`); `bubblewrap` optional |
 
 **Contents**
@@ -65,7 +65,7 @@ cd terminal-jail
 ./install.sh
 ```
 
-The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root, and it prints the exact `PATH` export to run if `~/.local/bin` is not on your `PATH`.
+The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
 
 **Where the rules land.** Rules follow the install scope:
 
@@ -331,6 +331,7 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
 | `TERMINAL_JAIL_SECCOMP_LOADER` | unset (auto-discover) | Standalone wrapper. Explicit path to the seccomp loader (`seccomp-loader.py`), used verbatim when `--seccomp` is active — also the file the uid-mapped launch readability probe tests and the script the jail exec trampoline runs. Unset, the wrapper probes `standalone/seccomp-loader.py` then the installed lib layout. An explicit value that is missing or not a regular file fails closed with exit 2, "seccomp loader not found" (read at `standalone/terminal-jail:99-109`, fail-closed at `standalone/terminal-jail:1005`) |
 | `TERMINAL_JAIL_SECCOMP_READ_PROBE` | unset (real probes) | Internal/test-only seam — not a supported operator knob. Standalone wrapper, consulted only under `--user --seccomp` (default uid mapping on, loader resolved). When set, its value is run via `bash -c` **instead of both mapped-launch promotion probes** (mapped-launch creation + loader readability); exit 0 promotes the launch to the uid-mapped form, any other exit degrades to the mapping-less `--user` launch with the "seccomp loader not readable" warning. A seam-forced promotion still performs the real mapped launch, so tests drive the failure outcome through the seam or exercise the real path (`standalone/terminal-jail:596-620`) |
 | `TERMINAL_JAIL_PRIVATE_PROC` | unset | Standalone wrapper (TJ-GAP-088). `required` (or the `--private-proc` CLI flag) demands a private `/proc`: backend selection refuses — exit 2, command not run — unless the resolved backend can deliver one (private procfs is bwrap-only on this host class; the `unshare` `--user` path exposes the host `/proc`). Any other value is rejected with exit 2 before any namespace work. Unset, the historical behavior is unchanged. Every launch states the delivered view on stderr as `proc_view=private\|host\|platform-owned\|none` |
+| `TERMINAL_JAIL_REQUIRE_TIER` | unset | **Installer only** (`install.sh`, read at `install.sh:298`/`:492`). Fail-closed containment gate: demand a containment tier from the host probes instead of the default advisory report — `pidns` requires the PID-namespace probe (`pidns-capability-probe.py`) to report FULL, `fs` the filesystem-isolation probe, `full` both. Unset (default): the probes run as an **advisory report** — each verdict is printed, a missing or failing probe degrades to one honest line, and the install is never blocked. Set: an invalid value is rejected with exit 1 before anything is installed, and an unmet demand (probe missing, could not run, or does not classify FULL) fails the install with **exit 1 before the final `done.` line**, quoting the probe's own diagnosis. Enforced after the base install completes (`install.sh:1360-1420`) |
 
 ### systemd hardening (lightweight — 4 active directives)
 
@@ -392,6 +393,8 @@ echo '{"command": "ls"}' | python3 plugin/terminal_jail/interruptor_bridge.py
 | `disabled` | Bypass the interruptor entirely |
 
 Set via `TERMINAL_JAIL_INTERRUPTOR_MODE`, or `--no-interruptor` on the CLI.
+
+**Engine logging level.** The interruptor engine's own log level is set via `TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL` (default `WARNING`; read at `plugin/terminal_jail/interruptor/config.py:53`). Accepted values are the standard Python log levels, matched upper-cased (an unset or empty value falls back to `WARNING` — `config.py:39`). The level applies to the interruptor engine's logging configuration; note that today `log_level` is carried on the engine `Config` and no other module reads it.
 
 ```bash
 USE_INTERRUPTOR=1 ./standalone/terminal-jail echo "hello"

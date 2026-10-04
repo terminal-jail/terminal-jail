@@ -47,6 +47,14 @@ cd terminal-jail
 ./install.sh --uninstall
 ```
 
+**Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
+demand a containment tier instead of the default advisory probe report —
+`pidns` requires the PID-namespace probe to classify FULL, `fs` the
+filesystem-isolation probe, `full` both (`install.sh:298`, `:492`). Unset, the
+probe report never blocks the install. When set and the demand is unmet (probe
+missing, could not run, or not FULL), the install fails with exit 1 **before**
+the final `done.` line, quoting the probe's own diagnosis.
+
 Rule packs are validated before anything is written. Installing a YAML pack
 needs `python3` with **PyYAML** — on a bare host install the distro package
 (`apt install python3-yaml`, `dnf install python3-yaml`) or run
