@@ -29,7 +29,7 @@ guards:
   allow_skips: true
 evaluator:
   max_iterations: 300  # TICK-312: 200 exhausted on REVIEW-TJ-002 (5-row blocked-premise audit) -> INCOMPLETE by cap
-  max_time: 60m
+  max_time: 90m  # 60m exhausted on TJ-DF-029 (ff0ddbe3): all 6 criteria verified, cap hit during full-suite wrap-up
   # TIME RUNG (tick #302): the DF-TERMINAL-JAIL-31 tier2 judge hit `Time cap (45m)
   # exceeded (45m5s elapsed)` -> INCOMPLETE with 4/5 criteria PASS, but that run
   # was executed CONCURRENTLY with the DF-TERMINAL-JAIL-23 judge on the same box
@@ -44,7 +44,10 @@ evaluator:
   # -> 12M (tick #308, 1.5x step per cached answer 2269): the INT-CI-001 judge hit
   # `Cap exceeded: Input token budget (8.0M) exceeded (8.1M used)` -> INCOMPLETE
   # with tier1 PASS, no criteria split — same starvation signature, one rung up.
-  max_input_tokens: 12M
+  # -> 18M (tick #330, 1.5x step): the TJ-DF-029 judge hit the resource cap
+  # during its full-suite wrap-up -> INCOMPLETE with all 6 criteria already
+  # verified PASS in detail (verdict 83255120). Starvation signature, one rung up.
+  max_input_tokens: 18M
   max_output_tokens: 0.4M
   tool_call_weight: 0.1
   fast_track: auto
