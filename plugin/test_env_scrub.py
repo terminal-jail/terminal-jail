@@ -42,6 +42,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -126,11 +127,51 @@ def _payload_env_names(result: subprocess.CompletedProcess[str]) -> set[str]:
 
 # ── Host capability probes (grep-able skip markers) ─────────────────────────
 
+# QA-TERMINAL-JAIL-12: the gate below probes RAW unprivileged unshare --pid
+# (the capability the explicit unshare backend needs). That capability is
+# orthogonal to scripts/pidns-capability-probe.py's FULL/DEGRADED
+# classification, which runs the wrapper's bare launch and follows the AUTO
+# backend to bwrap on hosts that deny raw unshare. On such hosts (this dev
+# box: probe says FULL, unshare is EPERM) the skip below fires — so its
+# marker names the capability actually missing, HOST-DEGRADED-UNSHARE, and
+# never the probe's HOST-DEGRADED-PIDNS (reserved for the probe's bare-launch
+# classification; README "E2E battery", specs/threat-model.md).
+_BARE_UNSHARE_ARGV = ("unshare", "--pid", "--fork", "--mount-proc", "true")
+
+BARE_UNSHARE_SKIP = (
+    "HOST-DEGRADED-UNSHARE: host refused unprivileged unshare --pid "
+    "namespace creation — env scrub unverifiable through the bare unshare "
+    "launch here (the fail-closed contract is pinned by "
+    "test_bare_mode_fails_closed_with_poisoned_env; note "
+    "scripts/pidns-capability-probe.py may still classify this host FULL "
+    "via the bwrap auto backend — this marker deliberately names the "
+    "missing raw-unshare capability, not the probe's bare-launch "
+    "classification)"
+)
+
+
+def _probe_classification() -> str:
+    """First token of scripts/pidns-capability-probe.py's verdict
+    (FULL/DEGRADED/UNKNOWN/JAIL-AWARE), '' when the probe cannot run."""
+    probe = PROJECT_ROOT / "scripts" / "pidns-capability-probe.py"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(probe)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip().split(":", 1)[0].split(" ", 1)[0]
+
 
 def _bare_unshare_works() -> bool:
     try:
         probe = subprocess.run(
-            ["unshare", "--pid", "--fork", "--mount-proc", "true"],
+            list(_BARE_UNSHARE_ARGV),
             capture_output=True,
             timeout=30,
             check=False,
@@ -437,13 +478,41 @@ class TestBareBackendScrub(_BackendScrubBase):
 
     def test_hook_vars_never_reach_the_jail(self) -> None:
         if not _bare_unshare_works():
-            pytest.skip(
-                "HOST-DEGRADED-PIDNS: host refused bare PID namespace "
-                "creation — env scrub unverifiable through the bare launch "
-                "here (the fail-closed contract is pinned by "
-                "test_bare_mode_fails_closed_with_poisoned_env)"
-            )
+            pytest.skip(BARE_UNSHARE_SKIP)
         super().test_hook_vars_never_reach_the_jail()
+
+    def test_skip_marker_matches_capability_probe(self) -> None:
+        """QA-TERMINAL-JAIL-12: HOST-DEGRADED-PIDNS is the marker the
+        pidns-capability-probe classification drives (README "E2E battery";
+        specs/threat-model.md host-class notes). This class pins the
+        explicit unshare backend, which needs raw unprivileged
+        `unshare --pid` — a capability ORTHOGONAL to that classification:
+        a host can classify FULL via the bwrap auto backend while denying
+        raw unshare entirely (this dev box does). So the skip here must
+        name the capability actually missing (HOST-DEGRADED-UNSHARE),
+        never the probe's marker, and the gate must stay the raw-unshare
+        probe — gating on the probe's classification instead would launch
+        the unshare backend on probe-FULL/unshare-denying hosts and FAIL
+        with rc=2."""
+        # Marker vocabulary: the probe's marker is reserved for the probe.
+        assert "HOST-DEGRADED-UNSHARE" in BARE_UNSHARE_SKIP
+        assert "HOST-DEGRADED-PIDNS" not in BARE_UNSHARE_SKIP.split("reserved")[0], (
+            "unshare-backend skip must not claim the probe's classification"
+        )
+        # Gate pin: the raw-unshare argv, not the probe/CLI classification.
+        assert _BARE_UNSHARE_ARGV == (
+            "unshare",
+            "--pid",
+            "--fork",
+            "--mount-proc",
+            "true",
+        )
+        # Live divergence arm — has teeth exactly on hosts like this one:
+        # probe-FULL while raw unshare is denied is the reported
+        # contradiction; there the skip decision is made by the raw gate
+        # and the marker must be the unshare one.
+        if _probe_classification() == "FULL" and not _bare_unshare_works():
+            assert BARE_UNSHARE_SKIP.startswith("HOST-DEGRADED-UNSHARE:")
 
     def test_bare_mode_fails_closed_with_poisoned_env(self) -> None:
         """TJ-GAP-034 contract preserved: on a host that denies the bare
