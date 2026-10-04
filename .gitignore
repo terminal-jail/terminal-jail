@@ -26,3 +26,8 @@ logs/
 
 .coding-hermes/board/*.parquet
 .coding-hermes/board/*.duckdb
+
+# GitReins judge verdict/summary artifacts — local run history, carries internal
+# identifiers (host paths, hostnames, worktree names). config.yaml and tasks.yaml
+# stay tracked; this directory does not (REVIEW-TJ-007).
+.gitreins/history/
