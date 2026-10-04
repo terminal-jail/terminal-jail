@@ -1,0 +1,13 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-10-04-04-11-26",
+  "wave_budget": 3,
+  "created_at": "2026-10-04T04:20:00-05:00",
+  "tasks": [
+    {"task_id": "TJ-GAP-087", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-087", "branch": "wt/TJ-GAP-087", "base_sha": "0cddb49", "files": ["install.sh", "plugin/test_install.py (extend)"]},
+    {"task_id": "DOC-8", "worktree": "/home/kara/worktrees/terminal-jail-DOC-8", "branch": "wt/DOC-8", "base_sha": "0cddb49", "files": ["README.md (capability-matrix section)", "docs/capability-matrix.md (new)"]}
+  ],
+  "reclassified": [
+    {"task_id": "INT-CI-2", "reason": "Work already landed (commits b08d0ae, 442013a; CI run on 0cddb49 green incl. coverage job). Foreman closes the row with evidence, no worker dispatched."}
+  ],
+  "status": "dispatched"
+}
