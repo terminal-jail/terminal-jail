@@ -27,6 +27,13 @@ logs/
 .coding-hermes/board/*.parquet
 .coding-hermes/board/*.duckdb
 
+# DAGger engine — rebuildable local run store (held open by the harness's
+# dagger process when it runs with this checkout as cwd; nothing tracked
+# reads it). Same class as the board/Hilo caches above.
+dagger.db
+dagger.db-shm
+dagger.db-wal
+
 # GitReins judge verdict/summary artifacts — local run history, carries internal
 # identifiers (host paths, hostnames, worktree names). config.yaml and tasks.yaml
 # stay tracked; this directory does not (REVIEW-TJ-007).

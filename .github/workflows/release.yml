@@ -1,0 +1,147 @@
+# Release publishing for terminal-jail.
+#
+# The ONLY publish path is a pushed v* tag (see docs/releasing.md for the
+# full operator runbook). workflow_dispatch exists for re-running a cut:
+# supply the `tag` input — the checkout and the release both target that
+# tag's tree, never the branch the workflow was dispatched from.
+#
+# This workflow fails LOUDLY (a named ::error:: and a non-zero exit) when:
+#   - GITHUB_TOKEN is empty or lacks push (contents: write) permission,
+#   - the ref is not a vX.Y.Z tag,
+#   - pyproject.toml's version does not match the tag,
+#   - the created Release is missing any expected artifact.
+#
+# It never bumps pyproject.toml and never creates tags — both stay manual,
+# owner-authorized steps (RELEASE-TJ-008; docs/releasing.md).
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (v*); defaults to the ref this was dispatched on"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build sdist + wheel and publish the GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        # DISPATCH_TAG rides through env (never interpolated into the script
+        # text) so a hand-typed workflow_dispatch input cannot inject shell.
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TAG="${DISPATCH_TAG}"
+            if [ -z "${TAG}" ]; then
+              echo "::error::workflow_dispatch requires the 'tag' input (an existing v* tag)" >&2
+              exit 1
+            fi
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "${TAG}" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "::error::refusing to release '${TAG}': not a vX.Y.Z tag" >&2
+              exit 1
+              ;;
+          esac
+          echo "Releasing tag: ${TAG}"
+          echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Check out the tag being released
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Preflight — verify the token may create releases
+        # Fail here, before spending minutes building, if publishing cannot
+        # work. No silent no-ops: a release either publishes or the run is red.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "${GITHUB_TOKEN}" ]; then
+            echo "::error::GITHUB_TOKEN is empty — release publishing is not configured. Keep 'permissions: contents: write' on this workflow and allow Actions to create releases (repo Settings → Actions → General → Workflow permissions)." >&2
+            exit 1
+          fi
+          if ! gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions.push' 2>/dev/null | grep -qi true; then
+            echo "::error::GITHUB_TOKEN for ${GITHUB_REPOSITORY} lacks push (contents:write) permission — 'gh release create' would be refused. Fix repo Settings → Actions → General → Workflow permissions." >&2
+            exit 1
+          fi
+          echo "OK: token can push to ${GITHUB_REPOSITORY} — release creation permitted"
+
+      - name: Verify pyproject version matches the tag
+        # Read-only check: this workflow NEVER bumps the version (the bump is
+        # the manual version-prep commit in docs/releasing.md step 1).
+        run: |
+          WANT="${RELEASE_TAG#v}"
+          HAVE="$(python3 - <<'PY'
+          import sys, tomllib
+          try:
+              with open("pyproject.toml", "rb") as fh:
+                  print(tomllib.load(fh)["project"]["version"])
+          except Exception as exc:
+              sys.exit(f"could not read pyproject.toml [project].version: {exc}")
+          PY
+          )"
+          if [ "${HAVE}" != "${WANT}" ]; then
+            echo "::error::pyproject.toml version (${HAVE}) does not match tag ${RELEASE_TAG} (expected ${WANT}). Land the version-prep commit first — this workflow never bumps it." >&2
+            exit 1
+          fi
+          echo "OK: pyproject version ${HAVE} == tag ${RELEASE_TAG}"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Checksum the artifacts
+        run: |
+          cd dist
+          sha256sum -- *.tar.gz *.whl > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create the GitHub Release and upload artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${RELEASE_TAG}" dist/* \
+            --verify-tag \
+            --title "terminal-jail ${RELEASE_TAG}" \
+            --generate-notes
+
+      - name: Verify the Release carries every artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXPECTED="$(cd dist && ls | sort)"
+          ACTUAL="$(gh release view "${RELEASE_TAG}" --json assets --jq '[.assets[].name] | sort | join("\n")')"
+          if [ "${EXPECTED}" != "${ACTUAL}" ]; then
+            echo "::error::Release ${RELEASE_TAG} asset list mismatch — refusing to report success." >&2
+            echo "--- expected ---" >&2
+            echo "${EXPECTED}" >&2
+            echo "--- actual ---" >&2
+            echo "${ACTUAL}" >&2
+            exit 1
+          fi
+          echo "OK: Release ${RELEASE_TAG} carries:"
+          echo "${ACTUAL}"
