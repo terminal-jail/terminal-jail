@@ -393,20 +393,31 @@ def test_tmp_files_cleaned_after_install(install_script: Path, tmp_path: Path) -
 
 @pytest.mark.standalone_cli
 def test_release_mode_requires_opt_in(install_script: Path, tmp_path: Path) -> None:
-    """Absolute-path invocation (curl | sh equivalent) without
-    TERMINAL_JAIL_USE_RELEASE=1 must refuse instead of hitting the dead
-    release URL."""
+    """Curl|sh equivalent: the script alone OUTSIDE any checkout, without
+    TERMINAL_JAIL_USE_RELEASE=1, must refuse instead of hitting the dead
+    release URL. (TJ-GAP-087: the invocation is by absolute path from a
+    foreign cwd — but the refusal is now only honest when the script really
+    is checkout-less; an in-checkout absolute invocation installs.)"""
     install_dir = tmp_path / "install-dir"
     install_dir.mkdir()
     server_dir = _make_server_dir(tmp_path)
     test_bin = _setup_full_testbin(tmp_path, server_dir)
 
+    # The defect TJ-GAP-087 fixed was exactly this invocation shape running
+    # against the REAL in-repo install.sh; reproduce it against a copy that
+    # sits outside any checkout, which is the invocation the refusal is FOR.
+    lone_dir = tmp_path / "lone"
+    lone_dir.mkdir()
+    lone_script = lone_dir / "install.sh"
+    shutil.copyfile(install_script, lone_script)
+
     result = subprocess.run(
-        ["sh", str(install_script)],
+        ["sh", str(lone_script)],
         capture_output=True,
         text=False,
         check=False,
         timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(tmp_path),
         env={
             **os.environ,
             "HOME": str(tmp_path),

@@ -436,11 +436,32 @@ case "${0:-}" in
         if [ -n "$0" ] && [ -f "$0" ]; then
             SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd 2>/dev/null || true)"
         fi
-        if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/standalone/terminal-jail" ]; then
-            LOCAL_WRAPPER="$SCRIPT_DIR/standalone/terminal-jail"
+        ;;
+    *)
+        # TJ-GAP-087: the checkout is wherever the SCRIPT lives, not wherever
+        # the caller stands. An absolute-path invocation from a foreign cwd is
+        # the natural shape (scripts/, cron, remote one-liners) and resolves
+        # through the script's own location ($0 — POSIX-safe; this branch must
+        # not use BASH_SOURCE arrays, the installer runs under sh/dash too).
+        # An explicit TERMINAL_JAIL_USE_RELEASE=1 opt-in suppresses checkout
+        # resolution entirely: release mode is the caller's explicit contract
+        # (release-mode tests run this script by absolute path and MUST see
+        # release assets, never a silently-adopted adjacent checkout). When
+        # the script sits inside a checkout and release mode was NOT chosen,
+        # install from the checkout; otherwise leave SCRIPT_DIR empty so the
+        # release-mode gate below refuses honestly (a lone install.sh really
+        # has nothing to install from).
+        if [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ]; then
+            _self="$0"
+            if [ -f "$_self" ]; then
+                SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$_self")" && pwd 2>/dev/null || true)"
+            fi
         fi
         ;;
 esac
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/standalone/terminal-jail" ]; then
+    LOCAL_WRAPPER="$SCRIPT_DIR/standalone/terminal-jail"
+fi
 
 # Rule packs (TJ-GAP-061) ship in the repository checkout only: the pack files
 # and the YAML validator live next to install.sh. Release mode has no pack
@@ -1314,6 +1335,20 @@ SHELLRC
 esac
 
 echo "terminal-jail installer: done."
+
+# --- TJ-GAP-087: report the containment tier the host actually enforces ------
+# The installer is the operator's first contact with the tool; an install that
+# does not say what the host can enforce invites a deployment that assumes
+# containment it does not have. The probe is advisory: a missing or failing
+# probe degrades to one honest line and never fails the install.
+PROBE="$SCRIPT_DIR/scripts/fs-isolation-probe.py"
+if [ -n "$SCRIPT_DIR" ] && [ -f "$PROBE" ]; then
+    echo "terminal-jail installer: containment tier report (fs-isolation-probe):"
+    python3 "$PROBE" 2>/dev/null || \
+        echo "terminal-jail installer: fs-isolation-probe could not run on this host — run it manually: python3 $PROBE"
+else
+    echo "terminal-jail installer: containment tier: unknown (fs-isolation-probe not present in this install source)"
+fi
 
 # --- DF-TERMINAL-JAIL-21 exit-code contract ----------------------------------
 # The base install has completed. If any requested rule pack was skipped, print
