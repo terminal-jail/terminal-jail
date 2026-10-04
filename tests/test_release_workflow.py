@@ -217,33 +217,36 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     assert "READY:" in proc.stdout
 
 
-def test_check_script_fails_clearly_on_nonexistent_tag() -> None:
+def test_check_script_fails_clearly_on_existing_tag() -> None:
     """FAILURE path: an already-existing tag must fail with the reason named.
 
-    v1.2.0 is in the repo's tag history. CI checkouts do NOT fetch tags
-    (actions/checkout@v4 default), so the pre-existence probe goes through
-    `git ls-remote origin` which works in shallow/tagless checkouts too.
-    If a future cleanup drops the tag from the remote, fall back to v1.0.0.
+    CI checkouts do NOT fetch tags (actions/checkout@v4 default) and have no
+    network-visible guarantee about historical tags, so the test creates its
+    own local tag, asserts the refusal, and removes it. The tag-existence
+    check runs BEFORE any network access in the script, so this is hermetic.
     """
-    for tag in ("v1.2.0", "v1.0.0"):
-        remote_rc = subprocess.run(
-            ["git", "ls-remote", "--exit-code", "origin", f"refs/tags/{tag}"],
+    tmp_tag = "v9.9.9-test-existing-refusal"
+    make = subprocess.run(
+        ["git", "tag", tmp_tag],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert make.returncode == 0, f"failed to create temp tag: {make.stderr}"
+    try:
+        proc = _run_script(PROJECT_ROOT, tmp_tag)
+        assert proc.returncode == 1
+        assert "already exists" in proc.stderr
+    finally:
+        subprocess.run(
+            ["git", "tag", "-d", tmp_tag],
             cwd=PROJECT_ROOT,
             check=False,
             capture_output=True,
-            text=True,
-            timeout=60,
-        ).returncode
-        if remote_rc == 0:
-            existing_tag = tag
-            break
-    else:
-        raise AssertionError(
-            "no historical tag found on origin — fix the test's tag fallback list"
+            timeout=30,
         )
-    proc = _run_script(PROJECT_ROOT, existing_tag)
-    assert proc.returncode == 1
-    assert "already exists" in proc.stderr
 
 
 def test_check_script_fails_clearly_on_wrong_version_tag() -> None:
