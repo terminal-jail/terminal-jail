@@ -295,6 +295,13 @@ Environment (all optional):
                                local checkout (rule packs need the checkout)
   TERMINAL_JAIL_VERSION        version to install (default: 1.2.0)
   TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
+  TERMINAL_JAIL_REQUIRE_TIER   demand a containment tier instead of the default
+                               advisory report: 'pidns' requires the PID-
+                               namespace probe to print FULL, 'fs' the
+                               filesystem-isolation probe, 'full' both. When
+                               set and the demanded tier is not met, the
+                               install FAILS (exit 1) before 'done.'; when
+                               unset the report is advisory and never blocks.
   TERMINAL_JAIL_HERMES_PLUGIN_DIR  --hermes-plugin target directory
                                (default: $HOME/.hermes/plugins/terminal-jail)
 USAGE
@@ -476,6 +483,21 @@ fi
 if [ -z "${HOME:-}" ]; then
     echo "terminal-jail installer: HOME is not set; cannot determine install directory" >&2
     exit 1
+fi
+
+# TJ-GAP-087 criterion 3: the containment-tier demand is validated at PARSE
+# time like every other caller input (a typo must refuse before anything is
+# installed, not after). The demanded tier is enforced after the base install
+# completes; see the tier-report block near the end.
+DEMAND="${TERMINAL_JAIL_REQUIRE_TIER:-}"
+if [ -n "$DEMAND" ]; then
+    case "$DEMAND" in
+        pidns|fs|full) ;;
+        *)
+            echo "terminal-jail installer: TERMINAL_JAIL_REQUIRE_TIER='$DEMAND' is invalid — valid values: pidns, fs, full" >&2
+            exit 1
+            ;;
+    esac
 fi
 
 if [ "$(uname -s)" != "Linux" ]; then
@@ -1334,21 +1356,102 @@ SHELLRC
         ;;
 esac
 
-echo "terminal-jail installer: done."
-
 # --- TJ-GAP-087: report the containment tier the host actually enforces ------
 # The installer is the operator's first contact with the tool; an install that
 # does not say what the host can enforce invites a deployment that assumes
-# containment it does not have. The probe is advisory: a missing or failing
-# probe degrades to one honest line and never fails the install.
-PROBE="$SCRIPT_DIR/scripts/fs-isolation-probe.py"
-if [ -n "$SCRIPT_DIR" ] && [ -f "$PROBE" ]; then
-    echo "terminal-jail installer: containment tier report (fs-isolation-probe):"
-    python3 "$PROBE" 2>/dev/null || \
-        echo "terminal-jail installer: fs-isolation-probe could not run on this host — run it manually: python3 $PROBE"
-else
-    echo "terminal-jail installer: containment tier: unknown (fs-isolation-probe not present in this install source)"
+# containment it does not have. By default the report is ADVISORY: a missing or
+# failing probe degrades to one honest line and never fails the install.
+# TERMINAL_JAIL_REQUIRE_TIER (criteria 3) turns the report into a demand for
+# the named tier(s): pidns, fs, or full (both). When set and a demanded probe
+# is missing, cannot run, or does NOT classify FULL, the install fails closed
+# with exit 1 BEFORE 'done.' — an operator who demanded a tier must never be
+# handed a successful install that does not have it.
+run_tier_probe() {
+    # $1 = probe script name, $2 = short tier label. Prints the probe output
+    # when it runs; on a missing probe or a failing run prints one honest
+    # line and leaves the verdict variable TIER_VERDICT empty.
+    probe_path="$SCRIPT_DIR/scripts/$1"
+    TIER_VERDICT=""
+    # Set on EVERY path (set -eu: the caller assigns from these even when the
+    # probe is missing or failed — an unset variable would abort under dash).
+    TIER_DETAIL=""
+    if [ -z "$SCRIPT_DIR" ] || [ ! -f "$probe_path" ]; then
+        echo "terminal-jail installer: $2 containment tier: unknown (probe not present in this install source)"
+        return 0
+    fi
+    if ! probe_out="$(python3 "$probe_path" 2>/dev/null)"; then
+        echo "terminal-jail installer: $2 containment tier: unknown ($1 could not run on this host — run it manually: python3 $probe_path)"
+        return 0
+    fi
+    echo "terminal-jail installer: containment tier report (${1%.py}):"
+    printf '%s\n' "$probe_out"
+    TIER_VERDICT="$(printf '%s\n' "$probe_out" | grep -o 'FULL' | head -n 1)"
+    # What the probe actually said (first line) — the demand-failure message
+    # quotes it so the operator sees the probe's own diagnosis, not just the
+    # fact of the refusal.
+    TIER_DETAIL="$(printf '%s\n' "$probe_out" | head -n 1)"
+}
+
+DEMAND="${TERMINAL_JAIL_REQUIRE_TIER:-}"
+PIDNS_VERDICT=""
+FS_VERDICT=""
+PIDNS_DETAIL=""
+FS_DETAIL=""
+case "$DEMAND" in
+    fs)
+        run_tier_probe fs-isolation-probe.py fs
+        FS_VERDICT="$TIER_VERDICT"
+        FS_DETAIL="$TIER_DETAIL"
+        ;;
+    pidns)
+        run_tier_probe pidns-capability-probe.py pidns
+        PIDNS_VERDICT="$TIER_VERDICT"
+        PIDNS_DETAIL="$TIER_DETAIL"
+        ;;
+    full)
+        run_tier_probe fs-isolation-probe.py fs
+        FS_VERDICT="$TIER_VERDICT"
+        FS_DETAIL="$TIER_DETAIL"
+        run_tier_probe pidns-capability-probe.py pidns
+        PIDNS_VERDICT="$TIER_VERDICT"
+        PIDNS_DETAIL="$TIER_DETAIL"
+        ;;
+    *)
+        # Advisory path (default): both probes run, each verdict printed, the
+        # install never blocked. A failing probe degrades to one honest line.
+        run_tier_probe fs-isolation-probe.py fs
+        FS_VERDICT="$TIER_VERDICT"
+        FS_DETAIL="$TIER_DETAIL"
+        run_tier_probe pidns-capability-probe.py pidns
+        PIDNS_VERDICT="$TIER_VERDICT"
+        PIDNS_DETAIL="$TIER_DETAIL"
+        ;;
+esac
+
+if [ -n "$DEMAND" ]; then
+    demand_failed=0
+    case "$DEMAND" in
+        fs|full)
+            if [ -z "$FS_VERDICT" ]; then
+                echo "terminal-jail installer: TERMINAL_JAIL_REQUIRE_TIER=$DEMAND demanded the fs containment tier but fs-isolation-probe did not report FULL — probe said: ${FS_DETAIL:-nothing (probe missing or could not run)}" >&2
+                demand_failed=1
+            fi
+            ;;
+    esac
+    case "$DEMAND" in
+        pidns|full)
+            if [ -z "$PIDNS_VERDICT" ]; then
+                echo "terminal-jail installer: TERMINAL_JAIL_REQUIRE_TIER=$DEMAND demanded the pidns containment tier but pidns-capability-probe did not report FULL — probe said: ${PIDNS_DETAIL:-nothing (probe missing or could not run)}" >&2
+                demand_failed=1
+            fi
+            ;;
+    esac
+    if [ "$demand_failed" -eq 1 ]; then
+        exit 1
+    fi
 fi
+
+echo "terminal-jail installer: done."
 
 # --- DF-TERMINAL-JAIL-21 exit-code contract ----------------------------------
 # The base install has completed. If any requested rule pack was skipped, print

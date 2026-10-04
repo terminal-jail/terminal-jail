@@ -433,6 +433,388 @@ def test_release_mode_requires_opt_in(install_script: Path, tmp_path: Path) -> N
     assert not (install_dir / "terminal-jail").exists()
 
 
+# ── TJ-GAP-087: containment-tier report + TERMINAL_JAIL_REQUIRE_TIER ───────
+#
+# After a successful install the installer reports the containment tier the
+# host actually enforces: BOTH probes (fs-isolation-probe.py, the filesystem
+# tier; pidns-capability-probe.py, the PID-namespace tier). The report is
+# advisory by default — a missing or failing probe degrades to one honest line
+# and never fails the install. TERMINAL_JAIL_REQUIRE_TIER turns it into a
+# demand: pidns=full, fs=full, or 'full' (both); when a demanded probe does
+# not print FULL the install fails closed BEFORE 'done.'.
+#
+# The probe subprocesses are the red-provable seam: every test here swaps in a
+# FAKE probe next to a scratch checkout (never the real probes, whose verdict
+# depends on the live host) and pins the installer's classification against
+# the fake's output. A probe's real output shape is one single verdict line
+# (fs: "FULL: uid-mapped user namespace denies caller-owned 600 reads and
+# home writes" / "DEGRADED: partial isolation (...)"; pidns: exactly "FULL" or
+# "DEGRADED") — the fixtures below mirror that shape.
+
+# A probe stub: prints the verdict matching its own filename (the installer
+# invokes each probe by path, so argv[0] tells the stub which tier it stands
+# in for) and exits 0 (both real probes always exit 0 — they are classifiers,
+# not gates).
+_PROBE_STUB = (
+    "#!/usr/bin/env python3\n"
+    "import os, sys\n"
+    "key = (\n"
+    "    'TJ_PROBE_VERDICT_FS'\n"
+    "    if 'fs-isolation' in sys.argv[0]\n"
+    "    else 'TJ_PROBE_VERDICT_PIDNS'\n"
+    ")\n"
+    "print(os.environ.get(key, 'DEGRADED'))\n"
+    "sys.exit(0)\n"
+)
+
+
+def _make_scratch_checkout(
+    tmp_path: Path,
+    *,
+    fs_verdict: str | None = "DEGRADED: partial isolation (fixture); diagnose",
+    pidns_verdict: str | None = "DEGRADED",
+    omit_fs_probe: bool = False,
+    omit_pidns_probe: bool = False,
+    include_scripts_dir: bool = True,
+) -> Path:
+    """A scratch checkout enough like the repo for a local-mode install:
+    a COPY of install.sh (the installer resolves its checkout from $0's own
+    location, not the cwd — running the repo's script by absolute path would
+    silently adopt the real tree's probes and wrapper, exactly the shape
+    test_release_mode_requires_opt_in pins), standalone/terminal-jail (the
+    LOCAL_WRAPPER gate), the plugin/terminal_jail bridge tree, and scripts/
+    with fake probes. Never touches the real tree — the install runs against
+    this copy. Returns the checkout; run <checkout>/install.sh."""
+    checkout = tmp_path / "scratch-checkout"
+    (checkout / "standalone").mkdir(parents=True)
+    # The real wrapper's exact shebang — the installer's integrity check
+    # refuses anything whose first line is not "#!/usr/bin/env bash".
+    (checkout / "standalone" / "terminal-jail").write_text("#!/usr/bin/env bash\n")
+    (checkout / "plugin" / "terminal_jail").mkdir(parents=True)
+    (checkout / "plugin" / "terminal_jail" / ".keep").write_text("")
+    shutil.copyfile(PROJECT_ROOT / "install.sh", checkout / "install.sh")
+    scripts = checkout / "scripts"
+    if include_scripts_dir:
+        scripts.mkdir()
+    if fs_verdict is not None and not omit_fs_probe:
+        probe = scripts / "fs-isolation-probe.py"
+        probe.write_text(_PROBE_STUB)
+        probe.chmod(0o755)
+    if pidns_verdict is not None and not omit_pidns_probe:
+        probe = scripts / "pidns-capability-probe.py"
+        probe.write_text(_PROBE_STUB)
+        probe.chmod(0o755)
+    return checkout
+
+
+def _install_env_with_probe_verdicts(
+    tmp_path: Path,
+    fs_verdict: str,
+    pidns_verdict: str,
+) -> dict[str, str]:
+    """Scratch install env carrying the verdicts both fake probes print.
+
+    Each stub picks its verdict by its own filename (fs-isolation-* vs the
+    pidns probe), so one env pair drives both probe runs of one install."""
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir(exist_ok=True)
+    return {
+        **os.environ,
+        "HOME": str(home),
+        "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        "TERMINAL_JAIL_RULES_DIR": "",
+        "TJ_PROBE_VERDICT_FS": fs_verdict,
+        "TJ_PROBE_VERDICT_PIDNS": pidns_verdict,
+    }
+
+
+@pytest.mark.standalone_cli
+def test_install_reports_both_probes_advisory(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """Default (no demand): the install summary carries BOTH containment-tier
+    verdicts — fs-isolation-probe AND pidns-capability-probe — and DEGRADED
+    output from both never fails the install (advisory contract)."""
+    checkout = _make_scratch_checkout(
+        tmp_path,
+        fs_verdict="DEGRADED: partial isolation (fixture); diagnose",
+        pidns_verdict="DEGRADED",
+    )
+    env = _install_env_with_probe_verdicts(tmp_path, "DEGRADED", "DEGRADED")
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "containment tier report (fs-isolation-probe)" in out, out
+    assert "containment tier report (pidns-capability-probe)" in out, out
+    # The probes' verdict lines are forwarded into the summary.
+    assert "DEGRADED" in out, out
+    # Advisory: a degraded host still installs successfully.
+    assert "done." in out, out
+
+
+@pytest.mark.standalone_cli
+def test_advisory_missing_probe_is_one_honest_line(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A probe not present in the install source degrades to one honest line
+    and the install still exits 0 (advisory semantics — never blocks)."""
+    checkout = _make_scratch_checkout(
+        tmp_path, omit_fs_probe=True, omit_pidns_probe=True
+    )
+    env = _install_env_with_probe_verdicts(tmp_path, "FULL", "FULL")
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert (
+        "pidns containment tier: unknown (probe not present in this install source)"
+        in out
+    ), out
+    assert (
+        "fs containment tier: unknown (probe not present in this install source)" in out
+    ), out
+    assert "done." in out, out
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_pidns_fails_closed_on_degraded(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TERMINAL_JAIL_REQUIRE_TIER=pidns on a DEGRADED pidns probe: the install
+    FAILS (exit 1) with a message naming the demanded tier AND what the probe
+    said, and 'done.' never prints."""
+    checkout = _make_scratch_checkout(
+        tmp_path, fs_verdict="FULL: fixture full", pidns_verdict="DEGRADED"
+    )
+    env = _install_env_with_probe_verdicts(
+        tmp_path,
+        "FULL: fixture full",
+        "DEGRADED: namespace creation failed, try --user",
+    )
+    env["TERMINAL_JAIL_REQUIRE_TIER"] = "pidns"
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    err = result.stderr.decode("utf-8", "replace")
+
+    assert result.returncode == 1, (out, err)
+    assert (
+        "TERMINAL_JAIL_REQUIRE_TIER=pidns demanded the pidns containment tier" in err
+    ), err
+    # The refusal quotes what the probe actually said.
+    assert "DEGRADED: namespace creation failed, try --user" in err, err
+    # Fail-closed ordering: the demand check fails the install BEFORE 'done.'.
+    assert "done." not in out, out
+    assert "done." not in err, err
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_full_fails_closed_on_degraded_fs(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """'full' demands BOTH tiers: a DEGRADED fs probe fails the install even
+    when pidns is FULL — the message names the fs tier and quotes the probe."""
+    checkout = _make_scratch_checkout(
+        tmp_path,
+        fs_verdict="DEGRADED: partial isolation (fixture); diagnose",
+        pidns_verdict="FULL",
+    )
+    env = _install_env_with_probe_verdicts(
+        tmp_path,
+        "DEGRADED: partial isolation (fixture); diagnose",
+        "FULL",
+    )
+    env["TERMINAL_JAIL_REQUIRE_TIER"] = "full"
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    err = result.stderr.decode("utf-8", "replace")
+
+    assert result.returncode == 1, (out, err)
+    assert "TERMINAL_JAIL_REQUIRE_TIER=full demanded the fs containment tier" in err, (
+        err
+    )
+    assert "partial isolation" in err, err
+    assert "done." not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_full_succeeds_when_both_full(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """The met arm of the demand: both probes FULL + 'full' -> exit 0, both
+    report lines printed, install completes."""
+    checkout = _make_scratch_checkout(
+        tmp_path,
+        fs_verdict="FULL: uid-mapped user namespace denies caller-owned 600 reads and home writes",
+        pidns_verdict="FULL",
+    )
+    env = _install_env_with_probe_verdicts(
+        tmp_path,
+        "FULL: uid-mapped user namespace denies caller-owned 600 reads and home writes",
+        "FULL",
+    )
+    env["TERMINAL_JAIL_REQUIRE_TIER"] = "full"
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 0, out
+    assert "containment tier report (fs-isolation-probe)" in out, out
+    assert "containment tier report (pidns-capability-probe)" in out, out
+    assert "done." in out, out
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_missing_probe_fails_closed(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A demand with the probe ABSENT from the install source fails closed —
+    'unknown' never satisfies a demanded tier."""
+    checkout = _make_scratch_checkout(
+        tmp_path,
+        fs_verdict="FULL: fixture",
+        omit_pidns_probe=True,
+    )
+    env = _install_env_with_probe_verdicts(tmp_path, "FULL: fixture", "FULL")
+    env["TERMINAL_JAIL_REQUIRE_TIER"] = "pidns"
+    result = subprocess.run(
+        ["sh", str(checkout / "install.sh")],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(checkout),
+        env=env,
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    err = result.stderr.decode("utf-8", "replace")
+
+    assert result.returncode == 1, (out, err)
+    assert (
+        "TERMINAL_JAIL_REQUIRE_TIER=pidns demanded the pidns containment tier" in err
+    ), err
+    assert "did not report FULL" in err, err
+    assert "done." not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_invalid_value_refuses_before_install(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A typo'd demand refuses at parse time (nothing installed), naming the
+    valid values."""
+    env = _install_env_with_probe_verdicts(tmp_path, "FULL", "FULL")
+    env["TERMINAL_JAIL_REQUIRE_TIER"] = "pinds"
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(PROJECT_ROOT),
+        env=env,
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    assert result.returncode == 1, out
+    assert "TERMINAL_JAIL_REQUIRE_TIER='pinds' is invalid" in out, out
+    assert "valid values: pidns, fs, full" in out, out
+    assert "done." not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_require_tier_released_mode_without_probes_fails_closed(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """Release mode has no scripts/: an fs demand must FAIL CLOSED there —
+    the demand contract does not silently soften just because the install
+    source carries no probes."""
+    server_dir = _make_server_dir(tmp_path)
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "PATH": str(test_bin),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_REQUIRE_TIER": "fs",
+        },
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    err = result.stderr.decode("utf-8", "replace")
+
+    assert result.returncode == 1, (out, err)
+    assert "TERMINAL_JAIL_REQUIRE_TIER=fs demanded the fs containment tier" in err, err
+    assert "done." not in out, out
+
+
+@pytest.mark.standalone_cli
+def test_usage_documents_require_tier(install_script: Path) -> None:
+    """--help documents TERMINAL_JAIL_REQUIRE_TIER (the variable is a caller
+    contract; a variable the help never names cannot be relied on)."""
+    result = subprocess.run(
+        ["sh", str(install_script), "--help"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    assert "TERMINAL_JAIL_REQUIRE_TIER" in out, out
+    assert "pidns" in out and "full" in out, out
+
+
 # ── TJ-GAP-021: local install ships the bridge + seccomp loader ────────────
 
 
