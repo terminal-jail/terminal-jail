@@ -127,7 +127,8 @@ jobs:
           gh release create "${RELEASE_TAG}" dist/* \
             --verify-tag \
             --title "terminal-jail ${RELEASE_TAG}" \
-            --generate-notes
+            --generate-notes \
+            --notes-start-tag "$(git describe --abbrev=0 --match 'v*' "${RELEASE_TAG}^" 2>/dev/null || echo v1.2.0)"
 
       - name: Verify the Release carries every artifact
         env:

@@ -86,3 +86,22 @@ tag's tree and republishes.
 parses `.github/workflows/release.yml` (and `ci.yml`) with PyYAML and runs
 `scripts/release-cut-check.sh` against the tree, including its wrong-tag
 failure paths.
+
+### Documented dry-run proof (validation of the workflow, per RELEASE-TJ-008 gate)
+
+The workflow is validated statically rather than by running `act` (the
+publish step cannot run outside GitHub without a real token by design):
+
+1. YAML + schema check: `tests/test_release_workflow.py` parses both
+   workflows and asserts the trigger (`tags: ["v*"]`), permissions
+   (`contents: write`), build step (`python -m build`), checksum step
+   (`sha256sum -c`) and publish step (`gh release create`) are present —
+   this is the act-style structural dry-run and it runs in CI on every PR.
+2. Live script dry-run: `scripts/release-cut-check.sh v1.3.0` on a clean
+   tree exercises every pre-cut gate (tag absence, version match, CI
+   green) end to end without touching anything — its `--dry-run` behaviour
+   is the whole script: it is read-only by construction.
+3. The publish step itself is proven only by a real tag push (see steps
+   above: `gh release view vX.Y.Z` then `sha256sum -c` on the downloaded
+   assets). Nothing else counts — the workflow fails loudly rather than
+   silently no-op when permissions are missing.
