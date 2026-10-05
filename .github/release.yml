@@ -1,0 +1,20 @@
+# GitHub's release-notes config: categorizes the auto-generated notes that
+# `.github/workflows/release.yml` produces with `--generate-notes`.
+# Used at cut time; see docs/releasing.md.
+changelog:
+  exclude:
+    labels: []
+    authors: []
+  categories:
+    - title: Features
+      labels: [feat, feature, enhancement]
+    - title: Bug fixes
+      labels: [fix, bug]
+    - title: Security
+      labels: [security]
+    - title: Documentation
+      labels: [docs, documentation]
+    - title: Tests and CI
+      labels: [test, tests, ci]
+    - title: Other changes
+      labels: ["*"]
