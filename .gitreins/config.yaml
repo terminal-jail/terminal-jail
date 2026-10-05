@@ -29,7 +29,7 @@ guards:
   allow_skips: true
 evaluator:
   max_iterations: 300  # TICK-312: 200 exhausted on REVIEW-TJ-002 (5-row blocked-premise audit) -> INCOMPLETE by cap
-  max_time: 90m  # 60m exhausted on TJ-DF-029 (ff0ddbe3): all 6 criteria verified, cap hit during full-suite wrap-up
+  max_time: 135m  # 90m exhausted on RELTOOL (a2537729) INCOMPLETE-by-cap; prior: 60m exhausted on TJ-DF-029 (ff0ddbe3)
   # TIME RUNG (tick #302): the DF-TERMINAL-JAIL-31 tier2 judge hit `Time cap (45m)
   # exceeded (45m5s elapsed)` -> INCOMPLETE with 4/5 criteria PASS, but that run
   # was executed CONCURRENTLY with the DF-TERMINAL-JAIL-23 judge on the same box
