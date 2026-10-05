@@ -40,8 +40,18 @@ case "${TAG}" in
 esac
 
 # --- 1. tag must not already exist ---------------------------------------
+# Probe the LOCAL refs first; fall back to `git ls-remote origin` because
+# CI checkouts (actions/checkout@v4) do not fetch tags. A failed remote
+# probe (network/auth) counts as NOT existing — the script is read-only and
+# the tag push itself is the authoritative guard against reuse.
+tag_exists=""
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
-  fail "tag '${TAG}' already exists — a release tag is never reused. Pick the next version."
+  tag_exists=local
+elif git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+  tag_exists=remote
+fi
+if [ -n "${tag_exists}" ]; then
+  fail "tag '${TAG}' already exists (${tag_exists}) — a release tag is never reused. Pick the next version."
 else
   echo "OK: tag '${TAG}' does not exist yet"
 fi
@@ -86,6 +96,11 @@ if [ -n "${RUNS}" ]; then
   echo "(seam) TJ_RELEASE_CI_JSON set — using supplied CI run data instead of gh"
 elif ! command -v gh >/dev/null 2>&1; then
   fail "gh CLI not found on PATH — cannot verify CI status on HEAD (or supply TJ_RELEASE_CI_JSON)"
+elif ! gh auth status >/dev/null 2>&1; then
+  # gh present but unauthenticated (e.g. Actions runs): `gh run list` would
+  # print an error to stderr and emit no JSON, which must not leak a stack
+  # trace into this script's output. Fail with a NAMED reason instead.
+  fail "gh CLI is present but not authenticated — cannot verify CI status on HEAD (on CI, supply TJ_RELEASE_CI_JSON or run this check off-runner)"
 else
   HEAD_SHA="$(git rev-parse HEAD)"
   # Prefer a run for exactly this sha; fall back to branch-scoped runs when
