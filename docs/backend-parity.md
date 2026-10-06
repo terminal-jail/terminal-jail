@@ -140,7 +140,8 @@ bubblewrap's reaper occupies PID 1 of the jail; the payload runs as PID 2
 nullifies `--die-with-parent` — measured orphan on bubblewrap 0.11.1; see the
 flag rationale at `standalone/terminal-jail`, `BWRAP_FLAGS` block). Under the
 unshare backend `--fork` makes the payload namespace PID 1. Practical consequence:
-`/proc/1` inside a bwrap jail is the reaper, not the payload.
+`/proc/1` inside a bwrap jail is the reaper, not the payload. (The signal-reach
+consequences of that shape are measured in their own section below.)
 
 **(c) FS isolation is DEGRADED on this host (AppArmor) — both backends run
 mapping-less here.**
@@ -224,6 +225,89 @@ properties); live transcript: `docs/dogfood/2026-10-03-composed-mode.md`.
 Launch-probe budgets are 3s (was 15s): inside a container the failed mapped
 launch's forked child can survive as a zombie holding the capture pipe, so
 probes answer by timeout — a capable host answers in milliseconds.
+
+## Signal reach boundary (bwrap private /proc) — REVIEW-TJ-009
+
+A premise reached the board claiming that inside a `--unshare-pid` bwrap jail
+with a private `/proc`, "the payload CAN still signal host processes via their
+host PIDs" (kill -0 1 succeeding as the evidence). **The premise output
+reproduces exactly; the host-reach interpretation attached to it is DISPROVEN
+by measurement.** This section states what is actually true, so neither
+containment nor its absence is over-claimed.
+
+The measured boundary on the evidence host (bubblewrap 0.11.1, kernel
+`7.0.0-31-generic`, 2026-10-06):
+
+1. **`kill -0 1` succeeds — but it is a namespace-internal signal, not host
+   reach.** Direct launch (bypassing the wrapper's preflight, which on this
+   host refuses unprivileged namespaces for the wrapper while direct bwrap
+   works):
+
+   ```console
+   $ bwrap --proc /proc --dev /dev --unshare-pid \
+       --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib \
+       --ro-bind /lib64 /lib64 --ro-bind /etc /etc \
+       bash -c 'kill -0 1 && echo CAN-SIGNAL-PID1; ps -p 1 -o comm='
+   CAN-SIGNAL-PID1
+   bwrap
+   ```
+
+   The `kill -0` succeeds because **pid 1 in that jail is bwrap's own reaper**
+   (see known limit (b): the payload is namespace PID 2) — the same-namespace
+   permission check passes trivially. Even `kill -TERM 1` reports success while
+   the reaper ignores it (uncaught non-fatal signals to PID 1 are dropped by
+   the kernel). This says nothing about signaling the host.
+
+2. **The PID namespace is NOT shared with the host.** Measured directly, not
+   inferred:
+
+   ```console
+   $ readlink /proc/self/ns/pid                 # host
+   pid:[4026531836]
+   $ bwrap --proc /proc --dev /dev --unshare-pid ... bash -c \
+       'readlink /proc/self/ns/pid'             # jail
+   pid:[4026536176]
+   ```
+
+   `--unshare-pid` does what it says. Because the namespaces differ, host PIDs
+   are not even addressable from inside the jail.
+
+3. **A live host process is unreachable from inside — the sharpest test.** A
+   plain `sleep` was started on the host (host pid 184986, alive, same uid as
+   the jail), and the jail payload was pointed at that pid:
+
+   ```text
+   kill -0 <host-pid>   -> bash: kill: (184986) - No such process   (ESRCH)
+   kill -TERM <host-pid>-> same ESRCH; the host process SURVIVED
+   ls /proc | grep -c '^[0-9]'  ->  4 (the private view; the host process is
+                                   not in it)
+   ```
+
+   The signal returned ESRCH — there is no process with that number in the
+   jail's namespace — and the host `sleep` was still alive afterwards. So the
+   truthful statement is the inverse of the premise: **the bwrap jail cannot
+   signal host processes by host PID; what it CAN do is signal namespace-local
+   pids (the reaper at pid 1, the payload at pid 2), which is what the
+   succeeding `kill -0 1` actually measured.**
+
+Honest attribution: this is one host's measurement (dev host, mapping-less
+shape per known limit (c)); battery cell 10 re-measures the boundary on
+whatever host it runs on and flags any divergence as `DIFFERS`. It is a
+signal-reach boundary of the *direct* bwrap shape — the same shape and
+`--proc /proc` caution as cell 1 apply. The pdeathsig/credential discussion
+(known limit (e)) covers the parent-death linkage direction; the composed-mode
+known limit (f) covers what happens when no backend can run at all. Nothing
+here changes TJ-GAP-088's unshare proc leak — that limit is about the *view*
+(`--user` exposing the host procfs), this section is about *signals*. The two
+must not be conflated, and the unshare arm was measured too so the contrast
+is exact: under `unshare --user --pid --fork` the host `/proc` IS visible
+(1117 entries; `/proc/<host-pid>/comm` of the live marker READS as `sleep`)
+yet signaling that same live host pid still returns ESRCH and the process
+survives — the view leaks, the signal path does not, because `--pid` creates
+a new PID namespace and signal delivery follows the namespace translation,
+not the procfs view. Visibility is not reachability: NEITHER backend can
+signal host processes from inside its jail on this host; the backends differ
+only in what they let the payload SEE.
 
 ## Kernel-matrix teardown status (TJ-DF-037)
 
