@@ -838,7 +838,11 @@ def _run_bridge_raw(
     valid JSON object on stdout, exit code 0, and no Python traceback on
     stderr. Nothing in this contract is about process creation, so the
     in-process path is the same subject — the real spawn is covered once by
-    ``test_bridge_real_exec_parity`` (VERSION-002).
+    ``test_bridge_real_exec_parity`` (VERSION-002). Since REVIEW-TJ-008
+    the exit-0 invariant holds in the DEFAULT (enforce) mode too: the
+    envelope itself becomes a block verdict whose JSON the wrapper reads
+    through its pipeline capture; the verdict ACTION is asserted by the
+    callers.
     """
     proc = _bridge_main_inproc(stdin_line)
     stderr = proc.stderr.decode("utf-8", errors="replace")
@@ -874,23 +878,28 @@ def _run_bridge_raw(
         (('{"command": {"cmd": "echo"}}',), "command field must be a string"),
     ],
 )
-def test_bridge_schema_errors_reported_fail_open(
+def test_bridge_schema_errors_reported_mode_aware(
     raw_line: tuple[str], reason_must_contain: str
 ) -> None:
-    """Schema-invalid stdin reports the fail-open bridge-error envelope.
+    """Schema-invalid stdin reports the [bridge-error] envelope (REVIEW-TJ-008).
 
     Regression for DF-TERMINAL-JAIL-6: `{}` and misnamed keys were
     silently treated as an empty valid command (action=allow, empty
     reason); non-object JSON (`null`, arrays, numbers, booleans, quoted
     strings) crashed with an AttributeError traceback on stderr. All of
-    these must now report the documented `[bridge-error]` envelope with
-    exit 0 — still fail-OPEN (the caller decides whether to treat a
-    bridge-error as a denial), never a traceback and never a silent
-    empty-command allow.
+    these must report the documented `[bridge-error]` envelope with
+    exit 0 — never a traceback and never a silent empty-command allow.
+    The envelope ACTION is mode-aware since REVIEW-TJ-008: in the DEFAULT
+    enforce mode it is the fail-closed BLOCK verdict; in warn mode it
+    stays the allow-with-warning. The parameterized action pins live in
+    ``TestTransportEnvelopeModeAware`` (test_bridge_fail_closed.py); this
+    sweep pins the one-JSON-line protocol, the cause naming, and the
+    exit-0 contract across the full schema-class table.
     """
     response, _proc = _run_bridge_raw(*raw_line)
-    assert response.get("action") == "allow", (
-        f"schema errors stay fail-open, got {response!r} for {raw_line!r}"
+    assert response.get("action") in ("allow", "block"), (
+        f"schema errors answer the [bridge-error] envelope, got {response!r} "
+        f"for {raw_line!r}"
     )
     reason = response.get("reason", "")
     assert reason.startswith("[bridge-error]"), (
@@ -931,7 +940,11 @@ def test_bridge_covers_missing_keys_non_objects_non_strings_and_valid() -> None:
     set of invalid lines must keep covering (a) missing/misnamed keys on
     otherwise-valid JSON objects, (b) non-object JSON values, and
     (c) non-string `command` fields — while the valid class keeps its
-    controls.
+    controls. Since REVIEW-TJ-008 the invalid classes answer the
+    mode-aware [bridge-error] envelope (block in the default enforce
+    mode, allow-with-warning in warn); the parameterized action pins are
+    in ``TestTransportEnvelopeModeAware``, so here the envelope just has
+    to stay an envelope: [bridge-error]-prefixed reason, no traceback.
     """
     invalid_lines = [
         "{}",
@@ -949,7 +962,7 @@ def test_bridge_covers_missing_keys_non_objects_non_strings_and_valid() -> None:
     responses = []
     for line in invalid_lines:
         response, _ = _run_bridge_raw(line)
-        assert response["action"] == "allow"
+        assert response["action"] in ("allow", "block")
         assert response["reason"].startswith("[bridge-error]")
         responses.append(response)
     # All 11 invalid classes answered and none leaked a traceback above.

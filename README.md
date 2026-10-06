@@ -299,7 +299,7 @@ With bubblewrap installed, compare the `/proc` view (`TERMINAL_JAIL_JAIL_BACKEND
 
 ### Scripting the firewall
 
-The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (transport failures fail open, engine failures fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3a2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024).
+The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (error envelopes are mode-aware since REVIEW-TJ-008: transport-level failures fail closed in enforce mode and fail open with a warning in warn mode; engine failures always fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3a2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024).
 
 ### Plugin (Hermes)
 
@@ -419,13 +419,13 @@ An allow verdict carries provenance: `rule_id` names the rule that allowed it.
 
 The bridge is a single-command JSON endpoint expecting one JSON object with a `command` key whose value is a string: `{"command": "<shell command>"}`.
 
-**Malformed *input* fails OPEN.** Invalid JSON, empty stdin, a payload that is not a JSON object (`null`, an array, a number, a boolean, a quoted string), a **missing or misnamed `command` key** (`{}`, `{"Command": …}`, `{"cmd": …}`), or a **non-string `command` value** (`{"command": 123}`) all make the bridge answer
+**Malformed *input* is mode-aware (REVIEW-TJ-008).** Invalid JSON, empty stdin, a payload that is not a JSON object (`null`, an array, a number, a boolean, a quoted string), a **missing or misnamed `command` key** (`{}`, `{"Command": …}`, `{"cmd": …}`), or a **non-string `command` value** (`{"command": 123}`) all make the bridge answer the `[bridge-error]` envelope and exit 0. What the envelope says depends on `TERMINAL_JAIL_INTERRUPTOR_MODE`:
 
 ```json
-{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command"}
+{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <cause> — fail-closed: blocking command (enforce mode)"}
 ```
 
-and exit 0 — no rule can be applied, so the command proceeds unguarded. This is a deliberate **error report**, not a block: the bridge runs before every command of a host shell, so blocking on malformed input could brick the shell it protects. Every schema error is named in `reason` (missing key, non-object payload, non-string command), and an explicit empty command (`{"command": ""}`) is valid input, not a schema error.
+In **enforce** mode (the default) that envelope is a BLOCK, exactly like an engine failure — a broken bridge can no longer silently allow every command. In **warn** mode it stays the fail-open allow — `{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command (warn mode)"}` — because warn means you explicitly accepted unguarded execution and warn never blocks. Either way it is a deliberate **error report**: every schema error is named in `reason` (missing key, non-object payload, non-string command, transport cause), and an explicit empty command (`{"command": ""}`) is valid input, not a schema error.
 
 **Engine failure fails CLOSED (TJ-GAP-070).** If the engine raises while evaluating — a rule file that loads but carries a bad field type (e.g. `priority: not-a-number`) is refused at load with a one-line stderr note naming it — the bridge answers
 
@@ -435,7 +435,7 @@ and exit 0 — no rule can be applied, so the command proceeds unguarded. This i
 
 and the wrapper exits 126 with a `COMMAND BLOCKED` box. The same holds for a bridge whose stdout is empty or not a JSON object. The wrapper decides this itself: **any** verdict whose `reason` begins `[bridge-error]` is treated as a denial in enforce mode, and as a loud `WARNING` — with the command running UNGUARDED — in warn mode. Fail-closed also covers a **missing bridge** (exit 126).
 
-If you invoke the bridge directly rather than through `standalone/terminal-jail`, treat any `reason` beginning `[bridge-error]` as a denial yourself; the allow envelope above is the one remaining fail-open case and it is limited to the transport-level input errors listed here.
+If you invoke the bridge directly rather than through `standalone/terminal-jail`, treat any `reason` beginning `[bridge-error]` as a denial yourself. Since REVIEW-TJ-008 there is no remaining fail-open case in enforce mode: the transport-level input errors above fail closed there too, and the allow envelope survives only in warn mode (where the operator has already accepted unguarded execution).
 
 ### Scope: the top-level command string only
 

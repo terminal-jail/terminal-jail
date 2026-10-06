@@ -168,11 +168,18 @@ decided allow". The contract splits by failure class:
 | Engine raised during evaluation (rule-load refusal, any `intercept()` exception) | `action: block`, `rule_id: "[bridge-error]"`, reason `[bridge-error] <Class: detail> — fail-closed: blocking command (enforce mode)` | **block**, exit 126 | loud WARNING, command runs |
 | Any verdict whose `reason` begins `[bridge-error]` | — (wrapper-side rule) | **block**, exit 126 | loud WARNING, command runs |
 | Bridge stdout empty or not a JSON object | — (wrapper-side rule) | **block**, exit 126 (`interruptor-verdict-unusable`) | loud WARNING, command runs |
-| **Transport** error: stdin read failure, empty stdin, invalid JSON, non-dict payload, missing/non-string `command`, engine `ImportError` | `action: allow`, `rule_id: null`, reason `[bridge-error] … — fail-open: allowing command` | allow (command runs) | allow |
+| **Transport** error, **enforce mode** (the default): stdin read failure, empty stdin, invalid JSON, non-dict payload, missing/non-string `command`, engine `ImportError` (REVIEW-TJ-008) | `action: block`, `rule_id: "[bridge-error]"`, reason `[bridge-error] <cause> — fail-closed: blocking command (enforce mode)`; the bridge still exits 0 so the wrapper's pipeline capture receives the verdict JSON | **block**, exit 126 | loud WARNING, command runs |
+| **Transport** error, **warn mode**: the same classes as the row above (REVIEW-TJ-008) | `action: allow`, `rule_id: null`, reason `[bridge-error] … — fail-open: allowing command (warn mode)` | loud WARNING, command runs | allow (command runs) |
 
-The transport row is the **documented exception**, and it stays fail-open by
-design: the bridge is invoked before every command of a host shell, so blocking
-on malformed *input* could brick the shell it protects. A missing *bridge* is a
+The transport rows used to be one **documented exception** that stayed
+fail-open in every mode — which made a broken bridge indistinguishable from
+an approving one in enforce mode (REVIEW-TJ-008 closes that). In enforce
+mode the transport envelope now fails closed exactly like an engine
+failure; the bridge still exits 0 so the wrapper (which captures stdout
+through a pipeline) receives the verdict JSON and its `[bridge-error]`
+rule applies. In warn mode the fail-open envelope remains, and the mode is
+now named in the reason: warn means the operator explicitly accepted
+unguarded execution, and warn mode never blocks. A missing *bridge* is a
 different failure and already fails closed (§14).
 
 Wrapper detection is deliberately independent of the bridge's own `action`
@@ -754,7 +761,9 @@ commands are evaluated and allowed (never skipped, no over-length marker).
   from the bridge, and the standalone wrapper exits 126 (`COMMAND BLOCKED`)
   without running the command in enforce mode, warns loudly and runs it in
   warn mode; a bridge emitting empty/non-JSON stdout blocks in enforce mode;
-  malformed *stdin* still yields the allow envelope (§3.6, TJ-GAP-070)
+  malformed *stdin* yields the mode-aware transport envelope (§3.6,
+  TJ-GAP-070, REVIEW-TJ-008): a fail-closed `[bridge-error]` BLOCK in
+  enforce mode, the allow-with-warning envelope in warn mode
 
 ## 13. Performance Requirements
 
