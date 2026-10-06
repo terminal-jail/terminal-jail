@@ -18,11 +18,37 @@ whether it is invoked from the plugin/ or standalone/ directory.
 It adds the project root (parent of the directory containing this file's
 package) to sys.path so that ``from terminal_jail.interruptor import …``
 resolves correctly.
+
+REVIEW-TJ-008 — transport-level failure envelopes are mode-aware:
+
+  ch:trace row=REVIEW-TJ-008
+           evidence=plugin/test_bridge_fail_closed.py::TestTransportEnvelopeModeAware
+           witness=none:bridge-level unit seam (wrapper enforcement pinned by
+           the existing [bridge-error] wrapper rule, standalone/terminal-jail)
+
+  In enforce mode (the default) a transport-level failure — stdin read
+  failure, empty stdin, invalid JSON, a payload that is not a JSON object,
+  a missing/non-string ``command`` key, or the engine not importable — used
+  to answer the fail-open ALLOW envelope, so a broken bridge silently
+  allowed every command. It now answers the same envelope the engine
+  failure path uses: ``action: block`` with ``rule_id: "[bridge-error]"``
+  and a reason naming the transport cause. The bridge still exits 0 so the
+  wrapper (which captures stdout through a pipeline) receives the verdict
+  JSON; the wrapper's existing rule — any ``[bridge-error]`` reason blocks
+  in enforce mode (exit 126) and warns-and-runs in warn mode — turns it
+  into the enforcement decision (TJ-GAP-070 shape, REVIEW-TJ-008 scope).
+
+  In warn mode the fail-open envelope remains, documented: warn means the
+  operator has explicitly accepted unguarded execution, and warn mode must
+  never block anything — so the envelope degrades to allow-with-warning
+  (``action: allow``, reason ``[bridge-error] … — fail-open: allowing
+  command (warn mode)``).
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -35,35 +61,73 @@ if str(_plugin_dir) not in sys.path:
     sys.path.insert(0, str(_plugin_dir))
 
 
+def _current_mode() -> str:
+    """The interruptor mode the bridge enforces its error envelopes under.
+
+    Resolved from the same environment variable the engine and the wrapper
+    read (``TERMINAL_JAIL_INTERRUPTOR_MODE``), with the same default
+    (``enforce``), the same invalid-value fallback, and (when the engine is
+    importable) the same normalization as ``Config`` — a misspelled value
+    must not disable the fail-closed default. ``disabled`` mode is mapped to
+    the warn-mode envelope: in disabled mode the wrapper never invokes the
+    bridge at all, so an invocation that still arrives has no standing to
+    block anything.
+
+    The env value is read BEFORE the ``Config`` import attempt and the
+    import failure falls back to a self-contained normalization: this probe
+    runs exactly when the transport is already broken (including an engine
+    that cannot be imported, e.g. ``sys.modules["terminal_jail.interruptor"]
+    = None``), so the probe itself must never raise.
+    """
+    raw = os.environ.get("TERMINAL_JAIL_INTERRUPTOR_MODE", "") or "enforce"
+    valid_modes = ("enforce", "warn", "disabled")  # mirrors Config.VALID_MODES
+    try:
+        from terminal_jail.interruptor.config import (  # noqa: PLC0415
+            Config,
+        )
+
+        mode = Config(mode=raw).mode
+    except Exception:  # noqa: BLE001 — the probe must never raise
+        # Same fallback rule as Config.__init__: anything outside the
+        # vocabulary means enforce (fail-closed default).
+        mode = raw if raw in valid_modes else "enforce"
+    # Disabled mode degrades to the warn envelope: the wrapper never invokes
+    # the bridge in disabled mode, so an invocation that still arrives has no
+    # standing to block anything.
+    return "warn" if mode == "disabled" else mode
+
+
 def main() -> None:
     """Read command from stdin, evaluate through interruptor, write JSON to stdout."""
     try:
         raw = sys.stdin.readline()
     except (OSError, KeyboardInterrupt):
-        _emit_fail_open("unable to read stdin")
+        _emit_transport_error("unable to read stdin")
         return
 
     if not raw:
-        _emit_fail_open("empty stdin")
+        _emit_transport_error("empty stdin")
         return
 
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
-        _emit_fail_open("invalid JSON on stdin")
+        _emit_transport_error("invalid JSON on stdin")
         return
 
     if not isinstance(payload, dict):
-        _emit_fail_open(f"payload must be a JSON object, got {type(payload).__name__}")
+        _emit_transport_error(
+            f"payload must be a JSON object, got {type(payload).__name__}"
+        )
         return
 
     if "command" not in payload:
-        _emit_fail_open("missing 'command' key")
+        _emit_transport_error("missing 'command' key")
         return
 
     command = payload["command"]
     if not isinstance(command, str):
-        _emit_fail_open("command field must be a string")
+        _emit_transport_error("command field must be a string")
         return
 
     # Import the engine (lazy — after path setup above).
@@ -72,7 +136,7 @@ def main() -> None:
             intercept,  # type: ignore[import-not-found]
         )
     except ImportError:
-        _emit_fail_open("interruptor engine not importable")
+        _emit_transport_error("interruptor engine not importable")
         return
 
     try:
@@ -85,11 +149,11 @@ def main() -> None:
         # command with ZERO protection (reproduced with a user rule file
         # carrying `priority: not-a-number`, which explodes inside
         # RuleSet._sort). A security tool that silently stops protecting is
-        # worse than none: emit a BLOCKING verdict instead. The allow envelope
-        # stays ONLY for the stdin/transport paths above (read failure, empty
-        # stdin, invalid JSON, non-dict payload, missing/non-string command,
-        # engine ImportError), where blocking could brick a host shell that
-        # invokes this bridge before every command.
+        # worse than none: emit a BLOCKING verdict instead. Since
+        # REVIEW-TJ-008 the same is true of the stdin/transport paths below
+        # (read failure, empty stdin, invalid JSON, non-dict payload,
+        # missing/non-string command, engine ImportError) — see
+        # ``_emit_transport_error``.
         _emit_fail_closed(f"{type(exc).__name__}: {exc}")
         return
 
@@ -106,23 +170,50 @@ def main() -> None:
     sys.stdout.flush()
 
 
-def _emit_fail_open(reason: str) -> None:
-    """Fail-open: allow the command through so the shell isn't bricked.
+def _emit_transport_error(reason: str) -> None:
+    """Transport-level failure (REVIEW-TJ-008): block in enforce, warn-open otherwise.
 
-    Reserved for TRANSPORT-level failures (stdin unreadable, empty stdin,
-    invalid JSON, non-dict payload, missing/non-string command, engine not
-    importable): a host shell calls this bridge before every command, so
-    blocking there would brick the shell itself. Engine-EVALUATION failures
-    use ``_emit_fail_closed`` instead (TJ-GAP-070).
+    Covers stdin unreadable, empty stdin, invalid JSON, non-dict payload,
+    missing/non-string ``command``, and the engine not importable — every
+    failure that prevents the request from REACHING the engine.
+
+    In enforce mode (the default) this fails CLOSED (REVIEW-TJ-008): the
+    verdict is the same blocking ``[bridge-error]`` envelope the
+    engine-evaluation path emits (TJ-GAP-070), with the transport cause in
+    the reason. The historical rationale for allowing here — a host shell
+    calls this bridge before every command, so blocking would brick the
+    shell — is the wrapper's escape hatch, not the bridge's: the wrapper
+    surfaces this verdict as its ``interruptor-verdict-unusable``-style
+    block box in enforce mode and degrades to a loud unguarded-execution
+    warning in warn mode. A broken bridge must never look like a silent
+    allow again.
+
+    In warn mode the fail-open envelope REMAINS, by design: warn means the
+    operator explicitly accepted unguarded execution, and warn mode never
+    blocks — the envelope degrades to allow-with-warning, still naming the
+    transport cause in ``reason``.
     """
-    response = {
-        "action": "allow",
-        "command": "",
-        "modified": None,
-        "rule_id": None,
-        "reason": f"[bridge-error] {reason} — fail-open: allowing command",
-        "layer": None,
-    }
+    mode = _current_mode()
+    if mode == "warn":
+        response = {
+            "action": "allow",
+            "command": "",
+            "modified": None,
+            "rule_id": None,
+            "reason": f"[bridge-error] {reason} — fail-open: allowing command (warn mode)",
+            "layer": None,
+        }
+    else:
+        response = {
+            "action": "block",
+            "command": "",
+            "modified": None,
+            "rule_id": "[bridge-error]",
+            "reason": (
+                f"[bridge-error] {reason} — fail-closed: blocking command (enforce mode)"
+            ),
+            "layer": None,
+        }
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
     sys.stdout.flush()

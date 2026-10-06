@@ -289,6 +289,7 @@ The most significant current limitation is structural: Hermes core has no pre-ex
 | CLI not used for manual commands | High | High | **High** | This is the weakest link — operator discipline required |
 | Kernel exploit | Very Low | Critical | **Critical** | No mitigation at terminal-jail level |
 | Supply chain malware | Low | Medium | **Medium** | Contained to jail scope but can still exfiltrate if network permitted |
+| Bridge transport-level failure envelope (empty/invalid stdin, engine unreadable) silently allowing commands | Low (since REVIEW-TJ-008) | High | **Low** | Was Medium-High: the bridge answered every transport-level failure with the fail-open ALLOW envelope in every mode, so a broken bridge silently allowed every command in enforce mode. Since REVIEW-TJ-008 the envelope is mode-aware — fail-closed `[bridge-error]` BLOCK (wrapper exit 126) in enforce mode, the allow-with-warning envelope only in warn mode (the operator's explicit escape hatch: warn means unguarded execution was accepted, and the reason names the transport cause) |
 
 ## 8. Security Assumptions
 

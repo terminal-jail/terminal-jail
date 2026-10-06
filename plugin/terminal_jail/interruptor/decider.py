@@ -7,6 +7,17 @@ in priority order. Algorithm:
 2. Check against ALLOW list (skip further eval if matched)
 3. Check against AUTO-SANDBOX patterns (wrap in unshare)
 4. Evaluate user-defined rules in priority order
+
+Error-envelope boundary (REVIEW-TJ-008):
+ch:trace row=REVIEW-TJ-008 evidence=plugin/test_bridge_fail_closed.py::TestTransportEnvelopeModeAware witness=none:documentation-only boundary note, behavior pinned by the bridge-level tests
+This module never answers a transport error — failures here (rule-load
+refusals, evaluation exceptions) propagate out of ``intercept()`` and the
+BRIDGE (terminal_jail/interruptor_bridge.py) converts them into the
+fail-closed ``[bridge-error]`` verdict. The transport-level classes (stdin
+read/empty, invalid JSON, payload shape, engine import) never reach this
+module; the bridge handles them itself and — since REVIEW-TJ-008 — is
+mode-aware about them: fail-closed BLOCK in enforce mode (the default),
+allow-with-warning in warn mode.
 """
 
 from __future__ import annotations

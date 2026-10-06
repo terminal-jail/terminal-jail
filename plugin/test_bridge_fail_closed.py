@@ -4,10 +4,17 @@ Contract (board-decided):
 - The bridge's `except Exception` around ``intercept()`` emits a BLOCKING
   verdict (``action: block``) with a ``[bridge-error]`` reason — engine
   failure must never become a silent allow in enforce mode.
-- The allow envelope stays ONLY for stdin/transport-level errors (read
-  failure, empty stdin, invalid JSON, non-dict payload, missing/non-string
-  command, engine ImportError): a host shell invokes the bridge before
-  every command, so blocking there could brick the shell itself.
+- REVIEW-TJ-008: the stdin/transport-level errors (read failure, empty
+  stdin, invalid JSON, non-dict payload, missing/non-string command,
+  engine ImportError) are NO LONGER an unconditional allow envelope.
+  In enforce mode (the default) they fail CLOSED — the same blocking
+  ``[bridge-error]`` verdict an engine failure emits, naming the
+  transport cause — while the bridge still exits 0 so the wrapper (which
+  captures the verdict through a pipeline) receives the JSON; the
+  wrapper's existing ``[bridge-error]`` rule then blocks (exit 126). In
+  warn mode the fail-open envelope REMAINS: warn never blocks, so the
+  envelope degrades to allow-with-warning (the operator has explicitly
+  accepted unguarded execution).
 - The wrapper (standalone/terminal-jail) treats any ``[bridge-error]``
   reason as a block in enforce mode (rc 126) and as a loud warning in warn
   mode; empty or non-JSON bridge stdout blocks in enforce mode too.
@@ -155,38 +162,216 @@ class TestBridgeEngineExceptionFailsClosed:
         assert "bad priority: 7x" in reason
 
 
-# ── B. Transport errors keep the allow envelope ──────────────────────────────
+# ── B. Transport-level errors are mode-aware (REVIEW-TJ-008) ─────────────────
 
 
-class TestTransportErrorsStayFailOpen:
-    @pytest.mark.parametrize(
-        "raw_line",
-        [
-            "",  # empty stdin
-            "not json {",  # invalid JSON
-            "null",  # non-dict payload
-            "{}",  # missing command key
-            '{"command": 123}',  # non-string command
-        ],
+class TestTransportEnvelopeModeAware:
+    """ch:trace row=REVIEW-TJ-008
+           evidence=plugin/test_bridge_fail_closed.py::TestTransportEnvelopeModeAware
+           witness=none:bridge-level unit seam (the wrapper's own enforcement —
+           any [bridge-error] reason blocks in enforce / warns-and-runs in warn —
+           is pinned by TestWrapperVerdictHardening's fake-bridge cases and
+           pre-existed this row).
+
+    REVIEW-TJ-008: a transport-level failure (empty/invalid stdin, non-dict
+    payload, missing/non-string command, engine ImportError) used to answer
+    the unconditional fail-open ALLOW envelope in EVERY mode, so a broken
+    bridge silently allowed every command in enforce mode. New contract:
+
+    - enforce mode (the DEFAULT, and any value other than warn/disabled):
+      the envelope fails CLOSED — ``action: block`` with
+      ``rule_id: "[bridge-error]"`` and a reason naming the transport
+      cause. The bridge still exits 0 so the wrapper's pipeline capture
+      receives the verdict JSON; the wrapper's existing ``[bridge-error]``
+      rule turns it into exit 126.
+    - warn mode: the fail-open envelope REMAINS — warn means the operator
+      explicitly accepted unguarded execution and warn mode never blocks.
+      The reason says ``(warn mode)`` so the degradation is loud.
+    """
+
+    TRANSPORT_INVALID_LINES = (
+        "",  # empty stdin
+        "not json {",  # invalid JSON
+        "null",  # non-dict payload
+        "{}",  # missing command key
+        '{"command": 123}',  # non-string command
     )
-    def test_transport_errors_still_allow(self, raw_line: str) -> None:
-        """Malformed stdin/transport keeps the documented allow envelope."""
+
+    # ── B1. enforce mode (the default): transport errors fail CLOSED ─────
+
+    @pytest.mark.parametrize("raw_line", TRANSPORT_INVALID_LINES)
+    def test_transport_errors_block_in_default_enforce(self, raw_line: str) -> None:
+        """Malformed stdin/transport yields a BLOCKING [bridge-error] verdict.
+
+        With NO mode set (the wrapper's default is enforce) the bridge must
+        never answer a transport failure with a plain allow again.
+        """
         proc = _bridge_main_inproc(raw_line)
+        assert proc.returncode == 0, (
+            "the bridge still exits 0 so the wrapper's pipeline capture "
+            f"receives the verdict JSON, got rc={proc.returncode} for {raw_line!r}"
+        )
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "block", (
+            f"enforce-mode transport errors must fail CLOSED, got {response!r} "
+            f"for {raw_line!r}"
+        )
+        assert response["rule_id"] == "[bridge-error]", (
+            f"the block verdict must carry the [bridge-error] sentinel, got {response!r}"
+        )
+        assert response["layer"] is None
+        reason = response["reason"]
+        assert reason.startswith("[bridge-error]"), reason
+        assert "fail-closed" in reason, (
+            f"the reason must say the envelope failed closed: {reason!r}"
+        )
+        assert "(enforce mode)" in reason, (
+            f"the reason must name the enforcing mode: {reason!r}"
+        )
+
+    def test_transport_block_names_the_transport_cause(self) -> None:
+        """Each transport class keeps its distinct cause in the reason.
+
+        Note the harness feeds ``stdin_line + "\\n"``, so the ``""`` entry
+        arrives as a bare newline — readline returns it (truthy) and the
+        JSON parse rejects it: through THIS harness the ``""`` param pins
+        the invalid-JSON branch. The true empty-stdin branch (readline
+        returning ``""``) is pinned separately below.
+        """
+        expected_cause = {
+            "": "invalid JSON on stdin",  # harness appends "\n"
+            "not json {": "invalid JSON on stdin",
+            "null": "must be a JSON object",
+            "{}": "missing 'command' key",
+            '{"command": 123}': "command field must be a string",
+        }
+        for raw_line, cause in expected_cause.items():
+            proc = _bridge_main_inproc(raw_line)
+            response = json.loads(proc.stdout.decode())
+            assert response["action"] == "block", (raw_line, response)
+            assert cause in response["reason"], (
+                f"reason must name the transport cause {cause!r}: "
+                f"{response['reason']!r} for {raw_line!r}"
+            )
+
+    def test_true_empty_stdin_blocks_in_enforce(self) -> None:
+        """The REAL empty-stdin class — readline returning ``""``, e.g. a
+        closed/collapsed pipe — must also fail CLOSED in enforce mode."""
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(sys, "stdin", io.StringIO("")),
+            mock.patch.object(sys, "stdout", stdout),
+        ):
+            bridge_module.main()
+        response = json.loads(stdout.getvalue())
+        assert response["action"] == "block", response
+        assert "empty stdin" in response["reason"]
+        assert "(enforce mode)" in response["reason"]
+
+    def test_true_empty_stdin_allows_in_warn_mode(self) -> None:
+        """The real empty-stdin class in warn mode: the allow envelope stays."""
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(sys, "stdin", io.StringIO("")),
+            mock.patch.object(sys, "stdout", stdout),
+            mock.patch.dict(os.environ, {"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"}),
+        ):
+            bridge_module.main()
+        response = json.loads(stdout.getvalue())
+        assert response["action"] == "allow", response
+        assert "empty stdin" in response["reason"]
+        assert "(warn mode)" in response["reason"]
+
+    @pytest.mark.parametrize(
+        "mode_value",
+        ["enforce", "ENFORCE", "typo-mode"],  # explicit enforce + invalid values
+    )
+    def test_transport_errors_block_for_non_warn_modes(self, mode_value: str) -> None:
+        """Any mode value that is not warn/disabled fails CLOSED — an invalid
+        value must not disable the fail-closed default (same fallback rule
+        as ``Config``)."""
+        proc = _bridge_main_inproc(
+            "not json {", extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": mode_value}
+        )
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "block", (
+            f"mode {mode_value!r} must fail CLOSED on transport errors, "
+            f"got {response!r}"
+        )
+
+    def test_engine_import_error_blocks_in_enforce(self) -> None:
+        """A missing engine is a transport-level error: it now fails CLOSED
+        in enforce mode (the historical allow envelope is gone there)."""
+        with mock.patch.dict(sys.modules, {"terminal_jail.interruptor": None}):
+            proc = _bridge_main_inproc('{"command": "true"}')
+        assert proc.returncode == 0
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "block", (
+            f"engine ImportError must fail CLOSED in enforce mode, got {response!r}"
+        )
+        assert "not importable" in response["reason"]
+        assert response["rule_id"] == "[bridge-error]"
+
+    # ── B2. warn mode: the fail-open envelope remains (documented) ───────
+
+    @pytest.mark.parametrize("raw_line", TRANSPORT_INVALID_LINES)
+    def test_transport_errors_still_allow_in_warn_mode(self, raw_line: str) -> None:
+        """Warn mode keeps the allow envelope — warn never blocks, and the
+        operator explicitly accepted unguarded execution."""
+        proc = _bridge_main_inproc(
+            raw_line, extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"}
+        )
         assert proc.returncode == 0
         response = json.loads(proc.stdout.decode())
         assert response["action"] == "allow", (
-            f"transport errors stay fail-open, got {response!r} for {raw_line!r}"
+            f"warn mode keeps the allow envelope, got {response!r} for {raw_line!r}"
         )
-        assert response["reason"].startswith("[bridge-error]")
+        assert response["rule_id"] is None
+        reason = response["reason"]
+        assert reason.startswith("[bridge-error]"), reason
+        assert "fail-open" in reason, (
+            f"the warn-mode reason must say the envelope failed open: {reason!r}"
+        )
+        assert "(warn mode)" in reason, (
+            f"the warn-mode degradation must be loud in the reason: {reason!r}"
+        )
 
-    def test_engine_import_error_still_allows(self) -> None:
-        """A missing engine is a transport-level error: allow envelope, no crash."""
-        with mock.patch.dict(sys.modules, {"terminal_jail.interruptor": None}):
+    def test_engine_import_error_still_allows_in_warn_mode(self) -> None:
+        """A missing engine in warn mode: allow envelope, no crash."""
+        with (
+            mock.patch.dict(sys.modules, {"terminal_jail.interruptor": None}),
+            mock.patch.dict(os.environ, {"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"}),
+        ):
             proc = _bridge_main_inproc('{"command": "true"}')
         assert proc.returncode == 0
         response = json.loads(proc.stdout.decode())
         assert response["action"] == "allow"
         assert "not importable" in response["reason"]
+        assert "(warn mode)" in response["reason"]
+
+    def test_disabled_mode_degrades_to_the_warn_envelope(self) -> None:
+        """Disabled mode maps to the warn-mode envelope: the wrapper never
+        invokes the bridge in disabled mode, so an invocation that still
+        arrives has no standing to block — but it is still reported."""
+        proc = _bridge_main_inproc(
+            "not json {", extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled"}
+        )
+        response = json.loads(proc.stdout.decode())
+        assert response["action"] == "allow"
+        assert "(warn mode)" in response["reason"]
+
+    # ── B3. the old contract must not grow back ──────────────────────────
+
+    def test_warn_mode_transport_allow_is_not_the_enforce_envelope(self) -> None:
+        """Control distinguishing the two envelopes: the warn-mode allow MUST
+        NOT carry the [bridge-error] rule_id sentinel — if it did, the
+        wrapper's [bridge-error] rule would block in enforce mode anyway and
+        the mode distinction would be meaningless."""
+        proc = _bridge_main_inproc(
+            "", extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"}
+        )
+        response = json.loads(proc.stdout.decode())
+        assert response["rule_id"] is None, response
 
 
 # ── C. Wrapper: [bridge-error] verdicts and garbage stdout block in enforce ──
@@ -445,6 +630,90 @@ class TestWrapperVerdictHardening:
         )
         assert result.returncode == 126
         assert "COMMAND BLOCKED" in result.stderr
+
+    # REVIEW-TJ-008: the REAL bridge's new transport-error envelopes, replayed
+    # through the wrapper via a fake bridge — proves the full chain (bridge
+    # envelope → wrapper [bridge-error] rule → enforcement decision).
+
+    TRANSPORT_ENVELOPE_ENFORCE = json.dumps(
+        {
+            "action": "block",
+            "command": "",
+            "modified": None,
+            "rule_id": "[bridge-error]",
+            "reason": "[bridge-error] empty stdin — fail-closed: blocking command (enforce mode)",
+            "layer": None,
+        }
+    )
+
+    TRANSPORT_ENVELOPE_WARN = json.dumps(
+        {
+            "action": "allow",
+            "command": "",
+            "modified": None,
+            "rule_id": None,
+            "reason": "[bridge-error] empty stdin — fail-open: allowing command (warn mode)",
+            "layer": None,
+        }
+    )
+
+    def test_transport_error_envelope_blocks_in_enforce(self, tmp_path: Path) -> None:
+        """The bridge's NEW enforce-mode transport envelope (REVIEW-TJ-008)
+        drives the wrapper to exit 126 with the cause named — the broken
+        bridge can no longer look like a silent allow end to end."""
+        bridge = self._fake_bridge(tmp_path, self.TRANSPORT_ENVELOPE_ENFORCE + "\n")
+        result = subprocess.run(
+            [str(CLI_SCRIPT), "true"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "enforce",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 126, (
+            f"the transport fail-closed envelope must block end to end, "
+            f"rc={result.returncode} stderr={result.stderr!r}"
+        )
+        assert "COMMAND BLOCKED" in result.stderr
+        assert "[bridge-error]" in result.stderr
+        assert "empty stdin" in result.stderr, (
+            "the transport cause must reach the operator's stderr"
+        )
+
+    def test_transport_error_envelope_warns_and_runs_in_warn_mode(
+        self, tmp_path: Path
+    ) -> None:
+        """The bridge's warn-mode transport envelope (REVIEW-TJ-008) keeps the
+        documented escape hatch: loud UNGUARDED warning, command runs, no block."""
+        bridge = self._fake_bridge(tmp_path, self.TRANSPORT_ENVELOPE_WARN + "\n")
+        result = subprocess.run(
+            [str(CLI_SCRIPT), "echo", "tj008-warn-ran"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if not (result.returncode == 2 and self._host_denies_bare_launch()):
+            assert "tj008-warn-ran" in result.stdout, (
+                f"warn mode must run the command (or skip on a degraded host), "
+                f"rc={result.returncode} stdout={result.stdout!r} "
+                f"stderr={result.stderr!r}"
+            )
+        assert "WARNING" in result.stderr
+        assert "UNGUARDED" in result.stderr
+        assert "empty stdin" in result.stderr
+        assert result.returncode != 126
 
     def test_normal_allow_verdict_unchanged(self, tmp_path: Path) -> None:
         """Control: a normal allow verdict keeps the fast path (command runs, no box)."""

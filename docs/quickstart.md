@@ -272,23 +272,35 @@ error envelope below `rule_id` is null too, and in warn mode a blockable
 command comes back as `action: "allow"` with a non-empty
 `[WARN MODE] Would have blocked: …` reason.
 
-**Failure split — transport fails OPEN, engine evaluation fails CLOSED
-(TJ-GAP-070).** Anything that prevents the request from *reaching* the
-engine (stdin read failure, empty stdin, invalid JSON, a payload that is
-not a JSON object, a missing/non-string `command` key) or that prevents the
-engine from being *imported* answers the fail-open envelope and exits 0 —
-a host shell invokes the bridge before every command, so blocking on
-malformed input would brick that shell:
+**Failure split — transport failures are mode-aware, engine evaluation
+fails CLOSED (TJ-GAP-070, REVIEW-TJ-008).** Anything that prevents the
+request from *reaching* the engine (stdin read failure, empty stdin,
+invalid JSON, a payload that is not a JSON object, a missing/non-string
+`command` key) or that prevents the engine from being *imported* answers
+the `[bridge-error]` envelope and exits 0. What the envelope SAYS is
+mode-aware since REVIEW-TJ-008: in enforce mode (the default) it fails
+**closed** — a blocking `rule_id: "[bridge-error]"` verdict naming the
+transport cause — so a broken bridge can no longer silently allow every
+command; in warn mode it stays the documented allow-with-warning, because
+warn means you explicitly accepted unguarded execution. (The historical
+rationale for allowing — a host shell invokes the bridge before every
+command, so blocking on malformed input would brick that shell — is now
+the wrapper's warn-mode escape hatch, not the bridge's default.)
 
 ```bash
 printf 'not json {\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action": "block", "command": "", "modified": null, "rule_id": "[bridge-error]",
+#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)"}
+# with TERMINAL_JAIL_INTERRUPTOR_MODE=warn:
 # → {"action": "allow", "command": "", "modified": null, "rule_id": null,
-#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-open: allowing command"}
+#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-open: allowing command (warn mode)"}
 ```
 
 (empty stdin → `[bridge-error] empty stdin …`; a missing engine →
-`[bridge-error] interruptor engine not importable …`; always
-`action: "allow"`, rc=0).
+`[bridge-error] interruptor engine not importable …`; the envelope rc=0
+in both modes so the wrapper's pipeline capture receives the verdict JSON,
+and the wrapper turns it into its own decision — the `COMMAND BLOCKED`
+box in enforce, a loud UNGUARDED-execution warning in warn).
 
 An **engine-evaluation** failure — `intercept()` itself raising, e.g. a rule
 file that parses but carries fields the engine cannot evaluate, or a rule
@@ -679,15 +691,14 @@ pattern firewall, not a policy sandbox (catalog of every shipped rule id:
 [rule-catalog.md](rule-catalog.md); see `specs/interruptor.md`).
 
 **What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
-That stays fail **open**, by design: the bridge expects one JSON object with a string `command`
+That is mode-aware (REVIEW-TJ-008): the bridge expects one JSON object with a string `command`
 key (`{"command": "..."}`). Bad JSON, empty stdin, a payload that is not a JSON object (`null`,
 array, number, boolean, quoted string), a missing or misnamed `command` key (`{}`,
-`{"Command": ...}`), or a non-string `command` value all make it answer
-`{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] invalid JSON on stdin — fail-open: allowing command"}`
-and exit 0, so the command proceeds unguarded — the error is **reported** in `reason` (which
-schema problem it was). The bridge is invoked before every command of a host shell, so blocking on
-malformed *input* could brick that shell; the transport-level allow above is the only remaining
-fail-open case. An explicit empty command (`{"command": ""}`) is valid input, not a schema error.
+`{"Command": ...}`), or a non-string `command` value all make it answer the
+`[bridge-error]` envelope and exit 0. In **enforce** mode (the default) that envelope is a BLOCK —
+`{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] invalid JSON on stdin — fail-closed: blocking command (enforce mode)"}` — so a broken bridge can no longer silently allow every command. In **warn** mode it stays the fail-open allow —
+`{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] invalid JSON on stdin — fail-open: allowing command (warn mode)"}` — because warn means you accepted unguarded execution and warn never blocks. The error is **reported** in `reason` either way (which
+schema problem it was). An explicit empty command (`{"command": ""}`) is valid input, not a schema error.
 
 **What if the ENGINE fails instead (bad rule field type, unexpected exception)?**
 That fails **closed** (TJ-GAP-070). A rule file whose fields fail type validation — e.g.
