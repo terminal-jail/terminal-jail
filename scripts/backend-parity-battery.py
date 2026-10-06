@@ -29,6 +29,10 @@ Cells:
   9  per-launch proc_view attribution: the same host resolves to
      proc_view=private under bwrap and proc_view=host under unshare
      (TJ-GAP-088, host-independent)
+  10 signal reach under the bwrap private-/proc jail (REVIEW-TJ-009):
+     kill -0 1 succeeds namespace-internally (/proc/1 is the reaper)
+     while a live host pid is ESRCH from inside and the host process
+     survives a TERM sent from inside — documents the measured boundary
 
 Verdict vocabulary: SAME | DIFFERS | KNOWN-LIMIT | FAIL-CLOSED-PROVEN.
 A cell that cannot be measured on this host is labelled KNOWN-LIMIT with an
@@ -607,6 +611,155 @@ def _proc_view_attribution_cell() -> dict[str, str]:
         )
 
 
+# ── cell 10: signal reach under the bwrap private-/proc jail (REVIEW-TJ-009) ──
+
+
+def _signal_reach_cell() -> dict[str, str]:
+    """Measure, honestly, what the bwrap private-/proc jail can and cannot
+    signal. The direct ``--ro-bind`` shape is used (REVIEW-TJ-009): the
+    wrapper's own preflight can refuse unprivileged namespaces on hosts where
+    direct bwrap works, and omitting ``--proc /proc`` would measure the wrong
+    thing (cell-1 note in docs/backend-parity.md).
+
+    MEASURED boundary (do not over-claim containment in either direction):
+    - the PID namespace IS new (``--unshare-pid``): jail ns id differs from
+      the host's, so host pids are NOT addressable from inside — a live host
+      pid is ESRCH from inside the jail and the host process survives a TERM
+      sent from inside (measured on the evidence host);
+    - ``kill -0 1`` nevertheless SUCCEEDS namespace-internally: inside the
+      jail pid 1 is bwrap's reaper, and same-namespace signaling by pid
+      always has the permission check available. The original premise that
+      "the payload can signal host processes via host pids" was DISPROVEN on
+      the evidence host.
+    The probe documents reality: it asserts the can-signal condition is
+    REPORTED, never that containment exists."""
+    name = "10 signal reach — bwrap private /proc (REVIEW-TJ-009)"
+    expected = (
+        "kill -0 1 reported (namespace-internal: /proc/1 = bwrap); live "
+        "host pid ESRCH from inside; host process survives TERM from inside"
+    )
+    bwrap = shutil.which("bwrap")
+    if not bwrap:
+        return _unmeasured(name, "bwrap", expected, "bwrap not found on PATH")
+    try:
+        host_ns = os.readlink(f"/proc/{os.getpid()}/ns/pid")
+    except OSError as exc:
+        return _unmeasured(name, "bwrap", expected, f"cannot read /proc ns id: {exc}")
+    base = [
+        bwrap,
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--unshare-pid",
+        "--ro-bind",
+        "/usr",
+        "/usr",
+        "--ro-bind",
+        "/bin",
+        "/bin",
+        "--ro-bind",
+        "/lib",
+        "/lib",
+        "--ro-bind",
+        "/lib64",
+        "/lib64",
+        "--ro-bind",
+        "/etc",
+        "/etc",
+    ]
+    # A live HOST process as the signal target (killed below in every path).
+    marker = subprocess.Popen(
+        ["sleep", "12345"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+    )
+    try:
+        payload = (
+            "kill -0 1 2>/dev/null && echo CAN-SIGNAL-PID1 || echo CANNOT-SIGNAL-PID1; "
+            "cat /proc/1/comm 2>/dev/null || echo PROC1-UNREADABLE; "
+            "readlink /proc/self/ns/pid; "
+            'kill -0 "$HP" 2>/dev/null && echo CAN-SIGNAL-HOSTPID || echo ESRCH-HOSTPID; '
+            'kill -TERM "$HP" 2>/dev/null && echo TERM-SENT || echo TERM-FAILED'
+        )
+        env = dict(os.environ)
+        env["HP"] = str(marker.pid)
+        result = _run(base + ["bash", "-c", payload], env=env, timeout=30)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        marker.kill()
+        marker.wait()
+        return _unmeasured(name, "bwrap", expected, f"jail run failed: {exc}")
+    finally:
+        if marker.poll() is None:
+            marker.kill()
+        marker.wait()
+    if result.returncode != 0:
+        return _unmeasured(
+            name,
+            "bwrap",
+            expected,
+            f"jail exited {result.returncode}: {result.stderr.strip()[:200]} "
+            "(namespace creation refused on this host)",
+        )
+    out = result.stdout
+    fields: dict[str, str] = {}
+    for line in out.strip().splitlines():
+        line = line.strip()
+        if line in ("CAN-SIGNAL-PID1", "CANNOT-SIGNAL-PID1"):
+            fields["pid1"] = line
+        elif line in ("CAN-SIGNAL-HOSTPID", "ESRCH-HOSTPID"):
+            fields["reach"] = line
+        elif line == "TERM-SENT":
+            fields["term"] = "TERM-SENT"
+        elif line == "TERM-FAILED":
+            fields["term"] = "TERM-FAILED"
+        elif line.startswith("pid:[") and line.endswith("]"):
+            fields["jail_ns"] = line
+        elif line and line not in ("sleep", "bash") and "PROC1" not in line:
+            # /proc/1/comm inside the jail prints "bwrap" (the reaper) — that
+            # is exactly the value this cell must capture.
+            fields.setdefault("proc1", line)
+    # /proc/<pid>/ns/pid is an nsfs magic link: read(2) on it returns EINVAL,
+    # readlink(2) returns the "pid:[...]" content.
+    # (host_ns already read above via readlink; jail_ns comes from the payload)
+    jail_ns = fields.get("jail_ns", "")
+    ns_shared = bool(jail_ns) and jail_ns == host_ns
+    pid1_comm = fields.get("proc1", "unknown")
+    measured = (
+        f"kill -0 1: {fields.get('pid1', 'unreported')}; /proc/1 comm: "
+        f"{pid1_comm}; host pid {marker.pid}: {fields.get('reach', 'unreported')}, "
+        f"TERM {fields.get('term', 'unreported')}; ns jail={jail_ns or 'unreadable'} "
+        f"host={host_ns} shared={ns_shared}"
+    )
+    ok = (
+        fields.get("pid1") == "CAN-SIGNAL-PID1"
+        and fields.get("reach") == "ESRCH-HOSTPID"
+        and fields.get("term") == "TERM-FAILED"
+        and bool(jail_ns)  # the ns comparison must have actually happened
+        and not ns_shared
+    )
+    if ok:
+        verdict = "SAME"
+        note = (
+            "measured boundary: --unshare-pid creates a NEW pid namespace "
+            f"(host pid {marker.pid} was ESRCH from inside and the host "
+            "process survived the TERM); kill -0 1 succeeds "
+            "namespace-internally — /proc/1 inside the jail is the reaper "
+            f"({pid1_comm}); the 'pid namespace shared with host' reading of "
+            "the premise is DISPROVEN on this host — see "
+            "docs/backend-parity.md signal-reach section"
+        )
+    else:
+        verdict = "DIFFERS"
+        note = (
+            "the measured shape differs from the documented boundary — "
+            f"fields: {fields!r}; ns_shared={ns_shared}; re-probe and "
+            "reconcile with docs/backend-parity.md"
+        )
+    return _cell(name, "bwrap", measured, expected, verdict, note)
+
+
 # ── cell 7: host classification ────────────────────────────────────────────
 
 
@@ -687,6 +840,7 @@ def collect_cells() -> list[dict[str, str]]:
         _fail_closed_cell("unshare"),
         _private_proc_demand_cell(),
         _proc_view_attribution_cell(),
+        _signal_reach_cell(),
     ]
     cells.extend(_classification_cells())
     return cells
