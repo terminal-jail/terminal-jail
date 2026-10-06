@@ -1566,3 +1566,23 @@ tasks:
   status: complete
   created_at: '2026-10-04T11:01:05.786338+00:00'
   completed_at: '2026-10-04T11:12:17.379716+00:00'
+- id: TJ-DOC-1004
+  title: 'Doc-lane batch: README/quickstart gaps DOC-10/11/12/13'
+  criteria:
+  - grep -n TERMINAL_JAIL_REQUIRE_TIER README.md docs/quickstart.md has hits; grep
+    -rn TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL README.md docs/ has hits; README:19 no
+    stale ~1,400 count and matches 1660 collected; README:68 describes rc-file PATH
+    block appending; pytest doc-pin tests green
+  status: complete
+  created_at: '2026-10-04T22:39:53.071399+00:00'
+  completed_at: '2026-10-04T22:52:40.031322+00:00'
+- id: TJ-REVIEW-008
+  title: Bridge fail-closed default on transport envelopes
+  criteria:
+  - Bridge default verdict on empty/invalid/unreadable stdin envelopes becomes block
+    (fail-closed) unless TERMINAL_JAIL_INTERRUPTOR_MODE=warn; threat-model residual-risk
+    table documents the fail-open class; existing tests updated; full pytest suite
+    green
+  status: complete
+  created_at: '2026-10-06T11:56:44.661432+00:00'
+  completed_at: '2026-10-06T12:43:58.827678+00:00'
