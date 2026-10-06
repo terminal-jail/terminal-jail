@@ -1,0 +1,136 @@
+{
+  "task_id": "TJ-REVIEW-009",
+  "task_title": "bwrap signal-reach boundary documented + battery probe",
+  "task_criteria": [
+    "docs/backend-parity.md contains a 'Signal reach boundary' section quoting the measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid contrast, cross-referencing TJ-GAP-088",
+    "scripts/backend-parity-battery.py registers a signal-reach probe cell that reports the measured boundary and skips with a named reason when bwrap is missing; battery ends with zero unexplained divergences",
+    "doc-pin tests pass and full unit scope is green on the merged tree with ruff clean"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "4504d2255a499ecdc2c2aeaf0f4a6e7179f1cb7e",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261006T205108.642628Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n3:53PM INF scanned ~6383233 bytes (6.38 MB) in 538ms\n3:53PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 203 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261006T205108.642628Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1702 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns..s..                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 17%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 27%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n.....................................                                    [ 33%]\nplugin/test_interruptor.py ............................................. [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................................................ [ 61%]\n........................................                                 [ 64%]\n\n\u2026 [1040 chars omitted \u2014 13 line(s)] \u2026\nplugin/test_seccomp.py .........................................sss..... [ 86%]\n.                                                                        [ 86%]\nplugin/test_standalone_cli.py ......................                     [ 87%]\nplugin/test_systemd_directive_probe.py .................                 [ 88%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py .........................s..                       [ 92%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 93%]\ntests/test_composed_mode.py .........sss.....                            [ 94%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1692 passed, 10 skipped in 125.77s (0:02:05) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261006T205108.642628Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/backend-parity.md contains a 'Signal reach boundary' section quoting the measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid contrast, cross-referencing TJ-GAP-088: docs/backend-parity.md:229 has heading '## Signal reach boundary (bwrap private /proc) \u2014 REVIEW-TJ-009'. Lines 249-251 quote the measured command verbatim (`bwrap --proc /proc --dev /dev --unshare-pid --ro-bind /usr /usr ... bash -c 'kill -0 1 && echo CAN-SIGNAL-PID1; ps -p 1 -o comm='`) with output `CAN-SIGNAL-PID1` / `bwrap`. Lines 280-281 give the ESRCH host-pid contrast: `kill -0 <host-pid> -> bash: kill: (184986) - No such process (ESRCH)` and `kill -TERM <host-pid>-> same ESRCH; the host process SURVIVED`. TJ-GAP-088 cross-referenced at lines 8, 122, and 300 ('Nothing here changes TJ-GAP-088's unshare proc leak'). Pinned by tests/test_signal_reach_doc.py (SECTION_HEADING + _PINNED_DOC_STRINGS incl. 'CAN-SIGNAL-PID1', 'ESRCH', 'TJ-GAP-088'). [resolution 0.23; docs/backend-parity.md]\n  \u2713 scripts/backend-parity-battery.py registers a signal-reach probe cell that reports the measured boundary and skips with a named reason when bwrap is missing; battery ends with zero unexplained divergences: scripts/backend-parity-battery.py:617 defines `_signal_reach_cell()` (cell name '10 signal reach \u2014 bwrap private /proc (REVIEW-TJ-009)'), registered in collect_cells at line 843. Missing-bwrap path at line 643: `return _unmeasured(name, \"bwrap\", expected, \"bwrap not found on PATH\")` -> verdict KNOWN-LIMIT, notes 'UNMEASURED on this host: bwrap not found on PATH' (verified by monkeypatching shutil.which -> output exactly that). Live run on this host: `timeout 300 .venv/bin/python scripts/backend-parity-battery.py` -> cell 10 verdict SAME, measured 'kill -0 1: CAN-SIGNAL-PID1; /proc/1 comm: bwrap; host pid 1703629: ESRCH-HOSTPID, TERM TERM-FAILED; ns jail=pid:[4026536327] host=pid:[4026531836] shared=False', and the run ends with 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN.' (print_table lines 871-884). [resolution 0.23; scripts/backend-parity-battery.py]\n  \u2713 doc-pin tests pass and full unit scope is green on the merged tree with ruff clean: Doc-pin suite: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest tests/test_signal_reach_doc.py -q --tb=short` -> '5 passed in 0.01s' (exit 0). Full unit scope: `.venv/bin/python -m pytest -q --tb=short` -> '1692 passed, 10 skipped in 107.06s (0:01:47)' (exit 0). Ruff: `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0).\nAll three criteria verified: the signal-reach boundary section is documented with the measured bwrap command, CAN-SIGNAL-PID1 output and ESRCH host-pid contrast cross-referencing TJ-GAP-088; battery cell 10 reports the measured boundary, skips with the named reason 'bwrap not found on PATH', and the live battery ends with zero unexplained divergences; doc-pin tests (5 passed), full suite (1692 passed, 10 skipped) and ruff are all green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/backend-parity.md contains a 'Signal reach boundary' section quoting the measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid contrast, cross-referencing TJ-GAP-088: docs/backend-parity.md:229 has heading '## Signal reach boundary (bwrap private /proc) \u2014 REVIEW-TJ-009'. Lines 249-251 quote the measured command verbatim (`bwrap --proc /proc --dev /dev --unshare-pid --ro-bind /usr /usr ... bash -c 'kill -0 1 && echo CAN-SIGNAL-PID1; ps -p 1 -o comm='`) with output `CAN-SIGNAL-PID1` / `bwrap`. Lines 280-281 give the ESRCH host-pid contrast: `kill -0 <host-pid> -> bash: kill: (184986) - No such process (ESRCH)` and `kill -TERM <host-pid>-> same ESRCH; the host process SURVIVED`. TJ-GAP-088 cross-referenced at lines 8, 122, and 300 ('Nothing here changes TJ-GAP-088's unshare proc leak'). Pinned by tests/test_signal_reach_doc.py (SECTION_HEADING + _PINNED_DOC_STRINGS incl. 'CAN-SIGNAL-PID1', 'ESRCH', 'TJ-GAP-088'). [resolution 0.23; docs/backend-parity.md]\n  \u2713 scripts/backend-parity-battery.py registers a signal-reach probe cell that reports the measured boundary and skips with a named reason when bwrap is missing; battery ends with zero unexplained divergences: scripts/backend-parity-battery.py:617 defines `_signal_reach_cell()` (cell name '10 signal reach \u2014 bwrap private /proc (REVIEW-TJ-009)'), registered in collect_cells at line 843. Missing-bwrap path at line 643: `return _unmeasured(name, \"bwrap\", expected, \"bwrap not found on PATH\")` -> verdict KNOWN-LIMIT, notes 'UNMEASURED on this host: bwrap not found on PATH' (verified by monkeypatching shutil.which -> output exactly that). Live run on this host: `timeout 300 .venv/bin/python scripts/backend-parity-battery.py` -> cell 10 verdict SAME, measured 'kill -0 1: CAN-SIGNAL-PID1; /proc/1 comm: bwrap; host pid 1703629: ESRCH-HOSTPID, TERM TERM-FAILED; ns jail=pid:[4026536327] host=pid:[4026531836] shared=False', and the run ends with 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN.' (print_table lines 871-884). [resolution 0.23; scripts/backend-parity-battery.py]\n  \u2713 doc-pin tests pass and full unit scope is green on the merged tree with ruff clean: Doc-pin suite: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest tests/test_signal_reach_doc.py -q --tb=short` -> '5 passed in 0.01s' (exit 0). Full unit scope: `.venv/bin/python -m pytest -q --tb=short` -> '1692 passed, 10 skipped in 107.06s (0:01:47)' (exit 0). Ruff: `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0).\nAll three criteria verified: the signal-reach boundary section is documented with the measured bwrap command, CAN-SIGNAL-PID1 output and ESRCH host-pid contrast cross-referencing TJ-GAP-088; battery cell 10 reports the measured boundary, skips with the named reason 'bwrap not found on PATH', and the live battery ends with zero unexplained divergences; doc-pin tests (5 passed), full suite (1692 passed, 10 skipped) and ruff are all green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/backend-parity.md contains a 'Signal reach boundary' section quoting the measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid contrast, cross-referencing TJ-GAP-088",
+                "status": "PASS",
+                "detail": "docs/backend-parity.md:229 has heading '## Signal reach boundary (bwrap private /proc) \u2014 REVIEW-TJ-009'. Lines 249-251 quote the measured command verbatim (`bwrap --proc /proc --dev /dev --unshare-pid --ro-bind /usr /usr ... bash -c 'kill -0 1 && echo CAN-SIGNAL-PID1; ps -p 1 -o comm='`) with output `CAN-SIGNAL-PID1` / `bwrap`. Lines 280-281 give the ESRCH host-pid contrast: `kill -0 <host-pid> -> bash: kill: (184986) - No such process (ESRCH)` and `kill -TERM <host-pid>-> same ESRCH; the host process SURVIVED`. TJ-GAP-088 cross-referenced at lines 8, 122, and 300 ('Nothing here changes TJ-GAP-088's unshare proc leak'). Pinned by tests/test_signal_reach_doc.py (SECTION_HEADING + _PINNED_DOC_STRINGS incl. 'CAN-SIGNAL-PID1', 'ESRCH', 'TJ-GAP-088'). [resolution 0.23; docs/backend-parity.md]",
+                "resolution_probability": 0.23,
+                "cited_path": "docs/backend-parity.md"
+              },
+              {
+                "criterion": "scripts/backend-parity-battery.py registers a signal-reach probe cell that reports the measured boundary and skips with a named reason when bwrap is missing; battery ends with zero unexplained divergences",
+                "status": "PASS",
+                "detail": "scripts/backend-parity-battery.py:617 defines `_signal_reach_cell()` (cell name '10 signal reach \u2014 bwrap private /proc (REVIEW-TJ-009)'), registered in collect_cells at line 843. Missing-bwrap path at line 643: `return _unmeasured(name, \"bwrap\", expected, \"bwrap not found on PATH\")` -> verdict KNOWN-LIMIT, notes 'UNMEASURED on this host: bwrap not found on PATH' (verified by monkeypatching shutil.which -> output exactly that). Live run on this host: `timeout 300 .venv/bin/python scripts/backend-parity-battery.py` -> cell 10 verdict SAME, measured 'kill -0 1: CAN-SIGNAL-PID1; /proc/1 comm: bwrap; host pid 1703629: ESRCH-HOSTPID, TERM TERM-FAILED; ns jail=pid:[4026536327] host=pid:[4026531836] shared=False', and the run ends with 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN.' (print_table lines 871-884). [resolution 0.23; scripts/backend-parity-battery.py]",
+                "resolution_probability": 0.23,
+                "cited_path": "scripts/backend-parity-battery.py"
+              },
+              {
+                "criterion": "doc-pin tests pass and full unit scope is green on the merged tree with ruff clean",
+                "status": "PASS",
+                "detail": "Doc-pin suite: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest tests/test_signal_reach_doc.py -q --tb=short` -> '5 passed in 0.01s' (exit 0). Full unit scope: `.venv/bin/python -m pytest -q --tb=short` -> '1692 passed, 10 skipped in 107.06s (0:01:47)' (exit 0). Ruff: `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0).",
+                "resolution_probability": 0.23
+              }
+            ],
+            "summary": "All three criteria verified: the signal-reach boundary section is documented with the measured bwrap command, CAN-SIGNAL-PID1 output and ESRCH host-pid contrast cross-referencing TJ-GAP-088; battery cell 10 reports the measured boundary, skips with the named reason 'bwrap not found on PATH', and the live battery ends with zero unexplained divergences; doc-pin tests (5 passed), full suite (1692 passed, 10 skipped) and ruff are all green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-REVIEW-009\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/backend-parity.md contains a 'Signal reach boundary' section quoting the measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid contrast, cross-referencing TJ-GAP-088: docs/backend-parity.md:229 has heading '## Signal reach boundary (bwrap private /proc) \u2014 REVIEW-TJ-009'. Lines 249-251 quote the measured command verbatim (`bwrap --proc /proc --dev /dev --unshare-pid --ro-bind /usr /usr ... bash -c 'kill -0 1 && echo CAN-SIGNAL-PID1; ps -p 1 -o comm='`) with output `CAN-SIGNAL-PID1` / `bwrap`. Lines 280-281 give the ESRCH host-pid contrast: `kill -0 <host-pid> -> bash: kill: (184986) - No such process (ESRCH)` and `kill -TERM <host-pid>-> same ESRCH; the host process SURVIVED`. TJ-GAP-088 cross-referenced at lines 8, 122, and 300 ('Nothing here changes TJ-GAP-088's unshare proc leak'). Pinned by tests/test_signal_reach_doc.py (SECTION_HEADING + _PINNED_DOC_STRINGS incl. 'CAN-SIGNAL-PID1', 'ESRCH', 'TJ-GAP-088'). [resolution 0.23; docs/backend-parity.md]\n  \u2713 scripts/backend-parity-battery.py registers a signal-reach probe cell that reports the measured boundary and skips with a named reason when bwrap is missing; battery ends with zero unexplained divergences: scripts/backend-parity-battery.py:617 defines `_signal_reach_cell()` (cell name '10 signal reach \u2014 bwrap private /proc (REVIEW-TJ-009)'), registered in collect_cells at line 843. Missing-bwrap path at line 643: `return _unmeasured(name, \"bwrap\", expected, \"bwrap not found on PATH\")` -> verdict KNOWN-LIMIT, notes 'UNMEASURED on this host: bwrap not found on PATH' (verified by monkeypatching shutil.which -> output exactly that). Live run on this host: `timeout 300 .venv/bin/python scripts/backend-parity-battery.py` -> cell 10 verdict SAME, measured 'kill -0 1: CAN-SIGNAL-PID1; /proc/1 comm: bwrap; host pid 1703629: ESRCH-HOSTPID, TERM TERM-FAILED; ns jail=pid:[4026536327] host=pid:[4026531836] shared=False', and the run ends with 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN.' (print_table lines 871-884). [resolution 0.23; scripts/backend-parity-battery.py]\n  \u2713 doc-pin tests pass and full unit scope is green on the merged tree with ruff clean: Doc-pin suite: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest tests/test_signal_reach_doc.py -q --tb=short` -> '5 passed in 0.01s' (exit 0). Full unit scope: `.venv/bin/python -m pytest -q --tb=short` -> '1692 passed, 10 skipped in 107.06s (0:01:47)' (exit 0). Ruff: `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0).\nAll three criteria verified: the signal-reach boundary section is documented with the measured bwrap command, CAN-SIGNAL-PID1 output and ESRCH host-pid contrast cross-referencing TJ-GAP-088; battery cell 10 reports the measured boundary, skips with the named reason 'bwrap not found on PATH', and the live battery ends with zero unexplained divergences; doc-pin tests (5 passed), full suite (1692 passed, 10 skipped) and ruff are all green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-06T20:58:35.949593",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-06T20:58:35.963174+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 629,
+        "truncated": false,
+        "source": "git show 4504d2255a49"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2235,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-REVIEW-009"
+  }
+}

@@ -1,0 +1,42 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index e281813..e5fd5fa 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1586,3 +1586,27 @@ tasks:
+   status: complete
+   created_at: '2026-10-06T11:56:44.661432+00:00'
+   completed_at: '2026-10-06T12:43:58.827678+00:00'
++- id: TJ-REVIEW-009
++  title: bwrap signal-reach boundary documented + battery probe
++  criteria:
++  - docs/backend-parity.md contains a 'Signal reach boundary' section quoting the
++    measured bwrap command and its CAN-SIGNAL-PID1 output plus the ESRCH host-pid
++    contrast, cross-referencing TJ-GAP-088
++  - scripts/backend-parity-battery.py registers a signal-reach probe cell that reports
++    the measured boundary and skips with a named reason when bwrap is missing; battery
++    ends with zero unexplained divergences
++  - doc-pin tests pass and full unit scope is green on the merged tree with ruff clean
++  status: complete
++  created_at: '2026-10-06T20:53:14.446215+00:00'
++  completed_at: '2026-10-06T20:53:20.674970+00:00'
++- id: TJ-REVIEW-010
++  title: pentest-plan per-section battery-mapping banners
++  criteria:
++  - docs/pentest-plan.md carries a Mapping banner for every scenario section mapping
++    to shipped batteries (backend-parity-battery.py, plugin/test_escape_waves.py)
++    with explicit no-shipped-battery admissions where coverage is absent
++  - a doc-pin test suite pins the banner pattern and the not-shipped helper context,
++    and the full unit scope is green with ruff clean
++  status: complete
++  created_at: '2026-10-06T20:53:14.894126+00:00'
++  completed_at: '2026-10-06T20:58:36.255674+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 928204b..8f453f1 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -128,3 +128,5 @@
+ {"ts": 1791160813.1851778, "tokens_in": 14619922, "tokens_out": 19280, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791167037.1635861, "tokens_in": 10906860, "tokens_out": 19186, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791167802.6309164, "tokens_in": 307614, "tokens_out": 3503, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791320315.920414, "tokens_in": 273980, "tokens_out": 3280, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791320435.7135806, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
