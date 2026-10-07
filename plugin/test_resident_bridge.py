@@ -13,7 +13,6 @@ ch:trace row=TJ-GAP-084 evidence=plugin/test_resident_bridge.py witness=none:loc
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import socket
 import stat
@@ -27,9 +26,10 @@ import pytest
 _PLUGIN_DIR = Path(__file__).resolve().parent
 _RESIDENT = _PLUGIN_DIR / "terminal_jail" / "interruptor_resident.py"
 
-_spec = importlib.util.spec_from_file_location("interruptor_resident", _RESIDENT)
-resident = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(resident)
+# Import via the installed-package path so pytest-cov attributes the module's
+# statements to plugin/terminal_jail/ (importlib-from-file loaded it OUTSIDE the
+# --cov=terminal_jail tracked tree, leaving 0% coverage and failing the CI gate).
+import terminal_jail.interruptor_resident as resident  # noqa: E402
 
 
 def _start_daemon(sock_path: Path, mode: str | None = None) -> subprocess.Popen:
@@ -102,6 +102,56 @@ def _oneshot(command: str, mode: str | None = None) -> dict:
 
 
 ALLOWABLE = ["ls -la", "echo hello", "cat /etc/hostname"]
+
+
+class TestEvaluatePayloadInProcess:
+    """In-process evaluate_payload() coverage (CI gate: module lines must be
+    exercised inside the --cov=terminal_jail tracked tree, not only via the
+    subprocess daemon, whose lines attribute to a python executable)."""
+
+    def test_non_object_payload_fails_closed(self) -> None:
+        verdict = resident.evaluate_payload([1, 2])
+        assert verdict["action"] == "block"
+        assert verdict["rule_id"] == "[bridge-error]"
+
+    def test_missing_command_key(self) -> None:
+        verdict = resident.evaluate_payload({"cmd": "ls"})
+        assert verdict["action"] == "block"
+        assert "missing 'command'" in verdict["reason"]
+
+    def test_non_string_command(self) -> None:
+        verdict = resident.evaluate_payload({"command": 123})
+        assert verdict["action"] == "block"
+
+    def test_allow_verdict_via_engine(self) -> None:
+        verdict = resident.evaluate_payload({"command": "echo hello"})
+        assert verdict["action"] == "allow"
+        assert verdict["layer"] is not None
+
+    def test_block_verdict_via_engine(self) -> None:
+        verdict = resident.evaluate_payload({"command": "rm -rf /"})
+        assert verdict["action"] == "block"
+
+    def test_warn_mode_transport_error_fails_open(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_MODE", "warn")
+        verdict = resident.evaluate_payload({"command": 4.5})
+        assert verdict["action"] == "allow"
+        assert "fail-open" in verdict["reason"]
+
+    def test_engine_exception_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import terminal_jail.interruptor as intr
+
+        def boom(_cmd: str) -> None:
+            raise RuntimeError("engine exploded")
+
+        monkeypatch.setattr(intr, "intercept", boom)
+        verdict = resident.evaluate_payload({"command": "ls"})
+        assert verdict["action"] == "block"
+        assert "RuntimeError" in verdict["reason"]
 
 
 class TestVerdictParity:
