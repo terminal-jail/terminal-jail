@@ -1,0 +1,113 @@
+{
+  "task_id": "TJ-DF-030",
+  "task_title": "TJ-DF-030 wave worker",
+  "task_criteria": [
+    "criteria per board row TJ-DF-030"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b2f5b403c8473a785afd695be129ca5a089dde2b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T084728.646151Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:35AM INF scanned ~5760402 bytes (5.76 MB) in 292ms\n9:35AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 208 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T084728.646151Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1820 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n.............                                                            [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.....                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 22%]\nplugin/test_gtfobins_sweep.py .......................................... [ 24%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py ......................                        [ 26%]\nplugin/test_install.py ................................................. [ 29%]\n.....................................                                    [ 31%]\nplugin/test_interruptor.py ............................................. [ 33%]\n........................................................................ [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................                                 [ 59%]\n\n\u2026 [1200 chars omitted \u2014 15 line(s)] \u2026\nplugin/test_seccomp.py .........................................sss..... [ 87%]\n.                                                                        [ 87%]\nplugin/test_standalone_cli.py ......................                     [ 88%]\nplugin/test_systemd_directive_probe.py .................                 [ 89%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 90%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 91%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1810 passed, 10 skipped in 120.53s (0:02:00) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T084728.646151Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Evaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-030\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-07T14:37:41.056910",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-07T14:37:41.072215+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 72034,
+        "truncated": false,
+        "source": "git show b2f5b403c847"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5327,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-030"
+  }
+}

@@ -1623,3 +1623,42 @@ tasks:
   status: complete
   created_at: '2026-10-07T04:06:44.893002+00:00'
   completed_at: '2026-10-07T06:23:18.377270+00:00'
+- id: TJ-GAP-084
+  title: 'Resident bridge mode: unix-socket daemon in front of the verdict engine
+    + per-command budget docs + one-shot regression guard'
+  criteria:
+  - 1) Optional documented resident mode serving the same verdict contract as the
+    stdin bridge, with fail-closed fallback to one-shot; 2) before/after p50 measured
+    on this host (target <10ms resident), methodology stated; 3) unix socket chmod
+    0600 fail-closed after listen (umask trap), no TCP listener; 4) regression guard
+    pinning one-shot cost; 5) docs state which integration to choose with measured
+    numbers
+  status: complete
+  created_at: '2026-10-07T19:40:15.381173+00:00'
+  completed_at: '2026-10-07T19:59:49.402764+00:00'
+- id: TJ-GAP-086
+  title: 'Arg-size ceiling: policy + benchmark guard'
+  criteria:
+  - Policy documented (enforced max or documented linear-cost budget), committed runnable
+    benchmark reporting p50/p99 for small/8KB/20KB args with ceiling assertion, policy
+    visible in README/bridge docs, TJ-DF-024 regression stays green
+  status: complete
+  created_at: '2026-10-07T20:27:14.502273+00:00'
+  completed_at: '2026-10-07T21:49:37.976893+00:00'
+- id: JSONL-NORM-002
+  title: 'Board schema drift: normalize priority/status + schema guard'
+  criteria:
+  - A schema guard rejects a board row whose priority is a bare int or whose status
+    is outside {pending, complete, blocked}, naming the offending field in the rejection
+    message, and passes on the migrated board
+  - 'tasks.jsonl migrated in a single pass: no bare-int priority remains (0/1/2/3
+    mapped to P0/P1/P2/P3), legacy status ''completed'' migrated to ''complete'',
+    and the before/after census (row count + unique ids) is quoted in the closing
+    commit message'
+  - A guard test in the repo proves both paths (non-compliant write rejected, compliant
+    board passes) and the repo suite is green on the changed tree
+  - Row count is unchanged after the migration (253 rows, 253 unique ids) and scripts/board_id_guard.py
+    validates the migrated board
+  status: complete
+  created_at: '2026-10-07T22:16:36.511200+00:00'
+  completed_at: '2026-10-07T22:52:41.630791+00:00'

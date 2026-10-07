@@ -1,0 +1,876 @@
+commit 80deb8e08434211b8e0809b6be4edeb893d6538f
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 7 16:30:55 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 7 16:30:55 2026 -0500
+
+    feat: enforced argument-size maximum + committed arg-size benchmark. Addresses TJ-GAP-086.
+    
+    Policy (option a): intercept() refuses any command whose UTF-8 size exceeds
+    TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES (default 262144 = 256 KiB) with a
+    clean BLOCK naming the knob and the limit, checked BEFORE parsing so an
+    oversize input costs O(len), never the linear engine scan. Under the limit
+    verdict behavior is byte-identical (pinned). Warn mode degrades the refusal
+    to allow-with-warning; disabled mode passes through. Unset/invalid/zero knob
+    values fall back to the default (fail-safe).
+    
+    Benchmark: scripts/arg_size_benchmark.py — committed, bounded, laptop
+    seconds; in-process intercept(), builtins-only via the quickstart 3a2
+    empty-rules-dirs pinning; small / 8 KB / 20 KB cells, table output,
+    optional --ceiling-check.
+    
+    Ceiling: tests/test_arg_size_ceiling.py runs the benchmark's measure_cell
+    and fails above 20x the documented measurements (headroom stated in the
+    test docstring; jitter-proof by design).
+    
+    Docs: README "Environment variables and limits" subsection; docs/quickstart.md
+    3a2 retires the stale no-length-bound paragraph (TJ-DF-024's latency half was
+    the prefilter fix; the bound half is this gate); CHANGELOG entry.
+    
+    Regression guards hold: TJ-DF-024 suite (soundness at 8 KB, 200 KB benign
+    fixture, no length-based skip vocabulary) unmodified and green; full plugin
+    + tests scope green (1787 + 123 passed, skips pre-existing).
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+    
+    ch:trace row=TJ-GAP-086 spec=README.md test=tests/test_arg_size_ceiling.py,plugin/test_arg_size_policy.py evidence=commit
+---
+ CHANGELOG.md                                 |  29 +++
+ README.md                                    |  16 ++
+ docs/quickstart.md                           |  32 +++-
+ plugin/terminal_jail/interruptor/__init__.py |  30 ++-
+ plugin/terminal_jail/interruptor/config.py   |  41 +++-
+ plugin/test_arg_size_policy.py               | 270 +++++++++++++++++++++++++++
+ scripts/arg_size_benchmark.py                | 225 ++++++++++++++++++++++
+ tests/test_arg_size_ceiling.py               |  74 ++++++++
+ 8 files changed, 709 insertions(+), 8 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index e3438f0..b6aa9c7 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,34 @@
+ ## [Unreleased]
+ 
++### Enforced argument-size maximum + committed latency benchmark (TJ-GAP-086)
++
++- **Feature** (`plugin/terminal_jail/interruptor/__init__.py`): `intercept()`
++  now refuses — a clean BLOCK (`rule_id: builtin-max-arg-bytes`, reason naming
++  the knob and the limit) — any command whose UTF-8 size exceeds
++  **262144 bytes (256 KiB)**, checked before parsing/evaluation so an
++  oversize input costs O(len), never the linear engine scan. Verdict
++  behavior at or under the limit is byte-identical (pinned by
++  `plugin/test_arg_size_policy.py::TestUnderLimitByteIdentity`). Warn mode
++  degrades the refusal to allow-with-warning (warn never blocks); disabled
++  mode passes through.
++- **Env knob** `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` (positive integer;
++  unset/invalid/zero → the 262144 default, fail-safe). Documented in README
++  ("Environment variables and limits") and docs/quickstart.md §3a2, which
++  also retires the stale "no length bound" paragraph (the latency half of
++  TJ-DF-024 was the prefilter fix; the bound half is this gate).
++- **Benchmark** (`scripts/arg_size_benchmark.py`): committed, bounded,
++  laptop-friendly (in-process, builtins-only via the quickstart §3a2
++  empty-rules-dirs pinning, ~seconds wall clock), measures the real
++  `intercept()` path at small/8 KB/20 KB and prints a table; `--ceiling-check`
++  exits 1 past a 20x-pinned ceiling.
++- **Ceiling gate** (`tests/test_arg_size_ceiling.py`): runs the benchmark's
++  measurement function and fails if any p50 exceeds 20x the documented
++  measurements (headroom stated in the test docstring; jitter-proof by
++  design).
++- **Regression guards hold:** TJ-DF-024's suite (soundness at 8 KB,
++  200 KB benign fixture, no length-based skip vocabulary) passes unmodified;
++  the full plugin + tests scope is green.
++
+ ### Composed mode: terminal-jail inside a container/bunker runs as the inner layer (TJ-GAP-089)
+ 
+ - **Feature** (`standalone/terminal-jail`): when namespace creation fails AND
+diff --git a/README.md b/README.md
+index 48ff493..fca5f90 100644
+--- a/README.md
++++ b/README.md
+@@ -382,6 +382,22 @@ another daemon makes a second daemon refuse to start; a dead socket path is unli
+ and rebound safely. Per-command budget guidance: keep one-shot p50 under the 200 ms
+ bench ceiling; resident adds ~2 ms of socket round-trip on top of engine evaluation.
+ 
++#### Environment variables and limits
++
++| Variable | Default | Purpose |
++|---|---|---|
++| `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` | `262144` | **Enforced maximum argument size (TJ-GAP-086).** Any command whose UTF-8 size exceeds this is refused with a clean BLOCK (`rule_id: builtin-max-arg-bytes`) that names the knob and the limit — checked before parsing, so an oversize input costs O(len), never evaluation time. Positive integers only; unset/invalid/zero falls back to the 262144 default (a typo can never re-enable unbounded evaluation). Warn mode degrades the refusal to allow-with-warning (warn never blocks); disabled mode passes through. Distinct from `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` (below), which bounds the engine's *wrapped output*, not its input. |
++
++Cost statement (measured, not vibes): below the limit, engine cost grows
++linearly with argument size — ~2.2 ms p50 for an ordinary command, ~21.8 ms
++at 8 KB, ~51.7 ms at 20 KB (2026-10-07, this host, builtins-only engine).
++The committed benchmark re-measures it in seconds:
++`.venv/bin/python scripts/arg_size_benchmark.py` (table output;
++`--ceiling-check` exits 1 past a 20x-pinned ceiling), and
++`tests/test_arg_size_ceiling.py` pins that ceiling in the suite. See
++[docs/quickstart.md](docs/quickstart.md) §3a2 for the bridge-level contract
++and refusal envelope.
++
+ ### Plugin (Hermes)
+ 
+ The plugin registers two hooks for observability:
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index d20485f..0cfc755 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -345,13 +345,33 @@ Consumer checklist: set a timeout on the bridge call (see below), branch on
+ `action`, and treat `reason` starting with `[bridge-error]` as a failure of
+ the firewall itself — not as a policy verdict.
+ 
+-**No length or time bound is documented or guaranteed.** As of this writing
+-the engine has no limit on command length and no per-evaluation timeout:
+-an 8 KB argument was measured at ~7.5 s of pure CPU inside the engine and a
+-20 KB+ argument did not return at all (latency self-DoS — repro numbers in
++**Argument-size limit — enforced (TJ-GAP-086).** The engine refuses
++(``action: "block"``, ``rule_id: "builtin-max-arg-bytes"``, still rc=0)
++any command whose UTF-8 size exceeds **262144 bytes (256 KiB)** — checked
++BEFORE parsing, so an oversize input costs O(len), never evaluation time.
++The refusal reason names the knob and the limit:
++
++```
++{"action": "block", "command": "", "modified": null,
++ "rule_id": "builtin-max-arg-bytes",
++ "reason": "Command exceeds the maximum argument size: 266240 bytes > 262144
++            (tune with TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; see README
++            'Environment variables and limits')"}
++```
++
++Adjust or disable the refusal with ``TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES``
++(positive integer; unset/invalid/zero falls back to the 262144 default — a
++typo never re-enables unbounded evaluation). The default sits above every
++real shell command; below the limit, cost still grows linearly with size
++(~0.2 ms per KB, engine share: ~2 ms p50 small, ~22 ms at 8 KB, ~52 ms at
++20 KB — re-measure with ``.venv/bin/python scripts/arg_size_benchmark.py``,
++pinned in CI by ``tests/test_arg_size_ceiling.py``). Warn mode never
++blocks, so the refusal degrades to allow-with-warning there; disabled mode
++passes through. Historical note: the *latency* half of TJ-DF-024 (an 8 KB
++argument burning seconds of CPU) was fixed by the substring-prefilter work;
++the *bound* half is this gate. Keep a timeout on scripted bridge calls
++anyway — a per-evaluation wall-clock guard does not exist (repro numbers in
+ [docs/dogfood/2026-09-24-firewall-library-integration.md](dogfood/2026-09-24-firewall-library-integration.md)).
+-Keep a timeout on every scripted bridge call until that limitation is fixed
+-(tracked as TJ-DF-024).
+ 
+ Background and a worked consumer: the 2026-08-10 integration dogfood
+ ([docs/dogfood/2026-08-10-integration.md](dogfood/2026-08-10-integration.md))
+diff --git a/plugin/terminal_jail/interruptor/__init__.py b/plugin/terminal_jail/interruptor/__init__.py
+index 1a34404..5ea7dc4 100644
+--- a/plugin/terminal_jail/interruptor/__init__.py
++++ b/plugin/terminal_jail/interruptor/__init__.py
+@@ -36,7 +36,7 @@ __all__ = [
+     "parse_command",
+ ]
+ 
+-from .types import Action, InterceptResult
++from .types import Action, InterceptResult, Layer
+ 
+ 
+ def intercept(command: str, *, config: Config | None = None) -> InterceptResult:
+@@ -69,6 +69,34 @@ def intercept(command: str, *, config: Config | None = None) -> InterceptResult:
+     if not stripped:
+         return InterceptResult(action=Action.ALLOW, command=command)
+ 
++    # Argument-size maximum (TJ-GAP-086): a clean, documented refusal BEFORE
++    # parsing/evaluation. Cost at any size is O(len(input)) — one UTF-8
++    # length + one slice copy — never the linear engine scan (~0.2 ms/KB),
++    # so a stall-sized argument can no longer pin a host at all: it gets a
++    # verdict naming the knob (`TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES`)
++    # and the limit. Warn mode still degrades to allow-with-warning below
++    # (warn never blocks) and disabled mode already passed through above.
++    if config.max_arg_bytes and len(command.encode("utf-8")) > config.max_arg_bytes:
++        reason = (
++            f"Command exceeds the maximum argument size: {len(command.encode('utf-8'))} "
++            f"bytes > {config.max_arg_bytes} (tune with "
++            f"TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; see README 'Environment "
++            f"variables and limits')"
++        )
++        if config.mode == "warn":
++            return InterceptResult(
++                action=Action.ALLOW,
++                command=command,
++                reason=f"[WARN MODE] Would have blocked: {reason}",
++            )
++        return InterceptResult(
++            action=Action.BLOCK,
++            command="",
++            rule_id="builtin-max-arg-bytes",
++            reason=reason,
++            layer=Layer.ENGINE,
++        )
++
+     # Parse the command into segments
+     segments = parse_command(stripped)
+     if not segments:
+diff --git a/plugin/terminal_jail/interruptor/config.py b/plugin/terminal_jail/interruptor/config.py
+index d0d0f0a..4cbf4f4 100644
+--- a/plugin/terminal_jail/interruptor/config.py
++++ b/plugin/terminal_jail/interruptor/config.py
+@@ -15,6 +15,7 @@ class Config:
+ 
+     __slots__ = (
+         "log_level",
++        "max_arg_bytes",
+         "mode",
+         "system_rules_dir",
+         "user_rules_dir",
+@@ -22,12 +23,25 @@ class Config:
+ 
+     VALID_MODES = ("enforce", "warn", "disabled")
+ 
++    # TJ-GAP-086: enforced maximum argument size (UTF-8 bytes). The gate in
++    # ``intercept()`` refuses (clean BLOCK naming this knob and the limit)
++    # any command whose UTF-8 size exceeds it — BEFORE parsing/evaluation —
++    # so a stall-sized argument costs O(len), never the linear scan curve
++    # (~0.2 ms/KB measured; scripts/arg_size_benchmark.py re-measures it).
++    # 256 KiB sits far above real commands and above TJ-DF-024's 200 KB
++    # benign-latency fixtures (those still evaluate). Raise or lower it with
++    # TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; unset/invalid values fall
++    # back to this default (fail-safe: a typo must never re-arm unbounded
++    # evaluation).
++    DEFAULT_MAX_ARG_BYTES = 262144
++
+     def __init__(
+         self,
+         mode: str = "enforce",
+         system_rules_dir: str = "/etc/terminal-jail/rules.d",
+         user_rules_dir: str = "",
+         log_level: str = "WARNING",
++        max_arg_bytes: int | None = None,
+     ) -> None:
+         if mode not in self.VALID_MODES:
+             mode = "enforce"
+@@ -37,6 +51,27 @@ class Config:
+             Path.home() / ".config" / "terminal-jail" / "rules.d"
+         )
+         self.log_level = log_level.upper() if log_level else "WARNING"
++        if max_arg_bytes is None:
++            max_arg_bytes = self.coerce_max_arg_bytes(
++                os.environ.get("TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES", "")
++            )
++        self.max_arg_bytes = max_arg_bytes
++
++    @classmethod
++    def coerce_max_arg_bytes(cls, raw: str) -> int:
++        """Coerce the env knob to a usable limit; anything unusable → default.
++
++        Fail-safe on purpose: an empty, non-integer, zero, negative, or
++        float-looking value falls back to DEFAULT_MAX_ARG_BYTES so a typo'd
++        knob can never re-arm unbounded evaluation.
++        """
++        try:
++            value = int(str(raw).strip())
++        except (TypeError, ValueError):
++            return cls.DEFAULT_MAX_ARG_BYTES
++        if value <= 0:
++            return cls.DEFAULT_MAX_ARG_BYTES
++        return value
+ 
+     @classmethod
+     def from_environ(cls) -> Config:
+@@ -51,6 +86,9 @@ class Config:
+                 "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", ""
+             ),
+             log_level=os.environ.get("TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL", "WARNING"),
++            max_arg_bytes=cls.coerce_max_arg_bytes(
++                os.environ.get("TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES", "")
++            ),
+         )
+ 
+     def __repr__(self) -> str:
+@@ -58,5 +96,6 @@ class Config:
+             f"Config(mode={self.mode!r}, "
+             f"system_rules_dir={self.system_rules_dir!r}, "
+             f"user_rules_dir={self.user_rules_dir!r}, "
+-            f"log_level={self.log_level!r})"
++            f"log_level={self.log_level!r}, "
++            f"max_arg_bytes={self.max_arg_bytes!r})"
+         )
+diff --git a/plugin/test_arg_size_policy.py b/plugin/test_arg_size_policy.py
+new file mode 100644
+index 0000000..f434b8e
+--- /dev/null
++++ b/plugin/test_arg_size_policy.py
+@@ -0,0 +1,270 @@
++"""TJ-GAP-086 — enforced argument-size maximum (policy, not vibes).
++
++Contract under test:
++
++1. POLICY: ``intercept()`` refuses (clean BLOCK verdict) any command whose
++   UTF-8 size exceeds ``TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES``
++   (default 262144 = 256 KiB). The refusal names BOTH the knob and the
++   limit in its reason. The check runs BEFORE parsing/evaluation, so an
++   oversize input costs O(len) — never the linear scan curve.
++2. UNDER-LIMIT BYTE-IDENTITY: verdict behavior for arguments at or under
++   the limit is exactly what it was before the policy — same action,
++   rule_id, layer, and reason strings.
++3. KNOB: the env var raises/lowers the limit; unset/invalid/zero/negative
++   values fall back to the DEFAULT (fail-safe — a typo'd knob must never
++   re-arm unbounded evaluation).
++4. MODE CONTRACTS PRESERVED: warn mode degrades the refusal to
++   allow-with-warning (warn never blocks); disabled mode passes through
++   (no engine at all). Both still skip evaluation, so the host is
++   protected from the stall either way.
++5. TRANSPORT FLOW-THROUGH: the refusal flows through the one-shot bridge
++   and the resident engine seam as a normal verdict JSON object.
++
++The default sits ABOVE TJ-DF-024's 200 KB benign-latency fixtures on
++purpose: those regression tests must stay green unmodified (a 200 KB
++command is still evaluated, just no longer guaranteed fast).
++"""
++
++from __future__ import annotations
++
++import io
++import json
++import os
++import sys
++import unittest.mock as mock
++from pathlib import Path
++
++import pytest
++from terminal_jail.interruptor import Config, intercept
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++BRIDGE_SCRIPT = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor_bridge.py"
++
++ENV_KNOB = "TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES"
++DEFAULT_MAX = 262144
++RULE_ID = "builtin-max-arg-bytes"
++
++_EMPTY_RULES_ENV = {
++    "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": "",
++    "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": "",
++}
++
++
++def _padded(target_bytes: int) -> str:
++    """ASCII command of exactly ``target_bytes`` UTF-8 bytes (echo + pad)."""
++    cmd = "echo " + "a" * (target_bytes - 5)
++    assert len(cmd.encode()) == target_bytes
++    return cmd
++
++
++@pytest.fixture(autouse=True)
++def _pinned_empty_rules(monkeypatch: pytest.MonkeyPatch) -> None:
++    """Pin both rules dirs empty (quickstart §3a2's reproducibility trick):
++    builtins-only engine, no operator policy (this host's user rules re-arm
++    auto-sandbox on echo, which would change allow-verdict reasons)."""
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", "/nonexistent-tj-086")
++    monkeypatch.setenv(
++        "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", "/nonexistent-tj-086"
++    )
++
++
++def _verdict(command: str) -> dict:
++    """intercept() verdict as the bridge would serialize it."""
++    result = intercept(command)
++    return {
++        "action": result.action,
++        "rule_id": result.rule_id,
++        "reason": result.reason,
++        "layer": getattr(result, "layer", None),
++    }
++
++
++# ── 1. The refusal ──────────────────────────────────────────────────────────
++
++
++class TestOverLimitRefusal:
++    def test_over_default_limit_blocks(self) -> None:
++        result = intercept(_padded(DEFAULT_MAX + 1))
++        assert result.action == "block"
++        assert result.rule_id == RULE_ID
++
++    def test_refusal_names_knob_and_limit(self) -> None:
++        """The clean-error requirement: reason names the env var AND the number."""
++        oversize = _padded(DEFAULT_MAX + 4096)
++        result = intercept(oversize)
++        assert ENV_KNOB in result.reason
++        assert str(DEFAULT_MAX) in result.reason
++        assert "262145" in result.reason or "bytes" in result.reason
++
++    def test_boundary_at_limit_evaluates(self) -> None:
++        """Exactly AT the limit is allowed through (limit is a maximum, not
++        an exclusive bound on the last legal byte)."""
++        result = intercept(_padded(DEFAULT_MAX))
++        assert result.action == "allow"
++
++    def test_one_byte_over_refused(self) -> None:
++        result = intercept(_padded(DEFAULT_MAX + 1))
++        assert result.action == "block"
++
++    def test_refusal_is_cheap(self) -> None:
++        """The gate runs before evaluation: a 1 MB refusal is O(len), i.e.
++        milliseconds — never the ~30x-of-20KB evaluation curve."""
++        huge = _padded(DEFAULT_MAX * 4)  # 1 MiB
++        import time
++
++        t0 = time.perf_counter()
++        result = intercept(huge)
++        wall = time.perf_counter() - t0
++        assert result.action == "block"
++        assert wall < 0.5
++
++
++# ── 2. Under-limit byte-identity ────────────────────────────────────────────
++
++
++class TestUnderLimitByteIdentity:
++    def test_small_allow_verdict_unchanged(self) -> None:
++        v = _verdict("echo hello")
++        assert v["action"] == "allow"
++        assert v["rule_id"] == "allow-echo"
++        assert v["layer"] == "engine"
++        assert v["reason"] == ""
++
++    def test_block_verdict_unchanged(self) -> None:
++        v = _verdict("rm -rf /")
++        assert v["action"] == "block"
++        assert v["rule_id"] == "builtin-rm-rf-root"
++
++    def test_verdict_identical_with_knob_present(self) -> None:
++        """The same under-limit command yields the SAME verdict whether the
++        knob is unset, at default, or generous — policy is invisible under
++        the limit."""
++        verdicts = []
++        for env_value in (None, str(DEFAULT_MAX), str(DEFAULT_MAX * 8)):
++            if env_value is None:
++                os.environ.pop(ENV_KNOB, None)
++            else:
++                os.environ[ENV_KNOB] = env_value
++            verdicts.append(_verdict("echo " + "a" * 50000))
++        assert verdicts[0] == verdicts[1] == verdicts[2]
++        # Restore: this test deliberately dirties the process env, and the
++        # knob leaks into every later test in this module (Config reads it).
++        os.environ.pop(ENV_KNOB, None)
++
++    def test_20kb_benign_still_allows_via_evaluation(self) -> None:
++        """TJ-DF-024's shape: an 8-20 KB benign command is EVALUATED (allow,
++        rule_id null) — not short-circuited by anything."""
++        result = intercept("echo " + "a" * 20000)
++        assert result.action == "allow"
++        assert result.rule_id is None or result.rule_id == "allow-echo"
++
++
++# ── 3. The knob ─────────────────────────────────────────────────────────────
++
++
++class TestKnob:
++    def test_config_default(self) -> None:
++        assert Config().max_arg_bytes == DEFAULT_MAX
++
++    def test_config_reads_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        monkeypatch.setenv(ENV_KNOB, "1000")
++        assert Config.from_environ().max_arg_bytes == 1000
++
++    @pytest.mark.parametrize("raw", ["", "abc", "0", "-5", "12.5", "1e6"])
++    def test_invalid_values_fall_back_to_default(
++        self, monkeypatch: pytest.MonkeyPatch, raw: str
++    ) -> None:
++        """Fail-safe: a typo'd knob must never re-arm unbounded evaluation."""
++        monkeypatch.setenv(ENV_KNOB, raw)
++        assert Config.from_environ().max_arg_bytes == DEFAULT_MAX
++
++    def test_raised_knob_allows_oversize(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        monkeypatch.setenv(ENV_KNOB, str(DEFAULT_MAX * 2))
++        result = intercept(_padded(DEFAULT_MAX + 1))
++        assert result.action == "allow"
++
++    def test_lowered_knob_refuses_small_args(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv(ENV_KNOB, "100")
++        assert intercept(_padded(101)).action == "block"
++        assert intercept(_padded(100)).action == "allow"
++
++
++# ── 4. Mode contracts ───────────────────────────────────────────────────────
++
++
++class TestModeContracts:
++    def test_warn_mode_degrades_to_allow_with_warning(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_MODE", "warn")
++        result = intercept(_padded(DEFAULT_MAX + 1))
++        assert result.action == "allow"
++        assert "[WARN MODE]" in result.reason
++        assert ENV_KNOB in result.reason  # still names the knob
++
++    def test_disabled_mode_passes_through(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_MODE", "disabled")
++        result = intercept(_padded(DEFAULT_MAX + 1))
++        assert result.action == "allow"
++        assert result.rule_id is None
++
++
++# ── 5. Transport flow-through ───────────────────────────────────────────────
++
++
++def _bridge_main_inproc(stdin_line: str) -> dict:
++    """In-process one-shot bridge seam (same shape as
++    test_bridge_fail_closed._bridge_main_inproc, kept local)."""
++    from terminal_jail import interruptor_bridge as bridge_module
++
++    stdout = io.StringIO()
++    with (
++        mock.patch.object(sys, "argv", [str(BRIDGE_SCRIPT)]),
++        mock.patch.object(sys, "stdin", io.StringIO(stdin_line + "\n")),
++        mock.patch.object(sys, "stdout", stdout),
++    ):
++        bridge_module.main()
++    return json.loads(stdout.getvalue())
++
++
++class TestTransportFlowThrough:
++    def test_one_shot_bridge_refuses_oversize(self) -> None:
++        verdict = _bridge_main_inproc(json.dumps({"command": _padded(DEFAULT_MAX + 1)}))
++        assert verdict["action"] == "block"
++        assert verdict["rule_id"] == RULE_ID
++        assert ENV_KNOB in verdict["reason"]
++
++    def test_resident_engine_seam_refuses_oversize(self) -> None:
++        plugin_dir = str(PROJECT_ROOT / "plugin")
++        if plugin_dir not in sys.path:
++            sys.path.insert(0, plugin_dir)
++        from terminal_jail import interruptor_resident as resident
++
++        verdict = resident.evaluate_payload({"command": _padded(DEFAULT_MAX + 1)})
++        assert verdict["action"] == "block"
++        assert verdict["rule_id"] == RULE_ID
++
++    def test_bridge_under_limit_verdict_unchanged(self) -> None:
++        verdict = _bridge_main_inproc(json.dumps({"command": "echo hello"}))
++        assert verdict["action"] == "allow"
++        assert verdict["rule_id"] == "allow-echo"
++        assert verdict["layer"] == "engine"
++
++
++# ── 6. No fastpath marker regression (TJ-DF-024 vocabulary stays clean) ────
++
++
++def test_no_skip_semantics_vocabulary() -> None:
++    """The policy REFUSES; it must never reintroduce the rejected
++    length-based SKIP vocabulary (TJ-DF-024's rejected attempt-1)."""
++    import inspect
++
++    from terminal_jail import interruptor as pkg
++
++    src = inspect.getsource(pkg)
++    assert "over-length-fastpath" not in src
++    assert "OVER_LENGTH" not in src
+diff --git a/scripts/arg_size_benchmark.py b/scripts/arg_size_benchmark.py
+new file mode 100755
+index 0000000..c62761c
+--- /dev/null
++++ b/scripts/arg_size_benchmark.py
+@@ -0,0 +1,225 @@
++#!/usr/bin/env python3
++"""Argument-size latency benchmark for the interruptor bridge/engine path.
++
++TJ-GAP-086. Bounded and laptop-friendly: in-process (no network, no
++subprocess spawn per sample), a few seconds wall clock at the defaults.
++It measures the REAL verdict path — the same ``intercept()`` engine call
++the one-shot bridge (``plugin/terminal_jail/interruptor_bridge.py``) and
++the resident daemon both make — at a small, an 8 KB, and a 20 KB
++argument, and prints one table.
++
++The base command is deliberately RULE-INERT (``echo …``) and the rule
++directories are pinned to an EMPTY temp dir for the measurement (the
++same reproducibility mechanism docs/quickstart.md §3a2 uses for its
++transcripts): no auto-sandbox MODIFY verdict, no shell-outs, no operator
++policy in the loop — the numbers are the builtins-only engine cost, the
++same on every host shape. (An unpinned run inherits whatever the
++operator's rules.d re-arms; transport shapes — interpreter start,
++socket round-trip — are measured separately by scripts/bench_bridge.py.)
++
++Why argument size matters (measured 2026-09-27, fresh clone, n=200/cell):
++engine cost grows LINEARLY with argument size — ~2.2 ms p50 for an
++ordinary command vs ~21.8 ms at 8 KB and ~51.7 ms at 20 KB. There is no
++maximum argument size anywhere in the product: the bridge is documented
++as having no length bound (docs/quickstart.md §3a2), so a host evaluating
++stall-sized (MB-scale) arguments pays this curve linearly. See README
++"Environment variables and limits" for the stated budget.
++
++Usage:
++    .venv/bin/python scripts/arg_size_benchmark.py [--n 100] [--json]
++    [--ceiling-check]
++
++Exit code is 0 unless ``--ceiling-check`` is passed and a p50 exceeds the
++pinned ceiling (20x the measured pins — the same pins
++tests/test_arg_size_ceiling.py asserts). The test imports ``measure_cell``
++directly instead of running this file, so CI does not need the flag.
++"""
++
++from __future__ import annotations
++
++import argparse
++import atexit
++import json
++import os
++import shutil
++import statistics
++import sys
++import tempfile
++import time
++from pathlib import Path
++
++# Repo-checkout bootstrap: make the plugin/ package importable regardless
++# of cwd (same pattern as scripts/bench_bridge.py).
++_script_dir = Path(__file__).resolve().parent
++_project_root = _script_dir.parent
++_plugin_dir = _project_root / "plugin"
++sys.path.insert(0, str(_plugin_dir))
++
++# ── Pinned constants ────────────────────────────────────────────────────────
++# MEASURED_ENGINE_P50_MS documents the curve this benchmark re-measures;
++# the ceiling test derives its pins from these numbers x a stated headroom
++# factor (see tests/test_arg_size_ceiling.py docstring). Update BOTH files
++# together after a re-measurement.
++
++BENCH_CELLS: tuple[tuple[str, int], ...] = (
++    ("small (echo)", 11),
++    ("8 KB", 8192),
++    ("20 KB", 20480),
++)
++
++MEASURED_ENGINE_P50_MS: dict[str, float] = {
++    "small (echo)": 2.2,
++    "8 KB": 21.8,
++    "20 KB": 51.7,
++}
++
++CEILING_TEST_N = 30  # per-cell iterations the ceiling test runs (seconds)
++
++# Floor for the engine path: even a tiny command costs ~2 ms in-process.
++_MEASURED_ENGINE_FLOOR_MS = 2.0
++
++# Headroom factor shared with the ceiling test's pins.
++CEILING_HEADROOM = 20.0
++
++ENV_RULES_DIR = "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR"
++ENV_USER_RULES_DIR = "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"
++
++_BASE_COMMAND = "echo hello"  # rule-inert: no auto-sandbox, no shell-outs
++
++_pinned_dir: str | None = None
++
++
++def _empty_rules_dir() -> str:
++    """One empty rules dir, shared by every cell, cleaned at process exit."""
++    global _pinned_dir
++    if _pinned_dir is None:
++        _pinned_dir = tempfile.mkdtemp(prefix="tj-arg-bench-rules-")
++        atexit.register(shutil.rmtree, _pinned_dir, ignore_errors=True)
++    return _pinned_dir
++
++
++def _padded(base: str, size_bytes: int) -> str:
++    """Pad a command with a trailing comment so the string is ~size_bytes.
++
++    The pad is a benign payload (no rule literal present) so every sample
++    measures the linear parse/scan cost, never a block-rule short-circuit.
++    Constructed in Python — no huge literal ever reaches a shell.
++    """
++    if size_bytes <= len(base):
++        return base
++    pad_needed = size_bytes - len(base) - 1
++    return f"{base} {'#' * pad_needed}"
++
++
++def measure_cell(label: str, n: int = 100) -> dict:
++    """One benchmark cell: n intercept() evaluations at this cell's size.
++
++    Returns {label, bytes, n, p50_ms, p99_ms, mean_ms}. Raises KeyError on
++    an unknown label so a stale pin fails loudly instead of silently
++    dropping a cell. The operator's rules.d is OUT of the loop: both rule
++    directory env vars are pinned to an empty temp dir for the loop (the
++    engine reads them per call) and restored after it, so the measured
++    curve is builtins-only and host-independent.
++    """
++    sizes = dict(BENCH_CELLS)
++    command = _padded(_BASE_COMMAND, sizes[label])
++    from terminal_jail.interruptor import intercept
++
++    saved = {k: os.environ.get(k) for k in (ENV_RULES_DIR, ENV_USER_RULES_DIR)}
++    empty = _empty_rules_dir()
++    os.environ[ENV_RULES_DIR] = empty
++    os.environ[ENV_USER_RULES_DIR] = empty
++    try:
++        intercept(command)  # warm-up: rule load + imports out of the samples
++        times_ms = []
++        for _ in range(n):
++            t0 = time.perf_counter()
++            intercept(command)
++            times_ms.append((time.perf_counter() - t0) * 1000.0)
++    finally:
++        for key, value in saved.items():
++            if value is None:
++                os.environ.pop(key, None)
++            else:
++                os.environ[key] = value
++    ordered = sorted(times_ms)
++    count = len(ordered)
++    return {
++        "label": label,
++        "bytes": len(command.encode()),
++        "n": count,
++        "p50_ms": round(ordered[count // 2], 2),
++        "p99_ms": round(ordered[min(count - 1, int(count * 0.99))], 2),
++        "mean_ms": round(statistics.fmean(ordered), 2),
++    }
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
++    parser.add_argument("--n", type=int, default=100, help="iterations per cell")
++    parser.add_argument("--json", action="store_true", help="machine-readable output")
++    parser.add_argument(
++        "--ceiling-check",
++        action="store_true",
++        help="exit 1 if any p50 exceeds the pinned ceiling (20x the measured "
++        "pins; same pins tests/test_arg_size_ceiling.py asserts)",
++    )
++    args = parser.parse_args(argv)
++
++    host = ""
++    if not args.json:
++        import platform
++
++        host = f"host: {platform.node()} ({sys.platform}), python {sys.version.split()[0]}, "
++
++    results = [measure_cell(label, n=args.n) for label, _size in BENCH_CELLS]
++
++    if args.json:
++        print(json.dumps({"cells": results}))
++    else:
++        print(
++            f"Argument-size latency benchmark — {host}n={args.n}/cell, "
++            "in-process intercept() (the bridge/engine verdict path, builtins-only: "
++            "rule dirs pinned empty for the run); wall clock per verdict, "
++            "subprocess-transport overhead not included "
++            "(scripts/bench_bridge.py measures that shape)."
++        )
++        print()
++        print(f"{'payload':<16} {'bytes':>8} {'p50':>10} {'p99':>10} {'mean':>10}")
++        for r in results:
++            print(
++                f"{r['label']:<16} {r['bytes']:>8} {r['p50_ms']:>9.1f}ms "
++                f"{r['p99_ms']:>9.1f}ms {r['mean_ms']:>9.1f}ms"
++            )
++        print()
++        print(
++            "Cost is linear in argument size; inputs above the enforced "
++            "maximum are refused before evaluation (see README, "
++            "'Environment variables and limits')."
++        )
++
++    if args.ceiling_check:
++        failures = []
++        for r in results:
++            measured = MEASURED_ENGINE_P50_MS.get(r["label"])
++            if measured is None:
++                failures.append(f"{r['label']}: no pinned measurement")
++                continue
++            reference = max(measured, _MEASURED_ENGINE_FLOOR_MS)
++            if r["p50_ms"] >= reference * CEILING_HEADROOM:
++                failures.append(
++                    f"{r['label']}: p50 {r['p50_ms']:.1f}ms >= "
++                    f"{CEILING_HEADROOM:.0f}x pin ({reference:.1f}ms measured)"
++                )
++        if failures:
++            print("CEILING FAIL: " + "; ".join(failures), file=sys.stderr)
++            return 1
++        print(
++            f"ceiling check OK ({CEILING_HEADROOM:.0f}x pins, "
++            "see tests/test_arg_size_ceiling.py)"
++        )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_arg_size_ceiling.py b/tests/test_arg_size_ceiling.py
+new file mode 100644
+index 0000000..39540bf
+--- /dev/null
++++ b/tests/test_arg_size_ceiling.py
+@@ -0,0 +1,74 @@
++"""TJ-GAP-086 — pinned argument-size latency ceiling.
++
++Runs the committed benchmark's measurement function
++(``scripts/arg_size_benchmark.py``) in-process against the real
++bridge/engine verdict path and fails if any pinned p50 ceiling is
++exceeded.
++
++The ceilings are a GENEROUS MULTIPLE of the measured curve so CI/VM
++jitter does not flake. Measured on the reference host
++(karaHermes-mde-7840hs, 2026-10-07, engine p50 by payload size, from
++scripts/arg_size_benchmark.py's pinned table):
++
++    small  ~2.2 ms   8 KB ~21.8 ms   20 KB ~51.7 ms
++
++Headroom factor: **20x** per cell. That is deliberate — this test pins
++"suddenly 20x slower" (a lost prefilter, a quadratic path, a stall-sized
++input reaching the engine), not "10% slower", which belongs to trend
++dashboards, not a unit gate. The one-shot/subprocess transport cost
++(interpreter start, ~65-190 ms) is deliberately NOT pinned here: that
++shape is scripts/bench_bridge.py's 200 ms cost guard (TJ-GAP-084), and a
++unit test that pins process-start latency flakes on loaded CI runners.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import sys
++from pathlib import Path
++
++import pytest
++
++_PROJECT_ROOT = Path(__file__).resolve().parent.parent
++_BENCH = _PROJECT_ROOT / "scripts" / "arg_size_benchmark.py"
++
++_spec = importlib.util.spec_from_file_location("tj_arg_size_benchmark", _BENCH)
++assert _spec is not None and _spec.loader is not None
++bench = importlib.util.module_from_spec(_spec)
++sys.modules["tj_arg_size_benchmark"] = bench
++_spec.loader.exec_module(bench)
++
++HEADROOM_FACTOR = 20.0  # see module docstring — jitter-proof by design
++
++PINNED_P50_CEILINGS_MS = {
++    label: round(max(measured_ms, bench._MEASURED_ENGINE_FLOOR_MS) * HEADROOM_FACTOR, 1)
++    for label, measured_ms in bench.MEASURED_ENGINE_P50_MS.items()
++}
++
++
++def test_pin_matches_benchmark_cells() -> None:
++    """The pinned table covers exactly the benchmark's cells — never stale."""
++    assert set(PINNED_P50_CEILINGS_MS) == {label for label, _ in bench.BENCH_CELLS}
++    # and the pins are derived from measured numbers, not vibes
++    assert set(bench.MEASURED_ENGINE_P50_MS) == {
++        label for label, _ in bench.BENCH_CELLS
++    }
++
++
++@pytest.mark.parametrize(
++    "label", [label for label, _size in bench.BENCH_CELLS], ids=str
++)
++def test_engine_p50_under_pinned_ceiling(label: str) -> None:
++    """p50 at each payload size stays under the pinned generous ceiling.
++
++    Ceiling = 20x the documented measurement (module docstring). A failure
++    means the curve moved by an order of magnitude — a real regression
++    (a lost prefilter, a quadratic path), not VM jitter.
++    """
++    result = bench.measure_cell(label, n=bench.CEILING_TEST_N)
++    ceiling = PINNED_P50_CEILINGS_MS[label]
++    assert result["p50_ms"] < ceiling, (
++        f"{label}: engine p50 {result['p50_ms']:.1f}ms >= pinned ceiling "
++        f"{ceiling:.1f}ms ({HEADROOM_FACTOR:.0f}x the documented measurement) "
++        f"— argument-size latency regression (TJ-GAP-086)"
++    )

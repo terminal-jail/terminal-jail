@@ -1,0 +1,73 @@
+diff --git a/.coding-hermes/board/.lock b/.coding-hermes/board/.lock
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 3bb8aec..7916697 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1623,3 +1623,22 @@ tasks:
+   status: complete
+   created_at: '2026-10-07T04:06:44.893002+00:00'
+   completed_at: '2026-10-07T06:23:18.377270+00:00'
++- id: TJ-GAP-083
++  title: TJ-GAP-083 wave worker
++  criteria:
++  - criteria per board row TJ-GAP-083
++  status: in_progress
++  created_at: '2026-10-07T14:35:26.760723+00:00'
++- id: TJ-DF-031
++  title: TJ-DF-031 wave worker
++  criteria:
++  - criteria per board row TJ-DF-031
++  status: in_progress
++  created_at: '2026-10-07T14:35:27.211427+00:00'
++- id: TJ-DF-030
++  title: TJ-DF-030 wave worker
++  criteria:
++  - criteria per board row TJ-DF-030
++  status: complete
++  created_at: '2026-10-07T14:35:27.624675+00:00'
++  completed_at: '2026-10-07T14:38:12.823656+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 45b44af..73664ec 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -132,3 +132,4 @@
+ {"ts": 1791320435.7135806, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791320576.6401205, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791354354.6605282, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791383861.0360348, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..cc34bd9 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,29 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:warnings","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:ctypes.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:platform","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:collections.abc","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}

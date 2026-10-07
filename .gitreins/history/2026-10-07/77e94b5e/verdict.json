@@ -1,0 +1,116 @@
+{
+  "task_id": "JSONL-NORM-002",
+  "task_title": "Board schema drift: normalize priority/status + schema guard",
+  "task_criteria": [
+    "A schema guard rejects a board row whose priority is a bare int or whose status is outside {pending, complete, blocked}, naming the offending field in the rejection message, and passes on the migrated board",
+    "tasks.jsonl migrated in a single pass: no bare-int priority remains (0/1/2/3 mapped to P0/P1/P2/P3), legacy status 'completed' migrated to 'complete', and the before/after census (row count + unique ids) is quoted in the closing commit message",
+    "A guard test in the repo proves both paths (non-compliant write rejected, compliant board passes) and the repo suite is green on the changed tree",
+    "Row count is unchanged after the migration (253 rows, 253 unique ids) and scripts/board_id_guard.py validates the migrated board"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a7ecbf470520ba2529387a68885b3be2c132b697",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T224950.863408Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:50PM INF scanned ~6470921 bytes (6.47 MB) in 429ms\n5:50PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 220 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T224950.863408Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1931 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 22%]\nplugin/test_gtfobins_sweep.py .......................................... [ 24%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py ......................                        [ 26%]\nplugin/test_install.py ................................................. [ 29%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 33%]\n........................................................................ [ 37%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 48%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1760 chars omitted \u2014 22 line(s)] \u2026\nplugin/test_systemd_directive_probe.py .................                 [ 89%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 90%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 90%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 93%]\ntests/test_board_schema_guard.py ...........                             [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1921 passed, 10 skipped in 128.36s (0:02:08) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T224950.863408Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Evaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: JSONL-NORM-002\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-07T22:52:31.923260",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-07T22:52:31.960991+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show a7ecbf470520"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 50483,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "JSONL-NORM-002"
+  }
+}

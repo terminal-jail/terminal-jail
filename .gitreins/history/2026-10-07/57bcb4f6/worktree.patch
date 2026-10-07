@@ -1,0 +1,197 @@
+diff --git a/.coding-hermes/board/.lock b/.coding-hermes/board/.lock
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 3bb8aec..d8cfe56 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1623,3 +1623,25 @@ tasks:
+   status: complete
+   created_at: '2026-10-07T04:06:44.893002+00:00'
+   completed_at: '2026-10-07T06:23:18.377270+00:00'
++- id: TJ-GAP-084
++  title: 'Resident bridge mode: unix-socket daemon in front of the verdict engine
++    + per-command budget docs + one-shot regression guard'
++  criteria:
++  - 1) Optional documented resident mode serving the same verdict contract as the
++    stdin bridge, with fail-closed fallback to one-shot; 2) before/after p50 measured
++    on this host (target <10ms resident), methodology stated; 3) unix socket chmod
++    0600 fail-closed after listen (umask trap), no TCP listener; 4) regression guard
++    pinning one-shot cost; 5) docs state which integration to choose with measured
++    numbers
++  status: complete
++  created_at: '2026-10-07T19:40:15.381173+00:00'
++  completed_at: '2026-10-07T19:59:49.402764+00:00'
++- id: TJ-GAP-086
++  title: 'Arg-size ceiling: policy + benchmark guard'
++  criteria:
++  - Policy documented (enforced max or documented linear-cost budget), committed runnable
++    benchmark reporting p50/p99 for small/8KB/20KB args with ceiling assertion, policy
++    visible in README/bridge docs, TJ-DF-024 regression stays green
++  status: complete
++  created_at: '2026-10-07T20:27:14.502273+00:00'
++  completed_at: '2026-10-07T21:43:54.487241+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 45b44af..89d960b 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -132,3 +132,6 @@
+ {"ts": 1791320435.7135806, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791320576.6401205, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791354354.6605282, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791383861.0360348, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791403185.3643196, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791409577.908353, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..49c0258 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,148 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:warnings","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:ctypes.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:platform","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:collections.abc","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"standalone/landlock-net-loader.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"standalone/landlock-net-loader.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"standalone/landlock-net-loader.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf031_unwrapped_notice.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf031_unwrapped_notice.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf031_unwrapped_notice.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.landlock","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.landlock_net","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.types","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:plugin.terminal_jail.interruptor.landlock","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:contextlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:statistics","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/bench_bridge.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:interruptor_bridge","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:contextlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor_resident.py","to":"pkg:interruptor_resident","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:terminal_jail.interruptor_resident","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:atexit","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:statistics","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/arg_size_benchmark.py","to":"pkg:platform","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:importlib.util","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:sys","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:pathlib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_arg_size_ceiling.py","to":"pkg:pytest","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/__init__.py","to":"pkg:plugin.terminal_jail.interruptor.types","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:unittest.mock","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:inspect","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_arg_size_policy.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
