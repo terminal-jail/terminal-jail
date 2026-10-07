@@ -42,6 +42,33 @@ Current release (v1.0.0) is published on GitHub Releases. GitHub provides:
 
 This is adequate for an initial release but not defense-in-depth.
 
+### Distribution channel
+
+**There are no PyPI releases. PyPI is not a distribution channel for this
+project.** The only supported install channel is **source**: `git clone` +
+`./install.sh` (README "Install"), or `pip install .` / `pip install -e .`
+from a local checkout for development. Releases themselves are GitHub
+Releases, tag-triggered (`docs/releasing.md`) — and even the
+release-download install mode is opt-in (`TERMINAL_JAIL_USE_RELEASE=1`;
+without the flag the installer refuses rather than hitting a dead URL).
+
+Consequences for automation and consumers:
+
+- `pip install terminal-jail==<any-version>` — e.g. the QA upgrade cell's
+  `pip install terminal-jail==1.0.0` — will **always fail** with
+  `No matching distribution found` / `Could not find a version …
+  (from versions: none)`. That failure is the expected, by-design outcome:
+  there is no package to resolve, at any version, now or planned. Do not
+  probe package indexes for this project, and do not treat resolution
+  failure as a broken release or a bug to fix.
+- The `version` field in `pyproject.toml` is a **source-release label**, not
+  an index artifact: it names the checkout/release lineage (currently
+  `1.2.0`) and does not promise a downloadable distribution. Version bumps
+  travel with source releases and GitHub tags only.
+
+(Recorded 2026-10-07 as TJ-DF-032, after an external QA upgrade cell attempted
+`pip install terminal-jail==1.0.0` and failed on the missing index artifact.)
+
 ---
 
 ## Recommendations

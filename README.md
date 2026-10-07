@@ -171,6 +171,8 @@ The one mistake that wastes the first several attempts: `match.type: regex` is *
 
 Release-mode installs (downloading the wrapper from a published release plus its SHA-256 checksum, verified and atomically installed) are supported by `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`, but no release assets are published yet and release mode is therefore **opt-in only** — without the flag the installer refuses instead of hitting a dead URL. The git-clone path above is the supported install path.
 
+**PyPI is not a distribution channel** for this project: there are no `terminal-jail` packages on PyPI or any other index, so `pip install terminal-jail==<version>` always fails by design. Source install (above) is the only supported channel — see [docs/supply-chain.md](docs/supply-chain.md#distribution-channel) for the statement automation should rely on.
+
 ---
 
 ## Uninstall

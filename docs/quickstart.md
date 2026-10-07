@@ -47,6 +47,8 @@ cd terminal-jail
 ./install.sh --uninstall
 ```
 
+**Source only.** There is no `terminal-jail` package on PyPI — any `pip install terminal-jail` fails by design; source install (above) is the only supported channel ([docs/supply-chain.md](supply-chain.md)).
+
 **Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
 demand a containment tier instead of the default advisory probe report —
 `pidns` requires the PID-namespace probe to classify FULL, `fs` the
