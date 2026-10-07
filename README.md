@@ -382,6 +382,22 @@ another daemon makes a second daemon refuse to start; a dead socket path is unli
 and rebound safely. Per-command budget guidance: keep one-shot p50 under the 200 ms
 bench ceiling; resident adds ~2 ms of socket round-trip on top of engine evaluation.
 
+#### Environment variables and limits
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` | `262144` | **Enforced maximum argument size (TJ-GAP-086).** Any command whose UTF-8 size exceeds this is refused with a clean BLOCK (`rule_id: builtin-max-arg-bytes`) that names the knob and the limit — checked before parsing, so an oversize input costs O(len), never evaluation time. Positive integers only; unset/invalid/zero falls back to the 262144 default (a typo can never re-enable unbounded evaluation). Warn mode degrades the refusal to allow-with-warning (warn never blocks); disabled mode passes through. Distinct from `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` (below), which bounds the engine's *wrapped output*, not its input. |
+
+Cost statement (measured, not vibes): below the limit, engine cost grows
+linearly with argument size — ~2.2 ms p50 for an ordinary command, ~21.8 ms
+at 8 KB, ~51.7 ms at 20 KB (2026-10-07, this host, builtins-only engine).
+The committed benchmark re-measures it in seconds:
+`.venv/bin/python scripts/arg_size_benchmark.py` (table output;
+`--ceiling-check` exits 1 past a 20x-pinned ceiling), and
+`tests/test_arg_size_ceiling.py` pins that ceiling in the suite. See
+[docs/quickstart.md](docs/quickstart.md) §3a2 for the bridge-level contract
+and refusal envelope.
+
 ### Plugin (Hermes)
 
 The plugin registers two hooks for observability:

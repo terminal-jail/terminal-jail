@@ -1,5 +1,34 @@
 ## [Unreleased]
 
+### Enforced argument-size maximum + committed latency benchmark (TJ-GAP-086)
+
+- **Feature** (`plugin/terminal_jail/interruptor/__init__.py`): `intercept()`
+  now refuses — a clean BLOCK (`rule_id: builtin-max-arg-bytes`, reason naming
+  the knob and the limit) — any command whose UTF-8 size exceeds
+  **262144 bytes (256 KiB)**, checked before parsing/evaluation so an
+  oversize input costs O(len), never the linear engine scan. Verdict
+  behavior at or under the limit is byte-identical (pinned by
+  `plugin/test_arg_size_policy.py::TestUnderLimitByteIdentity`). Warn mode
+  degrades the refusal to allow-with-warning (warn never blocks); disabled
+  mode passes through.
+- **Env knob** `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` (positive integer;
+  unset/invalid/zero → the 262144 default, fail-safe). Documented in README
+  ("Environment variables and limits") and docs/quickstart.md §3a2, which
+  also retires the stale "no length bound" paragraph (the latency half of
+  TJ-DF-024 was the prefilter fix; the bound half is this gate).
+- **Benchmark** (`scripts/arg_size_benchmark.py`): committed, bounded,
+  laptop-friendly (in-process, builtins-only via the quickstart §3a2
+  empty-rules-dirs pinning, ~seconds wall clock), measures the real
+  `intercept()` path at small/8 KB/20 KB and prints a table; `--ceiling-check`
+  exits 1 past a 20x-pinned ceiling.
+- **Ceiling gate** (`tests/test_arg_size_ceiling.py`): runs the benchmark's
+  measurement function and fails if any p50 exceeds 20x the documented
+  measurements (headroom stated in the test docstring; jitter-proof by
+  design).
+- **Regression guards hold:** TJ-DF-024's suite (soundness at 8 KB,
+  200 KB benign fixture, no length-based skip vocabulary) passes unmodified;
+  the full plugin + tests scope is green.
+
 ### Composed mode: terminal-jail inside a container/bunker runs as the inner layer (TJ-GAP-089)
 
 - **Feature** (`standalone/terminal-jail`): when namespace creation fails AND

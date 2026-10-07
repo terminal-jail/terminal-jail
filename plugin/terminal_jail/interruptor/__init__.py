@@ -36,7 +36,7 @@ __all__ = [
     "parse_command",
 ]
 
-from .types import Action, InterceptResult
+from .types import Action, InterceptResult, Layer
 
 
 def intercept(command: str, *, config: Config | None = None) -> InterceptResult:
@@ -68,6 +68,34 @@ def intercept(command: str, *, config: Config | None = None) -> InterceptResult:
     stripped = command.strip()
     if not stripped:
         return InterceptResult(action=Action.ALLOW, command=command)
+
+    # Argument-size maximum (TJ-GAP-086): a clean, documented refusal BEFORE
+    # parsing/evaluation. Cost at any size is O(len(input)) — one UTF-8
+    # length + one slice copy — never the linear engine scan (~0.2 ms/KB),
+    # so a stall-sized argument can no longer pin a host at all: it gets a
+    # verdict naming the knob (`TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES`)
+    # and the limit. Warn mode still degrades to allow-with-warning below
+    # (warn never blocks) and disabled mode already passed through above.
+    if config.max_arg_bytes and len(command.encode("utf-8")) > config.max_arg_bytes:
+        reason = (
+            f"Command exceeds the maximum argument size: {len(command.encode('utf-8'))} "
+            f"bytes > {config.max_arg_bytes} (tune with "
+            f"TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; see README 'Environment "
+            f"variables and limits')"
+        )
+        if config.mode == "warn":
+            return InterceptResult(
+                action=Action.ALLOW,
+                command=command,
+                reason=f"[WARN MODE] Would have blocked: {reason}",
+            )
+        return InterceptResult(
+            action=Action.BLOCK,
+            command="",
+            rule_id="builtin-max-arg-bytes",
+            reason=reason,
+            layer=Layer.ENGINE,
+        )
 
     # Parse the command into segments
     segments = parse_command(stripped)

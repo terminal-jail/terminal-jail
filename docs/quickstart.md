@@ -345,13 +345,33 @@ Consumer checklist: set a timeout on the bridge call (see below), branch on
 `action`, and treat `reason` starting with `[bridge-error]` as a failure of
 the firewall itself — not as a policy verdict.
 
-**No length or time bound is documented or guaranteed.** As of this writing
-the engine has no limit on command length and no per-evaluation timeout:
-an 8 KB argument was measured at ~7.5 s of pure CPU inside the engine and a
-20 KB+ argument did not return at all (latency self-DoS — repro numbers in
+**Argument-size limit — enforced (TJ-GAP-086).** The engine refuses
+(``action: "block"``, ``rule_id: "builtin-max-arg-bytes"``, still rc=0)
+any command whose UTF-8 size exceeds **262144 bytes (256 KiB)** — checked
+BEFORE parsing, so an oversize input costs O(len), never evaluation time.
+The refusal reason names the knob and the limit:
+
+```
+{"action": "block", "command": "", "modified": null,
+ "rule_id": "builtin-max-arg-bytes",
+ "reason": "Command exceeds the maximum argument size: 266240 bytes > 262144
+            (tune with TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; see README
+            'Environment variables and limits')"}
+```
+
+Adjust or disable the refusal with ``TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES``
+(positive integer; unset/invalid/zero falls back to the 262144 default — a
+typo never re-enables unbounded evaluation). The default sits above every
+real shell command; below the limit, cost still grows linearly with size
+(~0.2 ms per KB, engine share: ~2 ms p50 small, ~22 ms at 8 KB, ~52 ms at
+20 KB — re-measure with ``.venv/bin/python scripts/arg_size_benchmark.py``,
+pinned in CI by ``tests/test_arg_size_ceiling.py``). Warn mode never
+blocks, so the refusal degrades to allow-with-warning there; disabled mode
+passes through. Historical note: the *latency* half of TJ-DF-024 (an 8 KB
+argument burning seconds of CPU) was fixed by the substring-prefilter work;
+the *bound* half is this gate. Keep a timeout on scripted bridge calls
+anyway — a per-evaluation wall-clock guard does not exist (repro numbers in
 [docs/dogfood/2026-09-24-firewall-library-integration.md](dogfood/2026-09-24-firewall-library-integration.md)).
-Keep a timeout on every scripted bridge call until that limitation is fixed
-(tracked as TJ-DF-024).
 
 Background and a worked consumer: the 2026-08-10 integration dogfood
 ([docs/dogfood/2026-08-10-integration.md](dogfood/2026-08-10-integration.md))
