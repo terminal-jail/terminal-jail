@@ -89,6 +89,9 @@ def _env(tmp_path: pathlib.Path, path: str, **overrides: str) -> dict[str, str]:
         "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
         "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
         "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
+        # TJ-GAP-082: backend-parity pins the BACKEND contract; the
+        # Landlock tier's launch shapes are owned by test_landlock.py.
+        "TERMINAL_JAIL_LANDLOCK": "0",
     }
     home = pathlib.Path(env["HOME"])
     home.mkdir(exist_ok=True)

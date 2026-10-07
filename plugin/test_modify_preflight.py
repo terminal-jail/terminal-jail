@@ -176,6 +176,10 @@ def _env(
         "TJ_BRIDGE_PREFIX": prefix,
         "TJ_BRIDGE_MODE": mode,
         "TJ_PROBE_EXIT": probe_exit,
+        # TJ-GAP-082: these tests pin the wrapper's modify-preflight call
+        # count for the rewrite itself; the Landlock tier's loader probe
+        # is an additional call the tier tests own.
+        "TERMINAL_JAIL_LANDLOCK": "0",
     }
     if degraded:
         env["TJ_DEGRADED"] = "1"

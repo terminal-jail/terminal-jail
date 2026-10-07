@@ -27,6 +27,7 @@ from pathlib import Path
 from .allowlist import BUILTIN_ALLOWLIST
 from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
+from .landlock import sandbox_prefix as landlock_sandbox_prefix
 from .matcher import Matcher
 from .parser import (
     Segment,
@@ -47,6 +48,31 @@ from .userns import unshare_prefix
 # mapping-less flags otherwise — see plugin/terminal_jail/interruptor/
 # userns.py and scripts/fs-isolation-probe.py (TJ-DF-015).
 _UNSHARE_PREFIX = unshare_prefix()
+
+# TJ-GAP-082: the kernel-enforced Landlock filesystem tier, composed onto
+# the SAME seam as the namespace prefix — ``landlock_sandbox_prefix()``
+# returns "python3 <loader> -- " when the host supports Landlock and the
+# tier applies (proven by the fork-isolated EACCES preflight), "" other-
+# wise, so every wrap's payload becomes ``python3 <loader> -- <command>``
+# (the loader applies the ruleset INSIDE the final namespace and execs
+# the command). When it does not apply, wraps run EXACTLY as before (a
+# degradation prints ONE loud warning naming the cause; behavior
+# unchanged). Single-sourced here: no literal tier prefix anywhere else
+# in the engine.
+_LANDLOCK_TAIL = landlock_sandbox_prefix()
+
+
+def _wrap_payload(raw: str) -> str:
+    """The payload a wrap runs: the tier's loader ahead of the command.
+
+    With the tier active the payload becomes
+    ``python3 <loader> -- <command>`` — one quoted payload string (the
+    loader must parse as part of the payload, never as loose argv of the
+    outer ``bash -c``). Without the tier the payload is the command
+    unchanged.
+    """
+    return f"{_LANDLOCK_TAIL}{raw}"
+
 
 # The file name install.sh gives every rule pack it installs into a
 # rules.d directory (install.sh: "terminal-jail-pack-<name>.yaml").
@@ -358,7 +384,7 @@ class Decider:
             rebuilt = rebuild_command(original, replacements)
             if rebuilt is not None and structure_preserved(original, rebuilt):
                 return rebuilt
-        return f"{_UNSHARE_PREFIX}{_escape_for_shell(original.strip())}"
+        return f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(original.strip()))}"
 
     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
         """Evaluate a single command segment against all rule layers."""
@@ -428,7 +454,7 @@ class Decider:
                 layer=layer,
             )
         if rule.action in (Action.MODIFY, Action.SANDBOX):
-            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(raw)}"
+            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(raw))}"
             return InterceptResult(
                 action=Action.MODIFY,
                 command=raw,

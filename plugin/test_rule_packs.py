@@ -98,6 +98,10 @@ DB_PACK_BENIGN_CONTROLS = ('psql -c "SELECT 1"', 'mysql -e "SELECT 1"')
 
 def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
     """Invoke the installer's validator exactly as install.sh does."""
+    env = os.environ.copy()
+    # TJ-GAP-082: the refusal contract pins the exact stderr line set;
+    # the Landlock tier's degradation warning is not part of it.
+    env["TERMINAL_JAIL_LANDLOCK"] = "0"
     return subprocess.run(
         [sys.executable, str(PACK_TOOL), *args],
         capture_output=True,
@@ -105,6 +109,7 @@ def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
         check=False,
         cwd=str(PROJECT_ROOT),
         timeout=60,
+        env=env,
     )
 
 
@@ -144,6 +149,11 @@ def _scratch_rule_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     empty_system.mkdir()
     monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", str(rules_dir))
     monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", str(empty_system))
+    # TJ-GAP-082: the refusal banner contract pins the exact stderr line
+    # set; the Landlock tier's degradation warning (possible in a bridge
+    # process on a degraded launch) is not part of that contract — the
+    # tier's own tests own it.
+    monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "0")
     return rules_dir
 
 

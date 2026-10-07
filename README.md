@@ -274,6 +274,16 @@ exit 0):
 ```bash
 python3 scripts/pidns-capability-probe.py     # PID-namespace layer: FULL / DEGRADED
 python3 scripts/fs-isolation-probe.py         # filesystem-isolation tier + cause
+python3 scripts/landlock-capability-probe.py  # Landlock filesystem tier (TJ-GAP-082)
+```
+
+On hosts where the uid-mapped launch is denied (the AppArmor case above), the
+Landlock tier provides a kernel-enforced filesystem deny layer instead — no
+user namespace and no privileges needed: credential surfaces (`~/.ssh`,
+`~/.config/terminal-jail`, other users' homes) become unreadable and writes
+are confined to the working tree + temp dirs, enforced by the kernel and
+inherited by the payload after exec. `TERMINAL_JAIL_LANDLOCK=0` disables it.
+The tier composes with (never replaces) the unshare/bwrap namespace path.
 ```
 
 then read **[docs/capability-matrix.md](docs/capability-matrix.md)**: one

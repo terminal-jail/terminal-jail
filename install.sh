@@ -1221,6 +1221,11 @@ if [ -n "$LOCAL_WRAPPER" ]; then
         cp "$SCRIPT_DIR/standalone/seccomp-loader.py" "$LIB_DIR/"
         echo "terminal-jail installer: installed seccomp loader to ${LIB_DIR}/seccomp-loader.py"
     fi
+    if [ -f "$SCRIPT_DIR/standalone/landlock-loader.py" ]; then
+        mkdir -p "$LIB_DIR"
+        cp "$SCRIPT_DIR/standalone/landlock-loader.py" "$LIB_DIR/"
+        echo "terminal-jail installer: installed Landlock loader to ${LIB_DIR}/landlock-loader.py"
+    fi
     # Ship the default rules file to the user rules directory so user rules
     # actually load (the engine reads ~/.config/terminal-jail/rules.d — see
     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system

@@ -94,6 +94,11 @@ def _env(tmp_path: Path, path: str, **overrides: str) -> dict[str, str]:
         "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
         "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
         "TJ_UNSHARE_STUB_LOG": str(tmp_path / "unshare.log"),
+        # TJ-GAP-082: these tests pin the BACKEND contract (flag sets,
+        # probe/launch call counts, trampoline argv); the Landlock tier's
+        # loader would add its own probe + exec layer to the recorded
+        # argv. The tier's launch shapes are owned by test_landlock.py.
+        "TERMINAL_JAIL_LANDLOCK": "0",
     }
     Path(env["HOME"]).mkdir(exist_ok=True)
     env.update(overrides)

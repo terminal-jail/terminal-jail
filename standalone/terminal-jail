@@ -107,8 +107,34 @@ if [ -z "$SECCOMP_LOADER" ]; then
         fi
     done
 fi
+# TJ-GAP-082: the kernel-enforced Landlock filesystem tier's pre-exec
+# loader. Search order mirrors SECCOMP_LOADER (standalone/ next to this
+# script in a checkout; the installed lib tree). The loader is the tier's
+# LAUNCH TAIL: it applies the ruleset inside the final namespace, right
+# before the payload exec (see the exec dispatch at the bottom and the
+# auto-sandbox rewrite launch below).
+LANDLOCK_LOADER="${TERMINAL_JAIL_LANDLOCK_LOADER:-}"
+if [ -z "$LANDLOCK_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/landlock-loader.py" \
+        "${INSTALLED_LIB_DIR}/landlock-loader.py"; do
+        if [ -f "$candidate" ]; then
+            LANDLOCK_LOADER="$candidate"
+            break
+        fi
+    done
+fi
 USE_SECCOMP=0
 USE_USER_NS=0
+# TJ-GAP-082: the Landlock tier attaches ONLY when not disabled here —
+# the knob gates the ATTACH decision (the loader re-checks it as well);
+# the falsy spelling matches the repo-wide pattern.
+TJ_LANDLOCK_ON=1
+case "${TERMINAL_JAIL_LANDLOCK:-}" in
+    0|off|false|OFF|FALSE|Off|False)
+        TJ_LANDLOCK_ON=0
+        ;;
+esac
 USE_INTERRUPTOR="${USE_INTERRUPTOR:-1}"  # on by default, override with USE_INTERRUPTOR=0
 
 usage() {
@@ -1106,14 +1132,56 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
 elif [ "$MODIFIED" -eq 1 ]; then
     # The bridge already prepended its own unshare prefix — run as-is,
     # no additional wrapping (double unshare → EPERM).
+    #
+    # TJ-GAP-082: the Landlock tier rides the SAME rewrite when the host
+    # permits it — the loader wraps the bridge's rewrite and applies the
+    # ruleset inside the final namespace, right before the payload. The
+    # rewrite travels by env (the argv position is the bwrap trap: some
+    # launchers treat the word AT the "--" position as OPTIONS; argv
+    # would also re-quote an already-parsed string). Two skips: under the
+    # MAPPED launch the uid mapping already isolates the filesystem (and
+    # the subordinate-uid payload could not even read the loader); and a
+    # mapping-less rewrite whose payload-uid cannot READ the loader
+    # (0750/0700 home) runs unchanged — attaching it would kill every
+    # auto-sandboxed command with Errno 13 (the TJ-DF-019 shape).
+    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+        if unshare ${_tj_prefix_flags:-} test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+            TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
+        fi
+    fi
     exec bash -c "$CMD_STR"
 else
     if [ "$TJ_BACKEND" = "bwrap" ]; then
         echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+        # TJ-GAP-082: the Landlock tier rides the bwrap launch too (loader
+        # inside the bwrap namespace, right before the payload; skipped under
+        # a mapped launch, or when the payload-uid cannot READ the loader —
+        # the 0750/0700-home shape, probed with the exact bwrap flags).
+        if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+            if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+            fi
+        fi
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec "$@"' terminal-jail "$@"
     fi
     echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+    # TJ-GAP-082: the Landlock tier rides this launch when the host
+    # permits it — the loader applies the ruleset inside the namespace,
+    # right before the payload exec (-a terminal-jail keeps argv[0]).
+    # READABILITY preflight (TJ-DF-019's lesson, same shape as the mapped
+    # seccomp preflight): a mapping-less --user payload runs as nobody
+    # (65534) — on a 0750 (or 0700) home it cannot even open the loader,
+    # and attaching it would kill every launch with Errno 13. The tier is
+    # probed with the exact launch flags; unreadable → run unchanged.
+    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+        if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+            exec unshare \
+                $UNSHARE_FLAGS \
+                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+        fi
+    fi
     exec unshare \
         $UNSHARE_FLAGS \
         bash -c 'exec "$@"' terminal-jail "$@"

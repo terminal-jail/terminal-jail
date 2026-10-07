@@ -108,6 +108,26 @@ limits (a) and (c) below; no cell says `DIFFERS` on this host.
 
 ## Known limits
 
+**(a0) The Landlock filesystem tier (TJ-GAP-082) — kernel-enforced file
+denials, independent of the backend.** Where the uid-mapped launch is
+unavailable (the AppArmor degraded case in the parity table), the
+`standalone/landlock-loader.py` tier applies a Landlock ruleset inside the
+final namespace, right before the payload exec: reads of credential surfaces
+(`~/.ssh`, `~/.config/terminal-jail`, `~/.hermes`, other users' home trees)
+are denied and writes are confined to the working tree + temp dirs + `~/.cache`
++ `/dev`, by the kernel — surviving exec, not a DAC accident. It composes
+with BOTH backends (it runs inside bwrap's namespace just as inside
+unshare's), is skipped where the uid mapping already isolates (the mapped
+launch), and skips itself — silently for a deliberate
+`TERMINAL_JAIL_LANDLOCK=0`, with ONE loud warning naming the cause otherwise —
+when the ABI is absent or the EACCES enforcement preflight fails. Classify a
+host with `scripts/landlock-capability-probe.py` (always exit 0,
+`--json` available). NOT covered: network egress (a Landlock TCP tier is the
+separate TJ-GAP-083), and `LANDLOCK_ACCESS_FS_REFER` (ABI 2) is deliberately
+not handled — the boundary note in
+`plugin/terminal_jail/interruptor/landlock.py` documents why the tier holds
+without it.
+
 **(a) unshare `--user` exposes the host `/proc`; bwrap does not.**
 Measured: 1344 host-visible entries under the unshare `--user` jail vs 4 under
 bwrap (host ≈ 1340). A user namespace cannot mount `/proc` unprivileged, so the
