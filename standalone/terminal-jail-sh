@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # terminal-jail-sh — SHELL replacement for the Hermes gateway (deploy shim).
 # Wraps every shell invocation with setpriv --no-new-privs + the standalone
-# CLI's --user --seccomp flags and the interruptor firewall.
+# CLI's --user --seccomp flags and the interruptor firewall. EXCEPTION: with
+# no command string (login/interactive form, e.g. `-lic` with the command
+# text on stdin) there is nothing to evaluate — the shim execs an UNWRAPPED
+# /bin/bash: no interruptor firewall, no namespace, no seccomp. It prints a
+# one-line stderr notice before that exec (TJ-DF-031). A jailed run must
+# always pass the command via -c.
 #
 # NOTE: this is a deploy-specific convenience wrapper (see
 # docs/deploy-to-karahermes.md). The paths below are configurable:
@@ -55,6 +60,10 @@ if [[ -z "$cmd" && $# -gt 0 ]]; then
 fi
 
 if [[ -z "$cmd" ]]; then
+    # Nothing to evaluate — no command string means no firewall check, no
+    # namespace, no seccomp. Never silent: say so on stderr, then exec an
+    # unwrapped bash (login/interactive behavior). See docs/deploy-to-karahermes.md.
+    echo "terminal-jail: no command string — running unwrapped (no firewall, no namespace)" >&2
     exec /bin/bash "$@"
 fi
 

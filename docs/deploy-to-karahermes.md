@@ -29,6 +29,13 @@ The wrapper resolves its base directory relative to the repo checkout when prese
 to `/usr/local/lib/terminal-jail` (override with `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` /
 `TERMINAL_JAIL_CLI`). On hosts without `setpriv` it degrades gracefully.
 
+Empty-command invocation (`-lic` with no command string, the interactive/login form — e.g. the
+command text arrives on stdin) has nothing to evaluate: the shim prints a one-line stderr notice
+(`terminal-jail: no command string — running unwrapped (no firewall, no namespace)`) and execs an
+UNWRAPPED `/bin/bash` — no interruptor firewall, no namespace, no seccomp (TJ-DF-031). Only the
+`-c "command"` form is jailed; a gateway that must jail every command must always invoke the shim
+with `-c`.
+
 ### Step 3 — Verify the shim works
 
 ```bash
