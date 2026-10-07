@@ -40,10 +40,40 @@ to `/usr/local/lib/terminal-jail` (override with `TERMINAL_JAIL_HOME` / `TERMINA
 /usr/local/bin/terminal-jail-sh -c "rm -rf /"
 # Expected: error box, exit 126
 
-# Test: sandboxed command
-/usr/local/bin/terminal-jail-sh -c "echo pid inside jail: \$\$"
-# Expected: PID = 1 (inside namespace)
+# Test: sandboxed command — the jail must run in its OWN PID namespace.
+# The shell's PID inside the jail depends on the backend chosen at runtime
+# (specs/cli.md §4 "Jail backends"): unshare → 1; bwrap / auto (host has
+# bwrap) → 2, because PID 1 inside the jail is bwrap itself. So do NOT
+# assert a specific PID — compare namespace inodes instead (same check as
+# the README smoke test):
+readlink /proc/self/ns/pid
+# host pid-ns inode, e.g. pid:[4026531836]
+/usr/local/bin/terminal-jail-sh -c "readlink /proc/self/ns/pid"
+# Expected: a DIFFERENT pid:[...] inode than the host's — that is the proof
+# the jail has its own PID namespace, whichever backend was chosen.
 ```
+
+Measured on this host (2026-10-07): the wrapper needs installing first, so the
+probes ran the repo checkout copy `standalone/terminal-jail-sh` directly — the
+exact file Steps 1–2 install. Backend `auto` → bwrap here:
+
+```text
+$ standalone/terminal-jail-sh -c "echo pid inside jail: \$\$"
+terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)
+terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)
+pid inside jail: 2
+$ readlink /proc/self/ns/pid
+pid:[4026531836]
+$ standalone/terminal-jail-sh -c "readlink /proc/self/ns/pid"
+terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)
+terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)
+pid:[4026536180]
+```
+
+The jail inode (`pid:[4026536180]`) differs from the host inode
+(`pid:[4026531836]`) — that is the isolation proof. The shell prints PID 2
+because PID 1 inside the jail is bwrap itself; under the `unshare` backend it
+would print 1. The invariant to check is the differing inode, not the number.
 
 ### Step 4 — Deploy systemd hardening (Phase 5)
 
