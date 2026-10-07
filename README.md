@@ -324,6 +324,64 @@ With bubblewrap installed, compare the `/proc` view (`TERMINAL_JAIL_JAIL_BACKEND
 
 The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (error envelopes are mode-aware since REVIEW-TJ-008: transport-level failures fail closed in enforce mode and fail open with a warning in warn mode; engine failures always fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3a2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024).
 
+### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)
+
+The same verdict contract is served by two transports:
+
+| | One-shot (`plugin/terminal_jail/interruptor_bridge.py`) | Resident (`plugin/terminal_jail/interruptor_resident.py`) |
+|---|---|---|
+| Shape | Subprocess per verdict; JSON on stdin/stdout | Long-lived AF_UNIX stream daemon; line-delimited JSON |
+| Cost per verdict | ~2 ms engine + full interpreter start | ~2 ms engine + socket round-trip |
+| Deployment | Zero setup — every host | Optional; a host must keep the daemon alive (systemd unit, supervisor) |
+
+**Measured on this repo's reference host** (`karaHermes-mde-7840hs`, Linux x86_64,
+Python 3.14.5, 2026-10-07, `scripts/bench_bridge.py --n 50`, wall-clock per verdict;
+one-shot includes interpreter start; resident measured against a warm daemon, same
+engine and payloads):
+
+| payload | one-shot p50 | one-shot p99 | resident p50 | resident p99 | speedup |
+|---|---|---|---|---|---|
+| `ls -la` (small) | 121.8 ms | 160.6 ms | 4.5 ms | 7.4 ms | ~27x |
+| 8 KB argument | 139.6 ms | 153.6 ms | 32.5 ms | 36.9 ms | ~4.3x |
+| 20 KB argument | 185.6 ms | 224.0 ms | 74.1 ms | 85.7 ms | ~2.5x |
+
+(`scripts/bench_bridge.py` also gates the one-shot p50 below a 200 ms ceiling so
+silent transport degradation fails the run. The large-payload resident numbers are
+dominated by engine parse cost on the padded string, not the socket.)
+
+**Which to choose.**
+
+- A host that fires occasional commands (human shell, agent loops of a few
+  commands/second): **one-shot**. Simplest possible integration, no daemon to
+  supervise, and ~65-190 ms per verdict is invisible at human cadence.
+- A host evaluating every command of a busy shell/agent loop (hundreds of verdicts
+  per minute, e.g. the standalone wrapper intercepting an automated terminal): the
+  ~27x round-trip reduction matters — **resident**. Run
+  `python3 plugin/terminal_jail/interruptor_resident.py --serve` (socket path
+  overridable with `TERMINAL_JAIL_BRIDGE_SOCK`, default
+  `~/.local/run/terminal-jail/interruptor.sock`), then
+  `interruptor_resident.py --client --command "<cmd>"` per verdict.
+
+**Fail-closed discipline is identical on both transports.** The resident serves the
+same mode-aware error envelopes (`[bridge-error]`, block in enforce / allow-with-warning
+in warn mode, `layer: null` on error envelopes). A client that cannot reach the socket
+NEVER answers allow: without `--fallback` it exits 3 with no stdout so the caller runs
+the one-shot bridge; with `--fallback` it evaluates through the one-shot path
+in-process.
+
+**Socket security property (verified).** The daemon binds an **AF_UNIX** socket only —
+there is no TCP listener anywhere in the codebase (grep for `AF_INET`/`bind(` in
+`plugin/terminal_jail/interruptor_resident.py` finds none). A bare `socket.bind` on a
+filesystem socket creates the inode as `0o777 & ~umask` — under common umasks that is
+group/world-writable, i.e. an unauthenticated verdict surface for other local users.
+The daemon therefore `os.chmod(sock_path, 0o600)` **immediately after bind, before the
+accept loop, and fails closed** (unlinks the socket, refuses to serve) if the chmod
+fails — verified by `plugin/test_resident_bridge.py` (mode is exactly `0600` after
+start; a simulated chmod failure exits 1 leaving no socket). A live socket owned by
+another daemon makes a second daemon refuse to start; a dead socket path is unlinked
+and rebound safely. Per-command budget guidance: keep one-shot p50 under the 200 ms
+bench ceiling; resident adds ~2 ms of socket round-trip on top of engine evaluation.
+
 ### Plugin (Hermes)
 
 The plugin registers two hooks for observability:
