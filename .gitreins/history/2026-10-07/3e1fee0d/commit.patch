@@ -1,0 +1,79 @@
+commit b2a70a7e2ce9b4283c39280692a3f5f51bc7fc50
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 7 18:12:28 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 7 18:12:28 2026 -0500
+
+    docs: document source-only distribution channel (TJ-DF-032)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md            |  2 ++
+ docs/quickstart.md   |  2 ++
+ docs/supply-chain.md | 27 +++++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+)
+
+diff --git a/README.md b/README.md
+index fca5f90..911dfb2 100644
+--- a/README.md
++++ b/README.md
+@@ -171,6 +171,8 @@ The one mistake that wastes the first several attempts: `match.type: regex` is *
+ 
+ Release-mode installs (downloading the wrapper from a published release plus its SHA-256 checksum, verified and atomically installed) are supported by `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`, but no release assets are published yet and release mode is therefore **opt-in only** — without the flag the installer refuses instead of hitting a dead URL. The git-clone path above is the supported install path.
+ 
++**PyPI is not a distribution channel** for this project: there are no `terminal-jail` packages on PyPI or any other index, so `pip install terminal-jail==<version>` always fails by design. Source install (above) is the only supported channel — see [docs/supply-chain.md](docs/supply-chain.md#distribution-channel) for the statement automation should rely on.
++
+ ---
+ 
+ ## Uninstall
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index 0cfc755..92c1659 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -47,6 +47,8 @@ cd terminal-jail
+ ./install.sh --uninstall
+ ```
+ 
++**Source only.** There is no `terminal-jail` package on PyPI — any `pip install terminal-jail` fails by design; source install (above) is the only supported channel ([docs/supply-chain.md](supply-chain.md)).
++
+ **Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
+ demand a containment tier instead of the default advisory probe report —
+ `pidns` requires the PID-namespace probe to classify FULL, `fs` the
+diff --git a/docs/supply-chain.md b/docs/supply-chain.md
+index 6e3c101..b94b5da 100644
+--- a/docs/supply-chain.md
++++ b/docs/supply-chain.md
+@@ -42,6 +42,33 @@ Current release (v1.0.0) is published on GitHub Releases. GitHub provides:
+ 
+ This is adequate for an initial release but not defense-in-depth.
+ 
++### Distribution channel
++
++**There are no PyPI releases. PyPI is not a distribution channel for this
++project.** The only supported install channel is **source**: `git clone` +
++`./install.sh` (README "Install"), or `pip install .` / `pip install -e .`
++from a local checkout for development. Releases themselves are GitHub
++Releases, tag-triggered (`docs/releasing.md`) — and even the
++release-download install mode is opt-in (`TERMINAL_JAIL_USE_RELEASE=1`;
++without the flag the installer refuses rather than hitting a dead URL).
++
++Consequences for automation and consumers:
++
++- `pip install terminal-jail==<any-version>` — e.g. the QA upgrade cell's
++  `pip install terminal-jail==1.0.0` — will **always fail** with
++  `No matching distribution found` / `Could not find a version …
++  (from versions: none)`. That failure is the expected, by-design outcome:
++  there is no package to resolve, at any version, now or planned. Do not
++  probe package indexes for this project, and do not treat resolution
++  failure as a broken release or a bug to fix.
++- The `version` field in `pyproject.toml` is a **source-release label**, not
++  an index artifact: it names the checkout/release lineage (currently
++  `1.2.0`) and does not promise a downloadable distribution. Version bumps
++  travel with source releases and GitHub tags only.
++
++(Recorded 2026-10-07 as TJ-DF-032, after an external QA upgrade cell attempted
++`pip install terminal-jail==1.0.0` and failed on the missing index artifact.)
++
+ ---
+ 
+ ## Recommendations

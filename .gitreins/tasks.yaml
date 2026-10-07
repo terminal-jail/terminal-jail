@@ -1662,3 +1662,13 @@ tasks:
   status: complete
   created_at: '2026-10-07T22:16:36.511200+00:00'
   completed_at: '2026-10-07T22:52:41.630791+00:00'
+- id: TJ-DF-032
+  title: Document source-only distribution channel (no PyPI)
+  criteria:
+  - docs/supply-chain.md explicitly states no PyPI releases exist and source install
+    is the only supported channel; pyproject version explained as source-release label;
+    README or quickstart cross-links docs/supply-chain.md from the install context;
+    no code/pyproject/workflow changes
+  status: complete
+  created_at: '2026-10-07T23:06:00.837848+00:00'
+  completed_at: '2026-10-07T23:16:59.709580+00:00'

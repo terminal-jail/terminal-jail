@@ -1,0 +1,27 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 8c32fb3..8f60200 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1662,3 +1662,13 @@ tasks:
+   status: complete
+   created_at: '2026-10-07T22:16:36.511200+00:00'
+   completed_at: '2026-10-07T22:52:41.630791+00:00'
++- id: TJ-DF-032
++  title: Document source-only distribution channel (no PyPI)
++  criteria:
++  - docs/supply-chain.md explicitly states no PyPI releases exist and source install
++    is the only supported channel; pyproject version explained as source-release label;
++    README or quickstart cross-links docs/supply-chain.md from the install context;
++    no code/pyproject/workflow changes
++  status: complete
++  created_at: '2026-10-07T23:06:00.837848+00:00'
++  completed_at: '2026-10-07T23:16:59.709580+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 6dd882c..a23cc4f 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -136,3 +136,4 @@
+ {"ts": 1791403185.3643196, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791409577.908353, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791413551.8850965, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791415215.734488, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
