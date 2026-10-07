@@ -1,0 +1,115 @@
+{
+  "task_id": "TJ-GAP-082",
+  "task_title": "Landlock filesystem isolation tier for AppArmor-degraded hosts",
+  "task_criteria": [
+    "scripts/landlock-capability-probe.py exists and reports the kernel Landlock ABI per host machine-readably",
+    "when the host permits Landlock, the jail denies reads of credential surfaces (dot-ssh, config tokens, other users homes) and denies writes outside the working tree, proven by a denied read returning EACCES",
+    "where Landlock cannot enforce, behaviour is unchanged with a loud warning, and no regression in existing unshare/bwrap tests"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "bd39236089763d3b82ce30a70c2834cf457c7979",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T062005.471298Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n1:23AM INF scanned ~6221909 bytes (6.22 MB) in 426ms\n1:23AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 207 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T062005.471298Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1733 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 25%]\n.....................                                                    [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 30%]\n.....................................                                    [ 33%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 48%]\n........................................................................ [ 52%]\n........................................................................ [ 56%]\n........................................................................ [ 60%]\n........................................                                 [ 62%]\n\n\u2026 [2080 chars omitted \u2014 26 line(s)] \u2026\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n=============================== warnings summary ===============================\nplugin/terminal_jail/interruptor/landlock.py:185\n  /home/kara/terminal-jail/plugin/terminal_jail/interruptor/landlock.py:185: DeprecationWarning: Due to '_pack_', the '_RulesetAttr' Structure will use memory layout compatible with MSVC (Windows). If this is intended, set _layout_ to 'ms'. The implicit default is deprecated and slated to become an error in Python 3.19.\n    class _RulesetAttr(ctypes.Structure):\n\nplugin/terminal_jail/interruptor/landlock.py:190\n  /home/kara/terminal-jail/plugin/terminal_jail/interruptor/landlock.py:190: DeprecationWarning: Due to '_pack_', the '_PathBeneathAttr' Structure will use memory layout compatible with MSVC (Windows). If this is intended, set _layout_ to 'ms'. The implicit default is deprecated and slated to become an error in Python 3.19.\n    class _PathBeneathAttr(ctypes.Structure):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========== 1723 passed, 10 skipped, 2 warnings in 146.81s (0:02:26) ===========\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261007T062005.471298Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Evaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-082\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-07T06:25:54.685080",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-07T06:25:54.712913+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 110062,
+        "truncated": false,
+        "source": "git show bd3923608976"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1615,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-082"
+  }
+}

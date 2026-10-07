@@ -1,0 +1,30 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 8c26007..3bb8aec 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1610,3 +1610,16 @@ tasks:
+   status: complete
+   created_at: '2026-10-06T20:53:14.894126+00:00'
+   completed_at: '2026-10-06T21:03:06.284054+00:00'
++- id: TJ-GAP-082
++  title: Landlock filesystem isolation tier for AppArmor-degraded hosts
++  criteria:
++  - scripts/landlock-capability-probe.py exists and reports the kernel Landlock ABI
++    per host machine-readably
++  - when the host permits Landlock, the jail denies reads of credential surfaces (dot-ssh,
++    config tokens, other users homes) and denies writes outside the working tree,
++    proven by a denied read returning EACCES
++  - where Landlock cannot enforce, behaviour is unchanged with a loud warning, and
++    no regression in existing unshare/bwrap tests
++  status: complete
++  created_at: '2026-10-07T04:06:44.893002+00:00'
++  completed_at: '2026-10-07T06:23:18.377270+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index f3c7ead..45b44af 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -131,3 +131,4 @@
+ {"ts": 1791320315.920414, "tokens_in": 273980, "tokens_out": 3280, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791320435.7135806, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791320576.6401205, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791354354.6605282, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}

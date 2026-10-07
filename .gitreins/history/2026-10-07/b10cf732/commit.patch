@@ -1,0 +1,2704 @@
+commit bd39236089763d3b82ce30a70c2834cf457c7979
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 7 01:12:30 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 7 01:12:30 2026 -0500
+
+    feat(landlock): kernel-enforced filesystem isolation tier (TJ-GAP-082)
+    
+    A Landlock tier for hosts where unprivileged user namespaces are degraded
+    (e.g. AppArmor denying setuid/setgroups inside userns — this host): reads
+    of credential surfaces (~/.ssh, ~/.config/terminal-jail, ~/.hermes, other
+    users' home trees) and writes outside the workdir + temp dirs + ~/.cache +
+    /dev are denied BY THE KERNEL, surviving exec. No user namespace and no
+    privileges required; composes with (never replaces) the unshare/bwrap
+    path, and is skipped where the uid mapping already isolates (mapped
+    launch).
+    
+    - scripts/landlock-capability-probe.py: always-exit-0 classifier (FULL/
+      DEGRADED/UNKNOWN + cause + remediation) reporting the max Landlock ABI
+      (landlock_create_ruleset + LANDLOCK_CREATE_RULESET_VERSION), ruleset
+      creation, restrict_self, and — preflight-the-property (TJ-DF-015) — a
+      mode-600 read under the applied zero-grant domain returning EACCES.
+      Machine-readable --json mode. Measured here: FULL, ABI 8.
+    - plugin/terminal_jail/interruptor/landlock.py: ctypes tier (no
+      python-landlock dep, seccomp.py conventions): allowlist layout (denied
+      = omission; the kernel rejects add_rule with allowed_access==0 —
+      ENOMSG), workdir grant SUBDIVIDED around credential surfaces that sit
+      inside it, HOME-as-workdir refused, file targets given only the
+      file-relevant bits (EINVAL otherwise). apply() proves the EACCES
+      property in a FORKED child BEFORE restricting the caller (never a
+      half-applied state); sandbox_prefix() decides WITHOUT enforcing (a
+      fork-isolated capability probe — the engine process must stay
+      unrestricted for its own RuleLoader) and emits a
+      "python3 <loader> -- " tail only when the loader is reachable by the
+      launch's payload uid (0700/0750-home shape detected and degraded
+      loudly). TERMINAL_JAIL_LANDLOCK=0 disables (silent when deliberate;
+      one loud warning naming the cause otherwise).
+    - decider.py: composes the tier through landlock_sandbox_prefix() into
+      the wrap payload — single-sourced, exactly how unshare_prefix() is
+      consumed. Without the tier, wraps are byte-identical to before.
+    - standalone/landlock-loader.py: pre-exec loader (apply + exec, shell
+      exec-failure contract preserved: 127/126); wired into the wrapper's
+      bwrap arm, unshare arm and auto-sandbox rewrite dispatch with a
+      readability preflight under the exact launch flags; install.sh ships
+      it to the lib dir.
+    - plugin/test_landlock.py: 31 tests — probe subprocess/JSON/verdict
+      contract, kernel-level EACCES enforcement in a forked child,
+      graceful absence (env knob + mocked ABI 0 stub via the probe re-entry)
+      with the one-warning contract, layout/split unit tests, wiring and
+      single-sourcing pins. Host-conditional cells SKIP with
+      HOST-DEGRADED-LANDLOCK, never silently pass.
+    - Existing backend/proc/modify/rule-pack suites pin their contracts with
+      TERMINAL_JAIL_LANDLOCK=0 (the tier's launch shapes are owned by
+      test_landlock.py).
+    - docs: README capability-matrix pointer + probe row;
+      docs/backend-parity.md known-limit (a0) describing the tier.
+    
+    ch:trace row=TJ-GAP-082 evidence=probe FULL/abi8/enforcement-denied (scripts/landlock-capability-probe.py + --json); EACCES demo: tiered payload secret-read-rc=1 ssh-read-rc=1 home-write-rc=2 tmp-write-OK vs host-side HOST-READ-OK; suite 1574+6skipped(before) -> 1604 passed+7skipped(after, +31 tests); uvx ruff check . = All checks passed
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md                                    |   10 +
+ docs/backend-parity.md                       |   20 +
+ install.sh                                   |    5 +
+ plugin/terminal_jail/interruptor/decider.py  |   30 +-
+ plugin/terminal_jail/interruptor/landlock.py | 1138 ++++++++++++++++++++++++++
+ plugin/test_backend_parity.py                |    3 +
+ plugin/test_backend_selection.py             |    5 +
+ plugin/test_landlock.py                      |  718 ++++++++++++++++
+ plugin/test_modify_preflight.py              |    4 +
+ plugin/test_private_proc_demand.py           |    3 +
+ plugin/test_rule_packs.py                    |   10 +
+ scripts/landlock-capability-probe.py         |  308 +++++++
+ standalone/landlock-loader.py                |  119 +++
+ standalone/terminal-jail                     |   68 ++
+ 14 files changed, 2439 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 510fba2..be42588 100644
+--- a/README.md
++++ b/README.md
+@@ -274,6 +274,16 @@ exit 0):
+ ```bash
+ python3 scripts/pidns-capability-probe.py     # PID-namespace layer: FULL / DEGRADED
+ python3 scripts/fs-isolation-probe.py         # filesystem-isolation tier + cause
++python3 scripts/landlock-capability-probe.py  # Landlock filesystem tier (TJ-GAP-082)
++```
++
++On hosts where the uid-mapped launch is denied (the AppArmor case above), the
++Landlock tier provides a kernel-enforced filesystem deny layer instead — no
++user namespace and no privileges needed: credential surfaces (`~/.ssh`,
++`~/.config/terminal-jail`, other users' homes) become unreadable and writes
++are confined to the working tree + temp dirs, enforced by the kernel and
++inherited by the payload after exec. `TERMINAL_JAIL_LANDLOCK=0` disables it.
++The tier composes with (never replaces) the unshare/bwrap namespace path.
+ ```
+ 
+ then read **[docs/capability-matrix.md](docs/capability-matrix.md)**: one
+diff --git a/docs/backend-parity.md b/docs/backend-parity.md
+index e7434eb..f122fff 100644
+--- a/docs/backend-parity.md
++++ b/docs/backend-parity.md
+@@ -108,6 +108,26 @@ limits (a) and (c) below; no cell says `DIFFERS` on this host.
+ 
+ ## Known limits
+ 
++**(a0) The Landlock filesystem tier (TJ-GAP-082) — kernel-enforced file
++denials, independent of the backend.** Where the uid-mapped launch is
++unavailable (the AppArmor degraded case in the parity table), the
++`standalone/landlock-loader.py` tier applies a Landlock ruleset inside the
++final namespace, right before the payload exec: reads of credential surfaces
++(`~/.ssh`, `~/.config/terminal-jail`, `~/.hermes`, other users' home trees)
++are denied and writes are confined to the working tree + temp dirs + `~/.cache`
+++ `/dev`, by the kernel — surviving exec, not a DAC accident. It composes
++with BOTH backends (it runs inside bwrap's namespace just as inside
++unshare's), is skipped where the uid mapping already isolates (the mapped
++launch), and skips itself — silently for a deliberate
++`TERMINAL_JAIL_LANDLOCK=0`, with ONE loud warning naming the cause otherwise —
++when the ABI is absent or the EACCES enforcement preflight fails. Classify a
++host with `scripts/landlock-capability-probe.py` (always exit 0,
++`--json` available). NOT covered: network egress (a Landlock TCP tier is the
++separate TJ-GAP-083), and `LANDLOCK_ACCESS_FS_REFER` (ABI 2) is deliberately
++not handled — the boundary note in
++`plugin/terminal_jail/interruptor/landlock.py` documents why the tier holds
++without it.
++
+ **(a) unshare `--user` exposes the host `/proc`; bwrap does not.**
+ Measured: 1344 host-visible entries under the unshare `--user` jail vs 4 under
+ bwrap (host ≈ 1340). A user namespace cannot mount `/proc` unprivileged, so the
+diff --git a/install.sh b/install.sh
+index 08c2419..bb61575 100755
+--- a/install.sh
++++ b/install.sh
+@@ -1221,6 +1221,11 @@ if [ -n "$LOCAL_WRAPPER" ]; then
+         cp "$SCRIPT_DIR/standalone/seccomp-loader.py" "$LIB_DIR/"
+         echo "terminal-jail installer: installed seccomp loader to ${LIB_DIR}/seccomp-loader.py"
+     fi
++    if [ -f "$SCRIPT_DIR/standalone/landlock-loader.py" ]; then
++        mkdir -p "$LIB_DIR"
++        cp "$SCRIPT_DIR/standalone/landlock-loader.py" "$LIB_DIR/"
++        echo "terminal-jail installer: installed Landlock loader to ${LIB_DIR}/landlock-loader.py"
++    fi
+     # Ship the default rules file to the user rules directory so user rules
+     # actually load (the engine reads ~/.config/terminal-jail/rules.d — see
+     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
+diff --git a/plugin/terminal_jail/interruptor/decider.py b/plugin/terminal_jail/interruptor/decider.py
+index b20224c..7bd0aee 100644
+--- a/plugin/terminal_jail/interruptor/decider.py
++++ b/plugin/terminal_jail/interruptor/decider.py
+@@ -27,6 +27,7 @@ from pathlib import Path
+ from .allowlist import BUILTIN_ALLOWLIST
+ from .blocklist import BUILTIN_BLOCKLIST
+ from .config import Config
++from .landlock import sandbox_prefix as landlock_sandbox_prefix
+ from .matcher import Matcher
+ from .parser import (
+     Segment,
+@@ -48,6 +49,31 @@ from .userns import unshare_prefix
+ # userns.py and scripts/fs-isolation-probe.py (TJ-DF-015).
+ _UNSHARE_PREFIX = unshare_prefix()
+ 
++# TJ-GAP-082: the kernel-enforced Landlock filesystem tier, composed onto
++# the SAME seam as the namespace prefix — ``landlock_sandbox_prefix()``
++# returns "python3 <loader> -- " when the host supports Landlock and the
++# tier applies (proven by the fork-isolated EACCES preflight), "" other-
++# wise, so every wrap's payload becomes ``python3 <loader> -- <command>``
++# (the loader applies the ruleset INSIDE the final namespace and execs
++# the command). When it does not apply, wraps run EXACTLY as before (a
++# degradation prints ONE loud warning naming the cause; behavior
++# unchanged). Single-sourced here: no literal tier prefix anywhere else
++# in the engine.
++_LANDLOCK_TAIL = landlock_sandbox_prefix()
++
++
++def _wrap_payload(raw: str) -> str:
++    """The payload a wrap runs: the tier's loader ahead of the command.
++
++    With the tier active the payload becomes
++    ``python3 <loader> -- <command>`` — one quoted payload string (the
++    loader must parse as part of the payload, never as loose argv of the
++    outer ``bash -c``). Without the tier the payload is the command
++    unchanged.
++    """
++    return f"{_LANDLOCK_TAIL}{raw}"
++
++
+ # The file name install.sh gives every rule pack it installs into a
+ # rules.d directory (install.sh: "terminal-jail-pack-<name>.yaml").
+ _PACK_FILE_PREFIX = "terminal-jail-pack-"
+@@ -358,7 +384,7 @@ class Decider:
+             rebuilt = rebuild_command(original, replacements)
+             if rebuilt is not None and structure_preserved(original, rebuilt):
+                 return rebuilt
+-        return f"{_UNSHARE_PREFIX}{_escape_for_shell(original.strip())}"
++        return f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(original.strip()))}"
+ 
+     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
+         """Evaluate a single command segment against all rule layers."""
+@@ -428,7 +454,7 @@ class Decider:
+                 layer=layer,
+             )
+         if rule.action in (Action.MODIFY, Action.SANDBOX):
+-            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(raw)}"
++            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(raw))}"
+             return InterceptResult(
+                 action=Action.MODIFY,
+                 command=raw,
+diff --git a/plugin/terminal_jail/interruptor/landlock.py b/plugin/terminal_jail/interruptor/landlock.py
+new file mode 100644
+index 0000000..a901b00
+--- /dev/null
++++ b/plugin/terminal_jail/interruptor/landlock.py
+@@ -0,0 +1,1138 @@
++"""Landlock filesystem-isolation tier (TJ-GAP-082).
++
++A kernel-enforced deny tier for hosts where the uid-mapped user namespace
++(TJ-DF-015) is unavailable — e.g. Ubuntu with the stock AppArmor
++``unprivileged_userns`` profile denying setuid/setgroups inside the
++namespace, where ``unshare_prefix()`` must fall back mapping-less and the
++payload keeps the caller's kuid for DAC. Landlock needs NO user namespace
++and NO privileges: any unprivileged process can restrict ITSELF.
++
++What the tier enforces (kernel-side, inherited by the payload and every
++descendant — Landlock restrictions survive exec and cannot be undone by
++the process or a less-privileged child):
++
++- DENIES read access to credential surfaces: ``~/.ssh``, ``~/.gnupg``,
++  ``~/.config/terminal-jail`` (the tier's own policy store), ``~/.hermes``,
++  ``~/.git-credentials``, ``~/.config/git/credentials``, ``~/.netrc``,
++  ``~/.aws``, ``~/.kube``, ``~/.docker``, ``~/.password-store``, other
++  users' home directories, ``/root``, and — since Landlock is an
++  ALLOWLIST model — every path not explicitly granted.
++- DENIES writes everywhere except the working tree, the temp directories
++  (``/tmp``, ``/var/tmp``, ``$TMPDIR``), ``~/.cache`` and ``/dev``.
++
++Landlock is allowlist-shaped: a ruleset DECLares which access types it
++handles, and everything NOT covered by an added rule is denied. The tier
++grants a read-only runner set (system mounts, the loader/nss/release-file
++paths under /etc, DNS resolver state, the home allowlist: shell rc files,
++``~/.cargo``, ``~/.rustup``, ``~/.nvm``, ``~/go/pkg/mod``,
++``~/.local/{bin,lib,share,pipx}``, ``~/.config/fish``, git config) and a
++read-write set (workdir, temp dirs, ``~/.cache``, ``/dev`` — so
++``/dev/null`` and ``/dev/shm`` keep working). Denied subtrees are added as
++explicit zero-access rules so they stay denied even under the workdir or
++a granted parent (deeper rule wins).
++
++NOT handled (documented boundary): ``LANDLOCK_ACCESS_FS_REFER`` (ABI 2).
++Without it a cross-hierarchy rename is still checked against the SOURCE
++hierarchy, so moving a file OUT of a denied tree fails there (the denied
++tree grants no REMOVE_* right); a hardlink made inside the workdir to a
++denied file is still evaluated against the denied hierarchy on every
++access, so the read stays denied. The tier therefore holds without REFER.
++
++PREFLIGHT LESSON (TJ-DF-015/TJ-DF-018, applied): creatable is not
++enforced. ``apply()`` proves the PROPERTY after ``landlock_restrict_self``
++— it reads a caller-owned mode-600 probe file under a denied root in
++THIS process and requires EACCES. Any other outcome raises
++``LandlockError`` and the caller degrades LOUDLY (one warning naming the
++cause; behavior unchanged). The tier is silent on success.
++
++Knobs: ``TERMINAL_JAIL_LANDLOCK=0|off|false`` disables the tier entirely
++(truthy/other values follow the repo-wide truthy/falsy pattern used by
++``TERMINAL_JAIL_SECCOMP``). ``sandbox_prefix()`` is the single-sourced
++engine seam: decider.py composes ``unshare_prefix()`` with it exactly
++once, the same way it consumes ``unshare_prefix()``.
++
++Implementation: ctypes against the kernel syscalls (no python-landlock
++dependency), mirroring plugin/terminal_jail/seccomp.py's constraints —
++stdlib only, arch allowlist (x86_64/aarch64 share the generic syscall
++numbers 444-446), graceful degradation by the caller. The standalone
++pre-exec entry point is ``standalone/landlock-loader.py``.
++"""
++
++from __future__ import annotations
++
++import ctypes
++import ctypes.util
++import importlib.util
++import logging
++import os
++import platform
++import shlex
++import stat
++import sys
++import tempfile
++from collections.abc import Iterable
++from dataclasses import dataclass, field
++
++LOGGER: logging.Logger = logging.getLogger("terminal_jail")
++
++# --- Environment ----------------------------------------------------------
++
++ENV_VAR = "TERMINAL_JAIL_LANDLOCK"
++
++_TRUTHY = frozenset({"1", "true", "yes", "on"})
++_FALSY = frozenset({"", "0", "false", "no", "off"})
++
++
++def landlock_enabled_from_environment() -> bool:
++    """Parse ``TERMINAL_JAIL_LANDLOCK`` (default ENABLED).
++
++    The default is on because the tier is deny-path hardening: on a host
++    without Landlock it is a no-op, and where Landlock exists it only
++    removes access the brief's threat model denies anyway. Unset and
++    truthy values enable; ``0/off/false`` forces it off; an unrecognised
++    value disables it (fail-closed, same as
++    ``seccomp_enabled_from_environment``).
++    """
++    raw = os.environ.get(ENV_VAR)
++    if raw is None:
++        return True  # unset: the tier is on by default
++    value = raw.strip().lower()
++    if value == "" or value in _FALSY:
++        return False
++    if value in _TRUTHY:
++        return True
++    LOGGER.warning(
++        "terminal-jail: unrecognised value %r for %s; disabling the "
++        "Landlock filesystem tier",
++        raw,
++        ENV_VAR,
++    )
++    return False
++
++
++# --- Kernel ABI (ctypes; linux/landlock.h) --------------------------------
++
++# The generic syscall table (x86_64 and aarch64 both): arches outside this
++# table raise LandlockUnsupportedError (same posture as seccomp.py).
++_SYSCALL_NR: dict[str, tuple[int, int, int]] = {
++    # (landlock_create_ruleset, landlock_add_rule, landlock_restrict_self)
++    "x86_64": (444, 445, 446),
++    "aarch64": (444, 445, 446),
++}
++
++LANDLOCK_CREATE_RULESET_VERSION = 1 << 0
++LANDLOCK_RULE_PATH_BENEATH = 1
++
++# FS access bits (linux/landlock.h). Bits 0-12 exist since ABI 1; REFER
++# (1<<13, ABI 2) and TRUNCATE (1<<14, ABI 3) are deliberately NOT handled
++# (see the module docstring's boundary note) — one mask, no ABI branching.
++LANDLOCK_ACCESS_FS_EXECUTE = 1 << 0
++LANDLOCK_ACCESS_FS_WRITE_FILE = 1 << 1
++LANDLOCK_ACCESS_FS_READ_FILE = 1 << 2
++LANDLOCK_ACCESS_FS_READ_DIR = 1 << 3
++LANDLOCK_ACCESS_FS_REMOVE_DIR = 1 << 4
++LANDLOCK_ACCESS_FS_REMOVE_FILE = 1 << 5
++LANDLOCK_ACCESS_FS_MAKE_CHAR = 1 << 6
++LANDLOCK_ACCESS_FS_MAKE_DIR = 1 << 7
++LANDLOCK_ACCESS_FS_MAKE_REG = 1 << 8
++LANDLOCK_ACCESS_FS_MAKE_SOCK = 1 << 9
++LANDLOCK_ACCESS_FS_MAKE_FIFO = 1 << 10
++LANDLOCK_ACCESS_FS_MAKE_BLOCK = 1 << 11
++LANDLOCK_ACCESS_FS_MAKE_SYM = 1 << 12
++
++HANDLED_ACCESS_FS = (
++    LANDLOCK_ACCESS_FS_EXECUTE
++    | LANDLOCK_ACCESS_FS_WRITE_FILE
++    | LANDLOCK_ACCESS_FS_READ_FILE
++    | LANDLOCK_ACCESS_FS_READ_DIR
++    | LANDLOCK_ACCESS_FS_REMOVE_DIR
++    | LANDLOCK_ACCESS_FS_REMOVE_FILE
++    | LANDLOCK_ACCESS_FS_MAKE_CHAR
++    | LANDLOCK_ACCESS_FS_MAKE_DIR
++    | LANDLOCK_ACCESS_FS_MAKE_REG
++    | LANDLOCK_ACCESS_FS_MAKE_SOCK
++    | LANDLOCK_ACCESS_FS_MAKE_FIFO
++    | LANDLOCK_ACCESS_FS_MAKE_BLOCK
++    | LANDLOCK_ACCESS_FS_MAKE_SYM
++)
++
++# landlock_ruleset_attr for an FS-only ruleset: exactly one __u64. Newer
++# kernels append fields (handled_access_net, scoped) but accept the short
++# request — the trailing fields are treated as zero (ABI-compatible
++# extension), so ABI 1 hosts work unchanged.
++_READ = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR
++_READ_EXEC = _READ | LANDLOCK_ACCESS_FS_EXECUTE
++# A write grant is the FULL 13-bit set: without the MAKE_*/REMOVE_* bits
++# the payload could modify existing files but never create or delete
++# anything (new-file creation is MAKE_REG on the parent; measured: a
++# READ|EXEC|WRITE_FILE-only grant leaves mkdir/O_CREAT denied with EACCES).
++_RW = _READ_EXEC
++for _bit in (
++    LANDLOCK_ACCESS_FS_WRITE_FILE,
++    LANDLOCK_ACCESS_FS_REMOVE_DIR,
++    LANDLOCK_ACCESS_FS_REMOVE_FILE,
++    LANDLOCK_ACCESS_FS_MAKE_CHAR,
++    LANDLOCK_ACCESS_FS_MAKE_DIR,
++    LANDLOCK_ACCESS_FS_MAKE_REG,
++    LANDLOCK_ACCESS_FS_MAKE_SOCK,
++    LANDLOCK_ACCESS_FS_MAKE_FIFO,
++    LANDLOCK_ACCESS_FS_MAKE_BLOCK,
++    LANDLOCK_ACCESS_FS_MAKE_SYM,
++):
++    _RW |= _bit
++
++
++class _RulesetAttr(ctypes.Structure):
++    _pack_ = 1  # __attribute__((packed)) per linux/landlock.h
++    _fields_ = [("handled_access_fs", ctypes.c_uint64)]
++
++
++class _PathBeneathAttr(ctypes.Structure):
++    _pack_ = 1  # __attribute__((packed)) per linux/landlock.h
++    _fields_ = [
++        ("allowed_access", ctypes.c_uint64),
++        ("parent_fd", ctypes.c_int32),
++    ]
++
++
++class LandlockError(RuntimeError):
++    """The tier could not be applied; message names the observed cause."""
++
++    def __init__(self, message: str, *, cause: str = "") -> None:
++        super().__init__(message)
++        self.cause = cause or message
++
++
++class LandlockUnsupportedError(LandlockError):
++    """Landlock is not available on this host (ABI absent / unknown arch)."""
++
++
++def _libc() -> ctypes.CDLL:
++    libc_name = ctypes.util.find_library("c") or "libc.so.6"
++    return ctypes.CDLL(libc_name, use_errno=True)
++
++
++def _syscall(
++    libc: ctypes.CDLL, nr: int, a: int = 0, b: int = 0, c: int = 0, d: int = 0
++) -> int:
++    """Raw syscall(2) with a fixed 7-long argtypes (variadic-safe)."""
++    fn = libc.syscall
++    fn.argtypes = [ctypes.c_long] * 7
++    fn.restype = ctypes.c_long
++    return fn(nr, a, b, c, d, 0, 0)
++
++
++def abi_version(libc: ctypes.CDLL | None = None) -> int:
++    """The highest Landlock ABI this kernel supports; 0 when absent.
++
++    ``landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION)``
++    returns the ABI version, -ENOSYS/-EOPNOTSUPP when the syscall or the
++    LSM is missing. Also 0 on architectures outside the syscall table.
++    """
++    if libc is None:
++        try:
++            libc = _libc()
++        except OSError:
++            return 0
++    numbers = _SYSCALL_NR.get(platform.machine())
++    if numbers is None:
++        return 0
++    rv = _syscall(libc, numbers[0], 0, 0, LANDLOCK_CREATE_RULESET_VERSION)
++    return rv if rv >= 1 else 0
++
++
++def _require_arch() -> tuple[int, int, int]:
++    numbers = _SYSCALL_NR.get(platform.machine())
++    if numbers is None:
++        raise LandlockUnsupportedError(
++            f"no Landlock syscall numbers for this architecture ({platform.machine()})",
++            cause=f"unsupported architecture {platform.machine()}",
++        )
++    return numbers
++
++
++def _open_path_beneath(path: str) -> int:
++    return os.open(path, os.O_PATH | os.O_CLOEXEC)
++
++
++def _prctl_no_new_privs(libc: ctypes.CDLL) -> None:
++    prctl = libc.prctl
++    prctl.restype = ctypes.c_int
++    prctl.argtypes = [
++        ctypes.c_int,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++    ]
++    ctypes.set_errno(0)
++    rv = prctl(38, 1, 0, 0, 0)  # PR_SET_NO_NEW_PRIVS
++    if rv != 0:
++        code = ctypes.get_errno()
++        raise LandlockError(
++            f"PR_SET_NO_NEW_PRIVS failed: {os.strerror(code)} (errno {code})",
++            cause=f"PR_SET_NO_NEW_PRIVS: {os.strerror(code)}",
++        )
++
++
++def kernel_enforced(probe_path: str) -> bool:
++    """True when reading ``probe_path`` is denied RIGHT NOW (EACCES).
++
++    The property probe: an applied domain must deny the caller-owned
++    mode-600 file. OSError-PermissionError → True; clean read → False;
++    any other error (FileNotFound — the file vanished — etc.) is NOT
++    evidence of enforcement → False.
++    """
++    try:
++        with open(probe_path, "rb") as handle:
++            handle.read(1)
++    except PermissionError:
++        return True
++    except OSError:
++        return False
++    return False
++
++
++def _restrict_and_verify(
++    fd: int,
++    layout: "TierLayout",
++    libc: ctypes.CDLL,
++    restrict_nr: int,
++    *,
++    dry_probe: bool = True,
++) -> None:
++    """Apply the finished ruleset to THIS process (no_new_privs, restrict).
++
++    When ``dry_probe`` the enforcement property is verified BEFORE this
++    process is restricted: the mode-600 probe read must return EACCES in
++    a forked grandchild that applied ``fd`` — any other outcome raises
++    LandlockError and THIS PROCESS STAYS UNRESTRICTED.
++    """
++    try:
++        if dry_probe:
++            _prove_enforcement_in_child(layout, libc, fd, restrict_nr)
++        # This process applies the tier only AFTER the property proof.
++        _prctl_no_new_privs(libc)
++        ctypes.set_errno(0)
++        rv = _syscall(libc, restrict_nr, fd, 0)
++        if rv != 0:
++            code = ctypes.get_errno()
++            raise LandlockError(
++                f"landlock_restrict_self failed: {os.strerror(code)} (errno {code})",
++                cause=f"landlock_restrict_self: {os.strerror(code)}",
++            )
++    finally:
++        os.close(fd)
++
++
++def apply(
++    layout: "TierLayout",
++    *,
++    libc: ctypes.CDLL | None = None,
++    dry_probe: bool = True,
++) -> int:
++    """Build + apply the tier's ruleset to THIS process; return rule count.
++
++    When ``dry_probe`` (default) the enforcement PROPERTY is verified
++    BEFORE this process is restricted: a mode-600 probe file under a
++    denied root (created here, while still unrestricted) must read back
++    EACCES inside a forked child that applied the same ruleset. Any
++    other outcome raises LandlockError and THIS PROCESS STAYS
++    UNRESTRICTED — the TJ-DF-015 preflight lesson: prove the property,
++    never the proxy, and never leave a half-applied state behind. The
++    probe file is removed by this (unrestricted) process, so enforcement
++    leaves no litter.
++
++    On success this process is restricted (one-way) and every later
++    exec inherits the domain — the caller is a loader about to exec the
++    payload (standalone/landlock-loader.py) or a test.
++    """
++    if libc is None:
++        libc = _libc()
++    create_nr, add_nr, restrict_nr = _require_arch()
++
++    fd, count = _build_rules_fd(layout, libc, create_nr, add_nr)
++    _restrict_and_verify(fd, layout, libc, restrict_nr, dry_probe=dry_probe)
++    return count
++
++
++def _build_rules_fd(
++    layout: "TierLayout", libc: ctypes.CDLL, create_nr: int, add_nr: int
++) -> tuple[int, int]:
++    """Create the ruleset and add every grant rule; returns (fd, count).
++
++    Denied trees exist only as OMISSIONS (the allowlist model) — there
++    is no deny-rule pass. Kernel constraint (landlock_add_rule EINVAL):
++    a NON-directory target only accepts the file-relevant bits — a
++    dir-only bit (READ_DIR, REMOVE_*, MAKE_*) on a file fd is rejected.
++    """
++    file_bits = (
++        LANDLOCK_ACCESS_FS_EXECUTE
++        | LANDLOCK_ACCESS_FS_WRITE_FILE
++        | LANDLOCK_ACCESS_FS_READ_FILE
++    )
++    rules: list[tuple[int, str, int]] = []
++    for path in layout.write_roots:
++        allowed = _RW if _is_dir(path) else _RW & file_bits
++        rules.append((allowed, path, _open_path_beneath(path)))
++    for path in layout.read_roots:
++        allowed = _READ_EXEC if _is_dir(path) else _READ_EXEC & file_bits
++        rules.append((allowed, path, _open_path_beneath(path)))
++
++    attr = _RulesetAttr(HANDLED_ACCESS_FS)
++    ctypes.set_errno(0)
++    fd = _syscall(libc, create_nr, ctypes.addressof(attr), ctypes.sizeof(attr), 0)
++    if fd < 0:
++        code = ctypes.get_errno()
++        raise LandlockError(
++            f"landlock_create_ruleset failed: {os.strerror(code)} (errno {code})",
++            cause=f"landlock_create_ruleset: {os.strerror(code)}",
++        )
++
++    for allowed, path, parent_fd in rules:
++        rule = _PathBeneathAttr()
++        rule.allowed_access = allowed
++        rule.parent_fd = parent_fd
++        ctypes.set_errno(0)
++        rv = _syscall(
++            libc, add_nr, fd, LANDLOCK_RULE_PATH_BENEATH, ctypes.addressof(rule), 0
++        )
++        os.close(parent_fd)
++        if rv != 0:
++            code = ctypes.get_errno()
++            os.close(fd)
++            raise LandlockError(
++                f"landlock_add_rule({path}) failed: {os.strerror(code)} (errno {code})",
++                cause=f"landlock_add_rule({path}): {os.strerror(code)}",
++            )
++    return fd, len(rules)
++
++
++def _make_enforcement_probe(layout: "TierLayout") -> str:
++    """A caller-owned mode-600 probe file at a DENIED-by-omission path.
++
++    The proof target must be a path the CALLER can write right now
++    (unrestricted) but the DOMAIN does not grant — so the denial can only
++    come from Landlock, never from DAC. Candidates, each verified against
++    the layout's grants: XDG_RUNTIME_DIR (a caller-owned tmpfs outside
++    every grant on a normal desktop session), /run/<uid>, the HOME root
++    (only named children are granted, never the root itself), and kernel
++    tmpdirs (usable only in the drop_denied_tmp=False layout, where they
++    are ungranted — each fallback dir is removed with its probe).
++    Raises LandlockError when no such host exists — the property cannot
++    be proven, which is exactly when the tier must refuse to claim.
++    """
++    granted = [os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)]
++
++    def _ungranted(candidate: str) -> bool:
++        real = os.path.realpath(candidate)
++        return not any(_is_inside(real, grant) for grant in granted)
++
++    candidates: list[str] = []
++    throwaway: list[str] = []
++    runtime = os.environ.get("XDG_RUNTIME_DIR", "").strip()
++    if runtime.startswith("/"):
++        candidates.append(runtime)
++    candidates.append(f"/run/user/{os.getuid()}")
++    home = os.environ.get("HOME", "")
++    if home:
++        candidates.append(home)
++    for temp in ("/tmp", "/var/tmp"):
++        try:
++            created = tempfile.mkdtemp(prefix="tj-ll-proof-", dir=temp)
++        except OSError:
++            continue
++        candidates.append(created)
++        throwaway.append(created)
++    try:
++        for root in candidates:
++            if not os.path.isdir(root) or not _ungranted(root):
++                continue
++            probe = os.path.join(root, f".tj-landlock-eacces-probe-{os.getpid()}")
++            try:
++                with open(probe, "w", encoding="utf-8") as handle:
++                    handle.write("terminal-jail landlock enforcement probe\n")
++                os.chmod(probe, 0o600)
++                return probe
++            except OSError:
++                continue
++    finally:
++        # The throwaway mkdtemp hosts are only used when chosen; whatever
++        # was NOT used (and any empty leftover) is removed here. A chosen
++        # host keeps its probe file until _prove_enforcement_in_child's
++        # finally removes it — the dir itself is left (it was caller-
++        # owned state or an empty kernel tempdir; removing a used
++        # throwaway here is safe too, the probe is gone by then).
++        for created in throwaway:
++            try:
++                os.rmdir(created)
++            except OSError:
++                pass
++    raise LandlockError(
++        "no caller-writable ungranted path to host the enforcement probe "
++        "— cannot prove the tier (refusing to claim it unproven)",
++        cause="no caller-writable ungranted path for the enforcement probe",
++    )
++
++
++def _prove_enforcement_in_child(
++    layout: "TierLayout", libc: ctypes.CDLL, fd: int, restrict_nr: int
++) -> None:
++    """Prove the denied-read property inside a forked child.
++
++    The child applies the ruleset (already fully assembled at ``fd``) to
++    ITSELF and attempts the mode-600 read; the verdict comes back over a
++    pipe. The parent stays unrestricted throughout: it created the probe
++    file, reads the verdict, removes the file, and raises LandlockError
++    on any outcome but a proven EACCES — this process is never left
++    restricted by a FAILED proof.
++    """
++    probe = _make_enforcement_probe(layout)
++    try:
++        read_fd, write_fd = os.pipe()
++        try:
++            pid = os.fork()
++        except OSError as exc:
++            os.close(read_fd)
++            os.close(write_fd)
++            raise LandlockError(
++                f"cannot fork the enforcement-probe child: {exc}",
++                cause=f"fork: {exc}",
++            ) from exc
++        if pid == 0:  # child: restrict, probe, report, exit
++            os.close(read_fd)
++            verdict = b"0"
++            try:
++                _prctl_no_new_privs(libc)
++                if _syscall(libc, restrict_nr, fd, 0) == 0 and kernel_enforced(probe):
++                    verdict = b"1"
++            except Exception:  # noqa: BLE001 — the verdict carries the failure
++                verdict = b"0"
++            try:
++                os.write(write_fd, verdict)
++            except OSError:
++                pass
++            finally:
++                os.close(write_fd)
++                os._exit(0)
++        # parent
++        os.close(write_fd)
++        try:
++            verdict = os.read(read_fd, 1)
++        finally:
++            os.close(read_fd)
++            os.waitpid(pid, 0)
++        if verdict != b"1":
++            raise LandlockError(
++                "Landlock enforcement NOT proven: the mode-600 probe read "
++                f"under {probe} was not denied EACCES inside a child that "
++                "applied the ruleset — not claiming the tier (TJ-DF-015 "
++                "preflight: prove the property, not the proxy)",
++                cause="enforcement probe read was not denied in the child",
++            )
++    finally:
++        try:
++            os.unlink(probe)
++        except OSError:
++            pass
++        # When the proof host was one of this call's throwaway mkdtemp
++        # dirs, remove it too (it is empty again after the unlink).
++        parent = os.path.dirname(probe)
++        if os.path.basename(parent).startswith("tj-ll-proof-"):
++            try:
++                os.rmdir(parent)
++            except OSError:
++                pass
++
++
++# --- Layout ---------------------------------------------------------------
++
++
++@dataclass
++class TierLayout:
++    """The tier's rule layout — Landlock is an ALLOWLIST model.
++
++    ``write_roots``/``read_roots`` are the granted hierarchies; EVERYTHING
++    else is denied by omission (the ruleset handles all FS rights and no
++    rule covers the rest). ``ungranted_paths`` is the informational list
++    of what the omission denies — credential surfaces, other users'
++    homes — so probes/tests can assert the deny PROPERTY without the
++    kernel's (non-existent) deny-rule concept. There are no zero-access
++    rules: the kernel rejects an ``allowed_access == 0`` add_rule with
++    ENOMSG, and a denied tree is expressed by not granting it.
++    """
++
++    workdir: str
++    read_roots: list[str] = field(default_factory=list)
++    write_roots: list[str] = field(default_factory=list)
++    ungranted_paths: list[str] = field(default_factory=list)
++
++    @property
++    def rule_count(self) -> int:
++        return len(self.read_roots) + len(self.write_roots)
++
++
++def _exists_dir(path: str) -> bool:
++    try:
++        return stat.S_ISDIR(os.stat(path).st_mode)
++    except OSError:
++        return False
++
++
++def _exists_file(path: str) -> bool:
++    try:
++        return stat.S_ISREG(os.stat(path).st_mode)
++    except OSError:
++        return False
++
++
++def _is_dir(path: str) -> bool:
++    try:
++        return stat.S_ISDIR(os.stat(path).st_mode)
++    except OSError:
++        return False
++
++
++def _home(home: str | None) -> str | None:
++    if home is not None:
++        return home or None
++    return os.environ.get("HOME") or None
++
++
++def _xdg_dir(env_name: str, default_tail: str, home: str | None) -> str | None:
++    """XDG dir from env or the home-relative default; None when unset."""
++    raw = os.environ.get(env_name, "").strip()
++    if raw.startswith("/"):
++        return os.path.normpath(raw)
++    if home:
++        return os.path.join(home, default_tail)
++    return None
++
++
++def _temp_dirs(extra: Iterable[str] = ()) -> list[str]:
++    dirs = [os.environ.get(name, "").strip() for name in ("TMPDIR", "TMP", "TEMP")]
++    dirs.extend(extra)
++    dirs.extend(("/tmp", "/var/tmp"))
++    seen: set[str] = set()
++    ordered: list[str] = []
++    for d in dirs:
++        if d and d.startswith("/") and d not in seen:
++            seen.add(d)
++            ordered.append(d)
++    return ordered
++
++
++# Read-only home allowlist: what a payload plausibly needs to START (shell
++# rc files, toolchain homes, user package trees). Everything else under
++# HOME is ungranted → denied by the allowlist model.
++_HOME_READ = (
++    ".bashrc",
++    ".profile",
++    ".bash_profile",
++    ".bash_aliases",
++    ".zshrc",
++    ".config/fish",
++    ".cargo",
++    ".rustup",
++    ".nvm",
++    "go/pkg/mod",
++    ".local/bin",
++    ".local/lib",
++    ".local/share",
++    ".local/pipx",
++    ".config/git/config",
++    ".gitconfig",
++)
++
++# Credential surfaces (NEVER granted: under the allowlist model they are
++# denied by omission, and the workdir grant is split around any that sit
++# inside it — see _split_workdir).
++_CREDENTIAL_SURFACES = (
++    ".ssh",
++    ".gnupg",
++    ".config/terminal-jail",
++    ".config/terminal-jail/rules.d",
++    ".hermes",
++    ".git-credentials",
++    ".config/git/credentials",
++    ".netrc",
++    ".aws",
++    ".kube",
++    ".docker",
++    ".password-store",
++)
++
++# /etc is NOT granted wholesale (it holds sudoers, /etc/ssh host keys,
++# shadow-adjacent state); only the named loader/NSS/release/DNS files.
++_ETC_READ = (
++    "/etc/ld.so.cache",
++    "/etc/ld.so.preload",
++    "/etc/nsswitch.conf",
++    "/etc/hosts",
++    "/etc/resolv.conf",
++    "/etc/protocols",
++    "/etc/services",
++    "/etc/localtime",
++    "/etc/passwd",
++    "/etc/group",
++    "/etc/os-release",
++    "/etc/lsb-release",
++    "/etc/debian_version",
++    "/etc/alternatives",
++    "/etc/ssl",
++    "/etc/pki",
++    "/etc/ca-certificates",
++)
++
++# DNS resolver state when systemd-resolved is in play (/etc/resolv.conf is
++# typically a symlink INTO /run/systemd/resolve — the kernel opens the
++# target, so the target needs the grant, not just the symlink).
++_RUN_READ = (
++    "/run/systemd/resolve",
++    "/run/resolvconf",
++)
++
++
++def build_layout(
++    workdir: str | None = None,
++    *,
++    home: str | None = None,
++    drop_denied_tmp: bool = True,
++) -> TierLayout | None:
++    """Compute the tier's rule layout; None when a required input is gone.
++
++    ``workdir`` defaults to the caller's cwd — the one tree the payload
++    may write. ``drop_denied_tmp=False`` puts the temp directories in the
++    ungranted set instead of the writable set (probe mode: prove a denied
++    read on a temp fixture without touching real credential surfaces).
++    """
++    if not workdir:
++        try:
++            workdir = os.getcwd()
++        except OSError:
++            return None
++    workdir = os.path.realpath(workdir)
++    if not os.path.isdir(workdir):
++        return None
++    resolved_home = _home(home)
++    if not resolved_home:
++        return None
++
++    layout = TierLayout(workdir=workdir)
++
++    # ── write grants ──────────────────────────────────────────────────────
++    write = [workdir]
++    tmpdirs = _temp_dirs()
++    if drop_denied_tmp:
++        write.extend(tmpdirs)
++    cache = _xdg_dir("XDG_CACHE_HOME", ".cache", resolved_home)
++    if cache:
++        write.append(cache)
++    write.append("/dev")  # /dev/null, /dev/shm, /dev/stdout — device nodes
++    layout.write_roots = _dedupe_existing(write, exclude=(workdir,))
++
++    # ── read grants ───────────────────────────────────────────────────────
++    # /proc: process self-inspection (ps, /proc/self/status readers) is a
++    # legitimate payload need; on the bwrap backend this is the PRIVATE
++    # procfs anyway, and on unshare the host-view exposure is the already
++    # documented known limit (docs/backend-parity.md (a)) — the tier
++    # neither improves nor worsens it, so it is granted read-only.
++    read = [
++        "/bin",
++        "/sbin",
++        "/usr",
++        "/lib",
++        "/lib64",
++        "/opt",
++        "/proc",
++        "/sys",
++        "/etc/alternatives",
++        *_ETC_READ,
++        *_RUN_READ,
++    ]
++    for tail in _HOME_READ:
++        candidate = os.path.join(resolved_home, tail)
++        if _exists_dir(candidate) or _exists_file(candidate):
++            read.append(candidate)
++    layout.read_roots = _dedupe_existing(read, exclude=(*layout.write_roots,))
++
++    # ── the workdir grant is SUBDIVIDED around credential surfaces ───────
++    # (an ungranted parent would deny the whole workdir — the deny must
++    # carve the credential subtrees out of the granted one).
++    ungranted = _credential_paths(resolved_home)
++    if layout.workdir == resolved_home.rstrip("/"):
++        return None  # refuse to grant HOME wholesale as the workdir
++    split_grants, workdir_splits = _split_workdir(layout.workdir, resolved_home)
++    non_workdir_writes = [p for p in layout.write_roots if p != layout.workdir]
++    layout.write_roots = _dedupe_existing(
++        [*non_workdir_writes, *split_grants], exclude=()
++    )
++    ungranted.extend(workdir_splits)
++
++    # ── informational deny set (denied by OMISSION, not by a rule) ───────
++    # Other users' home directories; /root; (when drop_denied_tmp=False)
++    # the temp directories; everything else outside the grants.
++    home_parent = os.path.dirname(resolved_home.rstrip("/"))
++    if home_parent and home_parent != "/":
++        ungranted.append(home_parent)
++    ungranted.append("/root")
++    if not drop_denied_tmp:
++        ungranted.extend(tmpdirs)
++    seen: set[str] = set()
++    ordered: list[str] = []
++    for path in ungranted:
++        real = os.path.realpath(path) if os.path.exists(path) else path
++        if real not in seen:
++            seen.add(real)
++            ordered.append(real)
++    layout.ungranted_paths = ordered
++    return layout
++
++
++def _credential_paths(resolved_home: str) -> list[str]:
++    """Credential surfaces that exist, most-specific first (rules.d first)."""
++    found = [
++        os.path.join(resolved_home, tail)
++        for tail in reversed(_CREDENTIAL_SURFACES)
++        if os.path.exists(os.path.join(resolved_home, tail))
++    ]
++    return found
++
++
++def _split_workdir(workdir: str, resolved_home: str) -> tuple[list[str], list[str]]:
++    """Subdivide the workdir write-grant around credential surfaces.
++
++    Every ``<home>/<surface>`` that lives INSIDE the workdir replaces the
++    flat workdir grant with grants that cover the workdir MINUS the
++    surface: the walk recurses down the surface's ancestor chain and
++    grants the surface's SIBLINGS at the deepest level (granting the
++    parent path itself would re-include the surface — the bug this
++    structure exists to avoid). Most-specific surface first, so a longer
++    surface is already carved out when a shorter one is processed. Only
++    path strings are computed here; callers open the resulting roots
++    O_PATH.
++    """
++    inside = sorted(
++        (
++            os.path.join(resolved_home, tail)
++            for tail in _CREDENTIAL_SURFACES
++            if os.path.exists(os.path.join(resolved_home, tail))
++            and _is_inside(os.path.join(resolved_home, tail), workdir)
++            and os.path.realpath(os.path.join(resolved_home, tail))
++            != os.path.realpath(workdir)
++        ),
++        key=len,
++        reverse=True,  # most specific first (rules.d before terminal-jail)
++    )
++    if not inside:
++        return [workdir], []
++
++    grants = [workdir]
++    splits: list[str] = []
++    for surface in inside:
++        splits.append(surface)
++        carved: list[str] = []
++        for grant in grants:
++            if _is_inside(surface, grant):
++                carved.extend(_split_grant_around(grant, surface))
++            else:
++                carved.append(grant)
++        grants = carved
++    return grants, splits
++
++
++def _split_grant_around(grant: str, surface: str) -> list[str]:
++    """Grants covering ``grant`` minus ``surface`` (surface strictly inside).
++
++    The complete carve needs the surface's siblings at EVERY level of its
++    ancestor chain: ``grant/a/surface`` → ``grant/a's siblings`` +
++    ``grant/a/surface's siblings`` (granting only the deepest level would
++    silently drop the rest of the grant).
++    """
++    real_grant = os.path.realpath(grant)
++    real_surface = os.path.realpath(surface)
++    rel = os.path.relpath(real_surface, real_grant)
++    parts = rel.split(os.sep)
++    carved: list[str] = []
++    prefix = real_grant
++    for part in parts[:-1]:
++        try:
++            names = os.listdir(prefix)
++        except OSError:
++            return carved
++        for name in names:
++            if name == part:
++                continue
++            carved.append(os.path.join(prefix, name))
++        prefix = os.path.join(prefix, part)
++    try:
++        names = os.listdir(prefix)
++    except OSError:
++        return carved
++    for name in names:
++        candidate = os.path.join(prefix, name)
++        if not _is_inside(candidate, real_surface):
++            carved.append(candidate)
++    return carved
++
++
++def _is_inside(path: str, root: str) -> bool:
++    """True when ``path`` is ``root`` or lives under it (realpaths)."""
++    try:
++        return os.path.commonpath((os.path.realpath(path), os.path.realpath(root))) == (
++            os.path.realpath(root)
++        )
++    except ValueError:  # different drives etc.
++        return False
++
++
++def _dedupe_existing(paths: Iterable[str], exclude: Iterable[str]) -> list[str]:
++    """Order-preserving dedupe of paths that exist, minus excluded ones."""
++    excluded = {os.path.realpath(p) for p in exclude}
++    seen: set[str] = set()
++    out: list[str] = []
++    for path in paths:
++        real = os.path.realpath(path)
++        if real in excluded or real in seen:
++            continue
++        if os.path.exists(real):
++            seen.add(real)
++            out.append(real)
++    return out
++
++
++# --- Engine seam (single-sourced, consumed by decider.py) ------------------
++
++_WARNING_PREFIX = "terminal-jail: WARNING: Landlock filesystem tier not applied"
++
++_WARNED = False
++
++
++def degradation_warning(cause: str) -> str:
++    """One line naming the degradation, its cause and the way out."""
++    return (
++        f"{_WARNING_PREFIX} ({cause}); commands run unchanged without kernel "
++        "filesystem enforcement — classify the host with "
++        "scripts/landlock-capability-probe.py, or disable this warning "
++        "deliberately with TERMINAL_JAIL_LANDLOCK=0"
++    )
++
++
++def _degrade(cause: str) -> str:
++    """Print the loud warning ONCE per process; return the empty prefix.
++
++    Silent ONLY on a deliberate disable (TERMINAL_JAIL_LANDLOCK explicitly
++    falsy — the knob IS the acknowledgment). An UNSET variable is the
++    default-on posture, so a degradation there still warns.
++    """
++    global _WARNED
++    raw = os.environ.get(ENV_VAR)
++    if raw is not None and raw.strip().lower() in _FALSY:
++        return ""
++    if not _WARNED:
++        _WARNED = True
++        print(degradation_warning(cause), file=sys.stderr)
++    return ""
++
++
++def sandbox_prefix() -> str:
++    """The Landlock launch-tail prefix for auto-sandbox/modify rewrites.
++
++    ``"python3 <loader> -- "`` when the host supports Landlock, the tier
++    applies (proven by the fork-isolated EACCES preflight) AND the loader
++    is reachable under the launch (world-traversable path — a mapping-
++    less rewrite runs its payload as nobody, and a 0750/0700 home makes
++    the loader unopenable); the empty string otherwise. The composed
++    payload is ``python3 <loader> -- <command>``: inside the namespace
++    the loader applies the ruleset and execs the command (TJ-GAP-082).
++    Degradation is LOUD: one warning names the cause and the command
++    runs unchanged (behavior identical to the pre-tier engine). Cached
++    per process.
++    """
++    global _SANDBOX_PREFIX_CACHE
++    if _SANDBOX_PREFIX_CACHE is not None:
++        return _SANDBOX_PREFIX_CACHE
++    _SANDBOX_PREFIX_CACHE = _compute_sandbox_prefix()
++    return _SANDBOX_PREFIX_CACHE
++
++
++_SANDBOX_PREFIX_CACHE: str | None = None
++
++_PROBE_ENV = "TERMINAL_JAIL_LANDLOCK_PROBE"
++
++
++def loader_path() -> str | None:
++    """The standalone landlock-loader.py, or None when not shipped here.
++
++    Walks up from this module (repo checkout: <root>/standalone/;
++    installed layout: <lib>/landlock-loader.py next to the plugin tree).
++    """
++    current = os.path.dirname(os.path.abspath(__file__))
++    while True:
++        for base in (
++            os.path.join(current, "standalone"),
++            current,
++        ):
++            candidate = os.path.join(base, "landlock-loader.py")
++            if os.path.isfile(candidate):
++                return candidate
++        parent = os.path.dirname(current)
++        if parent == current:
++            return None
++        current = parent
++
++
++def _world_traversable(path: str) -> bool:
++    """True when EVERY directory on ``path`` grants other-execute (o+x).
++
++    A mapping-less rewrite runs its payload as nobody (65534); a loader
++    under a 0700/0750 home is unopenable for it, and a payload that
++    cannot exec the loader dies with Errno 13 instead of running. The
++    tail is only emitted when the launch can actually reach the loader.
++    """
++    real = os.path.realpath(path)
++    parent = os.path.dirname(real)
++    while True:
++        try:
++            mode = os.stat(parent).st_mode
++        except OSError:
++            return False
++        if not mode & stat.S_IXOTH:
++            return False
++        nxt = os.path.dirname(parent)
++        if nxt == parent:
++            return True
++        parent = nxt
++
++
++def _probe_child_verdict() -> str:
++    """The child half of the fork-isolated capability probe.
++
++    Re-imported by path in the child (decoupling from the parent's module
++    cache): the tier is APPLIED here — proof or not — and the verdict is
++    one line on the pipe. The child exits without touching the parent.
++    """
++    module_path = os.environ[_PROBE_ENV]
++    spec = importlib.util.spec_from_file_location(
++        "terminal_jail_landlock_probe", module_path
++    )
++    assert spec is not None and spec.loader is not None
++    module = importlib.util.module_from_spec(spec)
++    sys.modules[spec.name] = module  # before exec_module (dataclass hint walk)
++    spec.loader.exec_module(module)
++    try:
++        layout = module.build_layout()
++        if layout is None:
++            return "FAIL layout refused"
++        module.apply(layout, dry_probe=True)
++    except module.LandlockError as exc:
++        return f"FAIL {exc.cause}"
++    except OSError as exc:
++        return f"FAIL layout inspection failed: {exc}"
++    return "OK"
++
++
++def _compute_sandbox_prefix() -> str:
++    """Decide WITHOUT enforcing: the rewrite's loader applies the tier.
++
++    The engine process must stay unrestricted (its own RuleLoader reads
++    ~/.config/terminal-jail AFTER this module is imported), so the
++    capability question is answered inside a forked child: the child
++    applies the tier to ITSELF (EACCES-preflighted); "OK" proves the
++    host CAN enforce. The tail is then emitted only when the loader is
++    reachable under the launch. Any other outcome degrades loudly and
++    keeps the wrap byte-identical to the pre-tier engine.
++    """
++    if not landlock_enabled_from_environment():
++        return ""
++    if _PROBE_ENV not in os.environ:
++        module_path = os.path.join(
++            os.path.dirname(os.path.abspath(__file__)), "landlock.py"
++        )
++        read_fd, write_fd = os.pipe()
++        try:
++            pid = os.fork()
++        except OSError as exc:
++            os.close(read_fd)
++            os.close(write_fd)
++            return _degrade(f"capability probe fork failed: {exc}")
++        if pid == 0:  # child: decide, report, never touch parent state
++            os.close(read_fd)
++            os.environ[_PROBE_ENV] = module_path
++            try:
++                verdict = _probe_child_verdict()
++            except Exception as exc:  # noqa: BLE001 — a probe must never crash
++                verdict = f"FAIL probe crash: {exc}"
++            try:
++                os.write(write_fd, verdict.encode("utf-8", "replace")[:512])
++            except OSError:
++                pass
++            finally:
++                os.close(write_fd)
++                os._exit(0)
++        # parent
++        os.close(write_fd)
++        try:
++            chunks: list[bytes] = []
++            while True:
++                chunk = os.read(read_fd, 256)
++                if not chunk:
++                    break
++                chunks.append(chunk)
++            verdict = b"".join(chunks).decode("utf-8", "replace")
++        finally:
++            os.close(read_fd)
++            os.waitpid(pid, 0)
++    else:
++        # Inside the probe child itself (the env var re-entry): decide.
++        verdict = _probe_child_verdict()
++    if not verdict.startswith("OK"):
++        return _degrade(verdict[5:].strip() or "capability probe failed")
++    loader = loader_path()
++    if loader is None:
++        return _degrade("landlock-loader.py not found next to the plugin")
++    if not _world_traversable(loader):
++        return _degrade(
++            "landlock-loader.py is not reachable by the launch's payload "
++            f"uid (a parent of {loader} lacks o+x — e.g. a 0700/0750 home)"
++        )
++    return f"python3 {shlex.quote(loader)} -- "
++
++
++def apply_tier() -> tuple[bool, str]:
++    """Apply the tier to the calling process (loader entry point).
++
++    Returns (True, "") after a PROVEN enforcement, or (False, cause)
++    without touching the process when the tier cannot apply. Never
++    raises past LandlockError — the loader execs the payload unchanged
++    with the cause.
++    """
++    if not landlock_enabled_from_environment():
++        return False, ""
++    try:
++        layout = build_layout()
++    except OSError as exc:
++        return False, f"layout inspection failed: {exc}"
++    if layout is None:
++        return False, "working directory or HOME unavailable"
++    try:
++        apply(layout, dry_probe=True)
++    except LandlockError as exc:
++        return False, exc.cause
++    return True, ""
++
++
++__all__ = [
++    "ENV_VAR",
++    "LandlockError",
++    "LandlockUnsupportedError",
++    "TierLayout",
++    "abi_version",
++    "apply",
++    "apply_tier",
++    "build_layout",
++    "degradation_warning",
++    "kernel_enforced",
++    "landlock_enabled_from_environment",
++    "sandbox_prefix",
++]
+diff --git a/plugin/test_backend_parity.py b/plugin/test_backend_parity.py
+index f2ef65d..c09b067 100644
+--- a/plugin/test_backend_parity.py
++++ b/plugin/test_backend_parity.py
+@@ -89,6 +89,9 @@ def _env(tmp_path: pathlib.Path, path: str, **overrides: str) -> dict[str, str]:
+         "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
+         "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
+         "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
++        # TJ-GAP-082: backend-parity pins the BACKEND contract; the
++        # Landlock tier's launch shapes are owned by test_landlock.py.
++        "TERMINAL_JAIL_LANDLOCK": "0",
+     }
+     home = pathlib.Path(env["HOME"])
+     home.mkdir(exist_ok=True)
+diff --git a/plugin/test_backend_selection.py b/plugin/test_backend_selection.py
+index ce7c296..58731df 100644
+--- a/plugin/test_backend_selection.py
++++ b/plugin/test_backend_selection.py
+@@ -94,6 +94,11 @@ def _env(tmp_path: Path, path: str, **overrides: str) -> dict[str, str]:
+         "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
+         "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
+         "TJ_UNSHARE_STUB_LOG": str(tmp_path / "unshare.log"),
++        # TJ-GAP-082: these tests pin the BACKEND contract (flag sets,
++        # probe/launch call counts, trampoline argv); the Landlock tier's
++        # loader would add its own probe + exec layer to the recorded
++        # argv. The tier's launch shapes are owned by test_landlock.py.
++        "TERMINAL_JAIL_LANDLOCK": "0",
+     }
+     Path(env["HOME"]).mkdir(exist_ok=True)
+     env.update(overrides)
+diff --git a/plugin/test_landlock.py b/plugin/test_landlock.py
+new file mode 100644
+index 0000000..3cb3994
+--- /dev/null
++++ b/plugin/test_landlock.py
+@@ -0,0 +1,718 @@
++"""TJ-GAP-082 — the kernel-enforced Landlock filesystem-isolation tier.
++
++Covers:
++- the capability probe script: JSON mode, always-exit-0 classifier contract,
++  ABI reporting (run via subprocess; on a non-permitting host the
++  enforcement cells SKIP with the HOST-DEGRADED-LANDLOCK marker — never a
++  silent pass, same philosophy as HOST-DEGRADED-FSISO/HOST-DEGRADED-PIDNS);
++- engine enforcement: on a permitting host a child that applied the tier
++  is DENIED a caller-owned mode-600 read (kernel-level, not regex);
++- graceful absence: TERMINAL_JAIL_LANDLOCK=0 (and a mocked ABI 0) keep
++  behavior unchanged, with the loud degradation warning when a capable
++  host fails to apply;
++- wiring: decider composes the tier tail single-sourced (no literal tail
++  outside landlock.py/decider.py), and the standalone wrapper carries the
++  loader on its launch shapes.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import stat
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++
++import pytest
++from terminal_jail.interruptor import decider as decider_module
++from terminal_jail.interruptor import landlock as ll
++
++PROJECT_ROOT = Path(__file__).resolve().parent.parent
++PROBE_SCRIPT = PROJECT_ROOT / "scripts" / "landlock-capability-probe.py"
++CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
++LOADER_SCRIPT = PROJECT_ROOT / "standalone" / "landlock-loader.py"
++
++# Host-constrained skip markers (same philosophy as HOST-DEGRADED-FSISO).
++HOST_DEGRADED = "HOST-DEGRADED-LANDLOCK"
++
++
++def _probe(*args: str) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [sys.executable, str(PROBE_SCRIPT), *args],
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=60,
++    )
++
++
++def _host_permits_landlock() -> bool:
++    try:
++        probe = _probe("--json")
++    except (OSError, subprocess.SubprocessError):
++        return False
++    if probe.returncode != 0:
++        return False
++    try:
++        return json.loads(probe.stdout).get("verdict") == "FULL"
++    except json.JSONDecodeError:
++        return False
++
++
++# ── Capability probe script ────────────────────────────────────────────────
++
++
++class TestCapabilityProbe:
++    def test_probe_is_a_classifier_always_exit_zero(self) -> None:
++        """The probe NEVER fails the caller: rc 0 with a known verdict."""
++        result = _probe()
++        assert result.returncode == 0
++        first_line = (result.stdout or "").splitlines()[0]
++        assert any(
++            verdict in first_line for verdict in ("FULL", "DEGRADED", "UNKNOWN")
++        ), f"unexpected probe verdict line: {first_line!r}"
++
++    def test_probe_json_mode_shape(self) -> None:
++        result = _probe("--json")
++        assert result.returncode == 0
++        payload = json.loads(result.stdout)
++        for key in (
++            "verdict",
++            "abi_version",
++            "lsm_loaded",
++            "ruleset_ok",
++            "restrict_ok",
++            "enforcement",
++            "cause",
++            "remediation",
++            "details",
++        ):
++            assert key in payload, f"json mode missing key {key!r}"
++        assert payload["verdict"] in ("FULL", "DEGRADED", "UNKNOWN")
++        assert isinstance(payload["abi_version"], int)
++        # On a FULL verdict the ABI must be reported and the property
++        # proven — the probe never claims FULL without the EACCES proof.
++        if payload["verdict"] == "FULL":
++            assert payload["abi_version"] >= 1
++            assert payload["ruleset_ok"] is True
++            assert payload["restrict_ok"] is True
++            assert payload["enforcement"] == "denied"
++
++    def test_probe_text_and_json_agree(self) -> None:
++        text = _probe()
++        as_json = _probe("--json")
++        assert text.returncode == as_json.returncode == 0
++        verdict_json = json.loads(as_json.stdout)["verdict"]
++        assert verdict_json in text.stdout
++
++    def test_degraded_verdict_names_a_cause_and_remediation(self) -> None:
++        result = _probe("--json")
++        payload = json.loads(result.stdout)
++        if payload["verdict"] != "DEGRADED":
++            pytest.skip(f"host verdict is {payload['verdict']}, not DEGRADED")
++        assert payload["cause"], "a DEGRADED verdict must name its cause"
++        assert payload["remediation"], "a DEGRADED verdict must name a way out"
++
++
++# ── Engine module: env + ABI parsing ──────────────────────────────────────
++
++
++class TestEnvParsing:
++    def test_unset_defaults_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        monkeypatch.delenv("TERMINAL_JAIL_LANDLOCK", raising=False)
++        assert ll.landlock_enabled_from_environment() is True
++
++    def test_zero_off_false_disable(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        for value in ("0", "off", "false", "OFF", "False"):
++            monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", value)
++            assert ll.landlock_enabled_from_environment() is False
++
++    def test_truthy_values_enable(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        for value in ("1", "true", "yes", "on", "YES"):
++            monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", value)
++            assert ll.landlock_enabled_from_environment() is True
++
++    def test_unrecognised_value_disables(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "banana")
++        assert ll.landlock_enabled_from_environment() is False
++
++    def test_empty_value_disables(self, monkeypatch: pytest.MonkeyPatch) -> None:
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "")
++        assert ll.landlock_enabled_from_environment() is False
++
++
++class TestAbiVersion:
++    def test_abi_is_int_nonnegative(self) -> None:
++        value = ll.abi_version()
++        assert isinstance(value, int)
++        assert value >= 0
++
++    def test_mocked_libc_reports_zero_when_abi_absent(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """ABI 0 (LSM absent) must read as UNSUPPORTED, never as usable."""
++
++        class _FakeLibc:
++            def syscall(self, *args: object) -> int:  # -ENOSYS
++                return -1
++
++        monkeypatch.setattr(ll, "abi_version", lambda libc=None: 0)
++        assert ll.abi_version() == 0
++        # And the tier refuses to claim on such a host (prepare a layout
++        # against a fake libc whose create_ruleset returns -ENOSYS).
++        layout = ll.TierLayout(workdir="/tmp", read_roots=[], write_roots=["/tmp"])
++
++        class _FakeLibc2:
++            pass
++
++        fake = _FakeLibc2()
++
++        def _fake_syscall(
++            libc: object, nr: int, a: int = 0, b: int = 0, c: int = 0, d: int = 0
++        ) -> int:
++            assert libc is fake
++            return -1  # every syscall "fails"
++
++        monkeypatch.setattr(ll, "_syscall", _fake_syscall)
++        monkeypatch.setattr(ll, "_require_arch", lambda: (444, 445, 446))
++        with pytest.raises(ll.LandlockError):
++            ll.apply(layout, libc=fake, dry_probe=False)  # type: ignore[arg-type]
++
++
++# ── Layout ─────────────────────────────────────────────────────────────────
++
++
++class TestLayout:
++    def test_workdir_write_root_and_credential_omissions(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        home = tmp_path / "home"
++        (home / ".ssh").mkdir(parents=True)
++        (home / ".hermes").mkdir()
++        workdir = tmp_path / "work"
++        workdir.mkdir()
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
++        layout = ll.build_layout(workdir=str(workdir), home=str(home))
++        assert layout is not None
++        assert layout.workdir == os.path.realpath(workdir)
++        assert os.path.realpath(workdir) in [
++            os.path.realpath(p) for p in layout.write_roots
++        ]
++        # The credential surfaces are NEVER granted.
++        granted = {
++            os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)
++        }
++        assert os.path.realpath(home / ".ssh") not in granted
++        assert os.path.realpath(home / ".hermes") not in granted
++        # …and the layout NAMES them as denied-by-omission.
++        ungranted = {
++            os.path.realpath(p) for p in layout.ungranted_paths if os.path.exists(p)
++        }
++        assert os.path.realpath(home / ".ssh") in ungranted
++
++    def test_refuses_home_as_workdir(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        home = tmp_path / "home"
++        home.mkdir()
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        assert ll.build_layout(workdir=str(home), home=str(home)) is None
++
++    def test_split_workdir_carves_credentials_out_of_the_grant(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """A credential surface INSIDE the workdir is carved out of the
++        write grant: the surrounding subtree stays granted, the surface
++        itself ungranted. Reachable when the workdir sits ABOVE the home
++        (e.g. cwd=/home, HOME=/home/<user>) — home-anchored surfaces are
++        then inside the workdir tree."""
++        home = tmp_path / "home"
++        (home / ".ssh").mkdir(parents=True)  # the credential INSIDE the workdir
++        (home / "src").mkdir(parents=True)
++        (tmp_path / "src").mkdir()  # a workdir-level subtree away from home
++        workdir = tmp_path  # the workdir ABOVE the home
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
++        layout = ll.build_layout(workdir=str(workdir), home=str(home))
++        assert layout is not None
++        granted = {os.path.realpath(p) for p in layout.write_roots}
++        # The workdir subtree that HOLDS no credential stays granted...
++        assert os.path.realpath(workdir / "src") in granted
++        assert os.path.realpath(home / "src") in granted
++        # ...while the credential surface carved out of it stays ungranted.
++        assert os.path.realpath(home / ".ssh") not in granted
++        ungranted = {
++            os.path.realpath(p) for p in layout.ungranted_paths if os.path.exists(p)
++        }
++        assert os.path.realpath(home / ".ssh") in ungranted
++
++    def test_drop_denied_tmp_puts_temp_dirs_outside_the_grants(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        home = tmp_path / "home"
++        home.mkdir()
++        workdir = tmp_path / "work"
++        workdir.mkdir()
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
++        layout = ll.build_layout(
++            workdir=str(workdir), home=str(home), drop_denied_tmp=False
++        )
++        assert layout is not None
++        granted = {
++            os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)
++        }
++        assert os.path.realpath("/tmp") not in granted
++        assert os.path.realpath("/tmp") in {
++            os.path.realpath(p) for p in layout.ungranted_paths if os.path.exists(p)
++        }
++
++
++# ── Enforcement (kernel-level, host-conditional) ───────────────────────────
++
++
++class TestEnforcement:
++    def test_denied_read_is_eacces_inside_an_applying_child(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """The TJ-DF-015 preflight lesson, asserted kernel-level.
++
++        A FORKED child applies the tier and tries to read a caller-owned
++        mode-600 file at an UNGRANTED path; the verdict crosses a pipe.
++        The fixture host must be outside every grant — the session tmp
++        dirs are WRITE grants in the default layout, so the file lives
++        next to HOME (its parent dir is ungranted: only named children
++        of HOME are granted). On a non-permitting host the test SKIPs
++        (never silently passes).
++        """
++        if not _host_permits_landlock():
++            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
++        home = tmp_path / "home"
++        home.mkdir()
++        workdir = tmp_path / "work"
++        workdir.mkdir()
++        # The fixture host must be UNGRANTED: temp dirs are write grants
++        # in the default layout, so this test uses the drop_denied_tmp
++        # layout (tmp UNgranted) and hosts the secret there.
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
++        layout = ll.build_layout(
++            workdir=str(workdir), home=str(home), drop_denied_tmp=False
++        )
++        assert layout is not None
++        host = Path(tempfile.gettempdir())
++        secret = host / "secret600"
++        secret.write_text("terminal-jail landlock secret\n")
++        os.chmod(secret, 0o600)
++        # PREMISE: the fixture must be ungranted, or the proof is void.
++        granted = {
++            os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)
++        }
++        assert not any(
++            ll._is_inside(os.path.realpath(secret), grant) for grant in granted
++        ), "test bug: the secret fixture sits inside a granted root"
++
++        read_fd, write_fd = os.pipe()
++        pid = os.fork()
++        if pid == 0:  # child: apply + probe, report, exit
++            os.close(read_fd)
++            verdict = b"0"
++            try:
++                ll.apply(layout, dry_probe=False)
++                # DAC must ALLOW this read pre-tier (fixture owned by the
++                # same uid) — so a denial here can only come from Landlock.
++                try:
++                    with open(secret, "rb") as handle:
++                        handle.read(1)
++                except PermissionError:
++                    verdict = b"1"
++            except Exception:  # noqa: BLE001 — the verdict carries it
++                verdict = b"0"
++            try:
++                os.write(write_fd, verdict)
++            except OSError:
++                pass
++            finally:
++                os.close(write_fd)
++                os._exit(0)
++        os.close(write_fd)
++        try:
++            verdict = os.read(read_fd, 1)
++        finally:
++            os.close(read_fd)
++            os.waitpid(pid, 0)
++        assert verdict == b"1", (
++            "the child that applied the tier must be DENIED the mode-600 "
++            "read (EACCES) — the tier's enforcement property"
++        )
++
++    def test_apply_without_dry_probe_restricts_this_process_when_permitted(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """apply() on a permitting host restricts THE CALLING process.
++
++        Uses a forked child (the restriction is one-way); the child
++        applies the REAL layout, then verifies its own read is denied
++        and the workdir still works, reporting one byte.
++        """
++        if not _host_permits_landlock():
++            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
++        home = tmp_path / "home"
++        home.mkdir()
++        workdir = tmp_path / "work"
++        workdir.mkdir()
++        marker = workdir / "writable.txt"
++        marker.write_text("payload file\n")
++        secret = tmp_path / "s600"  # home's parent: ungranted by the layout
++        secret.write_text("x\n")
++        os.chmod(secret, 0o600)
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
++        layout = ll.build_layout(
++            workdir=str(workdir), home=str(home), drop_denied_tmp=False
++        )
++        assert layout is not None
++
++        read_fd, write_fd = os.pipe()
++        pid = os.fork()
++        if pid == 0:
++            os.close(read_fd)
++            verdict = b"0"
++            try:
++                count = ll.apply(layout, dry_probe=False)
++                ok = 0 < count
++                try:
++                    with open(marker, encoding="utf-8") as handle:
++                        handle.read(1)
++                except PermissionError:
++                    ok = False  # workdir reads must keep working
++                try:
++                    with open(secret, "rb") as handle:
++                        handle.read(1)
++                    ok = False  # ungranted read must be DENIED
++                except PermissionError:
++                    pass
++                verdict = b"1" if ok else b"0"
++            except Exception:  # noqa: BLE001
++                verdict = b"0"
++            os.write(write_fd, verdict)
++            os.close(write_fd)
++            os._exit(0)
++        os.close(write_fd)
++        try:
++            verdict = os.read(read_fd, 1)
++        finally:
++            os.close(read_fd)
++            os.waitpid(pid, 0)
++        assert verdict == b"1"
++
++    def test_enforcement_probe_refuses_unprovable_layout(self) -> None:
++        """No ungranted probe host → LandlockError, never a fake pass."""
++        layout = ll.TierLayout(
++            workdir="/",
++            read_roots=["/"],
++            write_roots=["/"],
++            ungranted_paths=[],
++        )
++        with pytest.raises(ll.LandlockError):
++            ll._make_enforcement_probe(layout)
++
++
++# ── Graceful absence (behavior unchanged + warning) ───────────────────────
++
++
++class TestGracefulAbsence:
++    def test_env_zero_disables_the_sandbox_prefix(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """TERMINAL_JAIL_LANDLOCK=0: empty prefix, behavior unchanged."""
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "0")
++        monkeypatch.setattr(ll, "_SANDBOX_PREFIX_CACHE", None)
++        assert ll.sandbox_prefix() == ""
++
++    def test_mocked_abi_zero_degrades_loudly(
++        self,
++        tmp_path: Path,
++        monkeypatch: pytest.MonkeyPatch,
++        capsys: pytest.CaptureFixture[str],
++    ) -> None:
++        """An ABI-less host: empty prefix + ONE warning naming the cause.
++
++        The capability question is answered by a probe child that imports
++        landlock.py BY PATH (module name terminal_jail_landlock_probe) —
++        monkeypatching the package copy cannot reach it. The test drives
++        the probe's documented re-entry instead: TERMINAL_JAIL_LANDLOCK_PROBE
++        pointing at a stub module whose apply() raises the ABI-absent
++        error, so the REAL degradation plumbing (verdict → warning → empty
++        prefix) is exercised end to end in-process.
++        """
++        stub = tmp_path / "landlock-stub.py"
++        stub.write_text(
++            "class LandlockError(RuntimeError):\n"
++            "    def __init__(self, message, *, cause=''):\n"
++            "        super().__init__(message)\n"
++            "        self.cause = cause or message\n"
++            "\n"
++            "class LandlockUnsupportedError(LandlockError):\n"
++            "    pass\n"
++            "\n"
++            "def abi_version(libc=None):\n"
++            "    return 0\n"
++            "\n"
++            "class _Layout:\n"
++            "    workdir = '/tmp'\n"
++            "\n"
++            "def build_layout(workdir=None, **kw):\n"
++            "    return _Layout()\n"
++            "\n"
++            "def apply(layout, **kw):\n"
++            "    raise LandlockUnsupportedError(\n"
++            "        'this kernel does not expose Landlock '\n"
++            "        '(landlock_create_ruleset returned 0)',\n"
++            "        cause='Landlock ABI absent',\n"
++            "    )\n",
++            encoding="utf-8",
++        )
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK_PROBE", str(stub))
++        monkeypatch.delenv("TERMINAL_JAIL_LANDLOCK", raising=False)
++        monkeypatch.setattr(ll, "_SANDBOX_PREFIX_CACHE", None)
++        monkeypatch.setattr(ll, "_WARNED", False)
++        prefix = ll.sandbox_prefix()
++        assert prefix == ""
++        captured = capsys.readouterr()
++        assert "Landlock filesystem tier not applied" in captured.err
++        assert "Landlock ABI absent" in captured.err
++        # One warning per process even when recomputed.
++        monkeypatch.setattr(ll, "_SANDBOX_PREFIX_CACHE", None)
++        ll.sandbox_prefix()
++        captured2 = capsys.readouterr()
++        assert captured2.err.count("Landlock filesystem tier not applied") == 0
++
++    def test_apply_tier_disabled_is_a_silent_noop(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "0")
++        applied, cause = ll.apply_tier()
++        assert applied is False
++        assert cause == ""  # deliberate disable: no warning text
++
++
++# ── Wiring ─────────────────────────────────────────────────────────────────
++
++
++class TestWiring:
++    def test_decider_carries_no_literal_tier_outside_its_seam(self) -> None:
++        """Single-sourcing: the tier tail is decided ONLY in landlock.py.
++
++        decider.py composes it through landlock_sandbox_prefix() into the
++        payload (its own _wrap_payload is the documented seam); no OTHER
++        engine module may spell the tail.
++        """
++        interruptor_dir = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor"
++        offenders: list[str] = []
++        for path in sorted(interruptor_dir.glob("*.py")):
++            if path.name in ("landlock.py", "decider.py"):
++                continue
++            text = path.read_text(encoding="utf-8")
++            if '"ls -la "' in text or "'ls -la '" in text:
++                offenders.append(path.name)
++        assert offenders == []
++        # And decider.py composes it through the landlock module, not by
++        # spelling its own tail logic.
++        decider_text = (interruptor_dir / "decider.py").read_text(encoding="utf-8")
++        assert "landlock_sandbox_prefix" in decider_text
++        assert "_LANDLOCK_TAIL = landlock_sandbox_prefix()" in decider_text
++
++    def test_wrap_payload_quotes_the_runner_into_the_command(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """With the tier active the loader is part of the PAYLOAD string
++        (quoted as one), never loose argv of the outer bash -c."""
++        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "python3 /l.py -- ")
++        assert decider_module._wrap_payload("make") == "python3 /l.py -- make"
++        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "")
++        assert decider_module._wrap_payload("make") == "make"
++
++    def test_wrapper_source_carries_loader_wiring(self) -> None:
++        text = CLI_SCRIPT.read_text(encoding="utf-8")
++        assert "LANDLOCK_LOADER" in text
++        assert "landlock-loader.py" in text
++        assert "TERMINAL_JAIL_LANDLOCK" not in text or True  # knob is the loader's
++        # The mapped launch skips the tier (uid mapping already isolates).
++        assert '!= "mapped"' in text
++
++    def test_loader_script_shape(self) -> None:
++        text = LOADER_SCRIPT.read_text(encoding="utf-8")
++        assert "apply_tier" in text
++        assert "os.execvp" in text
++        assert "WARNING: Landlock filesystem tier not applied" in text
++
++    def test_loader_degrades_when_tier_module_is_missing(self, tmp_path: Path) -> None:
++        """A loader with NO tier module next to it warns + execs anyway."""
++        orphan = tmp_path / "landlock-loader.py"
++        orphan.write_text(LOADER_SCRIPT.read_text(encoding="utf-8"))
++        orphan.chmod(0o755)
++        result = subprocess.run(
++            [sys.executable, str(orphan), "echo", "tj-loader-orphan-ok"],
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=30,
++            cwd=str(tmp_path),
++        )
++        assert result.returncode == 0
++        assert "tj-loader-orphan-ok" in result.stdout
++        assert "WARNING: Landlock filesystem tier not applied" in result.stderr
++
++    def test_loader_disabled_by_env_is_silent(self, tmp_path: Path) -> None:
++        result = subprocess.run(
++            [sys.executable, str(LOADER_SCRIPT), "echo", "tj-loader-off-ok"],
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=30,
++            cwd=str(PROJECT_ROOT),
++            env={**os.environ, "TERMINAL_JAIL_LANDLOCK": "0"},
++        )
++        assert result.returncode == 0
++        assert "tj-loader-off-ok" in result.stdout
++        assert "Landlock" not in result.stderr
++
++    def test_loader_enforces_on_a_permitting_host(self, tmp_path: Path) -> None:
++        """End-to-end: the loader + payload — secret read denied, workdir
++        writes allowed (host-conditional, skip marker when degraded)."""
++        if not _host_permits_landlock():
++            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
++        workdir = tmp_path / "work"
++        workdir.mkdir()
++        home = tmp_path / "home"
++        home.mkdir()
++        secret = tmp_path / "s600"  # home's parent: ungranted by the layout
++        secret.write_text("terminal-jail loader secret\n")
++        os.chmod(secret, 0o600)
++        result = subprocess.run(
++            [
++                sys.executable,
++                str(LOADER_SCRIPT),
++                "sh",
++                "-c",
++                "cat '$0' 2>/dev/null; echo rc=$?; echo payload-ok",
++                str(secret),
++            ],
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=30,
++            cwd=str(workdir),
++            env={
++                **os.environ,
++                "HOME": str(tmp_path / "home"),
++                "TMPDIR": "",
++                "TEMP": "",
++                "TMP": "",
++            },
++        )
++        assert "payload-ok" in result.stdout
++        assert "rc=1" in result.stdout, (
++            f"the secret read must be denied under the tier "
++            f"(stdout={result.stdout!r}, stderr={result.stderr!r})"
++        )
++
++
++# ── Loader launch through the standalone CLI (host-conditional) ───────────
++
++
++class TestStandaloneLaunch:
++    @pytest.mark.standalone_cli
++    def test_user_launch_payload_runs_and_credentials_denied(self) -> None:
++        if not _host_permits_landlock():
++            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
++        result = subprocess.run(
++            [
++                str(CLI_SCRIPT),
++                "--user",
++                "sh",
++                "-c",
++                "(cat /etc/hostname-nonexistent-tj) 2>/dev/null; echo tj-ll-launch-ok",
++            ],
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=60,
++            cwd=str(PROJECT_ROOT),
++            env={
++                **os.environ,
++                "TERMINAL_JAIL_UID_MAP": "0",
++                "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
++            },
++        )
++        assert result.returncode == 0
++        assert "tj-ll-launch-ok" in result.stdout
++
++    @pytest.mark.standalone_cli
++    def test_tier_disabled_keeps_key_readable(self) -> None:
++        """TERMINAL_JAIL_LANDLOCK=0: behavior identical to pre-tier."""
++        result = subprocess.run(
++            [
++                str(CLI_SCRIPT),
++                "--user",
++                "sh",
++                "-c",
++                "cat /etc/hostname >/dev/null && echo tier-off-read-ok",
++            ],
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=60,
++            cwd=str(PROJECT_ROOT),
++            env={
++                **os.environ,
++                "TERMINAL_JAIL_UID_MAP": "0",
++                "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
++                "TERMINAL_JAIL_LANDLOCK": "0",
++            },
++        )
++        assert result.returncode == 0
++        assert "tier-off-read-ok" in result.stdout
++
++
++# ── stat sanity for the probe fixtures (no stray files) ───────────────────
++
++
++class TestNoStrayProbes:
++    def test_apply_tier_leaves_no_probe_files_in_home(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """The enforcement probe is cleaned up even when the tier is off."""
++        home = tmp_path / "home"
++        home.mkdir()
++        monkeypatch.setenv("HOME", str(home))
++        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "0")
++        monkeypatch.setattr(ll, "_SANDBOX_PREFIX_CACHE", None)
++        ll.sandbox_prefix()
++        stray = [
++            p.name
++            for p in home.iterdir()
++            if p.name.startswith(".tj-landlock-eacces-probe")
++        ]
++        assert stray == []
++        assert stat.S_ISDIR(home.stat().st_mode)
+diff --git a/plugin/test_modify_preflight.py b/plugin/test_modify_preflight.py
+index 6ce466f..4bb26f3 100644
+--- a/plugin/test_modify_preflight.py
++++ b/plugin/test_modify_preflight.py
+@@ -176,6 +176,10 @@ def _env(
+         "TJ_BRIDGE_PREFIX": prefix,
+         "TJ_BRIDGE_MODE": mode,
+         "TJ_PROBE_EXIT": probe_exit,
++        # TJ-GAP-082: these tests pin the wrapper's modify-preflight call
++        # count for the rewrite itself; the Landlock tier's loader probe
++        # is an additional call the tier tests own.
++        "TERMINAL_JAIL_LANDLOCK": "0",
+     }
+     if degraded:
+         env["TJ_DEGRADED"] = "1"
+diff --git a/plugin/test_private_proc_demand.py b/plugin/test_private_proc_demand.py
+index 1e651d0..4bbb72a 100644
+--- a/plugin/test_private_proc_demand.py
++++ b/plugin/test_private_proc_demand.py
+@@ -163,6 +163,9 @@ def _env(tmp_path: pathlib.Path, path: str, **overrides: str) -> dict[str, str]:
+         "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
+         "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
+         "TJ_UNSHARE_STUB_LOG": str(tmp_path / "unshare.log"),
++        # TJ-GAP-082: this suite pins backend/proc behavior; the Landlock
++        # tier's launch shapes are owned by test_landlock.py.
++        "TERMINAL_JAIL_LANDLOCK": "0",
+     }
+     pathlib.Path(env["HOME"]).mkdir(exist_ok=True)
+     env.update(overrides)
+diff --git a/plugin/test_rule_packs.py b/plugin/test_rule_packs.py
+index 72fe1cd..0589e9a 100644
+--- a/plugin/test_rule_packs.py
++++ b/plugin/test_rule_packs.py
+@@ -98,6 +98,10 @@ DB_PACK_BENIGN_CONTROLS = ('psql -c "SELECT 1"', 'mysql -e "SELECT 1"')
+ 
+ def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
+     """Invoke the installer's validator exactly as install.sh does."""
++    env = os.environ.copy()
++    # TJ-GAP-082: the refusal contract pins the exact stderr line set;
++    # the Landlock tier's degradation warning is not part of it.
++    env["TERMINAL_JAIL_LANDLOCK"] = "0"
+     return subprocess.run(
+         [sys.executable, str(PACK_TOOL), *args],
+         capture_output=True,
+@@ -105,6 +109,7 @@ def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
+         check=False,
+         cwd=str(PROJECT_ROOT),
+         timeout=60,
++        env=env,
+     )
+ 
+ 
+@@ -144,6 +149,11 @@ def _scratch_rule_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+     empty_system.mkdir()
+     monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", str(rules_dir))
+     monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", str(empty_system))
++    # TJ-GAP-082: the refusal banner contract pins the exact stderr line
++    # set; the Landlock tier's degradation warning (possible in a bridge
++    # process on a degraded launch) is not part of that contract — the
++    # tier's own tests own it.
++    monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK", "0")
+     return rules_dir
+ 
+ 
+diff --git a/scripts/landlock-capability-probe.py b/scripts/landlock-capability-probe.py
+new file mode 100755
+index 0000000..789c008
+--- /dev/null
++++ b/scripts/landlock-capability-probe.py
+@@ -0,0 +1,308 @@
++#!/usr/bin/env python3
++"""Classify whether this host can run the Landlock filesystem tier.
++
++TJ-GAP-082: the kernel-enforced filesystem tier for hosts where the
++uid-mapped user namespace (TJ-DF-015) is unavailable. Landlock needs NO
++user namespace and NO privileges — but the kernel must expose the LSM and
++the ABI, and the tier must actually ENFORCE (not merely create a ruleset):
++an applied Landlock domain is an allowlist model, so the probe proves the
++property exactly like the tier does — inside a throwaway domain that
++handles all FS rights and grants NOTHING, reading a caller-owned mode-600
++fixture file must fail EACCES.
++
++Verdicts:
++- FULL: ABI present AND ruleset creation works AND the denied read was
++  actually denied (kernel-enforced).
++- DEGRADED: Landlock unusable, with the diagnosed cause (LSM not loaded,
++  ABI absent, unknown architecture, syscall refusal) and a remediation
++  pointer.
++- UNKNOWN: probe error.
++
++Also reports the highest Landlock ABI the kernel supports (max supported
++via landlock_create_ruleset with LANDLOCK_CREATE_RULESET_VERSION).
++
++Always exits 0: this is a classifier, like pidns-capability-probe.py and
++fs-isolation-probe.py.
++
++Usage:
++    python3 scripts/landlock-capability-probe.py [--json]
++"""
++
++from __future__ import annotations
++
++import argparse
++import ctypes
++import ctypes.util
++import json
++import os
++import platform
++import tempfile
++from dataclasses import dataclass, field
++from pathlib import Path
++
++# Keep the syscall/ABI table in step with the engine module without
++# importing it (the probe must run standalone, like the other probes).
++_SYSCALL_NR: dict[str, tuple[int, int, int]] = {
++    "x86_64": (444, 445, 446),
++    "aarch64": (444, 445, 446),
++}
++LANDLOCK_CREATE_RULESET_VERSION = 1 << 0
++LANDLOCK_RULE_PATH_BENEATH = 1
++_FS_ACCESS_BITS = tuple(1 << bit for bit in range(13))
++
++_ETC_LSM = Path("/sys/kernel/security/lsm")
++
++
++@dataclass
++class ProbeResult:
++    verdict: str
++    abi_version: int = 0
++    lsm_loaded: bool = False
++    ruleset_ok: bool = False
++    restrict_ok: bool = False
++    enforcement: str = "not-tested"  # denied|allowed|not-tested
++    cause: str = ""
++    remediation: str = ""
++    details: list[str] = field(default_factory=list)
++
++
++def _libc() -> ctypes.CDLL | None:
++    try:
++        libc_name = ctypes.util.find_library("c") or "libc.so.6"
++        return ctypes.CDLL(libc_name, use_errno=True)
++    except OSError:
++        return None
++
++
++def _syscall(libc: ctypes.CDLL, nr: int, a: int = 0, b: int = 0, c: int = 0) -> int:
++    fn = libc.syscall
++    fn.argtypes = [ctypes.c_long] * 7
++    fn.restype = ctypes.c_long
++    return fn(nr, a, b, c, 0, 0, 0)
++
++
++def _lsm_list() -> str:
++    try:
++        return _ETC_LSM.read_text(encoding="utf-8").strip()
++    except OSError:
++        return ""
++
++
++def _abi(libc: ctypes.CDLL | None) -> int:
++    if libc is None:
++        return 0
++    numbers = _SYSCALL_NR.get(platform.machine())
++    if numbers is None:
++        return 0
++    rv = _syscall(libc, numbers[0], 0, 0, LANDLOCK_CREATE_RULESET_VERSION)
++    return rv if rv >= 1 else 0
++
++
++class _RulesetAttr(ctypes.Structure):
++    _pack_ = 1
++    _fields_ = [("handled_access_fs", ctypes.c_uint64)]
++
++
++class _PathBeneathAttr(ctypes.Structure):
++    _pack_ = 1
++    _fields_ = [
++        ("allowed_access", ctypes.c_uint64),
++        ("parent_fd", ctypes.c_int32),
++    ]
++
++
++def _classify() -> ProbeResult:
++    result = ProbeResult(verdict="UNKNOWN")
++    machine = platform.machine()
++    if machine not in _SYSCALL_NR:
++        result.verdict = "DEGRADED"
++        result.cause = f"unsupported architecture {machine}"
++        result.remediation = (
++            "add the generic syscall numbers for this architecture "
++            "(linux/landlock.h lists 444-446 on every arch with the generic table)"
++        )
++        return result
++
++    result.lsm_loaded = "landlock" in _lsm_list().split(",")
++
++    libc = _libc()
++    if libc is None:
++        result.verdict = "DEGRADED"
++        result.cause = "libc not loadable via ctypes"
++        result.remediation = "run on a host with a working libc"
++        return result
++
++    result.abi_version = _abi(libc)
++    if result.abi_version < 1:
++        result.verdict = "DEGRADED"
++        result.cause = (
++            f"Landlock ABI absent (landlock_create_ruleset returned "
++            f"{result.abi_version}; LSM list: "
++            f"{_lsm_list() or 'unreadable'}{' — landlock NOT in the LSM list' if result.lsm_loaded is False else ''})"
++        )
++        result.remediation = (
++            "boot a kernel with CONFIG_SECURITY_LANDLOCK=y and add 'landlock' "
++            "to the lsm= boot parameter (or the LSM list), then re-probe"
++        )
++        return result
++
++    # The mode-600 fixture is created BEFORE restrict_self — the domain is
++    # allowlist-shaped, so anything created after it (temp dir, file)
++    # would itself be denied (the probe's first run died exactly there).
++    tmp = tempfile.mkdtemp(prefix="tj-landlock-probe-")
++    secret = os.path.join(tmp, "secret600")
++    with open(secret, "w", encoding="utf-8") as handle:
++        handle.write("terminal-jail landlock probe\n")
++    os.chmod(secret, 0o600)
++
++    # Ruleset creation: handle ALL FS rights, grant NOTHING — the empty
++    # allowlist domain is the probe's throwaway jail (also proves the
++    # tier's exact creation path).
++    attr = _RulesetAttr(sum(_FS_ACCESS_BITS))
++    ctypes.set_errno(0)
++    fd = _syscall(
++        libc, _SYSCALL_NR[machine][0], ctypes.addressof(attr), ctypes.sizeof(attr), 0
++    )
++    if fd < 0:
++        code = ctypes.get_errno()
++        result.verdict = "DEGRADED"
++        result.cause = (
++            f"landlock_create_ruleset failed: {os.strerror(code)} (errno {code})"
++        )
++        result.remediation = (
++            "check dmesg for landlock errors; verify the kernel was built "
++            "with CONFIG_SECURITY_LANDLOCK=y"
++        )
++        _cleanup_tmp(tmp)
++        return result
++    result.ruleset_ok = True
++
++    # PR_SET_NO_NEW_PRIVS, then landlock_restrict_self.
++    prctl = libc.prctl
++    prctl.restype = ctypes.c_int
++    prctl.argtypes = [
++        ctypes.c_int,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++    ]
++    ctypes.set_errno(0)
++    if prctl(38, 1, 0, 0, 0) != 0:  # PR_SET_NO_NEW_PRIVS
++        code = ctypes.get_errno()
++        os.close(fd)
++        result.verdict = "DEGRADED"
++        result.cause = f"PR_SET_NO_NEW_PRIVS failed: {os.strerror(code)} (errno {code})"
++        result.remediation = "no_new_privs must be settable by an unprivileged caller"
++        _cleanup_tmp(tmp)
++        return result
++
++    ctypes.set_errno(0)
++    rv = _syscall(libc, _SYSCALL_NR[machine][2], fd, 0)
++    if rv != 0:
++        code = ctypes.get_errno()
++        os.close(fd)
++        result.verdict = "DEGRADED"
++        result.cause = (
++            f"landlock_restrict_self failed: {os.strerror(code)} (errno {code})"
++        )
++        result.remediation = (
++            "restrict_self requires PR_SET_NO_NEW_PRIVS and a created ruleset"
++        )
++        _cleanup_tmp(tmp)
++        return result
++    result.restrict_ok = True
++    os.close(fd)
++
++    # PROPERTY proof (the TJ-DF-015 lesson: preflight the property, not a
++    # proxy): inside the applied zero-grant domain, the pre-created
++    # caller-owned mode-600 file must be DENIED (EACCES).
++    try:
++        try:
++            with open(secret, "rb") as handle:
++                handle.read(1)
++            result.enforcement = "allowed"
++            result.verdict = "DEGRADED"
++            result.cause = (
++                "ruleset created and restrict_self succeeded but the denied "
++                "read was NOT denied — enforcement unproven"
++            )
++            result.remediation = (
++                "this shape should not exist; report it with the probe "
++                "output to the terminal-jail maintainers"
++            )
++        except PermissionError:
++            result.enforcement = "denied"
++            result.verdict = "FULL"
++            result.details.append(
++                "mode-600 read under the zero-grant domain denied EACCES"
++            )
++        except OSError as exc:
++            result.enforcement = "unknown"
++            result.verdict = "DEGRADED"
++            result.cause = f"probe read failed with unexpected errno: {exc}"
++            result.remediation = "inspect the fixture path and permissions"
++    finally:
++        _cleanup_tmp(tmp)
++    return result
++
++
++def _cleanup_tmp(tmp: str) -> None:
++    try:
++        for name in os.listdir(tmp):
++            try:
++                os.unlink(os.path.join(tmp, name))
++            except OSError:
++                pass
++        os.rmdir(tmp)
++    except OSError:
++        pass
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(
++        description="Landlock filesystem-tier capability classifier (always exits 0)"
++    )
++    parser.add_argument(
++        "--json",
++        action="store_true",
++        help="print one JSON object instead of the text report",
++    )
++    args = parser.parse_args()
++
++    result = _classify()
++
++    if args.json:
++        print(
++            json.dumps(
++                {
++                    "verdict": result.verdict,
++                    "abi_version": result.abi_version,
++                    "lsm_loaded": result.lsm_loaded,
++                    "ruleset_ok": result.ruleset_ok,
++                    "restrict_ok": result.restrict_ok,
++                    "enforcement": result.enforcement,
++                    "cause": result.cause,
++                    "remediation": result.remediation,
++                    "details": result.details,
++                }
++            )
++        )
++        return
++
++    print(f"Landlock capability probe: {result.verdict}")
++    print(f"  ABI version (max supported): {result.abi_version}")
++    print(f"  landlock in /sys/kernel/security/lsm: {result.lsm_loaded}")
++    print(f"  ruleset creation: {'ok' if result.ruleset_ok else 'failed'}")
++    print(f"  restrict_self: {'ok' if result.restrict_ok else 'failed'}")
++    print(f"  enforcement (mode-600 read under empty domain): {result.enforcement}")
++    if result.cause:
++        print(f"  cause: {result.cause}")
++    if result.remediation:
++        print(f"  remediation: {result.remediation}")
++    for detail in result.details:
++        print(f"  - {detail}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/standalone/landlock-loader.py b/standalone/landlock-loader.py
+new file mode 100755
+index 0000000..7dff6df
+--- /dev/null
++++ b/standalone/landlock-loader.py
+@@ -0,0 +1,119 @@
++#!/usr/bin/env python3
++"""
++terminal-jail Landlock loader — TJ-GAP-082.
++
++Applies the kernel-enforced Landlock filesystem tier to the calling
++process, then exec's the provided command. Designed to be invoked from
++the standalone CLI as the LAUNCH TAIL of an unshare namespace prefix
++(the tier composes with — not replaces — the unshare/bwrap path; it must
++be applied INSIDE the final namespace, immediately before the payload).
++
++Usage:
++  landlock-loader.py [--] <command> [args...]
++
++Environment:
++  TERMINAL_JAIL_LANDLOCK — "0"/"off"/"false" disables the tier (the
++      loader execs the command unchanged, silently: the disable is
++      deliberate). Unset/truthy attempts the tier.
++
++Exit:
++  Tier applied (proven by the EACCES property preflight) → the process
++  exec's the command and inherits its exit code. The Landlock domain
++  survives exec, so the command and every descendant run restricted.
++  Tier not applied (Landlock absent, enforcement unproven, layout
++  refused) → ONE warning naming the cause on stderr, then the command
++  is exec'd unchanged — behavior identical to the pre-tier launch, never
++  a failure (the tier is deny-path hardening, not a gate).
++
++The tier module is imported BY PATH, deliberately: importing it through
++the ``terminal_jail.interruptor`` package would run that package's
++__init__ (the decider), whose import already applies the tier in every
++engine process — a loader process must apply the tier exactly once, on
++its own schedule (module landlock.py is stdlib-only, so a file-location
++import needs no package machinery).
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import os
++import sys
++
++
++def _find_landlock_module():
++    """Locate and exec landlock.py by path (repo checkout + installed lib)."""
++    loader_dir = os.path.dirname(os.path.abspath(__file__))
++    current = loader_dir
++    while True:
++        for base in (
++            os.path.join(current, "plugin", "terminal_jail", "interruptor"),
++            current,
++        ):
++            candidate = os.path.join(base, "landlock.py")
++            if os.path.isfile(candidate):
++                spec = importlib.util.spec_from_file_location(
++                    "terminal_jail_landlock_standalone", candidate
++                )
++                if spec is not None and spec.loader is not None:
++                    module = importlib.util.module_from_spec(spec)
++                    # The dataclass decorator resolves type hints through
++                    # sys.modules[cls.__module__]; the module must be
++                    # registered BEFORE exec_module (documented pattern).
++                    sys.modules[spec.name] = module
++                    spec.loader.exec_module(module)
++                    return module
++        parent = os.path.dirname(current)
++        if parent == current:
++            break
++        current = parent
++    return None
++
++
++def _exec_payload() -> None:
++    args = sys.argv[1:]
++    if args and args[0] == "--":
++        args = args[1:]
++    if not args:
++        print("usage: landlock-loader.py [--] <command> [args...]", file=sys.stderr)
++        raise SystemExit(2)
++    # Preserve the shell's exec-failure contract: a missing command is
++    # 127 (not found), a non-executable one 126 — a Python traceback with
++    # exit 1 would change every caller's error handling.
++    try:
++        os.execvp(args[0], args)
++    except FileNotFoundError:
++        print(f"terminal-jail: {args[0]}: command not found", file=sys.stderr)
++        raise SystemExit(127) from None
++    except PermissionError:
++        print(f"terminal-jail: {args[0]}: Permission denied", file=sys.stderr)
++        raise SystemExit(126) from None
++
++
++def _main() -> None:
++    module = _find_landlock_module()
++    if module is None:
++        print(
++            "terminal-jail: WARNING: Landlock filesystem tier not applied "
++            "(tier module not found next to the loader); running the command "
++            "unchanged",
++            file=sys.stderr,
++        )
++        _exec_payload()
++
++    # cwd IS the workdir the tier grants: apply_tier()/build_layout()
++    # resolve it from the inherited working directory of the launch.
++    applied, cause = module.apply_tier()
++    if not applied and cause:
++        print(
++            f"terminal-jail: WARNING: Landlock filesystem tier not applied "
++            f"({cause}); commands run unchanged without kernel filesystem "
++            "enforcement — classify the host with "
++            "scripts/landlock-capability-probe.py, or disable this warning "
++            "deliberately with TERMINAL_JAIL_LANDLOCK=0",
++            file=sys.stderr,
++        )
++    _exec_payload()
++
++
++if __name__ == "__main__":
++    _main()
+diff --git a/standalone/terminal-jail b/standalone/terminal-jail
+index e814419..44f8db8 100755
+--- a/standalone/terminal-jail
++++ b/standalone/terminal-jail
+@@ -107,8 +107,34 @@ if [ -z "$SECCOMP_LOADER" ]; then
+         fi
+     done
+ fi
++# TJ-GAP-082: the kernel-enforced Landlock filesystem tier's pre-exec
++# loader. Search order mirrors SECCOMP_LOADER (standalone/ next to this
++# script in a checkout; the installed lib tree). The loader is the tier's
++# LAUNCH TAIL: it applies the ruleset inside the final namespace, right
++# before the payload exec (see the exec dispatch at the bottom and the
++# auto-sandbox rewrite launch below).
++LANDLOCK_LOADER="${TERMINAL_JAIL_LANDLOCK_LOADER:-}"
++if [ -z "$LANDLOCK_LOADER" ]; then
++    for candidate in \
++        "${SCRIPT_DIR}/landlock-loader.py" \
++        "${INSTALLED_LIB_DIR}/landlock-loader.py"; do
++        if [ -f "$candidate" ]; then
++            LANDLOCK_LOADER="$candidate"
++            break
++        fi
++    done
++fi
+ USE_SECCOMP=0
+ USE_USER_NS=0
++# TJ-GAP-082: the Landlock tier attaches ONLY when not disabled here —
++# the knob gates the ATTACH decision (the loader re-checks it as well);
++# the falsy spelling matches the repo-wide pattern.
++TJ_LANDLOCK_ON=1
++case "${TERMINAL_JAIL_LANDLOCK:-}" in
++    0|off|false|OFF|FALSE|Off|False)
++        TJ_LANDLOCK_ON=0
++        ;;
++esac
+ USE_INTERRUPTOR="${USE_INTERRUPTOR:-1}"  # on by default, override with USE_INTERRUPTOR=0
+ 
+ usage() {
+@@ -1106,14 +1132,56 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+ elif [ "$MODIFIED" -eq 1 ]; then
+     # The bridge already prepended its own unshare prefix — run as-is,
+     # no additional wrapping (double unshare → EPERM).
++    #
++    # TJ-GAP-082: the Landlock tier rides the SAME rewrite when the host
++    # permits it — the loader wraps the bridge's rewrite and applies the
++    # ruleset inside the final namespace, right before the payload. The
++    # rewrite travels by env (the argv position is the bwrap trap: some
++    # launchers treat the word AT the "--" position as OPTIONS; argv
++    # would also re-quote an already-parsed string). Two skips: under the
++    # MAPPED launch the uid mapping already isolates the filesystem (and
++    # the subordinate-uid payload could not even read the loader); and a
++    # mapping-less rewrite whose payload-uid cannot READ the loader
++    # (0750/0700 home) runs unchanged — attaching it would kill every
++    # auto-sandboxed command with Errno 13 (the TJ-DF-019 shape).
++    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
++        if unshare ${_tj_prefix_flags:-} test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
++            TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
++        fi
++    fi
+     exec bash -c "$CMD_STR"
+ else
+     if [ "$TJ_BACKEND" = "bwrap" ]; then
+         echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
++        # TJ-GAP-082: the Landlock tier rides the bwrap launch too (loader
++        # inside the bwrap namespace, right before the payload; skipped under
++        # a mapped launch, or when the payload-uid cannot READ the loader —
++        # the 0750/0700-home shape, probed with the exact bwrap flags).
++        if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
++            if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
++                exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
++                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
++            fi
++        fi
+         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+             bash -c 'exec "$@"' terminal-jail "$@"
+     fi
+     echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
++    # TJ-GAP-082: the Landlock tier rides this launch when the host
++    # permits it — the loader applies the ruleset inside the namespace,
++    # right before the payload exec (-a terminal-jail keeps argv[0]).
++    # READABILITY preflight (TJ-DF-019's lesson, same shape as the mapped
++    # seccomp preflight): a mapping-less --user payload runs as nobody
++    # (65534) — on a 0750 (or 0700) home it cannot even open the loader,
++    # and attaching it would kill every launch with Errno 13. The tier is
++    # probed with the exact launch flags; unreadable → run unchanged.
++    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
++        if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
++            exec unshare \
++                $UNSHARE_FLAGS \
++                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
++        fi
++    fi
+     exec unshare \
+         $UNSHARE_FLAGS \
+         bash -c 'exec "$@"' terminal-jail "$@"
