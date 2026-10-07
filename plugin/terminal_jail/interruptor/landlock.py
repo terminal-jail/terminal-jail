@@ -183,11 +183,17 @@ for _bit in (
 
 
 class _RulesetAttr(ctypes.Structure):
-    _pack_ = 1  # __attribute__((packed)) per linux/landlock.h
+    # __attribute__((packed)) per linux/landlock.h. _layout_="ms" is the
+    # EXPLICIT declaration of the packed layout the _pack_=1 implies —
+    # without it Python <3.19 emits a DeprecationWarning (and 3.19 makes
+    # the implicit default an error).
+    _layout_ = "ms"
+    _pack_ = 1
     _fields_ = [("handled_access_fs", ctypes.c_uint64)]
 
 
 class _PathBeneathAttr(ctypes.Structure):
+    _layout_ = "ms"  # see _RulesetAttr: explicit packed layout
     _pack_ = 1  # __attribute__((packed)) per linux/landlock.h
     _fields_ = [
         ("allowed_access", ctypes.c_uint64),
@@ -389,7 +395,7 @@ def _build_rules_fd(
             cause=f"landlock_create_ruleset: {os.strerror(code)}",
         )
 
-    for allowed, path, parent_fd in rules:
+    for idx, (allowed, path, parent_fd) in enumerate(rules):
         rule = _PathBeneathAttr()
         rule.allowed_access = allowed
         rule.parent_fd = parent_fd
@@ -401,6 +407,11 @@ def _build_rules_fd(
         if rv != 0:
             code = ctypes.get_errno()
             os.close(fd)
+            # Error-path fd hygiene: the not-yet-added rules' O_PATH fds
+            # would otherwise leak (the failing rule's fd and the ruleset
+            # fd are closed above).
+            for _, _, leftover_fd in rules[idx + 1 :]:
+                os.close(leftover_fd)
             raise LandlockError(
                 f"landlock_add_rule({path}) failed: {os.strerror(code)} (errno {code})",
                 cause=f"landlock_add_rule({path}): {os.strerror(code)}",
