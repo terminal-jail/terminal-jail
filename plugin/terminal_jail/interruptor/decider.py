@@ -28,6 +28,7 @@ from .allowlist import BUILTIN_ALLOWLIST
 from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
 from .landlock import sandbox_prefix as landlock_sandbox_prefix
+from .landlock_net import sandbox_prefix as landlock_net_sandbox_prefix
 from .matcher import Matcher
 from .parser import (
     Segment,
@@ -61,17 +62,33 @@ _UNSHARE_PREFIX = unshare_prefix()
 # in the engine.
 _LANDLOCK_TAIL = landlock_sandbox_prefix()
 
+# TJ-GAP-083: the kernel-enforced Landlock TCP-connect (network egress)
+# tier, composed AFTER the fs tier's tail — the wrap's payload becomes
+# ``python3 <fs-loader> -- python3 <net-loader> -- <command>``, so the
+# egress ruleset stacks INSIDE the filesystem domain (Landlock
+# restrictions accumulate across restrict_self; the net tier can only
+# shrink what the payload may do). OPT-IN: ``landlock_net_sandbox_prefix()``
+# is empty unless TERMINAL_JAIL_LANDLOCK_NET is truthy, so wraps stay
+# byte-identical to the pre-tier engine unless the operator enables it;
+# when enabled but not applicable, degradation is loud (one warning) and
+# the tail is empty. Single-sourced here: no literal tier prefix anywhere
+# else in the engine.
+_LANDLOCK_NET_TAIL = landlock_net_sandbox_prefix()
+
 
 def _wrap_payload(raw: str) -> str:
-    """The payload a wrap runs: the tier's loader ahead of the command.
+    """The payload a wrap runs: the tier loaders ahead of the command.
 
-    With the tier active the payload becomes
+    With the fs tier active the payload becomes
     ``python3 <loader> -- <command>`` — one quoted payload string (the
     loader must parse as part of the payload, never as loose argv of the
-    outer ``bash -c``). Without the tier the payload is the command
-    unchanged.
+    outer ``bash -c``). With the egress tier ALSO active (TJ-GAP-083,
+    opt-in) the net loader composes after the fs one:
+    ``python3 <fs-loader> -- python3 <net-loader> -- <command>`` — the
+    egress domain stacks inside the filesystem domain. Without the tiers
+    the payload is the command unchanged.
     """
-    return f"{_LANDLOCK_TAIL}{raw}"
+    return f"{_LANDLOCK_TAIL}{_LANDLOCK_NET_TAIL}{raw}"
 
 
 # The file name install.sh gives every rule pack it installs into a
