@@ -17,9 +17,9 @@ specific property, and no single layer is a complete security boundary (see
 
 | You want to... | Use | How |
 |---|---|---|
-| Contain a single command in a PID namespace, manually | **Standalone CLI** (`standalone/terminal-jail`) | `terminal-jail <command> [args...]` |
+| Contain a single command in a PID namespace, manually | **Standalone CLI** (`standalone/terminal-jail`) | `terminal-jail echo "in jail"` — the command name and its arguments follow the wrapper, e.g. `terminal-jail rm -rf /` is blocked, exit 126 |
 | Block dangerous patterns before they run (firewall) | **Interruptor** (built into the CLI, on by default) | `terminal-jail rm -rf /` → blocked, exit 126 |
-| Add privilege dropping + syscall filtering | **CLI flags** | `terminal-jail --user --seccomp <command>` |
+| Add privilege dropping + syscall filtering | **CLI flags** | `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` |
 | Observe + log Hermes terminal commands (byte budget reserved — not implemented) | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
 | Harden the Hermes gateway service itself | **systemd drop-in** (`systemd/90-terminal-jail-hardening.conf`) | See §5 — lightweight (4 directives), NOT a PID namespace boundary |
 | Replace the Hermes gateway shell with a jailed shell | **Deploy shim** (`standalone/terminal-jail-sh` + `docs/deploy-to-karahermes.md`) | Host-specific; hardcoded paths must be adjusted |
@@ -90,6 +90,16 @@ engine action, the installed action, and both file paths.
 
 ```bash
 ~/.local/bin/terminal-jail --version   # → terminal-jail 1.2.0
+# Two independent host-capability layers gate what this tool can prove:
+#   PID-NS       — can this host create unprivileged PID namespaces?
+#                  FULL  -> bare mode gives real PID-namespace containment.
+#                  DEGRADED -> bare mode exits 2 fail-closed (command NOT run,
+#                  TJ-GAP-034); --user keeps containment on such hosts.
+#   FS-isolation — can it create a uid-mapped user namespace (filesystem view)?
+#                  FULL -> --user also isolates the filesystem.
+#                  DEGRADED -> --user prints `no filesystem isolation` and
+#                  continues with containment only.
+# Classify both layers before trusting any run below:
 python3 scripts/pidns-capability-probe.py
 # FULL     → the host can create unprivileged PID namespaces — bare mode works
 # DEGRADED → it cannot (bare mode exits 2, fail-closed) — use --user
@@ -225,7 +235,7 @@ behavior, see below).
 Request and response schema:
 
 ```text
-request  — one JSON object, one line:  {"command": "<shell command>"}
+request  — one JSON object, one line:  {"command": "date"}
            ("command" must be a string; an empty string is valid input,
            not a schema error)
 
@@ -404,17 +414,19 @@ mode (§3b). A rule with `action: warn` is **advisory**: it never blocks, in any
 **What happens at verdict time (per command, every invocation):**
 
 1. The engine evaluates the rule to an ALLOW that carries the warning in `reason`:
-   `"would have blocked: <the rule's block_message>"`, with `"rule_id"` naming the warn rule
+   `"would have blocked: DF042 probe message (warn action)"` — the matched
+   rule's own block message (the DF042 probe below shows it end to end) —
+   with `"rule_id"` naming the warn rule
    itself (TJ-DF-012).
 2. The wrapper prints the warning **to stderr** as one line —
-   `terminal-jail: WARNING — would have blocked: <block_message>` — and **the command still
+   `terminal-jail: WARNING — would have blocked: DF042 probe message (warn action)` — and **the command still
    executes**. The warning is advisory output, not a gate: nothing pauses, nothing waits for
    input, no confirmation is requested.
 3. The exit code is **the command's own** — the warn path does not alter it. A warned command
    that fails exits with the command's failure code, a successful one exits 0.
 
 **Interplay with `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` (the mode downgrade).** A *block* rule
-under warn mode evaluates to ALLOW with provenance `"[WARN MODE] Would have blocked: <reason>"`
+under warn mode evaluates to ALLOW with provenance `"[WARN MODE] Would have blocked: "` followed by the block rule's reason
 and `"rule_id": null` (no rule decided to allow — the mode downgraded the block). The wrapper
 prints it on stderr the same way and the command runs, exit code untouched. So there are two
 ways a "would have blocked" warning can appear: a same-shape command matched a `warn` rule
@@ -473,7 +485,9 @@ Seccomp_filters:	1
 BPF filter is live. An `echo`-style payload proves nothing: it runs identically
 whether or not a filter was installed. The filter also **fails open** by design
 — `standalone/seccomp-loader.py` prints
-`terminal-jail: seccomp not applied (<reason>); running without seccomp` on
+`terminal-jail: seccomp not applied (…); running without seccomp` — where …
+is the error the kernel returned when the BPF filter install was refused, e.g.
+`Operation not permitted` — on
 stderr and `exec`s the command anyway when the filter cannot be applied — so if
 you need fail-closed, watch the wrapper's stderr and exit code yourself; a
 clean exit alone does not prove a filter is active.
@@ -503,7 +517,7 @@ Two probe traps when verifying by hand:
 ### 3d. Hermes plugin
 
 Hermes core discovers plugins from **directories**, not environment variables: user
-plugins live in `~/.hermes/plugins/<name>/` — one directory per plugin, each with a
+plugins live in `~/.hermes/plugins/terminal-jail/` — one directory per plugin, each with a
 `plugin.yaml` manifest — and are **opt-in** via the `plugins.enabled` allow-list in
 `~/.hermes/config.yaml`. (An older mechanism, a `HERMES_PLUGINS` environment variable,
 was never part of Hermes core plugin discovery and does not work — ignore any doc that
@@ -520,7 +534,7 @@ This deploys the checkout's `plugin/` tree (`plugin.yaml`, `__init__.py`, the
 `terminal_jail/` package — everything the copy must contain) to
 `~/.hermes/plugins/terminal-jail` and prints the deployed version. Pass an
 explicit target as an argument (`./install.sh --hermes-plugin /custom/dir`) or
-via `--hermes-plugin-dir=<dir>`; the default is derived from `$HOME`.
+via `--hermes-plugin-dir=/custom/dir`; the default is derived from `$HOME`.
 
 **Enable it** in `~/.hermes/config.yaml`:
 
@@ -658,10 +672,12 @@ shell invocation with `setpriv --no-new-privs` + the CLI's
 ```
 
 `--uninstall` mirrors every install target and prints each removal
-(`removed: <path>` / `removed rc-line: <file>`). It removes:
+(`removed: ~/.local/bin/terminal-jail` / `removed rc-line: ~/.bashrc` — the
+path of each removed file, printed as it goes). It removes:
 
 - the wrapper in `$TERMINAL_JAIL_INSTALL_DIR` (default `~/.local/bin`)
-- the lib tree `~/.local/lib/terminal-jail/` (`<prefix>/lib/terminal-jail/`
+- the lib tree `~/.local/lib/terminal-jail/` (under a custom prefix, e.g.
+  `TERMINAL_JAIL_INSTALL_DIR=/opt/tj`, `/opt/tj/lib/terminal-jail/`
   with a custom install dir)
 - in the rules directory the install resolved to: `00-builtins.yaml`,
   installed packs (`terminal-jail-pack-*.yaml`) and `.bak-*` backups
@@ -669,7 +685,7 @@ shell invocation with `setpriv --no-new-privs` + the CLI's
   only that marker-tagged block; everything else in the file stays
 
 It preserves your data: user-authored files in `rules.d` survive and are each
-listed (`left in place (user-authored): <path>`); system rules under
+listed (`left in place (user-authored): ~/.config/terminal-jail/rules.d/my-rule.yaml`); system rules under
 `/etc/terminal-jail/` are root-managed and never touched; other files in the
 install dir are left alone. The rules dir resolution is the SAME one the
 install used — set `TERMINAL_JAIL_RULES_DIR` (or the same install dir) if you
@@ -686,7 +702,7 @@ sudo ./install.sh --uninstall --uninstall-systemd
 ```
 
 `--uninstall` is idempotent — on an already-clean host it is a no-op that
-exits 0. To remove just one rule pack, keep using `--unrule-pack <name>`.
+exits 0. To remove just one rule pack, keep using `--unrule-pack db`.
 
 ## 4. FAQ / Troubleshooting
 
@@ -726,7 +742,8 @@ schema problem it was). An explicit empty command (`{"command": ""}`) is valid i
 That fails **closed** (TJ-GAP-070). A rule file whose fields fail type validation — e.g.
 `priority: not-a-number` — is refused at load with a one-line stderr note naming the file, the
 refusal propagates out of `intercept()`, and the bridge answers
-`{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <detail> — fail-closed: blocking command (enforce mode)"}`.
+`{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] … — fail-closed: blocking command (enforce mode)"}` where …
+names the exact problem (e.g. `bad JSON on stdin`).
 Enforce mode prints the `COMMAND BLOCKED` box and exits 126 without running the command; warn mode
 prints a loud `WARNING` naming the error and runs the command UNGUARDED. A bridge emitting empty or
 non-JSON stdout is treated as an unusable verdict and blocks the same way. This is what closes the
@@ -801,10 +818,10 @@ and flags drift). User rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). `./install.sh` ships the default rules file to
 `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
-`TERMINAL_JAIL_INSTALL_DIR` prefix it lands under `<prefix>/config/terminal-jail/rules.d/`
+`TERMINAL_JAIL_INSTALL_DIR` prefix — e.g. `/opt/tj` — it lands under `/opt/tj/config/terminal-jail/rules.d/`
 instead (the engine won't read it there — the installer prints a WARNING). Set
 `TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins —
-or export `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and the installer resolves its rules
+or export `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/etc/terminal-jail/rules.d` and the installer resolves its rules
 directory to exactly that value (the engine reads the same variable at run time, so prefix
 installs load their rules). Note for prefix installs: opt-in rule packs (`--rule-pack`) are
 SKIPPED in the prefix-local scope instead of being installed inert — the skip message names the
@@ -836,8 +853,8 @@ What the modifier does, in order:
    (bad schema, malformed YAML, id outside the derived namespace) skips
    loudly, and the installed pack is left untouched.
 2. Only after validation passes, the existing
-   `terminal-jail-pack-<name>.yaml` is backed up to
-   `<dest>.bak-<UTC timestamp>` **once** for the run (never a second backup
+   `terminal-jail-pack-db.yaml` is backed up to
+   `terminal-jail-pack-db.yaml.bak-20261007T120000Z` (UTC timestamp) **once** for the run (never a second backup
    of an already-replaced copy), then the new file is written.
 3. Without the modifier nothing changes: the installed pack is skipped with
    a hint naming this flag.
