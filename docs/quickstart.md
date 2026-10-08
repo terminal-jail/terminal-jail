@@ -414,7 +414,7 @@ mode (§3b). A rule with `action: warn` is **advisory**: it never blocks, in any
 **What happens at verdict time (per command, every invocation):**
 
 1. The engine evaluates the rule to an ALLOW that carries the warning in `reason`:
-   `"would have blocked: DF042 probe message (warn action)"` — the matched
+   `"would have blocked: <the rule's block_message>"` — the matched
    rule's own block message (the DF042 probe below shows it end to end) —
    with `"rule_id"` naming the warn rule
    itself (TJ-DF-012).
