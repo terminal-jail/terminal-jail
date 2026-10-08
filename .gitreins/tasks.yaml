@@ -1672,3 +1672,12 @@ tasks:
   status: complete
   created_at: '2026-10-07T23:06:00.837848+00:00'
   completed_at: '2026-10-07T23:16:59.709580+00:00'
+- id: TJ-DF-028
+  title: Scope README CI-green claim to proved kernel matrix
+  criteria:
+  - README 'CI green' claim scoped to kernels actually proved on (not universal);
+    HOST-DEGRADED-PIDNS skip marker present in test; docs/backend-parity.md has pinned
+    kernel-matrix note
+  status: complete
+  created_at: '2026-10-08T01:11:22.533422+00:00'
+  completed_at: '2026-10-08T01:13:43.746436+00:00'
