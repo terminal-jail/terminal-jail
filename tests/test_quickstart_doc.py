@@ -1,8 +1,13 @@
 """TJ-GAP-090 — pins docs/quickstart.md as stranger-executable.
 
-The quickstart is the first page a fresh host reads: every command in it must
-be copy-pasteable with no placeholder the reader has to invent (no
-``<your-user>``, no ``<PATH>``, no ``{your_org}``), and it must state the host
+The quickstart is the first page a fresh host reads. Placeholder pinning is
+two-tier: every runnable command (fenced bash/console/sh block, inline ``$``
+prompt) must be copy-pasteable verbatim with zero placeholder tokens, while
+placeholder-shaped prose (usage syntax like ``terminal-jail <command>``,
+output/JSON templates like ``<reason>``, path shapes like
+``<prefix>/lib/terminal-jail/``) documents a shape, not a paste target —
+each occurrence is allowlisted, and any NEW unlisted one fails. It must also
+state the host
 capability requirements — PID-NS ``FULL`` for bare-mode containment,
 FS-isolation ``FULL`` for the mapped-user-namespace filesystem layer —
 together with what happens when a host does not meet them (degraded warnings;
@@ -29,6 +34,20 @@ INSTALL = PROJECT_ROOT / "install.sh"
 # ALL-CAPS YOUR_ prefix. The quickstart must not need any of them: a stranger
 # pastes the commands verbatim.
 _PLACEHOLDER_RE = re.compile(r"<[a-z-]+>|\{[a-z_]+\}|YOUR_|<PATH>")
+
+# Prose tier (see test_prose_placeholders_are_allowlisted): OUTSIDE runnable
+# commands the page may document SHAPES — usage syntax
+# (``terminal-jail <command> [args...]``), output/JSON templates
+# (``<reason>``, ``[bridge-error] <detail>``), install-path patterns
+# (``<prefix>/lib/terminal-jail/``). Those are not paste targets, so every
+# occurrence is allowlisted by (1-based line number, exact token); an
+# unlisted occurrence fails, and so does a stale entry — the table cannot
+# rot silently. The single entry below pins the warn-reason template that
+# TJ-DF-042's doc-pin test requires verbatim.
+_PROSE_PLACEHOLDER_RE = re.compile(r"<[^<>\n]{1,60}>|\{[a-z_][a-z0-9_]*\}|YOUR_|<PATH>")
+_PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = {
+    296: {"<the rule's block_message>"},
+}
 
 # The capability vocabulary the page must carry (probe layer names, either
 # the uppercase tokens or the probe-script prefixes).
@@ -83,6 +102,43 @@ def test_inline_prompts_have_no_placeholders() -> None:
         assert not _PLACEHOLDER_RE.search(prompt), (
             f"placeholder in an inline $ prompt: {prompt!r}"
         )
+
+
+def _prose_placeholder_violations(
+    text: str,
+    allowlist: dict[int, set[str]] | None = None,
+) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+    """Placeholder hits OUTSIDE runnable commands, split unexpected/stale.
+
+    Fenced bash/console/sh blocks and inline ``$`` prompts are covered by
+    the strict tests above; this tier scans the remaining prose (usage
+    syntax, output/JSON templates, path shapes) against the allowlist.
+    """
+    allow = _PROSE_PLACEHOLDER_ALLOWLIST if allowlist is None else allowlist
+    unfenced = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    hits = [
+        (unfenced.count("\n", 0, m.start()) + 1, m.group(0))
+        for m in _PROSE_PLACEHOLDER_RE.finditer(unfenced)
+    ]
+    unexpected = [
+        (line, tok) for line, tok in hits if tok not in allow.get(line, set())
+    ]
+    missing = [
+        (line, tok)
+        for line, toks in sorted(allow.items())
+        for tok in sorted(toks)
+        if (line, tok) not in hits
+    ]
+    return unexpected, missing
+
+
+def test_prose_placeholders_are_allowlisted() -> None:
+    """Acceptance 1b: prose may document shapes, only from the allowlist."""
+    unexpected, missing = _prose_placeholder_violations(_doc_text())
+    assert not unexpected and not missing, (
+        f"unallowlisted prose placeholders: {unexpected}; "
+        f"stale allowlist entries: {missing}"
+    )
 
 
 def test_doc_states_capability_requirements() -> None:
