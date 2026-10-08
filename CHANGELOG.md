@@ -1,5 +1,133 @@
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-08
+
+Release range v1.2.0..HEAD: 15 feat / 18 fix / 0 breaking (semver MINOR) plus
+docs, test and CI work. Board/harness bookkeeping commits are not listed.
+
+### Added
+
+- **Landlock kernel-enforced filesystem-isolation tier** (`bd39236`) with a
+  **TCP connect (network-egress) rule tier** (`376dab2`) — a new
+  `plugin/terminal_jail/interruptor/landlock.py` enforcement layer beside the
+  namespace wrap; `landlock.py` coverage raised to clear the CI 74% gate
+  (`b2f5b40`).
+- **Resident AF_UNIX verdict daemon** (`c2e7023`): long-lived interruptor
+  bridge with a one-shot cost guard and measured transport docs; the resident
+  module is counted by the CI coverage gate (`6f9ec2d`).
+- **Enforced argument-size maximum + committed benchmark** (`80deb8e`,
+  TJ-GAP-086): `intercept()` refuses any command whose UTF-8 size exceeds
+  262144 bytes (`builtin-max-arg-bytes`; knob
+  `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES`) via an O(len) check before
+  parsing; `scripts/arg_size_benchmark.py` + `tests/test_arg_size_ceiling.py`
+  ceiling gate. Detailed notes below.
+- **Composed mode** (`f73e949`, TJ-GAP-089): inside an outer containment
+  layer (OCI container / bunker) the CLI runs as the inner layer — this
+  tool's firewall plus the platform's namespace containment — instead of
+  refusing (`TERMINAL_JAIL_COMPOSED=auto|on|off`); composed deployment guide
+  + shared per-layer guarantee matrix (`813d5c6`). Detailed notes below.
+- **Enforceable private-/proc demand + per-run `proc_view` attribution**
+  (`cbbab1c`, TJ-GAP-088).
+- **Release tooling** (`b6c12c7`): tag-triggered
+  `.github/workflows/release.yml` (sdist + wheel + `SHA256SUMS`, with a
+  version/tag match check), `scripts/release-cut-check.sh` pre-cut gate and
+  the `docs/releasing.md` runbook; categorized auto-generated release notes
+  via `.github/release.yml` (`4f43984`).
+- **`install.sh --rule-pack-file`** (`a83a158`) and **first-class pack
+  replacement** `--rule-pack-file --replace-rule-packs` (`52dc15c`).
+- **Rule-pack authoring schema subcommand + example pack + README authoring
+  section** (`7aadde8`).
+- **Rule resolution provenance exposed in the verdict** (`93ecf3b`,
+  TJ-GAP-085).
+- **Metrics counters wired to plugin hooks** (`d55fdf4`, TJ-DF-033).
+- **`--hermes-plugin` deploy/refresh mode** for the installed Hermes plugin
+  (`2f536ed`) and the live plugin refresh 0.2.0 → 1.2.0 (`48e9fe1`).
+- **Committed kernel-matrix teardown harness** with importable evidence
+  cells (`e39ba82`).
+- **Board JSONL priority/status schema guard + migration** (`a7ecbf4`):
+  `scripts/board_id_guard.py` + `tests/test_board_schema_guard.py`.
+- **pytest-cov coverage tooling with measured baseline** (`b08d0ae`) and a
+  `coverage.xml` CI artifact upload (`442013a`).
+
+### Changed
+
+- Docs/corrections: threat-model containment claims corrected + Interruptor
+  and bwrap layers added (`67e71e4`); COMPATIBILITY.md corrected (`89b73e0`);
+  README restructure (`7f1ffcf`) + Requirements systemd bullet corrected
+  (`f536985`); repo URLs moved to the terminal-jail org (`29d9a02`);
+  per-host capability matrix + probes (`d19a60b`) cross-checked against the
+  composed-deployment doc (`5a7faaa`); deploy doc Step-3 PID probe made
+  backend-aware (`839c86f`); quickstart made stranger-executable with zero
+  placeholders (`7fe6f03`) + two-tier placeholder pinning test (`7ceb094`,
+  `e7505d9`); quickstart §3c seccomp verification made self-proving
+  (`9652663`) and §3d plugin-loading rewritten to directory + 
+  `plugins.enabled` discovery (`d49d92f`); JSON bridge firewall API
+  documented (`7e15333`) + bridge section renumbered 3b2→3a2 (`b06e3b3`);
+  WARN action runtime contract documented (`164b463`); REQUIRE_TIER gate +
+  INTERRUPTOR_LOG_LEVEL documented and test-count rot fixed (`77b9c66`);
+  USE_INTERRUPTOR + seccomp loader/read-probe env vars documented
+  (`53cd7e8`) with the removed length-knob truth stated (`9c5c9b1`);
+  source-only distribution channel documented (`b2a70a7`); categorized
+  release notes documented (`e6756ef`); audit tooling made reachable from
+  README (`e3819ef`) and moved out of a code fence (`2fb932f`); unshipped
+  helper scripts + reserved env vars annotated (`3c06ec2`); CONTRIBUTING
+  setup/test-counts/lint fixed (`b4bf09c`); quarterly-review nonexistent
+  test-file reference fixed (`1976e17`); FAQ 4: 65534-uid display is
+  backend-specific (`78abf75`); pentest-plan per-section battery banners
+  (`26b2465`); backend-parity bwrap signal-reach boundary + battery probe
+  (`6b4571f`); README CI-green claim scoped to the proved kernel matrix
+  (`484f9ff`); mount-EPERM probe stated as not proof of the seccomp filter
+  (`008cb7c`).
+- CI/tooling: the repo's own drift guards (rule catalog + YAML parity +
+  probes) run in CI (`3b1540d`); tree-wide ruff format (31 files) + CI
+  format-check gate (`ec5d945`); `.gitreins/history` untracked from the
+  public repo — 480 internal verdict artifacts removed (`4c38fbb`).
+
+### Fixed
+
+- Interruptor/engine:
+  - Seccomp: glibc-routed `clock_adjtime(305)` variant denied + BPF
+    fall-through skip repaired (`156815b`).
+  - Seccomp loader readability probed before promoting the uid-mapped
+    `--user` launch (`0fc950a`).
+  - Required-substring prefilters kill interruptor catastrophic backtracking
+    without weakening the deny list (`a255aaa`); the interim over-length
+    fast path (`190e07e`) was reverted (`38a64e4`) before release. Detailed
+    notes below.
+  - Fail closed on unparseable rule files on PyYAML-less fresh hosts
+    (`e3bfcb0`); loud note + drift-probe corrupt finding on a PyYAML-less
+    rule mirror (`bee7b65`).
+  - `--list-rule-packs` skips an unreadable pack with exit 0 instead of
+    refusing (`d389043`). Detailed notes below.
+  - Bridge transport-envelope default fail-closed in enforce mode
+    (`4b11961`).
+- Install/CLI:
+  - install.sh resolves the checkout from the script location and reports
+    the enforced containment tier (`12966ff`); pidns tier line +
+    `TERMINAL_JAIL_REQUIRE_TIER` fail-closed demand (`933ffe0`).
+  - `RestrictNamespaces ENFORCED` gated on an outside-unit unshare control
+    (`108bc78`).
+  - Preflight names a missing `uname` instead of claiming non-Linux
+    (`cd31f7b`).
+  - The uid-mapped launch re-arms the parent-death signal after the cred
+    change (`7018c08`): util-linux arms `PR_SET_PDEATHSIG` before the
+    setuid/setgid, and the kernel clears it on any euid/egid change, so the
+    payload survived the wrapper's SIGKILL as an orphan. Detailed notes
+    below.
+  - Deploy shim warns on unwrapped exec for empty-command login-shell
+    invocations (`df5bed0`).
+- Release/test infrastructure:
+  - `release-cut-check.sh` tag probe falls back to ls-remote and the CI leg
+    fails closed when `gh` is unauthenticated (`07fef1d`); tag
+    pre-existence probed via ls-remote — CI checkouts don't fetch tags
+    (`a23ccf7`); hermetic existing-tag refusal test (`4ef6eed`).
+  - HOST-DEGRADED-PIDNS skip aligned with the capability probe (`2433f02`).
+  - Load-tolerant subprocess budgets for rule-pack/install tests
+    (`63c1c17`, `a2253cc`).
+  - `tests/` included in pytest collection (`da2ce82`); the e2e live-probe
+    script restored for the battery (`b86930d`) with a matching denominator
+    label (`b771183`).
+
 ### Enforced argument-size maximum + committed latency benchmark (TJ-GAP-086)
 
 - **Feature** (`plugin/terminal_jail/interruptor/__init__.py`): `intercept()`
