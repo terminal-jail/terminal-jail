@@ -22,6 +22,7 @@ import importlib.util
 import json
 import os
 import shlex
+import shutil
 import stat
 import subprocess
 import sys
@@ -439,6 +440,210 @@ class TestEnforcement:
         )
         with pytest.raises(ll.LandlockError):
             ll._make_enforcement_probe(layout)
+
+    def test_toolchain_interpreter_starts_inside_the_domain(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """KERNEL regression, QA-TERMINAL-JAIL-17 (host-conditional).
+
+        A FORKED child applies the layout the LOADER computes for the
+        QA harness shape — the payload argv names a venv interpreter
+        under HOME outside every fixed allowlist tail — and then reads,
+        INSIDE the domain: the venv's pyvenv.cfg (the read that died
+        Errno 13 pre-fix), a ~/tools data file, and ~/.ssh/id_rsa
+        (a credential surface that must STAY denied).
+
+        The fixture home sits under XDG_RUNTIME_DIR (a caller-owned
+        tmpfs OUTSIDE the /tmp + /var/tmp write grants) so the toolchain
+        reads are denied by omission pre-fix — under a pytest tmp_path
+        home they would be covered by the temp-dir WRITE grants and the
+        test could not fail against the old code. Skips with the
+        HOST-DEGRADED marker on a non-permitting host (never silently
+        passes).
+        """
+        if not _host_permits_landlock():
+            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+        runtime = os.environ.get("XDG_RUNTIME_DIR", "").strip()
+        if not runtime.startswith("/") or not os.path.isdir(runtime):
+            pytest.skip(
+                f"{HOST_DEGRADED}: no XDG_RUNTIME_DIR to host an ungranted fixture home"
+            )
+        fixture_root = Path(tempfile.mkdtemp(prefix="tj-qa17-", dir=runtime))
+        try:
+            home = fixture_root / "home"
+            home.mkdir()
+            os.chmod(home, 0o755)
+            venv_dir = home / "tools" / "venv"
+            (venv_dir / "bin").mkdir(parents=True)
+            base_bin = home / "opt" / "py-base" / "bin"
+            base_bin.mkdir(parents=True)
+            (venv_dir / "pyvenv.cfg").write_text(f"home = {base_bin}\n")
+            cfg = venv_dir / "pyvenv.cfg"
+            interpreter = venv_dir / "bin" / "python"
+            interpreter.write_text("#!/bin/sh\n")
+            os.chmod(interpreter, 0o755)
+            tools_data = home / "tools" / "data.txt"
+            tools_data.write_text("toolchain\n")
+            id_rsa = home / ".ssh" / "id_rsa"
+            id_rsa.parent.mkdir()
+            id_rsa.write_text("PRIVATE\n")
+            os.chmod(id_rsa, 0o600)
+            workdir = tmp_path / "wd"
+            workdir.mkdir()
+            monkeypatch.setenv("HOME", str(home))
+            monkeypatch.delenv("TMPDIR", raising=False)
+            monkeypatch.delenv("TEMP", raising=False)
+            monkeypatch.delenv("TMP", raising=False)
+            layout = ll.build_layout(
+                str(workdir),
+                home=str(home),
+                drop_denied_tmp=False,
+                payload_argv=[str(interpreter), "probe.py"],
+            )
+            assert layout is not None
+            # PREMISE: the QA-17 reads are outside every grant pre-derivation —
+            # without the toolchain roots (payload_argv=[]) the cfg read target
+            # is covered by NO root, so the pre-fix code could not start the
+            # interpreter. Prove the fixture is not accidentally granted via
+            # the temp dirs: no fixture path may sit inside a WRITE grant.
+            for granted in layout.write_roots:
+                assert not ll._is_inside(str(home), granted), (
+                    "test bug: the fixture home sits inside a write grant — "
+                    "the QA-17 deny cannot be exercised here"
+                )
+            # ...and the toolchain roots the fix adds ARE in the layout.
+            read = {os.path.realpath(p) for p in layout.read_roots}
+            assert os.path.realpath(venv_dir) in read
+            assert os.path.realpath(home / "opt" / "py-base") in read
+            granted_all = {
+                os.path.realpath(p) for p in (*layout.read_roots, *layout.write_roots)
+            }
+            assert os.path.realpath(home / ".ssh") not in granted_all
+
+            read_fd, write_fd = os.pipe()
+            pid = os.fork()
+            if pid == 0:  # child: apply + probe, report, exit
+                os.close(read_fd)
+                out = []
+                try:
+                    ll.apply(layout, dry_probe=False)
+                    for name, path in (
+                        ("cfg", cfg),
+                        ("tools", tools_data),
+                        ("ssh", id_rsa),
+                    ):
+                        try:
+                            open(path).close()
+                            out.append(f"{name}:READ-OK")
+                        except PermissionError:
+                            out.append(f"{name}:DENIED")
+                        except OSError:
+                            out.append(f"{name}:DENIED")
+                except Exception:  # noqa: BLE001 — the verdict carries it
+                    out.append("APPLY-FAIL")
+                try:
+                    os.write(write_fd, " ".join(out).encode()[:128])
+                except OSError:
+                    pass
+                finally:
+                    os.close(write_fd)
+                    os._exit(0)
+            os.close(write_fd)
+            try:
+                verdict = os.read(read_fd, 128).decode()
+            finally:
+                os.close(read_fd)
+                os.waitpid(pid, 0)
+            cells = dict(cell.split(":", 1) for cell in verdict.split() if ":" in cell)
+            assert cells.get("cfg") == "READ-OK", (
+                f"the venv pyvenv.cfg read must be GRANTED inside the domain "
+                f"(the QA-17 Errno 13 startup death) — got {verdict!r}"
+            )
+            assert cells.get("tools") == "READ-OK", f"got {verdict!r}"
+            assert cells.get("ssh") == "DENIED", (
+                f"the credential surface must STAY denied — got {verdict!r}"
+            )
+        finally:
+            shutil.rmtree(fixture_root, ignore_errors=True)
+
+    def test_toolchain_omission_pre_fix_denies_cfg(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The PRE-FIX property the fix falsifies (host-conditional, and
+        only where the runtime dir exists): with NO payload argv — the
+        pre-fix build_layout signature — the same fixture's pyvenv.cfg
+        sits under NO read root, so a domain child is DENIED it. This is
+        the deny the QA row observed as the interpreter's Errno 13 death;
+        the sibling test above proves the derived roots lift exactly it
+        while keeping the credential surface denied."""
+        if not _host_permits_landlock():
+            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+        runtime = os.environ.get("XDG_RUNTIME_DIR", "").strip()
+        if not runtime.startswith("/") or not os.path.isdir(runtime):
+            pytest.skip(
+                f"{HOST_DEGRADED}: no XDG_RUNTIME_DIR to host an ungranted fixture home"
+            )
+        fixture_root = Path(tempfile.mkdtemp(prefix="tj-qa17-red-", dir=runtime))
+        try:
+            home = fixture_root / "home"
+            home.mkdir()
+            os.chmod(home, 0o755)
+            # NOT under ~/tools (the tail would cover it): the venv sits at
+            # a location only the argv derivation can reach.
+            venv_dir = home / "deeper" / "venv"
+            (venv_dir / "bin").mkdir(parents=True)
+            cfg = venv_dir / "pyvenv.cfg"
+            cfg.write_text("home = /usr/bin\n")
+            workdir = tmp_path / "wd"
+            workdir.mkdir()
+            monkeypatch.setenv("HOME", str(home))
+            monkeypatch.delenv("TMPDIR", raising=False)
+            monkeypatch.delenv("TEMP", raising=False)
+            monkeypatch.delenv("TMP", raising=False)
+            # the pre-fix call shape: NO payload_argv parameter
+            layout = ll.build_layout(
+                str(workdir), home=str(home), drop_denied_tmp=False
+            )
+            assert layout is not None
+            read = {os.path.realpath(p) for p in layout.read_roots}
+            assert os.path.realpath(cfg) not in read
+            assert not any(
+                ll._is_inside(os.path.realpath(venv_dir), os.path.realpath(p))
+                for p in layout.read_roots
+            ), "test bug: the venv tree is granted without the derivation"
+            read_fd, write_fd = os.pipe()
+            pid = os.fork()
+            if pid == 0:
+                os.close(read_fd)
+                verdict = b"?"
+                try:
+                    ll.apply(layout, dry_probe=False)
+                    try:
+                        open(cfg).close()
+                        verdict = b"0"  # read allowed → the deny property is absent
+                    except PermissionError:
+                        verdict = b"1"  # DENIED — the pre-fix behavior this row fixes
+                except Exception:  # noqa: BLE001
+                    verdict = b"0"
+                try:
+                    os.write(write_fd, verdict)
+                except OSError:
+                    pass
+                finally:
+                    os.close(write_fd)
+                    os._exit(0)
+            os.close(write_fd)
+            try:
+                verdict = os.read(read_fd, 1)
+            finally:
+                os.close(read_fd)
+                os.waitpid(pid, 0)
+            assert verdict == b"1", (
+                "the cfg read must be DENIED without the toolchain derivation "
+                "(the pre-fix deny this row falsifies)"
+            )
+        finally:
+            shutil.rmtree(fixture_root, ignore_errors=True)
 
 
 # ── Graceful absence (behavior unchanged + warning) ───────────────────────
@@ -1614,6 +1819,183 @@ class TestBuildLayoutBranches:
         assert os.path.realpath(home / ".bashrc") in read
         assert os.path.realpath(home / ".zshrc") not in read
         assert os.path.realpath(home / ".nvm") not in read
+
+    def test_toolchain_tails_granted_when_present(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """~/tools and ~/venvs (QA-TERMINAL-JAIL-17): conventional
+        toolchain roots a payload interpreter may live in; granted
+        read-only when they exist, absent from the layout otherwise."""
+        home = tmp_path / "h"
+        (home / "tools" / "venv" / "bin").mkdir(parents=True)
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(str(workdir), payload_argv=[])
+        assert layout is not None
+        read = {os.path.realpath(p) for p in layout.read_roots}
+        assert os.path.realpath(home / "tools") in read
+        assert os.path.realpath(home / "venvs") not in read  # absent
+
+    def test_toolchain_interpreter_argv_derives_venv_and_base(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The QA-17 harness shape: the loader's payload argv names a venv
+        interpreter outside the fixed allowlist. The layout must add the
+        venv root (pyvenv.cfg) and — when under HOME — the base install
+        prefix its ``home =`` line points at, WITHOUT a broad HOME grant."""
+        home = tmp_path / "h"
+        base = home / "opt" / "py-base"
+        (base / "bin").mkdir(parents=True)
+        venv_dir = home / "deeper" / "nested" / "venv"
+        (venv_dir / "bin").mkdir(parents=True)
+        (venv_dir / "pyvenv.cfg").write_text(
+            f"home = {base / 'bin'}\ninclude-system-site-packages = false\n"
+        )
+        marker = home / "tools" / "data.txt"
+        marker.parent.mkdir(parents=True)
+        marker.write_text("toolchain\n")
+        (home / ".ssh").mkdir()
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        argv = [str(venv_dir / "bin" / "python"), "script.py"]
+        layout = ll.build_layout(str(workdir), payload_argv=argv)
+        assert layout is not None
+        read = {os.path.realpath(p) for p in layout.read_roots}
+        granted = {
+            os.path.realpath(p) for p in (*layout.read_roots, *layout.write_roots)
+        }
+        # the venv root + the base prefix under HOME are granted...
+        assert os.path.realpath(venv_dir) in read
+        assert os.path.realpath(base) in read
+        # ...the interpreter's own bin dir, and the tools tail
+        assert os.path.realpath(venv_dir / "bin") in read
+        assert os.path.realpath(home / "tools") in read
+        # NO wholesale HOME grant appears anywhere
+        assert os.path.realpath(home) not in granted
+        # the credential surface stays ungranted
+        assert os.path.realpath(home / ".ssh") not in granted
+
+    def test_toolchain_copied_interpreter_resolved_dir_granted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A --copies venv (real ELF under HOME): the RESOLVED interpreter
+        directory is granted even when argv names it through a symlink."""
+        home = tmp_path / "h"
+        base = home / "opt" / "base"
+        (base / "bin").mkdir(parents=True)
+        venv_dir = home / "venvs" / "copied"
+        (venv_dir / "bin").mkdir(parents=True)
+        (venv_dir / "pyvenv.cfg").write_text(f"home = {base / 'bin'}\n")
+        real_elf = venv_dir / "bin" / "python.real"
+        real_elf.write_text("# ELF\n")
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(str(workdir), payload_argv=[str(real_elf)])
+        assert layout is not None
+        read = {os.path.realpath(p) for p in layout.read_roots}
+        assert os.path.realpath(venv_dir / "bin") in read
+        assert os.path.realpath(venv_dir) in read
+        assert os.path.realpath(base) in read
+
+    def test_toolchain_outside_home_derivates_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An interpreter outside HOME (system /usr python) derives no
+        extra HOME grant: the system trees are already covered."""
+        home = tmp_path / "h"
+        home.mkdir()
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(str(workdir), payload_argv=["/usr/bin/python3"])
+        assert layout is not None
+        read = {os.path.realpath(p) for p in layout.read_roots}
+        assert os.path.realpath(home) not in read
+        assert not any(str(p).startswith(str(home)) for p in read)
+
+    def test_toolchain_relative_argv_ignored_when_absent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A bare PATH-resolved command name (``pytest``) derives nothing:
+        PATH-resolved interpreters are covered by the fixed tails only."""
+        home = tmp_path / "h"
+        home.mkdir()
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(str(workdir), payload_argv=["pytest", "-q"])
+        assert layout is not None
+        granted = {
+            os.path.realpath(p) for p in (*layout.read_roots, *layout.write_roots)
+        }
+        assert os.path.realpath(home) not in granted
+
+    def test_toolchain_root_holding_credential_surface_skipped(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Fail-closed: a venv INSIDE a credential surface (~/.ssh/venv)
+        derives NO grant — neither the venv root nor its bin dir — and
+        the surface itself stays ungranted. The ~/tools tail is granted
+        only while it holds no surface of its own (an ~/.ssh under HOME
+        is the protected path; a same-named dir under tools is not a
+        declared surface)."""
+        home = tmp_path / "h"
+        (home / "tools" / "venv" / "bin").mkdir(parents=True)
+        (home / ".ssh" / "venv" / "bin").mkdir(parents=True)
+        (home / ".ssh" / "venv" / "pyvenv.cfg").write_text(
+            f"home = {tmp_path}/nowhere/bin\n"
+        )
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(
+            str(workdir),
+            payload_argv=[str(home / ".ssh" / "venv" / "bin" / "python")],
+        )
+        assert layout is not None
+        granted = {
+            os.path.realpath(p) for p in (*layout.read_roots, *layout.write_roots)
+        }
+        # the venv inside the credential surface is nowhere granted...
+        assert os.path.realpath(home / ".ssh" / "venv") not in granted
+        assert os.path.realpath(home / ".ssh" / "venv" / "bin") not in granted
+        assert os.path.realpath(home / ".ssh") not in granted
+        # ...while a clean tools venv stays reachable through the tail
+        assert os.path.realpath(home / "tools") in granted
+
+    def test_loader_payload_argv_separator_detection(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The loader is exec'd ``python3 <script> -- <payload...>``: the
+        FIRST standalone ``--`` separates the payload; no separator →
+        None (pre-17 behavior for non-loader callers)."""
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["/usr/bin/python3", "/x/landlock-loader.py", "--", "py", "-c", "pass"],
+        )
+        assert ll._loader_payload_argv() == ["py", "-c", "pass"]
+        monkeypatch.setattr(
+            sys, "argv", ["/usr/bin/python3", "/x/landlock-loader.py", "make", "all"]
+        )
+        assert ll._loader_payload_argv() is None
+        monkeypatch.setattr(
+            sys, "argv", ["/usr/bin/python3", "/x/landlock-loader.py", "--"]
+        )
+        assert ll._loader_payload_argv() is None
+
+    def test_pyvenv_home_prefix_parse(self, tmp_path: Path) -> None:
+        """The ``home = <prefix>/bin`` line → the base prefix; junk/absent
+        cfg → None (derives nothing, never raises)."""
+        cfg = tmp_path / "pyvenv.cfg"
+        assert ll._pyvenv_home_prefix(str(cfg)) is None
+        cfg.write_text("home = /opt/base/bin\nversion = 3.14\n")
+        assert ll._pyvenv_home_prefix(str(cfg)) == "/opt/base"
+        cfg.write_text("include-system-site-packages = false\n")
+        assert ll._pyvenv_home_prefix(str(cfg)) is None
 
     def test_ungranted_paths_dedupe_realpath_and_parent(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

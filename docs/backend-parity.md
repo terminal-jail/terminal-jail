@@ -115,7 +115,17 @@ unavailable (the AppArmor degraded case in the parity table), the
 final namespace, right before the payload exec: reads of credential surfaces
 (`~/.ssh`, `~/.config/terminal-jail`, `~/.hermes`, other users' home trees)
 are denied and writes are confined to the working tree + temp dirs + `~/.cache`
-+ `/dev`, by the kernel — surviving exec, not a DAC accident. It composes
++ `/dev`, by the kernel — surviving exec, not a DAC accident. The read
+allowlist covers what a payload plausibly needs to START: system trees, the
+fixed home tails (shell rc files, `~/.cargo`, `~/.rustup`, `~/.nvm`,
+`~/go/pkg/mod`, `~/.local/*`, git config), the conventional toolchain roots
+`~/tools` and `~/venvs`, and — derived per launch from the loader's payload
+argv (QA-TERMINAL-JAIL-17) — the venv root, its base-install prefix (when
+under HOME) and the resolved interpreter directory of the exact interpreter
+the launch hands the loader, so a venv anywhere under HOME starts instead of
+dying Errno 13 at startup. Every derived root is read-only and dropped when
+it intersects a credential surface in either direction; HOME itself is never
+granted. It composes
 with BOTH backends (it runs inside bwrap's namespace just as inside
 unshare's), is skipped where the uid mapping already isolates (the mapped
 launch), and skips itself — silently for a deliberate

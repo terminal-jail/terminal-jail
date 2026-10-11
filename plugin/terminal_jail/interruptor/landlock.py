@@ -31,6 +31,21 @@ read-write set (workdir, temp dirs, ``~/.cache``, ``/dev`` — so
 explicit zero-access rules so they stay denied even under the workdir or
 a granted parent (deeper rule wins).
 
+QA-TERMINAL-JAIL-17: a payload interpreter that lives under HOME but
+outside the fixed allowlist (the harness venv at ``~/tools/venv``) died
+with Errno 13 at startup — its ``pyvenv.cfg`` and stdlib reads were
+denied by omission. The tier now derives NARROW toolchain read roots per
+launch: the loader's payload argv names the interpreter, so the layout
+adds that interpreter's venv root (the nearest ancestor carrying
+``pyvenv.cfg``), the base-install prefix that cfg points at when it is
+under HOME, and the resolved interpreter's own directory (a copied ELF);
+plus the conventional ``~/tools`` and ``~/venvs`` roots when they exist
+(covering PATH-resolved interpreters the argv cannot name). Every derived
+root is read-only and skipped when it intersects a credential surface in
+either direction (``~/.ssh/venv`` or ``~/tools/.ssh`` both make the
+candidate drop). No broad HOME grant is added, and the credential deny
+set is unchanged.
+
 NOT handled (documented boundary): ``LANDLOCK_ACCESS_FS_REFER`` (ABI 2).
 Without it a cross-hierarchy rename is still checked against the SOURCE
 hierarchy, so moving a file OUT of a denied tree fails there (the denied
@@ -655,6 +670,25 @@ _HOME_READ = (
     ".gitconfig",
 )
 
+# QA-TERMINAL-JAIL-17: conventional TOOLCHAIN roots under HOME that venv /
+# interpreter trees live in outside the fixed allowlist above (the harness
+# shape: ~/tools/venv/bin/python died Errno 13 at startup because nothing
+# granted ~/tools). Deterministic and narrow: only these two named tails,
+# only when they exist, and still carved away from every credential
+# surface (a ~/tools/.ssh makes ~/tools skip). PATH-resolved interpreters
+# (``pytest`` found via ~/tools/venv/bin) are covered by these tails; an
+# interpreter handed to the loader BY PATH anywhere else under HOME is
+# covered by the argv-derived grants (``_toolchain_roots``).
+_TOOLCHAIN_TAILS = (
+    "tools",
+    "venvs",
+)
+
+# How far up from an interpreter's directory the pyvenv.cfg walk climbs
+# (venv/bin → venv → tools → HOME: four levels is the deepest sane venv
+# nesting; the walk stops at HOME regardless).
+_PYVENV_WALK_DEPTH = 6
+
 # Credential surfaces (NEVER granted: under the allowlist model they are
 # denied by omission, and the workdir grant is split around any that sit
 # inside it — see _split_workdir).
@@ -704,11 +738,30 @@ _RUN_READ = (
 )
 
 
+def _loader_payload_argv() -> list[str] | None:
+    """The payload argv when THIS process is the standalone loader.
+
+    The loader is exec'd as ``python3 landlock-loader.py -- <cmd> ...``:
+    the FIRST standalone ``--`` in argv is the documented separator, and
+    everything after it is the payload (argv[0] is the interpreter
+    running the loader script; the script path itself may sit between it
+    and the separator). Any other shape (engine probe child, tests, an
+    operator running the module with no separator) returns None — the
+    layout then derives nothing from argv, exactly the pre-
+    QA-TERMINAL-JAIL-17 behavior.
+    """
+    args = sys.argv[1:]
+    if "--" in args:
+        return args[args.index("--") + 1 :] or None
+    return None
+
+
 def build_layout(
     workdir: str | None = None,
     *,
     home: str | None = None,
     drop_denied_tmp: bool = True,
+    payload_argv: Iterable[str] | None = None,
 ) -> TierLayout | None:
     """Compute the tier's rule layout; None when a required input is gone.
 
@@ -716,6 +769,12 @@ def build_layout(
     may write. ``drop_denied_tmp=False`` puts the temp directories in the
     ungranted set instead of the writable set (probe mode: prove a denied
     read on a temp fixture without touching real credential surfaces).
+    ``payload_argv`` is the payload's argv when the caller knows it (the
+    standalone loader's invocation shape is ``[loader, --, cmd, ...]``);
+    the default derives toolchain read roots from ``sys.argv`` when it
+    carries that shape and from nothing otherwise, so non-loader callers
+    (the engine's capability-probe child, tests) keep the exact layout
+    they always computed — QA-TERMINAL-JAIL-17.
     """
     if not workdir:
         try:
@@ -765,6 +824,11 @@ def build_layout(
         candidate = os.path.join(resolved_home, tail)
         if _exists_dir(candidate) or _exists_file(candidate):
             read.append(candidate)
+    # QA-TERMINAL-JAIL-17: the payload interpreter's own toolchain trees
+    # (venv root, base install prefix when under HOME) plus the
+    # conventional ~/tools, ~/venvs roots — read-only, credential-carved.
+    argv = list(payload_argv) if payload_argv is not None else _loader_payload_argv()
+    read.extend(_toolchain_roots(resolved_home, argv))
     layout.read_roots = _dedupe_existing(read, exclude=(*layout.write_roots,))
 
     # ── the workdir grant is SUBDIVIDED around credential surfaces ───────
@@ -808,6 +872,128 @@ def _credential_paths(resolved_home: str) -> list[str]:
         if os.path.exists(os.path.join(resolved_home, tail))
     ]
     return found
+
+
+def _pyvenv_home_prefix(cfg_path: str) -> str | None:
+    """The ``home =`` line of a pyvenv.cfg, resolved to the BASE prefix.
+
+    A venv's ``pyvenv.cfg`` points at the base interpreter install
+    (``home = <prefix>/bin``); CPython's getpath resolves the stdlib
+    through it, so a venv whose base lives under HOME needs that prefix
+    granted for the interpreter to START (QA-TERMINAL-JAIL-17: the
+    harness ``~/tools/venv`` died on its first stdlib import). Returns
+    the realpath of the base PREFIX (one level above the ``home`` bin
+    dir), or None when the file is unreadable or carries no ``home``
+    line. Parsed with the same leniency every reader of the file needs:
+    an unreadable/unparseable cfg is not a crash — it just derives
+    nothing.
+    """
+    try:
+        with open(cfg_path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                key, sep, value = line.partition("=")
+                if sep and key.strip() == "home":
+                    base_bin = os.path.realpath(value.strip())
+                    prefix = os.path.dirname(base_bin)
+                    return prefix if prefix != "/" else None
+    except OSError:
+        return None
+    return None
+
+
+def _intersects_credential_surface(path: str, resolved_home: str) -> bool:
+    """True when ``path`` and ANY credential surface contain each other.
+
+    Fail-closed for both directions: a toolchain root INSIDE a surface
+    (``~/.ssh/venv``) and a surface INSIDE a toolchain root
+    (``~/tools/.ssh``) both make the candidate skip — a derived grant
+    must never widen a credential surface, and must not hand the payload
+    a tree that holds one.
+    """
+    for surface in _credential_paths(resolved_home):
+        if _is_inside(path, surface) or _is_inside(surface, path):
+            return True
+    return False
+
+
+def _toolchain_roots(
+    resolved_home: str, payload_argv: Iterable[str] | None
+) -> list[str]:
+    """Read roots that let a HOME-resident payload interpreter START.
+
+    Two mechanisms (QA-TERMINAL-JAIL-17), both read-only, both carved
+    away from every credential surface:
+
+    1. ARGV-DERIVED: the loader's payload argv names the interpreter
+       (``python3 <loader> -- ~/tools/venv/bin/python script.py``). The
+       as-given directory chain (pre-symlink-resolution — the launcher's
+       name for the interpreter is the path the venv layout lives at)
+       contributes its own directory, the nearest ancestor carrying a
+       ``pyvenv.cfg`` (the venv root), and that cfg's base-install
+       prefix when it lives under HOME (stdlib discovery goes through
+       the ``home =`` line). The RESOLVED interpreter location
+       contributes its directory too (a copied ELF under HOME, e.g.
+       ``--copies`` venvs or uv-managed bases). Every derived path is
+       dropped when it is not under HOME or intersects a credential
+       surface.
+    2. FIXED conventional tails: ``~/tools`` and ``~/venvs`` when they
+       exist. These cover PATH-resolved interpreters the argv cannot
+       name (``pytest`` found via ``~/tools/venv/bin`` on PATH — argv[0]
+       is just ``pytest``).
+
+    Deterministic: given the same (home, argv) the list is identical;
+    order is argv-derived first (most specific), tails last; deduped.
+    """
+    found: list[str] = []
+    if payload_argv:
+        payload_argv = list(payload_argv)
+        home_real = os.path.realpath(resolved_home)
+
+        def _under_home(path: str) -> bool:
+            return path == home_real or path.startswith(home_real + os.sep)
+
+        given = payload_argv[0]
+        if os.path.isabs(given) or os.path.exists(given):
+            # The AS-GIVEN location: the launcher's name for the
+            # interpreter. realpath would follow the symlink to the base
+            # install (often outside HOME, e.g. /usr/bin/python3) and
+            # lose the venv layout this derivation exists to grant.
+            as_given = os.path.dirname(os.path.abspath(given))
+            if _under_home(os.path.realpath(as_given)):
+                found.append(as_given)
+                current = as_given
+                for _ in range(_PYVENV_WALK_DEPTH):
+                    current_real = os.path.realpath(current)
+                    if not _under_home(current_real) or current_real == home_real:
+                        break
+                    cfg = os.path.join(current, "pyvenv.cfg")
+                    if os.path.isfile(cfg):
+                        found.append(current)
+                        prefix = _pyvenv_home_prefix(cfg)
+                        if prefix is not None and _under_home(os.path.realpath(prefix)):
+                            found.append(prefix)
+                        break
+                    current = os.path.dirname(current)
+            # The RESOLVED interpreter: a real ELF under HOME (copied
+            # venvs, uv-managed bases) needs its own directory granted.
+            resolved = os.path.realpath(given)
+            if _under_home(resolved):
+                found.append(os.path.dirname(resolved))
+    for tail in _TOOLCHAIN_TAILS:
+        candidate = os.path.join(resolved_home, tail)
+        if _exists_dir(candidate):
+            found.append(candidate)
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for candidate in found:
+        real = os.path.realpath(candidate)
+        if real in seen:
+            continue
+        seen.add(real)
+        if _intersects_credential_surface(real, resolved_home):
+            continue
+        ordered.append(candidate)
+    return ordered
 
 
 def _split_workdir(workdir: str, resolved_home: str) -> tuple[list[str], list[str]]:
@@ -1116,12 +1302,16 @@ def apply_tier() -> tuple[bool, str]:
     Returns (True, "") after a PROVEN enforcement, or (False, cause)
     without touching the process when the tier cannot apply. Never
     raises past LandlockError — the loader execs the payload unchanged
-    with the cause.
+    with the cause. The layout derives the payload's toolchain read
+    roots from THIS process's argv (the loader's own invocation shape,
+    QA-TERMINAL-JAIL-17) — build_layout's loader-argv detection does the
+    same thing; passing it explicitly here documents the contract and
+    keeps apply_tier correct even if sys.argv grows shapes.
     """
     if not landlock_enabled_from_environment():
         return False, ""
     try:
-        layout = build_layout()
+        layout = build_layout(payload_argv=_loader_payload_argv())
     except OSError as exc:
         return False, f"layout inspection failed: {exc}"
     if layout is None:
