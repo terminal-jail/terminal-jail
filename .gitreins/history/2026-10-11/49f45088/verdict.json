@@ -1,0 +1,120 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-17",
+  "task_title": "Landlock home-outside-workdir interpreter access",
+  "task_criteria": [
+    "Add a regression test and implementation so a payload interpreter under HOME outside the workdir can start through the auto-sandbox Landlock path without weakening credential-surface denial; preserve fail-closed behavior, keep engine/YAML and existing tests green, and document any host limitation honestly."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "dcd2e7dc230812650c3164bc7330564cd2460dda",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261011T224411.791493Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:45PM INF scanned ~6672821 bytes (6.67 MB) in 449ms\n5:45PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 221 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261011T224411.791493Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1949 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 24%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py ......................                        [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 47%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1920 chars omitted \u2014 24 line(s)] \u2026\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...........                             [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1939 passed, 10 skipped in 128.74s (0:02:08) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261011T224411.791493Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Add a regression test and implementation so a payload interpreter under HOME outside the workdir can start through the auto-sandbox Landlock path without weakening credential-surface denial; preserve fail-closed behavior, keep engine/YAML and existing tests green, and document any host limitation honestly.: Implementation (commit dcd2e7d, plugin/terminal_jail/interruptor/landlock.py): build_layout gains payload_argv (line 759-764) and read.extend(_toolchain_roots(...)) at line 831; _toolchain_roots (line 919) derives the venv root via pyvenv.cfg walk, the base-install prefix from the `home =` line, the resolved interpreter dir, plus fixed ~/tools & ~/venvs tails; _intersects_credential_surface (line 904) drops any derived root intersecting a credential surface in EITHER direction; _loader_payload_argv (line 741) extracts the payload after the first standalone `--`; apply_tier (line 1314) passes payload_argv=_loader_payload_argv(). REGRESSION TEST: plugin/test_landlock.py +382 lines / 10 new tests, incl. kernel test_toolchain_interpreter_starts_inside_the_domain (forked child, real Landlock domain, fixture home under XDG_RUNTIME_DIR so reads are denied by omission pre-fix). Reverting landlock.py to pre-fix makes 9/10 new tests FAIL (TypeError: build_layout() got unexpected kwarg 'payload_argv'; AttributeError: no _loader_payload_argv/_pyvenv_home_prefix) \u2014 genuine regression coverage. E2E probe with the real loader: copied interpreter under HOME outside workdir \u2192 PRE-FIX rc=126 'Permission denied', POST-FIX rc=0 'CFG-READ-OK'; ~/.ssh/id_rsa inside the domain \u2192 'SSH-DENIED'. Credential denial not weakened (probe): HOME never granted, .ssh/.aws/.config/terminal-jail never granted, no granted root contains a credential surface, clean ~/tools granted. Fail-closed preserved: apply_tier still returns (False, cause) without touching the process and the loader execs the payload unchanged (landlock.py:1299-1322). Tests green: full guard suite `.venv/bin/python -m pytest -x --tb=short` \u2192 1939 passed, 10 skipped, 0 failed in 150.32s; test_backend_parity.py + test_plugin.py + test_landlock_net.py \u2192 69 passed; test_landlock.py \u2192 127 passed, 1 skipped (skip = host verdict FULL not DEGRADED, unrelated). Docs: docs/backend-parity.md updated honestly (read allowlist, derived roots, credential carve, HOME never granted).\nThe Landlock home-outside-workdir interpreter fix is implemented with a genuine kernel-level regression test, verified end-to-end (pre-fix Errno 13 \u2192 post-fix start), preserves credential denial and fail-closed behavior, and keeps the full suite green (1939 passed, 0 failed).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Add a regression test and implementation so a payload interpreter under HOME outside the workdir can start through the auto-sandbox Landlock path without weakening credential-surface denial; preserve fail-closed behavior, keep engine/YAML and existing tests green, and document any host limitation honestly.: Implementation (commit dcd2e7d, plugin/terminal_jail/interruptor/landlock.py): build_layout gains payload_argv (line 759-764) and read.extend(_toolchain_roots(...)) at line 831; _toolchain_roots (line 919) derives the venv root via pyvenv.cfg walk, the base-install prefix from the `home =` line, the resolved interpreter dir, plus fixed ~/tools & ~/venvs tails; _intersects_credential_surface (line 904) drops any derived root intersecting a credential surface in EITHER direction; _loader_payload_argv (line 741) extracts the payload after the first standalone `--`; apply_tier (line 1314) passes payload_argv=_loader_payload_argv(). REGRESSION TEST: plugin/test_landlock.py +382 lines / 10 new tests, incl. kernel test_toolchain_interpreter_starts_inside_the_domain (forked child, real Landlock domain, fixture home under XDG_RUNTIME_DIR so reads are denied by omission pre-fix). Reverting landlock.py to pre-fix makes 9/10 new tests FAIL (TypeError: build_layout() got unexpected kwarg 'payload_argv'; AttributeError: no _loader_payload_argv/_pyvenv_home_prefix) \u2014 genuine regression coverage. E2E probe with the real loader: copied interpreter under HOME outside workdir \u2192 PRE-FIX rc=126 'Permission denied', POST-FIX rc=0 'CFG-READ-OK'; ~/.ssh/id_rsa inside the domain \u2192 'SSH-DENIED'. Credential denial not weakened (probe): HOME never granted, .ssh/.aws/.config/terminal-jail never granted, no granted root contains a credential surface, clean ~/tools granted. Fail-closed preserved: apply_tier still returns (False, cause) without touching the process and the loader execs the payload unchanged (landlock.py:1299-1322). Tests green: full guard suite `.venv/bin/python -m pytest -x --tb=short` \u2192 1939 passed, 10 skipped, 0 failed in 150.32s; test_backend_parity.py + test_plugin.py + test_landlock_net.py \u2192 69 passed; test_landlock.py \u2192 127 passed, 1 skipped (skip = host verdict FULL not DEGRADED, unrelated). Docs: docs/backend-parity.md updated honestly (read allowlist, derived roots, credential carve, HOME never granted).\nThe Landlock home-outside-workdir interpreter fix is implemented with a genuine kernel-level regression test, verified end-to-end (pre-fix Errno 13 \u2192 post-fix start), preserves credential denial and fail-closed behavior, and keeps the full suite green (1939 passed, 0 failed).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Add a regression test and implementation so a payload interpreter under HOME outside the workdir can start through the auto-sandbox Landlock path without weakening credential-surface denial; preserve fail-closed behavior, keep engine/YAML and existing tests green, and document any host limitation honestly.",
+                "status": "PASS",
+                "detail": "Implementation (commit dcd2e7d, plugin/terminal_jail/interruptor/landlock.py): build_layout gains payload_argv (line 759-764) and read.extend(_toolchain_roots(...)) at line 831; _toolchain_roots (line 919) derives the venv root via pyvenv.cfg walk, the base-install prefix from the `home =` line, the resolved interpreter dir, plus fixed ~/tools & ~/venvs tails; _intersects_credential_surface (line 904) drops any derived root intersecting a credential surface in EITHER direction; _loader_payload_argv (line 741) extracts the payload after the first standalone `--`; apply_tier (line 1314) passes payload_argv=_loader_payload_argv(). REGRESSION TEST: plugin/test_landlock.py +382 lines / 10 new tests, incl. kernel test_toolchain_interpreter_starts_inside_the_domain (forked child, real Landlock domain, fixture home under XDG_RUNTIME_DIR so reads are denied by omission pre-fix). Reverting landlock.py to pre-fix makes 9/10 new tests FAIL (TypeError: build_layout() got unexpected kwarg 'payload_argv'; AttributeError: no _loader_payload_argv/_pyvenv_home_prefix) \u2014 genuine regression coverage. E2E probe with the real loader: copied interpreter under HOME outside workdir \u2192 PRE-FIX rc=126 'Permission denied', POST-FIX rc=0 'CFG-READ-OK'; ~/.ssh/id_rsa inside the domain \u2192 'SSH-DENIED'. Credential denial not weakened (probe): HOME never granted, .ssh/.aws/.config/terminal-jail never granted, no granted root contains a credential surface, clean ~/tools granted. Fail-closed preserved: apply_tier still returns (False, cause) without touching the process and the loader execs the payload unchanged (landlock.py:1299-1322). Tests green: full guard suite `.venv/bin/python -m pytest -x --tb=short` \u2192 1939 passed, 10 skipped, 0 failed in 150.32s; test_backend_parity.py + test_plugin.py + test_landlock_net.py \u2192 69 passed; test_landlock.py \u2192 127 passed, 1 skipped (skip = host verdict FULL not DEGRADED, unrelated). Docs: docs/backend-parity.md updated honestly (read allowlist, derived roots, credential carve, HOME never granted).",
+                "resolution_probability": 0.1
+              }
+            ],
+            "summary": "The Landlock home-outside-workdir interpreter fix is implemented with a genuine kernel-level regression test, verified end-to-end (pre-fix Errno 13 \u2192 post-fix start), preserves credential denial and fail-closed behavior, and keeps the full suite green (1939 passed, 0 failed)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-17\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Add a regression test and implementation so a payload interpreter under HOME outside the workdir can start through the auto-sandbox Landlock path without weakening credential-surface denial; preserve fail-closed behavior, keep engine/YAML and existing tests green, and document any host limitation honestly.: Implementation (commit dcd2e7d, plugin/terminal_jail/interruptor/landlock.py): build_layout gains payload_argv (line 759-764) and read.extend(_toolchain_roots(...)) at line 831; _toolchain_roots (line 919) derives the venv root via pyvenv.cfg walk, the base-install prefix from the `home =` line, the resolved interpreter dir, plus fixed ~/tools & ~/venvs tails; _intersects_credential_surface (line 904) drops any derived root intersecting a credential surface in EITHER direction; _loader_payload_argv (line 741) extracts the payload after the first standalone `--`; apply_tier (line 1314) passes payload_argv=_loader_payload_argv(). REGRESSION TEST: plugin/test_landlock.py +382 lines / 10 new tests, incl. kernel test_toolchain_interpreter_starts_inside_the_domain (forked child, real Landlock domain, fixture home under XDG_RUNTIME_DIR so reads are denied by omission pre-fix). Reverting landlock.py to pre-fix makes 9/10 new tests FAIL (TypeError: build_layout() got unexpected kwarg 'payload_argv'; AttributeError: no _loader_payload_argv/_pyvenv_home_prefix) \u2014 genuine regression coverage. E2E probe with the real loader: copied interpreter under HOME outside workdir \u2192 PRE-FIX rc=126 'Permission denied', POST-FIX rc=0 'CFG-READ-OK'; ~/.ssh/id_rsa inside the domain \u2192 'SSH-DENIED'. Credential denial not weakened (probe): HOME never granted, .ssh/.aws/.config/terminal-jail never granted, no granted root contains a credential surface, clean ~/tools granted. Fail-closed preserved: apply_tier still returns (False, cause) without touching the process and the loader execs the payload unchanged (landlock.py:1299-1322). Tests green: full guard suite `.venv/bin/python -m pytest -x --tb=short` \u2192 1939 passed, 10 skipped, 0 failed in 150.32s; test_backend_parity.py + test_plugin.py + test_landlock_net.py \u2192 69 passed; test_landlock.py \u2192 127 passed, 1 skipped (skip = host verdict FULL not DEGRADED, unrelated). Docs: docs/backend-parity.md updated honestly (read allowlist, derived roots, credential carve, HOME never granted).\nThe Landlock home-outside-workdir interpreter fix is implemented with a genuine kernel-level regression test, verified end-to-end (pre-fix Errno 13 \u2192 post-fix start), preserves credential denial and fail-closed behavior, and keeps the full suite green (1939 passed, 0 failed).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-11T22:51:34.620551",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-11T22:51:34.638207+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 37145,
+        "truncated": false,
+        "source": "git show dcd2e7dc2308"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5461,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-17"
+  }
+}
