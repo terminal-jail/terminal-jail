@@ -1,5 +1,23 @@
 ## [Unreleased]
 
+### Added
+
+- **First incumbent-parity sweep artifact** (`docs/incumbent-parity-2026-10-12.md`,
+  PARITY-TJ-001): dated delta table across 8 capability rows (pre-exec command
+  judging, PID/user namespace, filesystem isolation incl. Landlock, network
+  egress, seccomp, private /proc, verdict telemetry/provenance, licensing) vs
+  bubblewrap 0.13.0, firejail 0.9.80, nsjail 3.6, Docker (moby 29.9.0)+gVisor
+  20261005.0, Anthropic sandbox-runtime 0.0.79, and OpenAI Codex 0.162.1 — all
+  incumbent versions read live from the GitHub releases API on 2026-10-12,
+  terminal-jail cells measured on the host the same day. Cadence (the board
+  row IS the cadence): re-run each release cut + quarterly. The same commit
+  refreshes `docs/capability-matrix.md`, which had gone stale against 1.3.0:
+  the fs-isolation and egress rows no longer call the shipped Landlock tiers
+  (TJ-GAP-082/083) "planned"/"unavailable today" — both carry the shipped
+  tier + the 2026-10-12 measured kernel-denial cell — and §4 gains the scoped
+  per-profile `bwrap-userns-restrict` AppArmor remedy (as documented by Codex
+  for Ubuntu 24.04/25.04) beside the host-wide sysctl.
+
 ## [1.3.0] — 2026-10-08
 
 Release range v1.2.0..HEAD: 15 feat / 18 fix / 0 breaking (semver MINOR) plus
