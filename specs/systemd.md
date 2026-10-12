@@ -48,13 +48,17 @@ After installing or changing any drop-in, run `systemctl daemon-reload` before r
 
 ## Exact drop-in content
 
-The shipped file (`systemd/90-terminal-jail-hardening.conf`) is the **lightweight baseline** — only the four directives below are active. The full hardening profile (`PrivateUsers`, `RestrictNamespaces`, `CapabilityBoundingSet`, `RestrictAddressFamilies`, `ProtectSystem=strict`, `ProtectHome=true`, `ReadWritePaths=`, `MemoryMax=`) is present in the shipped file but commented out with rationale, pending per-host verification (see `docs/deploy-to-karahermes.md` for the staged activation procedure). The shipped file is the source of truth for what is active; keep this example in sync with it.
+The shipped file (`systemd/90-terminal-jail-hardening.conf`) is the **lightweight baseline** — only the fourteen directives below are active: the four baseline controls plus the ten zero-risk kernel-interface hardening directives (`RestrictSUIDSGID`, `RestrictRealtime`, `ProtectClock`, `ProtectHostname`, `ProtectKernelLogs`, `ProtectKernelModules`, `ProtectKernelTunables`, `LockPersonality`, `MemoryDenyWriteExecute`, `SystemCallArchitectures=native`) added by TJ-GAP-023. The full hardening profile (`PrivateUsers`, `RestrictNamespaces`, `CapabilityBoundingSet`, `RestrictAddressFamilies`, `ProtectSystem=strict`, `ProtectHome=true`, `ReadWritePaths=`, `MemoryMax=`) is present in the shipped file but commented out with rationale, pending per-host verification (see `docs/deploy-to-karahermes.md` for the staged activation procedure). The shipped file is the source of truth for what is active; keep this example in sync with it.
 
 ```ini
 # /etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf
-# ⚠️ LIGHTWEIGHT HARDENING (4 active directives) — NOT a PID namespace
+# ⚠️ LIGHTWEIGHT HARDENING (14 active directives) — NOT a PID namespace
 # isolation boundary. Active: ProtectProc=invisible, NoNewPrivileges=true,
-# ProtectControlGroups=true, TasksMax=256.
+# ProtectControlGroups=true, TasksMax=256, RestrictSUIDSGID=true,
+# RestrictRealtime=true, ProtectClock=true, ProtectHostname=true,
+# ProtectKernelLogs=true, ProtectKernelModules=true,
+# ProtectKernelTunables=true, LockPersonality=true,
+# MemoryDenyWriteExecute=true, SystemCallArchitectures=native.
 
 [Service]
 # Namespace and process-visibility containment
@@ -68,9 +72,21 @@ ProtectControlGroups=true
 
 # Bound an agent loop or fork bomb before it can exhaust the host.
 TasksMax=256
+
+# Kernel-interface hardening — zero-risk for this gateway (tier-2).
+RestrictSUIDSGID=true
+RestrictRealtime=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
 ```
 
-The sections below document the full staged profile — directives named there are **not** enforced as shipped; activate them per-host only after verification.
+The sections below additionally document the staged directives (`PrivateUsers`, `RestrictNamespaces`, `CapabilityBoundingSet`, and the network/fs profile) — those remain **not** enforced as shipped; activate them per-host only after verification. The ten kernel-interface directives above are active as shipped (see the directive reference and compatibility matrix below).
 
 ### Deliberate correction: `CloseOnExec=true`
 
@@ -96,6 +112,16 @@ For descriptor-passing services, separately audit the service's socket activatio
 | `ProtectControlGroups=` | `true` | 214 | Protects the host cgroup hierarchy and is the correct substitute for the requested “cgroup namespace” goal. | Altering cgroup limits/accounting or observing/manipulating host cgroup state. |
 | `MemoryMax=` | `1G` | 226 | Applies a cgroup v2 memory ceiling. Tune from observed gateway RSS plus a safe concurrency margin. | Host memory exhaustion and OOM cascades from runaway commands or agent loops. |
 | `TasksMax=` | `256` | 226 | Caps the total processes/threads in the service cgroup. Tune for the Python runtime, worker pool, Git subprocesses, and expected concurrency. | Fork bombs, unbounded worker/thread creation, and PID exhaustion. |
+| `RestrictSUIDSGID=` | `true` | 242 | Denies setting setuid/setgid bits on files and acquiring setuid-based privilege at exec. | Privilege escalation through setuid/setgid files or file capabilities. |
+| `RestrictRealtime=` | `true` | 231 | Denies realtime scheduling requests, so descendants cannot monopolize the scheduler. | Scheduler starvation and host degradation by a runaway descendant. |
+| `ProtectClock=` | `true` | 245 | Denies requests to change the system or hardware clock and gates the clock device nodes. | Clock tampering that corrupts log timelines, lease/token expiry, and cron semantics. |
+| `ProtectHostname=` | `true` | 242 | Denies changing the system hostname or NIS domain name. | Host-identity tampering from a compromised descendant. |
+| `ProtectKernelLogs=` | `true` | 244 | Removes access to the kernel log ring buffer (`klogctl`, `/proc/kmsg`, `/dev/kmsg` writes). | Kernel-log disclosure and log-injection/hiding from a compromised descendant. |
+| `ProtectKernelModules=` | `true` | 232 | Denies explicit kernel module load and unload operations. | Kernel-privilege escalation and persistence via module loading. |
+| `ProtectKernelTunables=` | `true` | 232 | Makes `/proc/sys`, `/sys`, and related kernel-configuration views read-only. | Tampering with kernel settings (sysctls) from a compromised descendant. |
+| `LockPersonality=` | `true` | 235 | Locks the Linux execution-domain (`personality`) so it cannot be changed after exec. | Emulation/personality switching used to bypass syscall filtering or architecture restrictions. |
+| `MemoryDenyWriteExecute=` | `true` | 231 | Denies creating writable-and-executable memory mappings. | Runtime memory-mapped code injection into the service. |
+| `SystemCallArchitectures=` | `native` | 209 | Restricts syscall entry to the native architecture set (no 32-bit compat/ABI emulation). | ABI-confusion attacks that smuggle syscalls past filters via a foreign architecture. |
 | `CapabilityBoundingSet=` | empty assignment | 187 | An empty assignment clears the permitted capability bounding set for the service and its descendants. Capabilities cannot be regained after exec. | Kernel-privileged operations such as mount, raw networking, module loading, time changes, and DAC bypass. |
 
 `CapabilityBoundingSet=` is intentionally an empty assignment, not `~CAP_SYS_ADMIN`. Dropping all capabilities is simpler to audit and avoids forgetting a less-obvious capability. If the vendor unit currently specifies `AmbientCapabilities=`, `CapabilityBoundingSet=` will make those capabilities unavailable; resolve that incompatibility rather than weakening the bounding set by default.
@@ -194,6 +220,16 @@ Ubuntu package revisions vary over an LTS lifetime; verify the installed manager
 | `ProtectControlGroups=true` | Supported | Supported | Correct cgroup-protection control; requires systemd >= 214. |
 | `MemoryMax=` / `TasksMax=` | Supported | Supported | Requires systemd >= 226; needs cgroup v2 for the intended unified behavior. |
 | Empty `CapabilityBoundingSet=` | Supported | Supported | Requires systemd >= 187. |
+| `RestrictSUIDSGID=true` | Supported | Supported | Requires systemd >= 242. |
+| `RestrictRealtime=true` | Supported | Supported | Requires systemd >= 231. |
+| `ProtectClock=true` | Supported | Supported | Requires systemd >= 245. |
+| `ProtectHostname=true` | Supported | Supported | Requires systemd >= 242. |
+| `ProtectKernelLogs=true` | Supported | Supported | Requires systemd >= 244. |
+| `ProtectKernelModules=true` | Supported | Supported | Requires systemd >= 232. |
+| `ProtectKernelTunables=true` | Supported | Supported | Requires systemd >= 232. |
+| `LockPersonality=true` | Supported | Supported | Requires systemd >= 235. |
+| `MemoryDenyWriteExecute=true` | Supported | Supported | Requires systemd >= 231. |
+| `SystemCallArchitectures=native` | Supported | Supported | Requires systemd >= 209. |
 | `CloseOnExec=true` as a service hardening setting | Not supported | Not supported | Do not use; it is not the cgroup-namespace mechanism. |
 
 On either release, `PrivateUsers`, `ProtectProc`, mount namespacing, and cgroup resource controls may be constrained by an unusual host/container environment. Verify on the actual target, not only in a development container. In particular, a containerized systemd manager may not be able to create the required namespaces or enforce cgroup limits delegated by its parent.
@@ -295,34 +331,53 @@ Run all checks against the effective, loaded unit; do not infer success from the
   Expected (shipped baseline): the score is **no worse than the
   pre-deployment baseline** for this unit (record the pre-deployment score
   during the dry run above). The shipped drop-in is deliberately lightweight
-  — 4 active directives — so it does **not** reach the `9.0` target on its
+  — 14 active directives — so it does **not** reach the `9.0` target on its
   own. The `9.0` or higher target (0–10 exposure scale, higher is better)
-  applies only to the **staged full profile** (all 12 directives active after
+  applies only to the **staged full profile** (all 22 directives active after
   per-host verification). The exact score is version-dependent and may remain
   below 10 even for the full profile because this specification intentionally
   does not force unrelated controls such as `SystemCallFilter=`,
-  `PrivateDevices=`, `PrivateTmp=`, `LockPersonality=`, or
-  `MemoryDenyWriteExecute=`. Treat a score drop below the pre-deployment
-  baseline as a regression signal, not a reason to add settings without
-  compatibility testing.
+  `PrivateDevices=`, or `PrivateTmp=`. Treat a score drop below the
+  pre-deployment baseline as a regression signal, not a reason to add
+  settings without compatibility testing.
 
-- [ ] Confirm all requested effective properties — **[shipped] baseline (4 active directives)**:
+- [ ] Confirm all requested effective properties — **[shipped] baseline (14 active directives)**:
 
   ```bash
   systemctl show hermes-gateway.service \
     -p ProtectProc \
     -p NoNewPrivileges \
     -p ProtectControlGroups \
-    -p TasksMax
+    -p TasksMax \
+    -p RestrictSUIDSGID \
+    -p RestrictRealtime \
+    -p ProtectClock \
+    -p ProtectHostname \
+    -p ProtectKernelLogs \
+    -p ProtectKernelModules \
+    -p ProtectKernelTunables \
+    -p LockPersonality \
+    -p MemoryDenyWriteExecute \
+    -p SystemCallArchitectures
   ```
 
-  Expected values (all four must match a deployment of the shipped conf):
+  Expected values (all fourteen must match a deployment of the shipped conf):
 
   ```text
   ProtectProc=invisible
   NoNewPrivileges=yes
   ProtectControlGroups=yes
   TasksMax=256
+  RestrictSUIDSGID=yes
+  RestrictRealtime=yes
+  ProtectClock=yes
+  ProtectHostname=yes
+  ProtectKernelLogs=yes
+  ProtectKernelModules=yes
+  ProtectKernelTunables=yes
+  LockPersonality=yes
+  MemoryDenyWriteExecute=yes
+  SystemCallArchitectures=native
   ```
 
 - [ ] Confirm all requested effective properties — **[staged] full profile (8 directives — NOT active in the shipped conf)**:
@@ -356,7 +411,7 @@ Run all checks against the effective, loaded unit; do not infer success from the
 
   On a deployment of the shipped conf, the staged properties report their
   systemd defaults (or the gateway unit's own values) — that is expected, not
-  a failure. A deployment is checklist-complete when the 4/4 baseline items
+  a failure. A deployment is checklist-complete when the 14/14 baseline items
   match and the staged items carry their marker.
 
   `systemctl show` can normalize booleans and address-family masks differently across releases. Compare the effective behavior and absence of forbidden families, not just whitespace/order in its rendering.
@@ -421,6 +476,13 @@ flowchart TB
 > and the `K` memory half are staged — commented out with rationale until
 > per-host verification. The verification checklist above is split into
 > `[shipped] baseline` and `[staged] full profile` sections accordingly.
+>
+> The shipped conf additionally activates ten kernel-interface hardening
+> directives (`RestrictSUIDSGID`, `RestrictRealtime`, `ProtectClock`,
+> `ProtectHostname`, `ProtectKernelLogs`, `ProtectKernelModules`,
+> `ProtectKernelTunables`, `LockPersonality`, `MemoryDenyWriteExecute`,
+> `SystemCallArchitectures=native`) that are not separate layers in this
+> diagram — see the directive reference above.
 
 ## Operational response to a failure
 

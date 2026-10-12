@@ -2,7 +2,7 @@
 """Classify, per host, which staged systemd directives it accepts AND enforces.
 
 TJ-GAP-052. specs/systemd.md ships the gateway hardening drop-in as a
-lightweight baseline (4 active directives) and stages the stronger profile
+lightweight baseline (14 active directives) and stages the stronger profile
 commented out in systemd/90-terminal-jail-hardening.conf, because those
 directives "require per-host verification" and must be verified "on the actual
 target, not only in a development container". This probe performs that
