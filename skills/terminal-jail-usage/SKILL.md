@@ -98,7 +98,7 @@ directives) — NOT a PID namespace boundary as shipped.
 | JSON bridge | `plugin/terminal_jail/interruptor_bridge.py` | stdin/stdout JSON wrapper over the engine — safe to script, never executes. THE oracle for rule probes. |
 | Hermes plugin | `plugin/__init__.py` | Observability hooks only (pre_tool_call logs, transform returns None). |
 | Deploy shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway (setpriv + seccomp + interruptor). Host-specific. |
-| systemd drop-in | `systemd/90-terminal-jail-hardening.conf` | 4 active directives; full profile commented out. |
+| systemd drop-in | `systemd/90-terminal-jail-hardening.conf` | 14 active directives (4 baseline + 10 kernel-interface tier-2); full profile commented out. |
 
 ## Quick start (real commands, verified on Ubuntu 26.04 / kernel 7.0.0-30)
 
