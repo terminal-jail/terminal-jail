@@ -20,7 +20,18 @@ This CLI is the enforcement point:
                          per-row line diagnostics naming the field, the row
                          id, and the source line. Null/absent priority or
                          status is allowed and reported as a note, not an
-                         error. Exit 2 is reserved for usage/IO errors.
+                         error. Exit 2 is reserved for usage/IO errors. A
+                         pending P0/P1 row must also carry an evidence body
+                         (a non-blank description or detail) and a creator
+                         (a non-blank created_by): JSONL-NORM-003 rejects a
+                         pending P0/P1 row missing either, naming the row
+                         id, the source line, and each missing field. Only
+                         "pending" rows are gated (historical completed/
+                         blocked rows are grandfathered), and any annotation
+                         containing "superseded" (case-insensitive) is
+                         exempt. Pending P2/P3 rows missing the same fields
+                         are decided as WARNING-ONLY: each gets a warning
+                         line on stderr and the run still exits 0.
     --compact            fail closed -- nothing is written unless the board
                          validates. Then atomically rewrite the file keeping
                          the LAST raw row for each id, ordered by the source
@@ -68,6 +79,11 @@ PRIORITY_PATTERN = re.compile(r"^P[0-5]$")
 CANONICAL_STATUSES = ("pending", "complete", "blocked")
 PRIORITY_INT_TO_CODE = {0: "P0", 1: "P1", 2: "P2", 3: "P3", 4: "P4", 5: "P5"}
 LEGACY_STATUS_ALIASES = {"completed": "complete"}
+# Evidence gate (JSONL-NORM-003): a pending P0/P1 row is REJECTED without an
+# evidence body and a creator; pending P2/P3 rows are WARNING-ONLY (decided:
+# warn on stderr, never reject). Non-pending rows are grandfathered entirely.
+EVIDENCE_PRIORITY_REJECT = ("P0", "P1")
+EVIDENCE_PRIORITY_WARN = ("P2", "P3")
 
 
 def default_target() -> Path:
@@ -92,6 +108,8 @@ class SchemaViolation:
     row_id: str
     field: str
     detail: str
+    # "schema" = vocabulary/type defect; "evidence" = JSONL-NORM-003 gate.
+    kind: str = "schema"
 
 
 @dataclass
@@ -104,6 +122,11 @@ class BoardReport:
     problems: list[str] = field(default_factory=list)
     duplicates: dict[str, list[int]] = field(default_factory=dict)
     schema_violations: list[SchemaViolation] = field(default_factory=list)
+    # Evidence-gate rejections (JSONL-NORM-003): pending P0/P1 rows without
+    # an evidence body or creator.
+    evidence_violations: list[SchemaViolation] = field(default_factory=list)
+    # Advisory counterpart for pending P2/P3 rows (warn, never reject).
+    evidence_warnings: list[SchemaViolation] = field(default_factory=list)
     # line_no -> [(field, old value, new value), ...] the migration may fix.
     schema_migrations: dict[int, list[tuple[str, object, object]]] = field(
         default_factory=dict
@@ -113,7 +136,12 @@ class BoardReport:
 
     @property
     def ok(self) -> bool:
-        return not self.problems and not self.duplicates and not self.schema_violations
+        return (
+            not self.problems
+            and not self.duplicates
+            and not self.schema_violations
+            and not self.evidence_violations
+        )
 
 
 def split_lines(data: bytes) -> list[bytes]:
@@ -263,6 +291,69 @@ def _scan_row_schema(
                 ("status", status, LEGACY_STATUS_ALIASES[status])
             )
 
+    _scan_evidence(report, line_no, row_id, value, priority, status)
+
+
+def _is_blank(value: object) -> bool:
+    """True when ``value`` is missing, not a string, empty, or whitespace."""
+    return not isinstance(value, str) or not value.strip()
+
+
+def _has_superseded_annotation(value: dict) -> bool:
+    """True when any entry of ``annotations`` mentions 'superseded'."""
+    annotations = value.get("annotations")
+    if not isinstance(annotations, list):
+        return False
+    return any("superseded" in str(annotation).lower() for annotation in annotations)
+
+
+def _scan_evidence(
+    report: BoardReport,
+    line_no: int,
+    row_id: str,
+    value: dict,
+    priority: object,
+    status: object,
+) -> None:
+    """Evidence gate for pending P0-P3 rows (JSONL-NORM-003).
+
+    A pending P0/P1 row must carry an evidence body (non-blank
+    ``description`` or ``detail``) AND a creator (non-blank
+    ``created_by``) -- the verdict records each missing field. Pending
+    P2/P3 rows missing the same fields are WARNING-ONLY (decided for
+    JSONL-NORM-003): they emit a warning, never a rejection. Rows with
+    any other status are grandfathered, as are rows carrying a
+    "superseded" annotation (case-insensitive).
+    """
+    if status != "pending":
+        return
+    gated = EVIDENCE_PRIORITY_REJECT + EVIDENCE_PRIORITY_WARN
+    if priority not in gated:
+        return
+    if _has_superseded_annotation(value):
+        return
+
+    missing: list[str] = []
+    if _is_blank(value.get("description")) and _is_blank(value.get("detail")):
+        missing.append("description/detail (no evidence body)")
+    if _is_blank(value.get("created_by")):
+        missing.append("created_by (no creator)")
+    if not missing:
+        return
+
+    field = "evidence"
+    violation = SchemaViolation(
+        line_no=line_no,
+        row_id=row_id,
+        field=field,
+        detail=f"missing {', '.join(missing)}",
+        kind="evidence",
+    )
+    if priority in EVIDENCE_PRIORITY_REJECT:
+        report.evidence_violations.append(violation)
+    else:
+        report.evidence_warnings.append(violation)
+
 
 def format_diagnostics(report: BoardReport) -> list[str]:
     """Human-readable validation report (path, defects, verdict)."""
@@ -283,6 +374,14 @@ def format_diagnostics(report: BoardReport) -> list[str]:
     if report.schema_violations:
         out.append(f"schema violations ({len(report.schema_violations)}):")
         for violation in report.schema_violations:
+            out.append(
+                f"  line {violation.line_no}: {violation.row_id}: "
+                f"{violation.field} {violation.detail}"
+            )
+
+    if report.evidence_violations:
+        out.append(f"evidence violations ({len(report.evidence_violations)}):")
+        for violation in report.evidence_violations:
             out.append(
                 f"  line {violation.line_no}: {violation.row_id}: "
                 f"{violation.field} {violation.detail}"
@@ -311,7 +410,22 @@ def format_diagnostics(report: BoardReport) -> list[str]:
         )
         if report.schema_violations:
             fail += f", {len(report.schema_violations)} schema violation(s)"
+        if report.evidence_violations:
+            fail += f", {len(report.evidence_violations)} evidence violation(s)"
         out.append(fail)
+    return out
+
+
+def evidence_warning_lines(report: BoardReport) -> list[str]:
+    """Advisory lines (JSONL-NORM-003) for pending P2/P3 rows, never fatal."""
+    if not report.evidence_warnings:
+        return []
+    out = [f"evidence warnings ({len(report.evidence_warnings)}):"]
+    for violation in report.evidence_warnings:
+        out.append(
+            f"  line {violation.line_no}: {violation.row_id}: "
+            f"{violation.field} {violation.detail}"
+        )
     return out
 
 
@@ -514,7 +628,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         description=(
             "Validate (and optionally compact/normalize) the canonical JSONL "
             "task board: exactly one row per task id, P-code priorities, "
-            "canonical statuses."
+            "canonical statuses, and (JSONL-NORM-003) an evidence body plus "
+            "creator on pending P0/P1 rows -- P2/P3 gaps are WARNING-ONLY "
+            "unless --strict is passed."
         ),
     )
     parser.add_argument(
@@ -538,6 +654,14 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
             "one-shot JSONL-NORM-002 normalization: bare int priorities -> "
             '"P0".."P5", legacy "completed" -> "complete" (line-targeted, '
             "atomic; refuses unless the board parses and re-validates)"
+        ),
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "also reject on advisory findings, i.e. pending P2/P3 rows "
+            "without an evidence body or creator (default: WARNING-ONLY)"
         ),
     )
     return parser.parse_args(argv)
@@ -581,8 +705,22 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: migrate failed, file untouched: {exc}", file=sys.stderr)
             return EXIT_ERROR
 
+    # --strict (advisory opt-in): pending P2/P3 evidence gaps become
+    # rejections instead of stderr warnings (JSONL-NORM-003 decision).
+    if args.strict and report.evidence_warnings:
+        report.evidence_violations.extend(report.evidence_warnings)
+        report.evidence_warnings = []
+
     for line in format_diagnostics(report):
         print(line)
+    for line in evidence_warning_lines(report):
+        print(line, file=sys.stderr)
+    if report.evidence_warnings:
+        print(
+            "WARNING: pending P2/P3 evidence gaps are advisory, not fatal "
+            "(pass --strict to reject)",
+            file=sys.stderr,
+        )
     return EXIT_OK if report.ok else EXIT_INVALID
 
 

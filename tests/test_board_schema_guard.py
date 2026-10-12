@@ -1,4 +1,4 @@
-"""Schema tests for scripts/board_id_guard.py (JSONL-NORM-002).
+"""Schema tests for scripts/board_id_guard.py (JSONL-NORM-002/-003).
 
 The board's ``priority`` field drifted between "P1"-style strings and bare
 ints, and ``status`` still carried the legacy ``completed`` synonym next to
@@ -11,6 +11,13 @@ row away from being wrong. These tests pin the guard's schema contract:
 - --migrate-schema normalizes ONLY the offending lines (line-targeted,
   each line keeping its own \\u-escaping style), re-validates before the
   atomic replace, prints a before/after census, and is idempotent.
+
+The evidence gate (JSONL-NORM-003): a pending P0/P1 row must carry an
+evidence body (non-blank description or detail) AND a creator (non-blank
+created_by); the verdict names row id, source line, and each missing
+field. Completed/blocked rows are grandfathered, any "superseded"
+annotation (case-insensitive) is exempt, and pending P2/P3 gaps are
+WARNING-ONLY on stderr (exit 0) unless --strict is passed.
 
 Tests never write to the real board: every case runs against a tmp_path
 fixture.
@@ -104,7 +111,11 @@ def test_validate_rejects_bare_int_priority_and_legacy_status(tmp_path):
 
 
 def test_validate_allows_canonical_vocabulary(tmp_path):
-    """P0..P5 strings and pending/complete/blocked all validate cleanly."""
+    """P0..P5 strings and pending/complete/blocked all validate cleanly.
+
+    Fixture rows carry a minimal evidence body + creator: the JSONL-NORM-003
+    evidence gate applies on top of the vocabulary check.
+    """
     pairs = [
         ("pending", "P0"),
         ("complete", "P1"),
@@ -114,7 +125,13 @@ def test_validate_allows_canonical_vocabulary(tmp_path):
         ("pending", "P5"),
     ]
     rows = [
-        board_row(id=f"TJ-NORM-{n:03d}", status=status, priority=priority)
+        board_row(
+            id=f"TJ-NORM-{n:03d}",
+            status=status,
+            priority=priority,
+            description=f"vocabulary fixture {n}",
+            created_by="test fixture",
+        )
         for n, (status, priority) in enumerate(pairs, start=1)
     ]
     board = write_board_file(tmp_path, rows)
@@ -160,6 +177,174 @@ def test_validate_rejects_unmappable_and_wrongly_typed_values(tmp_path):
     assert "line 3: TJ-NORM-009: status must be a string (got int)" in text
     # None of these may offer a migration: only 0-5 ints and 'completed' do.
     assert "migrated:" not in result.stdout
+
+
+def test_evidence_compliant_pending_p1_write_passes(tmp_path):
+    """A pending P1 row with a real body and creator validates cleanly."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-001",
+                title="evidence-backed task",
+                status="pending",
+                priority="P1",
+                description="Fail-closed finding with reproduction steps.",
+                created_by="pipeline audit 2026-10-01",
+            ),
+            # detail-only body also satisfies the evidence-body half.
+            board_row(
+                id="TJ-EV-002",
+                status="pending",
+                priority="P0",
+                detail="Fingerprint and staged artifact path.",
+                created_by="foreman",
+            ),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 0
+    text = combined_output(result)
+    assert "OK: 2 rows, 2 unique ids" in text
+    assert "evidence violations" not in text
+    assert "evidence warnings" not in text
+
+
+def test_evidence_rejects_pending_p1_without_body_or_creator(tmp_path):
+    """The verdict names the row id, the line, and each missing field."""
+    board = write_board_file(
+        tmp_path,
+        [
+            # Both gaps: empty description + whitespace detail + null creator.
+            board_row(
+                id="TJ-EV-003",
+                status="pending",
+                priority="P1",
+                description="",
+                detail="   ",
+                created_by=None,
+            ),
+            # Creator-only gap: a real description still needs a creator.
+            board_row(
+                id="TJ-EV-004",
+                status="pending",
+                priority="P0",
+                description="Has a body but no owner.",
+            ),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    text = combined_output(result)
+    assert (
+        "line 1: TJ-EV-003: evidence missing "
+        "description/detail (no evidence body), created_by (no creator)" in text
+    )
+    assert "line 2: TJ-EV-004: evidence missing created_by (no creator)" in text
+    assert "evidence violations (2):" in text
+    assert "2 evidence violation(s)" in text
+
+
+def test_evidence_completed_p1_legacy_row_is_grandfathered(tmp_path):
+    """Only pending rows are gated; historical complete/blocked pass."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(id="TJ-EV-005", status="complete", priority="P1"),
+            board_row(id="TJ-EV-006", status="blocked", priority="P0"),
+            board_row(id="TJ-EV-007", priority="P1"),  # no status at all
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 0
+    text = combined_output(result)
+    assert "OK: 3 rows, 3 unique ids" in text
+    assert "evidence violations" not in text
+    assert "evidence warnings" not in text
+
+
+def test_evidence_pending_p2_gap_warns_on_stderr_but_exits_zero(tmp_path):
+    """P2/P3 enforcement is WARNING-ONLY (decided): stderr line, exit 0."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(id="TJ-EV-008", status="pending", priority="P2"),
+            board_row(id="TJ-EV-009", status="pending", priority="P3"),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 0
+    assert "OK: 2 rows, 2 unique ids" in result.stdout
+    assert "evidence violations" not in result.stdout
+    assert "evidence warnings (2):" in result.stderr
+    assert "line 1: TJ-EV-008: evidence missing" in result.stderr
+    assert "advisory, not fatal" in result.stderr
+
+
+def test_evidence_superseded_annotation_grandfathers_pending_p1(tmp_path):
+    """Any annotation mentioning 'superseded' (any case) exempts the row."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-010",
+                status="pending",
+                priority="P1",
+                annotations=["superseded by TJ-GAP-001"],
+            ),
+            board_row(
+                id="TJ-EV-011",
+                status="pending",
+                priority="P1",
+                annotations=["SUPERSEDED by later work"],
+            ),
+            # A non-list annotations value is not an exemption.
+            board_row(
+                id="TJ-EV-012",
+                status="pending",
+                priority="P1",
+                annotations="superseded",
+            ),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    text = combined_output(result)
+    assert "line 1: TJ-EV-010" not in text
+    assert "line 2: TJ-EV-011" not in text
+    assert "line 3: TJ-EV-012: evidence missing" in text
+    assert "evidence violations (1):" in text
+
+
+def test_evidence_non_string_body_values_count_as_missing(tmp_path):
+    """A dict detail (real-board shape) is not an evidence body."""
+    row = (
+        b'{"id": "TJ-EV-013", "status": "pending", "priority": "P1", '
+        b'"detail": {"fingerprint": "abc"}}'
+    )
+    board = write_board_file(tmp_path, [row])
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    assert (
+        "line 1: TJ-EV-013: evidence missing "
+        "description/detail (no evidence body)" in combined_output(result)
+    )
+
+
+def test_evidence_strict_flag_rejects_pending_p2_gaps(tmp_path):
+    """--strict promotes the advisory P2/P3 findings to rejections."""
+    board = write_board_file(
+        tmp_path,
+        [board_row(id="TJ-EV-014", status="pending", priority="P2")],
+    )
+    advisory = run_guard(str(board))
+    assert advisory.returncode == 0
+    strict = run_guard("--strict", str(board))
+    assert strict.returncode == 1
+    text = combined_output(strict)
+    assert "line 1: TJ-EV-014: evidence missing" in text
+    assert "evidence violations (1):" in text
+    assert "evidence warnings" not in text
 
 
 # -- migration: line-targeted rewrite ---------------------------------
@@ -266,16 +451,31 @@ def test_migrated_board_revalidates_clean(tmp_path):
     board = write_board_file(
         tmp_path,
         [
-            board_row(id="TJ-NORM-001", status="pending", priority=0),
+            board_row(
+                id="TJ-NORM-001",
+                status="pending",
+                priority=0,
+                description="pre-migration int priority",
+                created_by="test fixture",
+            ),
             board_row(id="TJ-NORM-002", status="completed", priority=1),
             board_row(id="TJ-NORM-003", status="blocked", priority=None),
+            # The surviving pending P0 row needs an evidence body + creator
+            # for the post-migration validate to pass (JSONL-NORM-003).
+            board_row(
+                id="TJ-NORM-004",
+                status="pending",
+                priority="P4",
+                description="post-migration evidence",
+                created_by="test fixture",
+            ),
         ],
     )
     assert run_guard(str(board)).returncode == 1
     assert run_guard("--migrate-schema", str(board)).returncode == 0
     follow_up = run_guard(str(board))
     assert follow_up.returncode == 0
-    assert "OK: 3 rows, 3 unique ids" in follow_up.stdout
+    assert "OK: 4 rows, 4 unique ids" in follow_up.stdout
     assert "schema violations" not in combined_output(follow_up)
 
 
@@ -310,3 +510,10 @@ def test_guard_module_exports_schema_constants():
     }
     assert module.CANONICAL_STATUSES == ("pending", "complete", "blocked")
     assert module.LEGACY_STATUS_ALIASES == {"completed": "complete"}
+
+
+def test_guard_module_exports_evidence_gate_constants():
+    """The JSONL-NORM-003 scope tables are importable and pinned."""
+    module = load_guard_module()
+    assert module.EVIDENCE_PRIORITY_REJECT == ("P0", "P1")
+    assert module.EVIDENCE_PRIORITY_WARN == ("P2", "P3")
