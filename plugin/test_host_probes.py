@@ -23,6 +23,8 @@ tests at the bottom (CI runs -m "not integration").
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -287,14 +289,33 @@ class TestFsDirectClassification:
 # ── End-to-end through the real CLI (host-conditional) ─────────────────────
 
 
-def _run_probe_through_cli(script: Path) -> subprocess.CompletedProcess[str]:
+def _run_probe_through_cli(
+    script: Path, launch_python: str
+) -> subprocess.CompletedProcess[str]:
+    """Run a probe through ./standalone/terminal-jail as the docs do.
+
+    ``launch_python`` is the payload interpreter explicitly (see
+    TestJailedProbesThroughCli._launch_python): the tier launch chain
+    needs an interpreter whose symlink target is executable for the
+    namespace payload, and a dev checkout's venv python may not be.
+
+    System paths are PREPENDED to PATH for the same reason: the tier
+    tail (QA-TERMINAL-JAIL-18) resolves bare ``python3`` from PATH, and
+    a test session whose PATH puts a venv first (venvs under a 0700/0750
+    home, or a harness venv) hands the payload an interpreter nobody uid
+    cannot exec. A user shell resolves ``python3`` to the system
+    interpreter; the composed-launch test drives the same contract.
+    """
+    env = dict(os.environ)
+    env["PATH"] = "/usr/bin:/bin:" + env.get("PATH", "")
     return subprocess.run(
-        [str(CLI_SCRIPT), sys.executable, str(script)],
+        [str(CLI_SCRIPT), launch_python, str(script)],
         cwd=str(PROJECT_ROOT),
         capture_output=True,
         text=True,
         timeout=120,
         check=False,
+        env=env,
     )
 
 
@@ -319,15 +340,33 @@ class TestJailedProbesThroughCli:
                 "Degradation)"
             )
 
+    @staticmethod
+    def _launch_python() -> str:
+        """A payload interpreter the launch can exec, with a readable reason.
+
+        The probe runs under the tier launch chain; a venv python whose
+        symlink target lives under a 0700/0750 home (a dev checkout's
+        venv) is unexecutable for the namespace's nobody uid ONCE the
+        world-traversable checkout composes the Landlock tier tail —
+        QA-TERMINAL-JAIL-18 reproduced that exec-denial as exit 126 with
+        no probe output. /usr/bin/python3 is o+rx on standard layouts, so
+        it is the contract interpreter here; the venv python is only a
+        fallback for hosts without a system interpreter (where the venv
+        is necessarily the executable thing).
+        """
+        if os.access("/usr/bin/python3", os.X_OK):
+            return "/usr/bin/python3"
+        return sys.executable
+
     def test_pidns_probe_jailed_reports_jail_aware(self) -> None:
-        result = _run_probe_through_cli(PIDNS_PROBE)
+        result = _run_probe_through_cli(PIDNS_PROBE, self._launch_python())
         self._skip_on_host_degradation(result)
         assert result.returncode == 0, result.stderr
         assert result.stdout.startswith("JAIL-AWARE"), result.stdout
         assert "UNKNOWN" not in result.stdout
 
     def test_fs_probe_jailed_reports_jail_aware(self) -> None:
-        result = _run_probe_through_cli(FS_PROBE)
+        result = _run_probe_through_cli(FS_PROBE, self._launch_python())
         self._skip_on_host_degradation(result)
         assert result.returncode == 0, result.stderr
         assert result.stdout.startswith("JAIL-AWARE"), result.stdout
@@ -351,3 +390,70 @@ class TestJailedProbesThroughCli:
                 "UNKNOWN",
                 "JAIL-AWARE",
             }, f"{script.name}: unexpected direct output {first_line!r}"
+
+
+@pytest.mark.integration
+class TestTierComposedProbeThroughCli:
+    """QA-TERMINAL-JAIL-18: the probes through a TIER-COMPOSED launch.
+
+    ``_compute_sandbox_prefix()`` emits the ``python3 <loader> -- `` tail
+    only when the checkout sits at a world-traversable path; the plain
+    integration tests above therefore exercise the launch class THIS
+    checkout computes (empty on a 0700/0750 home). This test forces the
+    reachable shape on every host by copying the plugin tree + loader to
+    a world-traversable o+x root and running the CLI from there: the
+    wrapped payload then carries the real tail, and the probes must still
+    report JAIL-AWARE through the loader chain (the loader requires a
+    kernel with Landlock support; the exec chain is exercised on every
+    host, the enforcement only where the kernel has it).
+    """
+
+    def test_probes_survive_the_composed_tier_launch(self, tmp_path) -> None:
+        root = tmp_path / "tj-world"
+        shutil.copytree(
+            PROJECT_ROOT / "plugin",
+            root / "plugin",
+            ignore=shutil.ignore_patterns("__pycache__", "*.egg-info"),
+        )
+        shutil.copytree(PROJECT_ROOT / "scripts", root / "scripts")
+        shutil.copytree(PROJECT_ROOT / "standalone", root / "standalone")
+        # o+x on EVERY parent: the launch's payload uid must reach the loader.
+        for parent in (tmp_path, root, root / "plugin", root / "standalone"):
+            os.chmod(parent, 0o755)
+
+        launch_python = TestJailedProbesThroughCli._launch_python()
+        for script in (PIDNS_PROBE, FS_PROBE):
+            rel = script.relative_to(PROJECT_ROOT)
+            result = subprocess.run(
+                [
+                    str(root / "standalone" / "terminal-jail"),
+                    launch_python,
+                    str(root / rel),
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            self._skip_degradation(result)
+            assert result.returncode == 0, (
+                f"{rel} failed under the composed tier launch: {result.stderr}"
+            )
+            assert result.stdout.startswith("JAIL-AWARE"), (
+                f"{rel}: expected a JAIL-AWARE verdict under the composed "
+                f"tier launch, got: {result.stdout!r}"
+            )
+            assert "UNKNOWN" not in result.stdout
+
+    @staticmethod
+    def _skip_degradation(result: subprocess.CompletedProcess[str]) -> None:
+        if result.returncode == 2 and (
+            "auto-sandbox modify unavailable" in result.stderr
+            or "namespace creation failed" in result.stderr
+        ):
+            pytest.skip(
+                "HOST-DEGRADED-PIDNS: this host cannot run the auto-sandbox "
+                "rewrite, so the probe never started (see README Graceful "
+                "Degradation)"
+            )

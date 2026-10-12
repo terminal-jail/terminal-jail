@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 from terminal_jail.interruptor import Action, intercept, userns
+from terminal_jail.interruptor import landlock as landlock_module
+from terminal_jail.interruptor import landlock_net as landlock_net_module
 from terminal_jail.interruptor.config import Config
 from terminal_jail.interruptor.output import format_blocked, format_sandbox_notice
 from terminal_jail.interruptor.parser import (
@@ -29,6 +31,67 @@ from terminal_jail.interruptor.userns import unshare_prefix
 # ~/.config/terminal-jail/rules.d/). Kept as a module-level constant so any
 # test can load the mirror exactly the way an installed host does.
 RULES_MIRROR_DIR = Path(__file__).resolve().parent / "terminal_jail" / "rules"
+
+# =============================================================================
+# Landlock tier tail (QA-TERMINAL-JAIL-18): pin the CONTRACT, not the string
+# =============================================================================
+#
+# TJ-GAP-082 composes a kernel-tier launch tail onto every auto-sandbox /
+# modify wrap: when the host supports Landlock AND the loader is reachable
+# by the launch's payload uid (EVERY parent dir of
+# standalone/landlock-loader.py grants o+x), the wrapped payload becomes
+# ``python3 <loader> -- <command>``; otherwise the tail is EMPTY and the
+# wrap is byte-identical to the pre-tier engine.
+#
+# On a dev checkout under a 0700/0750 home the tail is absent; on any tree
+# at a world-traversable path (a /tmp clone) it is present. Pinning ONE of
+# the two spellings is an assertion about the checkout location, not about
+# the rewrite — the same defect QA-TERMINAL-JAIL-8 fixed for the mapped /
+# legacy unshare prefixes. These helpers accept BOTH spellings and pin what
+# is not checkout state: the loader path lands INSIDE the quoted payload,
+# the ``--`` separator precedes the command, and the command itself is
+# verbatim (a tail that swallows or rewrites the command is refused).
+
+_LANDLOCK_TAIL_AFTER_INTRODUCER_RE = re.compile(
+    r"(bash -c ')python3 (?:'[^']*'|\S+)landlock(?:-net)?-loader\.py -- "
+)
+
+
+def mask_landlock_tails(text: str) -> str:
+    """Normalize a rewrite to its NO-TIER spelling (contract, not string).
+
+    The engine composes the tier tails INSIDE the quoted payload, directly
+    after the ``bash -c '`` introducer of each wrapped segment — and they
+    STACK (TJ-GAP-083): the fs tail, then the opt-in net tail. This mask
+    strips that spelling repeatedly until stable, so both tiers normalize
+    away; anything else (a tail outside the quotes, a different loader
+    path shape, a tail that swallowed the command) never matches and is
+    left verbatim, FAILING the comparison it feeds — a corrupt rebuild is
+    never normalized into a pass. When no tail is present (this
+    checkout's 0750 home) the text goes through unchanged.
+    """
+    while True:
+        stripped = _LANDLOCK_TAIL_AFTER_INTRODUCER_RE.sub(r"\1", text)
+        if stripped == text:
+            return text
+        text = stripped
+
+
+def _patch_tails(monkeypatch, fs_tail: str, net_tail: str) -> None:
+    """Re-point the decider's import-time tier tails (test-only seam).
+
+    The decider snapshots ``landlock_sandbox_prefix()`` /
+    ``landlock_net_sandbox_prefix()`` at import time; a test that wants a
+    specific tier shape monkeypatches the MODULE ATTRIBUTES the wrap
+    paths actually read, then restores them. Tier state on this checkout
+    is otherwise frozen at first use (``_SANDBOX_PREFIX_CACHE``), so this
+    is the only seam that reaches the composed string without re-exec.
+    """
+    import terminal_jail.interruptor.decider as decider_module
+
+    monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", fs_tail)
+    monkeypatch.setattr(decider_module, "_LANDLOCK_NET_TAIL", net_tail)
+
 
 # =============================================================================
 # Blocklist tests (T-I01 through T-I10)
@@ -254,6 +317,12 @@ class TestSandbox:
 #
 # ``{w}`` is the host-dependent unshare prefix (userns probe: mapped or
 # legacy flags), so the expected strings stay valid on both host classes.
+#
+# The expected strings pin the NO-TIER spelling: on a world-traversable
+# checkout the engine composes the Landlock tier tail INSIDE each wrapped
+# payload, and the test masks it back off (mask_landlock_tails) before
+# comparing — QA-TERMINAL-JAIL-18, the tail is checkout state, not
+# contract.
 # =============================================================================
 
 # (name, command, expected rule id, expected operators, expected modified)
@@ -327,7 +396,15 @@ class TestSandboxPipelineReconstruction:
             f"pipeline {name!r} claims the wrong rule: expected {rule_id!r}, "
             f"got {result.rule_id!r}"
         )
-        assert result.modified == expected.format(w=unshare_prefix()), (
+        # QA-TERMINAL-JAIL-18: pin the CONTRACT on the NO-TIER spelling.
+        # A world-traversable checkout composes the kernel-tier tail
+        # INSIDE each wrapped payload; mask_landlock_tails removes exactly
+        # that spelling so the pinned expectation holds on BOTH checkout
+        # classes (same defect class QA-TERMINAL-JAIL-8 fixed for the
+        # mapped/legacy unshare prefixes). A corrupt tail does NOT match
+        # the mask and still fails the comparison.
+        actual = mask_landlock_tails(result.modified or "")
+        assert actual == expected.format(w=unshare_prefix()), (
             f"pipeline {name!r} was reconstructed incorrectly:\n"
             f"  expected {expected.format(w=unshare_prefix())!r}\n"
             f"  got      {result.modified!r}"
@@ -356,7 +433,9 @@ class TestSandboxPipelineReconstruction:
     def test_trailing_stage_is_not_swallowed_as_an_argument(self) -> None:
         """The canonical defect: `tee /tmp/log` must stay a pipeline STAGE."""
         result = intercept("go test ./... | tee /tmp/log")
-        assert segment_texts(result.modified) == [
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        modified = mask_landlock_tails(result.modified or "")
+        assert segment_texts(modified) == [
             f"{unshare_prefix()}'go test ./...'",
             "tee /tmp/log",
         ], (
@@ -368,7 +447,8 @@ class TestSandboxPipelineReconstruction:
         """Two sandboxed stages: each gets its own wrap, the pipe survives."""
         result = intercept("make | make -C sub")
         assert result.rule_id == "auto-make"
-        assert result.modified == (
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        assert mask_landlock_tails(result.modified or "") == (
             f"{unshare_prefix()}'make' | {unshare_prefix()}'make -C sub'"
         ), f"multi-stage rebuild is wrong: {result.modified!r}"
 
@@ -376,14 +456,18 @@ class TestSandboxPipelineReconstruction:
         """A wrap in a non-first position must not restructure the pipeline."""
         result = intercept("cat log | python3 deploy.py")
         assert result.action == Action.MODIFY
-        assert result.modified == (
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        assert mask_landlock_tails(result.modified or "") == (
             f"cat log | {unshare_prefix()}'python3 deploy.py'"
         ), f"non-first-stage rebuild is wrong: {result.modified!r}"
 
     def test_single_command_reconstruction_is_unchanged(self) -> None:
         """No-pipeline commands keep the exact pre-fix single-wrap spelling."""
         result = intercept("pytest -q")
-        assert result.modified == f"{unshare_prefix()}'pytest -q'"
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        assert mask_landlock_tails(result.modified or "") == (
+            f"{unshare_prefix()}'pytest -q'"
+        )
         assert result.rule_id == "auto-pytest"
 
 
@@ -425,7 +509,12 @@ class TestSandboxReconstructionRefusal:
         result = decider.evaluate(mismatched, command)
 
         assert result.action == Action.MODIFY
-        assert result.modified == f"{unshare_prefix()}{_escape_for_shell(command)}", (
+        # QA-TERMINAL-JAIL-18: the fallback is asserted on the NO-TIER
+        # spelling (mask_landlock_tails strips the tier tail the engine
+        # composes onto a world-traversable checkout).
+        assert mask_landlock_tails(result.modified) == (
+            f"{unshare_prefix()}{_escape_for_shell(command)}"
+        ), (
             "an unaligned reconstruction must degrade to a whole-command wrap, "
             f"never to a restructured command: {result.modified!r}"
         )
@@ -462,7 +551,10 @@ class TestSandboxReconstructionRefusal:
         result = intercept(command)
         assert result.action == Action.MODIFY
         assert result.rule_id == "auto-script"
-        assert result.modified == f"{prefix}{_escape_for_shell(command)}", (
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        assert mask_landlock_tails(result.modified) == (
+            f"{prefix}{_escape_for_shell(command)}"
+        ), (
             "an unsafe rebuild was shipped instead of the whole-command "
             f"fallback: {result.modified!r}"
         )
@@ -478,9 +570,10 @@ class TestSandboxReconstructionRefusal:
         monkeypatch.setattr(decider_module, "structure_preserved", lambda a, b: False)
         command = "go test ./... | tee /tmp/log"
         result = intercept(command)
-        assert result.modified == f"{unshare_prefix()}'{command}'", (
-            f"guard rejection did not fall back: {result.modified!r}"
-        )
+        # QA-TERMINAL-JAIL-18: NO-TIER spelling (see mask_landlock_tails).
+        assert mask_landlock_tails(result.modified) == (
+            f"{unshare_prefix()}'{command}'"
+        ), f"guard rejection did not fall back: {result.modified!r}"
 
 
 class TestCommandRebuild:
@@ -2452,6 +2545,15 @@ def _write_user_rules(tmp_path, yaml_text: str):
 # orphan-producing defect shape and is REJECTED.
 _LAUNCH_INTRODUCER = " bash -c "
 
+# QA-TERMINAL-JAIL-18: the tier tail the engine composes INSIDE the quoted
+# payload of a sandboxed launch on a world-traversable checkout. Anchored to
+# the payload start (the partition keeps BOTH surrounding quotes); a
+# well-formed tail is ``'python3 <quoted-or-bare-path>landlock-loader.py
+# -- ``. Used to strip CHECKOUT state before pinning the payload command.
+_PAYLOAD_LANDLOCK_TAIL_RE = re.compile(
+    r"^'python3 (?:'[^']*'|\S+)landlock(?:-net)?-loader\.py -- "
+)
+
 _LEGACY_LAUNCH_RE = re.compile(r"^unshare --user --pid --fork --kill-child=SIGKILL$")
 
 _MAPPED_LAUNCH_RE = re.compile(
@@ -2522,7 +2624,16 @@ def _assert_sandboxed_modify(result: InterceptResult, command: str) -> str:
         f"IDs not): {launch!r}"
     )
     expected_payload = "'" + command + "'"
-    assert payload == expected_payload, (
+    # QA-TERMINAL-JAIL-18: on a world-traversable checkout the engine
+    # composes the kernel-tier tail INSIDE the payload — the command
+    # arrives as `'python3 <loader> -- <cmd>'` (the partition keeps
+    # BOTH surrounding quotes). The tail is CHECKOUT state (a
+    # 0700/0750 home hides the loader), so the contract pins the
+    # command, not the tail: a WELL-FORMED leading tail is stripped
+    # before the comparison and anything else is left verbatim, so a
+    # corrupt payload still fails the equality.
+    payload_no_tier = _PAYLOAD_LANDLOCK_TAIL_RE.sub("'", payload, count=1)
+    assert payload_no_tier == expected_payload, (
         f"the rewrite must carry the original command as ONE quoted argument: "
         f"expected {expected_payload!r}, got {payload!r}"
     )
@@ -2665,6 +2776,71 @@ rules:
         # `--pid --fork --kill-child=SIGKILL bash -c` flags (presence, order,
         # position) and the original command as ONE quoted payload.
         _assert_sandboxed_modify(result, "danger-tool --wipe")
+
+    # ── QA-TERMINAL-JAIL-18: the tier tail is checkout state, not contract ─
+
+    @staticmethod
+    def _tail_rewrite(tail: str, prefix: str) -> InterceptResult:
+        """A MODIFY result whose payload carries a tier tail.
+
+        Mirrors what the engine composes on a world-traversable checkout:
+        ``python3 <loader> -- <command>`` as the quoted payload of the
+        given unshare launch prefix.
+        """
+        return InterceptResult(
+            action=Action.MODIFY,
+            command="danger-tool --wipe",
+            modified=f"{prefix}'{tail}danger-tool --wipe'",
+            rule_id="user-modify-danger-tool",
+        )
+
+    def test_contract_accepts_the_tier_tail(self) -> None:
+        """A reachable loader composes the tier tail INSIDE the payload.
+
+        On a world-traversable checkout (e.g. a /tmp clone) the wrapped
+        payload arrives as ``python3 <loader> -- danger-tool --wipe``.
+        The SAME contract helper must accept that shape, the no-tail
+        shape, and this process's own computed tail — the tail is
+        checkout state, not contract.
+        """
+        prefix = unshare_prefix()
+        for tail in (
+            "",
+            landlock_module.sandbox_prefix(),
+            "python3 /opt/world-traversable/standalone/landlock-loader.py -- ",
+        ):
+            result = self._tail_rewrite(tail, prefix)
+            assert _assert_sandboxed_modify(result, "danger-tool --wipe") == prefix, (
+                f"contract rejected a legitimate tier state: tail={tail!r}"
+            )
+
+    def test_contract_refuses_a_corrupt_tier_payload(self) -> None:
+        """The tail is stripped only when WELL-FORMED — corruption is red.
+
+        A payload whose loader path is garbage (not the loader's name, no
+        ``--`` separator) is NOT a legitimate tier state: it must fail
+        the equality, never be normalized into a pass.
+        """
+        prefix = unshare_prefix()
+        for bad_payload in (
+            "python3 /opt/x/NOT-THE-LOADER -- danger-tool --wipe",
+            "python3 /opt/x/landlock-loader.py danger-tool --wipe",
+            "sh /opt/x/landlock-loader.py -- danger-tool --wipe",
+        ):
+            result = InterceptResult(
+                action=Action.MODIFY,
+                command="danger-tool --wipe",
+                modified=f"{prefix}'{bad_payload}'",
+                rule_id="user-modify-danger-tool",
+            )
+            try:
+                _assert_sandboxed_modify(result, "danger-tool --wipe")
+            except AssertionError:
+                pass
+            else:  # pragma: no cover - only reached by a contract regression
+                raise AssertionError(
+                    f"contract accepted a corrupt tier payload: {bad_payload!r}"
+                )
 
     # ── QA-TERMINAL-JAIL-8: the launch contract is host-independent ────────
 
@@ -3966,3 +4142,79 @@ class TestBridgeVerdictLayerField:
         assert verdict["action"] == "block"
         assert verdict["rule_id"] == "builtin-rm-rf-root"
         assert verdict["layer"] == "engine"
+
+
+class TestLandlockTierShapes:
+    """QA-TERMINAL-JAIL-18: the tier tail is checkout state, end to end.
+
+    ``_compute_sandbox_prefix()`` emits ``python3 <loader> -- `` only when
+    every parent dir of standalone/landlock-loader.py grants o+x — true on
+    a /tmp clone, false under a 0700/0750 home. Every wrap-level
+    expectation elsewhere in this file pins the NO-TIER spelling after
+    masking, so a reachable checkout proves the SAME contract through
+    ``mask_landlock_tails``; this class pins what the mask cannot:
+    (a) the decider composes BOTH tier tails (fs, then opt-in net) inside
+    the quoted payload in that order, and (b) masking is exact — it
+    removes ONLY the well-formed tail spelling and leaves a corrupt
+    payload verbatim so the equality refuses it.
+    """
+
+    def test_tails_compose_into_the_wrapped_payload_in_order(self, monkeypatch) -> None:
+        """fs tail then net tail, both INSIDE the quotes, command verbatim."""
+        from terminal_jail.interruptor.decider import Decider
+
+        fs_tail = "python3 /opt/world-traversable/standalone/landlock-loader.py -- "
+        net_tail = (
+            "python3 /opt/world-traversable/standalone/landlock-net-loader.py -- "
+        )
+        _patch_tails(monkeypatch, fs_tail, net_tail)
+
+        decider = Decider(Config.from_environ())
+        command = "go test ./... | tee /tmp/log"
+        result = decider.evaluate(parse_command(command), command)
+
+        assert result.action == Action.MODIFY
+        prefix = unshare_prefix()
+        # The exact composed spelling, fs-then-net, inside the quotes
+        # (unshare_prefix() already ends in the `bash -c ` introducer).
+        assert result.modified == (
+            f"{prefix}'{fs_tail}{net_tail}go test ./...' | tee /tmp/log"
+        ), (
+            f"tier tails are not composed fs-then-net inside the payload: {result.modified!r}"
+        )
+        # The masked spelling is byte-identical to the no-tier contract.
+        assert mask_landlock_tails(result.modified) == (
+            f"{prefix}'go test ./...' | tee /tmp/log"
+        )
+
+    def test_mask_removes_only_a_well_formed_tail(self) -> None:
+        """Masking is exact: corrupt tails survive and fail downstream."""
+        prefix = unshare_prefix()
+        good = f"{prefix}'python3 /opt/wt/standalone/landlock-loader.py -- go test'"
+        assert mask_landlock_tails(good) == f"{prefix}'go test'"
+
+        corrupt = [
+            "python3 /opt/wt/standalone/landlock-loader.py go test",
+            "python3 /opt/wt/standalone/NOT-THE-LOADER -- go test",
+            "sh /opt/wt/standalone/landlock-loader.py -- go test",
+        ]
+        for payload in corrupt:
+            wrapped = f"{prefix}'{payload}'"
+            assert mask_landlock_tails(wrapped) == wrapped, (
+                "the mask normalized a CORRUPT tier payload — masking must "
+                f"be exact, refusing instead: {wrapped!r}"
+            )
+
+    def test_this_checkouts_own_tail_is_masked(self) -> None:
+        """Whatever THIS checkout computes, the mask yields the no-tier pin."""
+        prefix = unshare_prefix()
+        tail = landlock_module.sandbox_prefix()
+        if not tail:
+            return  # unreachable-loader checkout: the mask is a no-op here
+        wrapped = f"{prefix}'{tail}pytest -q'"
+        assert mask_landlock_tails(wrapped) == f"{prefix}'pytest -q'"
+        # And the net tail composes AFTER the fs one when both are set.
+        net_tail = landlock_net_module.sandbox_prefix()
+        if net_tail:
+            wrapped_net = f"{prefix}'{tail}{net_tail}pytest -q'"
+            assert mask_landlock_tails(wrapped_net) == f"{prefix}'pytest -q'"
