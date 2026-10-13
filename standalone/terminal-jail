@@ -267,8 +267,17 @@ _interruptor_evaluate() {
 
     # Pipe the command to the bridge and capture the JSON response.
     # Use python3 to invoke the bridge directly for speed.
+    # TJ-DF-044: the bridge's stderr is diagnostic surface, not noise — it
+    # carries the Landlock tier banners and the loud degradation warnings
+    # (e.g. "landlock-net-loader.py not found next to the plugin") that used
+    # to vanish under the old `2>/dev/null`. The caller's command
+    # substitution captures ONLY stdout — which stays exactly the bridge's
+    # JSON verdict — so stderr passes through to the wrapper's stderr
+    # untouched. The caller must therefore NOT redirect this call's stderr
+    # to /dev/null. Pipeline status stays the bridge's exit code, so the
+    # `|| return 1` unavailable-bridge semantics are unchanged.
     echo "{\"command\":$(echo "$cmd" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | \
-        python3 "$bridge" 2>/dev/null || return 1
+        python3 "$bridge" || return 1
 }
 
 # --- argument parsing ---------------------------------------------------------
@@ -390,7 +399,11 @@ CMD_STR="${CMD_STR:1}"  # strip leading space
 INTERRUPTOR_MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
 
 if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
-    bridge_result=$(_interruptor_evaluate "$CMD_STR" 2>/dev/null) || {
+    # TJ-DF-044: no 2>/dev/null here — _interruptor_evaluate passes the
+    # bridge's stderr (tier banners, loud degradation warnings) through; a
+    # command substitution only swallows stdout, so the caller must not
+    # discard stderr itself.
+    bridge_result=$(_interruptor_evaluate "$CMD_STR") || {
         if [ "$INTERRUPTOR_MODE" = "warn" ]; then
             # Warn mode: user explicitly accepted unguarded execution.
             echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)" >&2

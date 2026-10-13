@@ -852,6 +852,127 @@ def test_local_install_ships_lib_tree(install_script: Path, tmp_path: Path) -> N
 
 
 @pytest.mark.standalone_cli
+def test_local_install_ships_all_three_loaders(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TJ-DF-044: the installer must ship ALL THREE tier loaders —
+    seccomp-loader.py, landlock-loader.py AND landlock-net-loader.py — into
+    LIB_DIR. The net loader was historically missing, which left the opt-in
+    TCP-egress tier (TERMINAL_JAIL_LANDLOCK_NET=1) silently inert through the
+    installed CLI: the installed plugin tree's loader walk found no
+    landlock-net-loader.py and the wrapper discarded the degrade warning.
+    The copy steps must also mirror each other (mkdir -p + cp per loader), so
+    a future fourth loader cannot silently skip the layout contract."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    lib = tmp_path / "lib" / "terminal-jail"
+
+    # Installed reality: every loader lands in LIB_DIR.
+    for loader in ("seccomp-loader.py", "landlock-loader.py", "landlock-net-loader.py"):
+        installed = lib / loader
+        assert installed.exists(), f"{loader} not shipped by install.sh: {installed}"
+        assert installed.stat().st_size > 0, f"shipped {loader} is empty"
+
+    # Installer source: the copy step for each loader mirrors the other two
+    # (guarded by its own -f check + mkdir -p + cp), byte-style.
+    script_text = install_script.read_text(encoding="utf-8")
+    for loader in ("seccomp-loader.py", "landlock-loader.py", "landlock-net-loader.py"):
+        assert f'if [ -f "$SCRIPT_DIR/standalone/{loader}" ]; then' in script_text, (
+            f"install.sh lacks the {loader} copy guard"
+        )
+        assert f'cp "$SCRIPT_DIR/standalone/{loader}" "$LIB_DIR/"' in script_text, (
+            f"install.sh lacks the {loader} copy step"
+        )
+    output = result.stdout.decode("utf-8", "replace")
+    assert "installed Landlock net loader to" in output, (
+        "installer did not announce the landlock-net loader install"
+    )
+
+
+@pytest.mark.standalone_cli
+def test_installed_wrapper_surfaces_bridge_stderr(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TJ-DF-044 (cause 2): the installed wrapper must NOT discard the
+    bridge's stderr. Probe: install to a scratch prefix with the net-loader
+    REMOVED from LIB_DIR and TERMINAL_JAIL_LANDLOCK_NET=1 — the bridge's
+    loud "landlock-net-loader.py not found next to the plugin" degradation
+    must reach the wrapper's stderr (previously it vanished under
+    `2>/dev/null` at BOTH the _interruptor_evaluate pipeline and the caller's
+    command substitution). The command still runs (the tier degrades, the
+    firewall verdict is unaffected) and stdout stays verdict-free —
+    the JSON contract is unchanged."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+
+    # Simulate the historical broken install (pre-TJ-DF-044 layout: no net
+    # loader shipped) by removing the file the new installer now ships.
+    lib = tmp_path / "lib" / "terminal-jail"
+    (lib / "landlock-net-loader.py").unlink()
+
+    run = subprocess.run(
+        [str(install_dir / "terminal-jail"), "echo", "tj-df-044-probe"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_LANDLOCK_NET": "1",
+        },
+    )
+    stdout = run.stdout.decode("utf-8", "replace")
+    stderr = run.stderr.decode("utf-8", "replace")
+    # The degradation warning reaches the operator...
+    assert "landlock-net-loader.py not found next to the plugin" in stderr, (
+        f"bridge degradation warning lost by the wrapper: stderr={stderr!r}"
+    )
+    assert "Landlock network (egress) tier not applied" in stderr
+    # ...the command still executed (degrade, not block)...
+    assert run.returncode == 0, f"rc={run.returncode} stderr={stderr}"
+    assert "tj-df-044-probe" in stdout
+    # ...and stdout carries NO bridge diagnostics (JSON stays on the
+    # function's stdout contract; human-readable lines go to stderr only).
+    assert "terminal-jail:" not in stdout, f"diagnostics leaked to stdout: {stdout!r}"
+
+
+@pytest.mark.standalone_cli
 def test_local_install_ships_default_rules_to_user_rules_dir(
     install_script: Path, tmp_path: Path
 ) -> None:
