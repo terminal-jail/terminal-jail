@@ -425,7 +425,27 @@ class TestWrapperParity:
         degradation warning). On hosts where the real mapped launch still
         fails unprivileged (e.g. AppArmor), the launch itself fails after
         promotion — the assertion here is that the warning is ABSENT, i.e.
-        the preflight (not a hardcoded fallback) decides."""
+        the preflight (not a hardcoded fallback) decides.
+
+        TJ-DF-044: since the wrapper stopped discarding the bridge's
+        stderr, the ENGINE's eager DF-15 "no filesystem isolation" warning
+        (emitted by unshare_prefix()/mapped_file_access_ok() on hosts where
+        the mapped launch is creatable but NOT file-access-preserving —
+        e.g. AppArmor restricting setuid/setgid inside the userns) surfaces
+        through the installed CLI on that host class, alongside the
+        preflight result. The warn-vs-no-warn assertion therefore holds
+        only when the host's mapped launch also preserves file access;
+        on a file-access-degraded host the warning is the DOCUMENTED
+        DF-15 operator contract (same HOST-DEGRADED-FSISO convention as
+        the other tests in this module).
+        """
+        if not userns.mapped_file_access_ok():
+            pytest.skip(
+                "HOST-DEGRADED-FSISO: mapped launch is creatable but not "
+                "file-access-preserving on this host — the engine's DF-15 "
+                "no-filesystem-isolation warning is expected on every bridge "
+                "evaluation (see scripts/fs-isolation-probe.py)"
+            )
         stub = tmp_path / "stubbin"
         stub.mkdir()
         (stub / "unshare").write_text(
