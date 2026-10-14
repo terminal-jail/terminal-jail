@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import re
 import shutil
@@ -10,7 +11,7 @@ import time
 from pathlib import Path
 
 import pytest
-from terminal_jail.interruptor import Action, intercept
+from terminal_jail.interruptor import Action, intercept, userns
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SCRIPT = PROJECT_ROOT / "install.sh"
@@ -907,6 +908,32 @@ def test_local_install_ships_all_three_loaders(
     )
 
 
+# ── HOST-DENIED-USERNS: mapped-launch capability gate (QA-TERMINAL-JAIL-20) ─
+
+
+@functools.lru_cache(maxsize=1)
+def _mapped_launch_creatable() -> bool:
+    """Can THIS host create the wrapper's mapped `--user` launch at all?
+
+    One cached probe per process, mirroring the wrapper's own preflight:
+    ``unshare <mapped flags> true`` via the engine helper. rc=0 means the
+    mapped launch is creatable (the degrade arm's rc=0 assertion is then
+    reachable); rc!=0 is the AppArmor/`unprivileged_userns` host class
+    (GitHub runners, bunker-mvp) where the wrapper fail-closes rc=2 at the
+    namespace preflight REGARDLESS of tier state.
+    """
+    return userns.mapped_launch_ok()
+
+
+HOST_DENIED_USERNS_SKIP = (
+    "HOST-DENIED-USERNS: this host denies setuid/setgroups inside "
+    "unprivileged user namespaces (unshare <mapped flags> probe fails — "
+    "AppArmor profile 'unprivileged_userns' class, e.g. GitHub runners); "
+    "the degrade arm's rc=0 contract is unreachable here (the wrapper "
+    "fail-closes at the namespace preflight instead)"
+)
+
+
 @pytest.mark.standalone_cli
 def test_installed_wrapper_surfaces_bridge_stderr(
     install_script: Path, tmp_path: Path
@@ -917,9 +944,29 @@ def test_installed_wrapper_surfaces_bridge_stderr(
     loud "landlock-net-loader.py not found next to the plugin" degradation
     must reach the wrapper's stderr (previously it vanished under
     `2>/dev/null` at BOTH the _interruptor_evaluate pipeline and the caller's
-    command substitution). The command still runs (the tier degrades, the
-    firewall verdict is unaffected) and stdout stays verdict-free —
-    the JSON contract is unchanged."""
+    command substitution).
+
+    QA-TERMINAL-JAIL-20: the contract is split into two arms.
+
+    (a) warning-surfaced (host-independent): the net-tier degradation IS on
+        stderr — stderr is exactly the surface this regression pins, on
+        every host class, including rc=2 preflight-refusal hosts where the
+        tier warnings travel with the refusal block.
+
+    (b) rc=0 degrade (host-conditional): on a host where the mapped launch
+        is creatable the command still runs (tier degrades, firewall verdict
+        unaffected, stdout stays verdict-free). On an AppArmor
+        `unprivileged_userns` host the wrapper's documented fail-closed
+        preflight contract (rc=2) fires INSTEAD — that is correct product
+        behavior (never weaken fail-closed to make a test pass), so the arm
+        SKIPs with HOST-DENIED-USERNS rather than re-testing the namespace
+        contract here (covered by plugin/test_backend_selection.py /
+        tests/test_composed_mode.py).
+
+    Mutation check: delete or invert the `if not _mapped_launch_creatable()`
+    guard below and this test fails rc=2==0 on every denied-host-class
+    runner (proven: CI run 38540785800, 6 consecutive red runs).
+    """
     install_dir = tmp_path / "bin"
     install_dir.mkdir()
     home = tmp_path / "home"
@@ -959,17 +1006,63 @@ def test_installed_wrapper_surfaces_bridge_stderr(
     )
     stdout = run.stdout.decode("utf-8", "replace")
     stderr = run.stderr.decode("utf-8", "replace")
-    # The degradation warning reaches the operator...
+    # (a) The degradation warning reaches the operator, on EVERY host class
+    # — stderr is the TJ-DF-044 regression surface itself.
     assert "landlock-net-loader.py not found next to the plugin" in stderr, (
         f"bridge degradation warning lost by the wrapper: stderr={stderr!r}"
     )
     assert "Landlock network (egress) tier not applied" in stderr
-    # ...the command still executed (degrade, not block)...
+    if not _mapped_launch_creatable():
+        pytest.skip(f"{HOST_DENIED_USERNS_SKIP} (observed stderr: {stderr!r})")
+    # (b) ...the command still executed (degrade, not block)...
     assert run.returncode == 0, f"rc={run.returncode} stderr={stderr}"
     assert "tj-df-044-probe" in stdout
     # ...and stdout carries NO bridge diagnostics (JSON stays on the
     # function's stdout contract; human-readable lines go to stderr only).
     assert "terminal-jail:" not in stdout, f"diagnostics leaked to stdout: {stdout!r}"
+
+
+class TestMappedLaunchGuardSelfCheck:
+    """QA-TERMINAL-JAIL-20: the guard must be load-bearing, not decorative.
+
+    Mutation check for the HOST-DENIED-USERNS guard in the test above:
+    forcing the probe to report the denied-host class and running the REAL
+    test body must end in a documented SKIP, never a failure. Delete or
+    invert the guard and the same forced environment fails `rc=2 == 0`
+    instead — exactly the shape of the 6 consecutive red CI runs
+    (run 38540785800 et al.) at the unguarded HEAD.
+    """
+
+    def test_skip_arm_fires_when_probe_reports_denial(
+        self,
+        install_script: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[int] = []
+
+        def _forced_denial() -> bool:
+            calls.append(1)
+            return False
+
+        monkeypatch.setattr(
+            sys.modules[__name__], "_mapped_launch_creatable", _forced_denial
+        )
+        with pytest.raises(pytest.skip.Exception) as skipinfo:
+            test_installed_wrapper_surfaces_bridge_stderr(install_script, tmp_path)
+        assert calls, "guard never consulted the (forced) probe result"
+        assert "HOST-DENIED-USERNS" in str(skipinfo.value)
+
+    def test_guard_helper_is_cached_and_wired(self) -> None:
+        """The gate is the engine's own preflight seam, evaluated once."""
+        assert hasattr(_mapped_launch_creatable, "cache_info"), (
+            "the HOST-DENIED-USERNS gate must stay a cached single probe"
+        )
+        src = Path(__file__).read_text(encoding="utf-8")
+        assert "if not _mapped_launch_creatable():" in src, (
+            "the real test must consult the probe before asserting rc=0"
+        )
+        assert "HOST-DENIED-USERNS" in src
 
 
 @pytest.mark.standalone_cli

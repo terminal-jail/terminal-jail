@@ -18,6 +18,42 @@
   per-profile `bwrap-userns-restrict` AppArmor remedy (as documented by Codex
   for Ubuntu 24.04/25.04) beside the host-wide sysctl.
 
+### Fixed
+
+- **Tests (QA-TERMINAL-JAIL-20):** the two environment-dependent failures
+  that kept CI red across 6 consecutive runs (the `Python 3.11/3.12/3.13`
+  jobs) are fixed by correcting the TESTS' environment assumptions — the
+  runtime behavior under them is the documented contract and is unchanged:
+  - `plugin/test_install.py::test_installed_wrapper_surfaces_bridge_stderr`
+    failed `rc=2 == 0` on GitHub runners: the runner's `0700`-parented
+    `/tmp/pytest-of-runner` tree makes `landlock-loader.py` unreachable for
+    the launch's payload uid (the loud TJ-GAP-082 fs-tier degrade warning),
+    and the AppArmor `unprivileged_userns` profile then fail-closes the
+    wrapper at the namespace preflight. The TJ-DF-044 contract is now split:
+    (a) warning-surfaced-on-stderr is asserted on EVERY host class (stderr
+    IS the regression surface), while (b) the rc=0 degrade arm — reachable
+    only where the mapped launch is creatable — is gated by a cached
+    `unshare <mapped flags>` probe (the engine's own
+    `userns.mapped_launch_ok()` seam) that SKIPs with the grep-able
+    `HOST-DENIED-USERNS` marker on denied-host-class runners (same
+    philosophy as the existing `HOST-DEGRADED-PIDNS`/`HOST-DEGRADED-FSISO`
+    markers). A self-check test pins the guard load-bearing: forcing the
+    probe to report denial and running the real test body must end in that
+    SKIP (mutation-red: with the guard deleted the self-check fails).
+  - `tests/test_composed_mode.py::test_explicit_unshare_pin_refusal_byte_identical`
+    saw the same fs-tier warning prepended to the pinned-backend refusal.
+    The byte-identical contract is about the REFUSAL block, not tier
+    banners, so the test pins both tiers OFF via the documented
+    acknowledgment seam (`TERMINAL_JAIL_LANDLOCK=0`,
+    `TERMINAL_JAIL_LANDLOCK_NET=0` — the engine's `_degrade()` prints
+    nothing on an explicitly-falsy knob); the exact-match assertion is
+    unchanged, and the loud-degrade product behavior stays covered by
+    `plugin/test_landlock.py` / `plugin/test_landlock_net.py`.
+  - Reproduction evidence: CI run 38540785800 logs (byte-exact failure
+    output), plus a local CI-shape reproduction — a repo-shaped scratch
+    tree under a `0700` parent yields the identical o+x warning, and the
+    env-pin restores the byte-identical refusal.
+
 ## [1.3.0] — 2026-10-08
 
 Release range v1.2.0..HEAD: 15 feat / 18 fix / 0 breaking (semver MINOR) plus

@@ -156,10 +156,29 @@ def test_composed_off_refusal_names_cause_and_options(
 def test_explicit_unshare_pin_refusal_byte_identical(
     tmp_path: pathlib.Path,
 ) -> None:
+    """The pinned-backend refusal stays byte-identical (TJ-GAP-089).
+
+    QA-TERMINAL-JAIL-20: the contract under test is the namespace REFUSAL
+    block, not the Landlock tier banners. The engine emits its loud fs-tier
+    degradation warning to stderr BEFORE the wrapper's refusal whenever the
+    tier cannot attach (CI reality: the 0700-parented checkout makes
+    landlock-loader.py unreachable for the launch's payload uid), and that
+    environment noise has nothing to do with the refusal contract. Both
+    tiers are therefore pinned OFF in this test's env: the explicit-falsy
+    knob is the tier's own DOCUMENTED acknowledgment seam (_degrade prints
+    nothing when TERMINAL_JAIL_LANDLOCK / TERMINAL_JAIL_LANDLOCK_NET is
+    explicitly falsy), so the assertion stays exact while the loud-degrade
+    product behavior itself remains covered by plugin/test_landlock.py and
+    plugin/test_landlock_net.py (warning presence + once-per-process).
+    """
     result = _run_cli(
         "echo",
         "x",
-        extra_env={"TERMINAL_JAIL_JAIL_BACKEND": "unshare"},
+        extra_env={
+            "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
+            "TERMINAL_JAIL_LANDLOCK": "0",
+            "TERMINAL_JAIL_LANDLOCK_NET": "0",
+        },
         path_override=_make_testbin(tmp_path),
     )
     assert result.returncode == 2
