@@ -43,13 +43,37 @@ REVIEW-TJ-008 — transport-level failure envelopes are mode-aware:
   never block anything — so the envelope degrades to allow-with-warning
   (``action: allow``, reason ``[bridge-error] … — fail-open: allowing
   command (warn mode)``).
+
+REVIEW-TJ-015 — per-verdict structured log on stderr:
+
+  For EVERY verdict the bridge emits — the engine's allow/block/modify and
+  both ``[bridge-error]`` envelope paths (enforce and warn) — one compact
+  JSON line is written to STDERR, right before the stdout verdict line:
+
+    {"ts": "<ISO-8601 UTC>", "event": "verdict", "action": "block",
+     "rule_id": "builtin-curl-pipe-shell", "layer": "yaml",
+     "command_sha256": "<first 16 hex chars of sha256(command)>"}
+
+  The raw command text NEVER reaches the log — only its sha256 prefix
+  (commands can contain secrets). The error envelopes are logged too, with
+  their ``rule_id`` (``[bridge-error]``, or ``null`` in the warn-mode
+  fail-open envelope) and the sha256 of the empty string when no command
+  was captured, so an operator can count "no rule matched" versus "rule
+  matched". The line goes to stderr ONLY: stdout is the verdict protocol
+  (the wrapper captures it through a pipeline — anything else on stdout
+  corrupts it). Default ON; ``TERMINAL_JAIL_VERDICT_LOG`` set to
+  ``0``/``off``/``false`` (any case — the repo-wide falsy spelling,
+  mirroring ``TERMINAL_JAIL_LANDLOCK`` in standalone/terminal-jail)
+  disables it.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Ensure the plugin/ parent is on sys.path so that ``terminal_jail``
@@ -95,6 +119,48 @@ def _current_mode() -> str:
     # the bridge in disabled mode, so an invocation that still arrives has no
     # standing to block anything.
     return "warn" if mode == "disabled" else mode
+
+
+_VERDICT_LOG_DISABLED_SPELLINGS = frozenset(
+    {"0", "off", "false", "OFF", "FALSE", "Off", "False"}
+)
+
+
+def _verdict_log_enabled() -> bool:
+    """TERMINAL_JAIL_VERDICT_LOG gates the per-verdict stderr log line.
+
+    Default ON. The falsy spellings mirror the repo-wide pattern
+    (``TERMINAL_JAIL_LANDLOCK`` case handling in standalone/terminal-jail):
+    0/off/false in any case disables; anything else (unset included) leaves
+    the log on.
+    """
+    raw = os.environ.get("TERMINAL_JAIL_VERDICT_LOG")
+    return raw is None or raw not in _VERDICT_LOG_DISABLED_SPELLINGS
+
+
+def _log_verdict(
+    action: str, rule_id: str | None, layer: str | None, command: str
+) -> None:
+    """Emit the one-line per-verdict structured log (REVIEW-TJ-015).
+
+    One compact JSON line to STDERR — never stdout, which is the verdict
+    protocol the wrapper captures through a pipeline. The command appears
+    ONLY as the first 16 hex chars of its sha256: command lines can carry
+    secrets (tokens, passwords) and must never reach a log. The ``ts`` is
+    ISO-8601 UTC; ``event`` is the constant ``"verdict"``.
+    """
+    if not _verdict_log_enabled():
+        return
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "event": "verdict",
+        "action": action,
+        "rule_id": rule_id,
+        "layer": layer,
+        "command_sha256": hashlib.sha256(command.encode()).hexdigest()[:16],
+    }
+    sys.stderr.write(json.dumps(entry, separators=(",", ":")) + "\n")
+    sys.stderr.flush()
 
 
 def main() -> None:
@@ -157,6 +223,12 @@ def main() -> None:
         _emit_fail_closed(f"{type(exc).__name__}: {exc}")
         return
 
+    _log_verdict(
+        result.action,
+        result.rule_id,
+        getattr(result, "layer", None),
+        command,
+    )
     response = {
         "action": result.action,
         "command": result.command,
@@ -203,6 +275,10 @@ def _emit_transport_error(reason: str) -> None:
             "reason": f"[bridge-error] {reason} — fail-open: allowing command (warn mode)",
             "layer": None,
         }
+        # REVIEW-TJ-015: warn-mode envelope is logged too — a null rule_id
+        # still records the event so an operator can count "no rule matched"
+        # (allow with a null rule_id) versus "rule matched".
+        _log_verdict(response["action"], response["rule_id"], None, "")
     else:
         response = {
             "action": "block",
@@ -214,6 +290,7 @@ def _emit_transport_error(reason: str) -> None:
             ),
             "layer": None,
         }
+        _log_verdict(response["action"], response["rule_id"], None, "")
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
     sys.stdout.flush()
@@ -240,6 +317,8 @@ def _emit_fail_closed(detail: str) -> None:
         ),
         "layer": None,
     }
+    # REVIEW-TJ-015: the engine-failure envelope is a verdict too — log it.
+    _log_verdict(response["action"], response["rule_id"], None, "")
     json.dump(response, sys.stdout)
     sys.stdout.write("\n")
     sys.stdout.flush()
