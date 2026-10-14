@@ -1714,3 +1714,35 @@ tasks:
   status: complete
   created_at: '2026-10-12T23:20:29.799751+00:00'
   completed_at: '2026-10-12T23:26:04.320251+00:00'
+- id: TJ-DF-044
+  title: Ship landlock-net-loader.py via install.sh and surface the bridge's landlock-net
+    degrade warning
+  criteria:
+  - install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR
+    (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227)
+  - the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py
+    after a fresh ./install.sh run
+  - 'the wrapper no longer discards the bridge''s stderr wholesale: a landlock-net
+    degrade warning emitted by the bridge on stderr reaches the operator''s terminal,
+    while the bridge''s stdout JSON contract consumed by _interruptor_evaluate stays
+    intact'
+  - "with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's\
+    \ connect() behavior either enforces or the operator sees the loud degrade warning\
+    \ \u2014 never silent"
+  - 'regression tests cover the install.sh copy list (packaging/install test scope)
+    and pass: .venv/bin/python -m pytest plugin -q'
+  - uvx ruff check . exits 0
+  status: complete
+  created_at: '2026-10-13T17:26:34.332461+00:00'
+  completed_at: '2026-10-13T18:22:06.648087+00:00'
+- id: QA-TJ20-CIGUARD
+  title: Fix env-dependent test failures (QA-TERMINAL-JAIL-20)
+  criteria:
+  - tests/test_composed_mode.py byte-identical refusal test is deterministic across
+    host classes (tier warnings pinned off or normalized, with a comment); plugin/test_install.py
+    rc=0 assertion is environment-guarded with a grep-able skip marker and a proven
+    skip branch; full repo pytest suite passes; uvx ruff check clean; CHANGELOG entry
+    under [Unreleased]
+  status: complete
+  created_at: '2026-10-14T11:16:40.106088+00:00'
+  completed_at: '2026-10-14T12:29:07.677628+00:00'
