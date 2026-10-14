@@ -807,3 +807,23 @@ commands are evaluated and allowed (never skipped, no over-length marker).
   deliberate fail-OPEN exception (§3.6): the bridge runs before every command of
   a host shell, so blocking on malformed input could brick that shell.
 - Missing bridge ⇒ different failure: enforce mode fails CLOSED (exit 126)
+
+## 15. Verdict Log (REVIEW-TJ-015)
+
+For every verdict the bridge emits — allow/block/modify and both
+`[bridge-error]` envelopes — it writes ONE compact JSON line to stderr
+right before the stdout verdict line:
+
+    {"ts": "<ISO-8601 UTC>", "event": "verdict", "action": "block", "rule_id": "builtin-curl-pipe-shell", "layer": "yaml", "command_sha256": "<16 hex>"}
+
+- stderr only: stdout is the verdict protocol (captured through a
+  pipeline); anything else there corrupts it.
+- The command NEVER appears in the log — only the first 16 hex chars of
+  its sha256 (commands can contain secrets). The error envelopes log the
+  sha256 of the empty string; the warn-mode fail-open envelope logs a null
+  `rule_id`, so an operator can still count "no rule matched" vs "rule
+  matched".
+- Default ON. `TERMINAL_JAIL_VERDICT_LOG` set to `0`/`off`/`false` (any
+  case — the repo-wide falsy spelling, mirroring `TERMINAL_JAIL_LANDLOCK`)
+  disables the line. No config file, no rotation: stderr lines are what
+  operators grep.
