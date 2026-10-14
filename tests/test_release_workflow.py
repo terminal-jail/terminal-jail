@@ -168,6 +168,15 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     # test is independent of what the clone's base commit captured; on a
     # base commit that predates the script this stages it as a new file
     shutil.copy2(CHECK_SCRIPT, clone / "scripts" / "release-cut-check.sh")
+    # TJ-GAP-094: the clone's own guard hooks (.gitreins, core.hooksPath)
+    # emit untracked harness artifacts (.gitreins/logs, .vfs/graph/*), which
+    # release-cut-check's `git status --porcelain` dirt gate then refuses.
+    # Exclude them in the SCRATCH clone only (info/exclude, not tracked
+    # .gitignore) — a real release tree has no such artifacts.
+    exclude = clone / ".git" / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    with open(exclude, "a", encoding="utf-8") as fh:
+        fh.write("\n.gitreins/\n.vfs/\n")
     subprocess.run(
         ["git", "add", "scripts/release-cut-check.sh"],
         cwd=clone,
@@ -195,6 +204,17 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
             "-am",
             f"version-prep for {tag} (scratch clone only)",
         ],
+        cwd=clone,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    # TJ-GAP-094 (tracked half): the clone's guard hooks also MODIFY tracked
+    # harness files (.vfs/graph/edges.jsonl) during the commit above. Restore
+    # them — checkout runs no hooks; a real release tree is hook-quiet.
+    subprocess.run(
+        ["git", "checkout", "--", "."],
         cwd=clone,
         check=True,
         capture_output=True,
