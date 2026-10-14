@@ -1,0 +1,10 @@
+{
+  "tick": "terminal-jail-foreman-2026-10-14-19-34-03",
+  "wave_budget": 5,
+  "workers": [
+    {"task": "TJ-DF-044", "scope": "install.sh, standalone/terminal-jail, landlock-net-loader shipping, tests"},
+    {"task": "REVIEW-TJ-012", "scope": "README.md only"},
+    {"task": "REVIEW-TJ-015", "scope": "plugin/terminal_jail interruptor verdict logging + tests"}
+  ],
+  "excluded": "TJ-DF-045, REVIEW-TJ-011, REVIEW-TJ-013, REVIEW-TJ-014 — overlap TJ-DF-044's wrapper/install.sh scope"
+}

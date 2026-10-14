@@ -1,0 +1,150 @@
+{
+  "task_id": "REVIEW-TJ-015",
+  "task_title": "Per-verdict structured verdict log on the interruptor bridge stderr",
+  "task_criteria": [
+    "The bridge emits exactly one compact JSON verdict line to stderr per invocation (verified by live probe) with event/action/rule_id/layer/command_sha256 and never the raw command",
+    "A command containing a secret-looking token never appears verbatim in the log line, only its sha prefix (privacy control test in plugin/test_verdict_log.py)",
+    "TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default (spelling matrix test)",
+    "The [bridge-error] envelope also produces a verdict log line",
+    "specs/interruptor.md documents the log shape"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "60dde49ed0d4f46d92e06f7239f068351a5a06c2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261014T200936.320001Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n3:12PM INF scanned ~6306271 bytes (6.31 MB) in 461ms\n3:12PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 227 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261014T200936.320001Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1989 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 28%]\n.........................................                                [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n\n\u2026 [2000 chars omitted \u2014 25 line(s)] \u2026\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 88%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 88%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1978 passed, 11 skipped in 152.26s (0:02:32) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261014T200936.320001Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The bridge emits exactly one compact JSON verdict line to stderr per invocation (verified by live probe) with event/action/rule_id/layer/command_sha256 and never the raw command: Live probe: `echo '{\"command\": \"echo hi\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> stderr exactly one line {\"ts\":\"2026-10-14T20:16:07.820386+00:00\",\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"allow-echo\",\"layer\":\"yaml\",\"command_sha256\":\"56a79f3b11544807\"}; stdout exactly 1 line (wc -l = 1) with no 'event' key. Block probe: rule_id=builtin-curl-pipe-shell, layer=yaml, sha=eed70606a3ce6e55. Implementation at plugin/terminal_jail/interruptor_bridge.py:150-176 (_log_verdict) writes compact JSON (separators=(\",\",\":\")) to sys.stderr only, called at line ~250 for engine verdicts. Test plugin/test_verdict_log.py::TestVerdictLogPositiveControl/BlockControl PASSED (22 passed in 1.38s).\n  \u2713 A command containing a secret-looking token never appears verbatim in the log line, only its sha prefix (privacy control test in plugin/test_verdict_log.py): Live probe: `echo '{\"command\": \"echo sk-test123secret\"}' | ... interruptor_bridge.py` -> stderr verdict line command_sha256=1e171d3fdfc66412 (matches hashlib.sha256(b'echo sk-test123secret').hexdigest()[:16]); `grep -c 'sk-test123secret' /tmp/err2.txt` = 0 (NOT FOUND). plugin/test_verdict_log.py::TestVerdictLogPrivacyControl::test_secret_token_never_in_log_line PASSED. _log_verdict (interruptor_bridge.py:170) only hashes the command: hashlib.sha256(command.encode()).hexdigest()[:16]. [resolution 0.43; plugin/test_verdict_log.py]\n  \u2713 TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default (spelling matrix test): Live spelling matrix: 0/off/false/OFF/FALSE/Off/False -> verdict_lines=0; 1/on/true/yes/enabled -> verdict_lines=1; unset (env -u) -> verdict_lines=1. plugin/test_verdict_log.py::TestVerdictLogEnvSpellingMatrix (12 parametrized cases incl. test_unset_leaves_it_on) and TestVerdictLogNegativeControl::test_zero_disables_the_line all PASSED. Implementation: _VERDICT_LOG_DISABLED_SPELLINGS frozenset + _verdict_log_enabled() at interruptor_bridge.py:126-146 (raw is None or raw not in set).\n  \u2713 The [bridge-error] envelope also produces a verdict log line: Live probes: invalid JSON enforce -> stdout block rule_id=\"[bridge-error]\" AND stderr {\"event\":\"verdict\",\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"layer\":null,\"command_sha256\":\"e3b0c44298fc1c14\"}; invalid JSON warn -> stdout allow rule_id=null AND stderr verdict line with rule_id null; empty stdin -> block [bridge-error] logged. _emit_transport_error (interruptor_bridge.py:283-320) calls _log_verdict on both warn and enforce branches; _emit_fail_closed (line ~340) logs too. plugin/test_verdict_log.py::TestVerdictLogEnvelopeControl (3 tests) PASSED.\n  \u2713 specs/interruptor.md documents the log shape: specs/interruptor.md lines 811-829, section '## 15. Verdict Log (REVIEW-TJ-015)': documents the exact JSON shape {\"ts\": \"<ISO-8601 UTC>\", \"event\": \"verdict\", \"action\": \"block\", \"rule_id\": \"builtin-curl-pipe-shell\", \"layer\": \"yaml\", \"command_sha256\": \"<16 hex>\"}, stderr-only rule, sha256-prefix privacy rule, error-envelope behavior (sha of empty string, null rule_id in warn mode), and the TERMINAL_JAIL_VERDICT_LOG=0/off/false default-ON gate. [resolution 0.43; specs/interruptor.md]\nAll 5 criteria verified: live bridge probes confirm one compact JSON verdict line per invocation on stderr with sha256-only command, secret tokens absent from the log, the full falsy-spelling suppression matrix, [bridge-error] envelope logging in both modes, and specs/interruptor.md \u00a715 documenting the shape \u2014 with 22/22 verdict-log tests and 73/73 combined bridge tests passing.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The bridge emits exactly one compact JSON verdict line to stderr per invocation (verified by live probe) with event/action/rule_id/layer/command_sha256 and never the raw command: Live probe: `echo '{\"command\": \"echo hi\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> stderr exactly one line {\"ts\":\"2026-10-14T20:16:07.820386+00:00\",\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"allow-echo\",\"layer\":\"yaml\",\"command_sha256\":\"56a79f3b11544807\"}; stdout exactly 1 line (wc -l = 1) with no 'event' key. Block probe: rule_id=builtin-curl-pipe-shell, layer=yaml, sha=eed70606a3ce6e55. Implementation at plugin/terminal_jail/interruptor_bridge.py:150-176 (_log_verdict) writes compact JSON (separators=(\",\",\":\")) to sys.stderr only, called at line ~250 for engine verdicts. Test plugin/test_verdict_log.py::TestVerdictLogPositiveControl/BlockControl PASSED (22 passed in 1.38s).\n  \u2713 A command containing a secret-looking token never appears verbatim in the log line, only its sha prefix (privacy control test in plugin/test_verdict_log.py): Live probe: `echo '{\"command\": \"echo sk-test123secret\"}' | ... interruptor_bridge.py` -> stderr verdict line command_sha256=1e171d3fdfc66412 (matches hashlib.sha256(b'echo sk-test123secret').hexdigest()[:16]); `grep -c 'sk-test123secret' /tmp/err2.txt` = 0 (NOT FOUND). plugin/test_verdict_log.py::TestVerdictLogPrivacyControl::test_secret_token_never_in_log_line PASSED. _log_verdict (interruptor_bridge.py:170) only hashes the command: hashlib.sha256(command.encode()).hexdigest()[:16]. [resolution 0.43; plugin/test_verdict_log.py]\n  \u2713 TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default (spelling matrix test): Live spelling matrix: 0/off/false/OFF/FALSE/Off/False -> verdict_lines=0; 1/on/true/yes/enabled -> verdict_lines=1; unset (env -u) -> verdict_lines=1. plugin/test_verdict_log.py::TestVerdictLogEnvSpellingMatrix (12 parametrized cases incl. test_unset_leaves_it_on) and TestVerdictLogNegativeControl::test_zero_disables_the_line all PASSED. Implementation: _VERDICT_LOG_DISABLED_SPELLINGS frozenset + _verdict_log_enabled() at interruptor_bridge.py:126-146 (raw is None or raw not in set).\n  \u2713 The [bridge-error] envelope also produces a verdict log line: Live probes: invalid JSON enforce -> stdout block rule_id=\"[bridge-error]\" AND stderr {\"event\":\"verdict\",\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"layer\":null,\"command_sha256\":\"e3b0c44298fc1c14\"}; invalid JSON warn -> stdout allow rule_id=null AND stderr verdict line with rule_id null; empty stdin -> block [bridge-error] logged. _emit_transport_error (interruptor_bridge.py:283-320) calls _log_verdict on both warn and enforce branches; _emit_fail_closed (line ~340) logs too. plugin/test_verdict_log.py::TestVerdictLogEnvelopeControl (3 tests) PASSED.\n  \u2713 specs/interruptor.md documents the log shape: specs/interruptor.md lines 811-829, section '## 15. Verdict Log (REVIEW-TJ-015)': documents the exact JSON shape {\"ts\": \"<ISO-8601 UTC>\", \"event\": \"verdict\", \"action\": \"block\", \"rule_id\": \"builtin-curl-pipe-shell\", \"layer\": \"yaml\", \"command_sha256\": \"<16 hex>\"}, stderr-only rule, sha256-prefix privacy rule, error-envelope behavior (sha of empty string, null rule_id in warn mode), and the TERMINAL_JAIL_VERDICT_LOG=0/off/false default-ON gate. [resolution 0.43; specs/interruptor.md]\nAll 5 criteria verified: live bridge probes confirm one compact JSON verdict line per invocation on stderr with sha256-only command, secret tokens absent from the log, the full falsy-spelling suppression matrix, [bridge-error] envelope logging in both modes, and specs/interruptor.md \u00a715 documenting the shape \u2014 with 22/22 verdict-log tests and 73/73 combined bridge tests passing.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The bridge emits exactly one compact JSON verdict line to stderr per invocation (verified by live probe) with event/action/rule_id/layer/command_sha256 and never the raw command",
+                "status": "PASS",
+                "detail": "Live probe: `echo '{\"command\": \"echo hi\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> stderr exactly one line {\"ts\":\"2026-10-14T20:16:07.820386+00:00\",\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"allow-echo\",\"layer\":\"yaml\",\"command_sha256\":\"56a79f3b11544807\"}; stdout exactly 1 line (wc -l = 1) with no 'event' key. Block probe: rule_id=builtin-curl-pipe-shell, layer=yaml, sha=eed70606a3ce6e55. Implementation at plugin/terminal_jail/interruptor_bridge.py:150-176 (_log_verdict) writes compact JSON (separators=(\",\",\":\")) to sys.stderr only, called at line ~250 for engine verdicts. Test plugin/test_verdict_log.py::TestVerdictLogPositiveControl/BlockControl PASSED (22 passed in 1.38s).",
+                "resolution_probability": 0.43
+              },
+              {
+                "criterion": "A command containing a secret-looking token never appears verbatim in the log line, only its sha prefix (privacy control test in plugin/test_verdict_log.py)",
+                "status": "PASS",
+                "detail": "Live probe: `echo '{\"command\": \"echo sk-test123secret\"}' | ... interruptor_bridge.py` -> stderr verdict line command_sha256=1e171d3fdfc66412 (matches hashlib.sha256(b'echo sk-test123secret').hexdigest()[:16]); `grep -c 'sk-test123secret' /tmp/err2.txt` = 0 (NOT FOUND). plugin/test_verdict_log.py::TestVerdictLogPrivacyControl::test_secret_token_never_in_log_line PASSED. _log_verdict (interruptor_bridge.py:170) only hashes the command: hashlib.sha256(command.encode()).hexdigest()[:16]. [resolution 0.43; plugin/test_verdict_log.py]",
+                "resolution_probability": 0.43,
+                "cited_path": "plugin/test_verdict_log.py"
+              },
+              {
+                "criterion": "TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default (spelling matrix test)",
+                "status": "PASS",
+                "detail": "Live spelling matrix: 0/off/false/OFF/FALSE/Off/False -> verdict_lines=0; 1/on/true/yes/enabled -> verdict_lines=1; unset (env -u) -> verdict_lines=1. plugin/test_verdict_log.py::TestVerdictLogEnvSpellingMatrix (12 parametrized cases incl. test_unset_leaves_it_on) and TestVerdictLogNegativeControl::test_zero_disables_the_line all PASSED. Implementation: _VERDICT_LOG_DISABLED_SPELLINGS frozenset + _verdict_log_enabled() at interruptor_bridge.py:126-146 (raw is None or raw not in set).",
+                "resolution_probability": 0.43
+              },
+              {
+                "criterion": "The [bridge-error] envelope also produces a verdict log line",
+                "status": "PASS",
+                "detail": "Live probes: invalid JSON enforce -> stdout block rule_id=\"[bridge-error]\" AND stderr {\"event\":\"verdict\",\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"layer\":null,\"command_sha256\":\"e3b0c44298fc1c14\"}; invalid JSON warn -> stdout allow rule_id=null AND stderr verdict line with rule_id null; empty stdin -> block [bridge-error] logged. _emit_transport_error (interruptor_bridge.py:283-320) calls _log_verdict on both warn and enforce branches; _emit_fail_closed (line ~340) logs too. plugin/test_verdict_log.py::TestVerdictLogEnvelopeControl (3 tests) PASSED.",
+                "resolution_probability": 0.43
+              },
+              {
+                "criterion": "specs/interruptor.md documents the log shape",
+                "status": "PASS",
+                "detail": "specs/interruptor.md lines 811-829, section '## 15. Verdict Log (REVIEW-TJ-015)': documents the exact JSON shape {\"ts\": \"<ISO-8601 UTC>\", \"event\": \"verdict\", \"action\": \"block\", \"rule_id\": \"builtin-curl-pipe-shell\", \"layer\": \"yaml\", \"command_sha256\": \"<16 hex>\"}, stderr-only rule, sha256-prefix privacy rule, error-envelope behavior (sha of empty string, null rule_id in warn mode), and the TERMINAL_JAIL_VERDICT_LOG=0/off/false default-ON gate. [resolution 0.43; specs/interruptor.md]",
+                "resolution_probability": 0.43,
+                "cited_path": "specs/interruptor.md"
+              }
+            ],
+            "summary": "All 5 criteria verified: live bridge probes confirm one compact JSON verdict line per invocation on stderr with sha256-only command, secret tokens absent from the log, the full falsy-spelling suppression matrix, [bridge-error] envelope logging in both modes, and specs/interruptor.md \u00a715 documenting the shape \u2014 with 22/22 verdict-log tests and 73/73 combined bridge tests passing."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-015\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The bridge emits exactly one compact JSON verdict line to stderr per invocation (verified by live probe) with event/action/rule_id/layer/command_sha256 and never the raw command: Live probe: `echo '{\"command\": \"echo hi\"}' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> stderr exactly one line {\"ts\":\"2026-10-14T20:16:07.820386+00:00\",\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"allow-echo\",\"layer\":\"yaml\",\"command_sha256\":\"56a79f3b11544807\"}; stdout exactly 1 line (wc -l = 1) with no 'event' key. Block probe: rule_id=builtin-curl-pipe-shell, layer=yaml, sha=eed70606a3ce6e55. Implementation at plugin/terminal_jail/interruptor_bridge.py:150-176 (_log_verdict) writes compact JSON (separators=(\",\",\":\")) to sys.stderr only, called at line ~250 for engine verdicts. Test plugin/test_verdict_log.py::TestVerdictLogPositiveControl/BlockControl PASSED (22 passed in 1.38s).\n  \u2713 A command containing a secret-looking token never appears verbatim in the log line, only its sha prefix (privacy control test in plugin/test_verdict_log.py): Live probe: `echo '{\"command\": \"echo sk-test123secret\"}' | ... interruptor_bridge.py` -> stderr verdict line command_sha256=1e171d3fdfc66412 (matches hashlib.sha256(b'echo sk-test123secret').hexdigest()[:16]); `grep -c 'sk-test123secret' /tmp/err2.txt` = 0 (NOT FOUND). plugin/test_verdict_log.py::TestVerdictLogPrivacyControl::test_secret_token_never_in_log_line PASSED. _log_verdict (interruptor_bridge.py:170) only hashes the command: hashlib.sha256(command.encode()).hexdigest()[:16]. [resolution 0.43; plugin/test_verdict_log.py]\n  \u2713 TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default (spelling matrix test): Live spelling matrix: 0/off/false/OFF/FALSE/Off/False -> verdict_lines=0; 1/on/true/yes/enabled -> verdict_lines=1; unset (env -u) -> verdict_lines=1. plugin/test_verdict_log.py::TestVerdictLogEnvSpellingMatrix (12 parametrized cases incl. test_unset_leaves_it_on) and TestVerdictLogNegativeControl::test_zero_disables_the_line all PASSED. Implementation: _VERDICT_LOG_DISABLED_SPELLINGS frozenset + _verdict_log_enabled() at interruptor_bridge.py:126-146 (raw is None or raw not in set).\n  \u2713 The [bridge-error] envelope also produces a verdict log line: Live probes: invalid JSON enforce -> stdout block rule_id=\"[bridge-error]\" AND stderr {\"event\":\"verdict\",\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"layer\":null,\"command_sha256\":\"e3b0c44298fc1c14\"}; invalid JSON warn -> stdout allow rule_id=null AND stderr verdict line with rule_id null; empty stdin -> block [bridge-error] logged. _emit_transport_error (interruptor_bridge.py:283-320) calls _log_verdict on both warn and enforce branches; _emit_fail_closed (line ~340) logs too. plugin/test_verdict_log.py::TestVerdictLogEnvelopeControl (3 tests) PASSED.\n  \u2713 specs/interruptor.md documents the log shape: specs/interruptor.md lines 811-829, section '## 15. Verdict Log (REVIEW-TJ-015)': documents the exact JSON shape {\"ts\": \"<ISO-8601 UTC>\", \"event\": \"verdict\", \"action\": \"block\", \"rule_id\": \"builtin-curl-pipe-shell\", \"layer\": \"yaml\", \"command_sha256\": \"<16 hex>\"}, stderr-only rule, sha256-prefix privacy rule, error-envelope behavior (sha of empty string, null rule_id in warn mode), and the TERMINAL_JAIL_VERDICT_LOG=0/off/false default-ON gate. [resolution 0.43; specs/interruptor.md]\nAll 5 criteria verified: live bridge probes confirm one compact JSON verdict line per invocation on stderr with sha256-only command, secret tokens absent from the log, the full falsy-spelling suppression matrix, [bridge-error] envelope logging in both modes, and specs/interruptor.md \u00a715 documenting the shape \u2014 with 22/22 verdict-log tests and 73/73 combined bridge tests passing.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-14T20:16:33.763498",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-14T20:16:33.804397+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 2610,
+        "truncated": false,
+        "source": "git show 60dde49ed0d4"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 43116,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-015"
+  }
+}
