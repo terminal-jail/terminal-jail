@@ -170,6 +170,8 @@ def test_explicit_unshare_pin_refusal_byte_identical(
     explicitly falsy), so the assertion stays exact while the loud-degrade
     product behavior itself remains covered by plugin/test_landlock.py and
     plugin/test_landlock_net.py (warning presence + once-per-process).
+    The bridge's per-verdict stderr log line (REVIEW-TJ-015) is pinned OFF
+    the same way — it is diagnostic surface, not part of the refusal block.
     """
     result = _run_cli(
         "echo",
@@ -178,6 +180,7 @@ def test_explicit_unshare_pin_refusal_byte_identical(
             "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
             "TERMINAL_JAIL_LANDLOCK": "0",
             "TERMINAL_JAIL_LANDLOCK_NET": "0",
+            "TERMINAL_JAIL_VERDICT_LOG": "0",
         },
         path_override=_make_testbin(tmp_path),
     )

@@ -215,7 +215,13 @@ def _inner_cell() -> dict:
         )
     try:
         result, _ = _cli_run(
-            ["echo", "x"], env_extra={"TERMINAL_JAIL_JAIL_BACKEND": "unshare"}
+            ["echo", "x"],
+            env_extra={
+                "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
+                # REVIEW-TJ-015: the per-verdict stderr log is diagnostic
+                # surface; this arm asserts the refusal block byte-identical.
+                "TERMINAL_JAIL_VERDICT_LOG": "0",
+            },
         )
         arms.append(
             {
