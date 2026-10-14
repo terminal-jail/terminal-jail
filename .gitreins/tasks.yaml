@@ -1746,18 +1746,3 @@ tasks:
   status: complete
   created_at: '2026-10-14T11:16:40.106088+00:00'
   completed_at: '2026-10-14T12:29:07.677628+00:00'
-- id: REVIEW-TJ-015
-  title: Per-verdict structured verdict log on the interruptor bridge stderr
-  criteria:
-  - The bridge emits exactly one compact JSON verdict line to stderr per invocation
-    (verified by live probe) with event/action/rule_id/layer/command_sha256 and never
-    the raw command
-  - A command containing a secret-looking token never appears verbatim in the log
-    line, only its sha prefix (privacy control test in plugin/test_verdict_log.py)
-  - TERMINAL_JAIL_VERDICT_LOG=0/off/false suppresses the line; unset logs by default
-    (spelling matrix test)
-  - The [bridge-error] envelope also produces a verdict log line
-  - specs/interruptor.md documents the log shape
-  status: complete
-  created_at: '2026-10-14T19:58:09.735569+00:00'
-  completed_at: '2026-10-14T20:12:40.349934+00:00'
