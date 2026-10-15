@@ -852,6 +852,36 @@ class TestWiring:
 
 class TestStandaloneLaunch:
     @pytest.mark.standalone_cli
+    def test_default_tier_reads_documented_etc_and_home_files(self) -> None:
+        if not _host_permits_landlock():
+            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+        config = Path.home() / ".hermes" / "config.yaml"
+        if not config.is_file():
+            pytest.skip(f"{HOST_DEGRADED}: ~/.hermes/config.yaml is absent")
+        result = subprocess.run(
+            [
+                str(CLI_SCRIPT),
+                "bash",
+                "-c",
+                'ls -1 "$HOME" >/dev/null && cat /etc/hostname && head -1 ~/.hermes/config.yaml',
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+            cwd=str(PROJECT_ROOT),
+            env={**os.environ, "TERMINAL_JAIL_UID_MAP": "0"},
+        )
+        assert result.returncode == 0, (
+            f"documented reads must work with the default Landlock tier; "
+            f"stdout={result.stdout!r}, stderr={result.stderr!r}"
+        )
+        assert (
+            result.stdout.splitlines()[0] == Path("/etc/hostname").read_text().strip()
+        )
+        assert len(result.stdout.splitlines()) >= 2
+
+    @pytest.mark.standalone_cli
     def test_user_launch_payload_runs_and_credentials_denied(self) -> None:
         if not _host_permits_landlock():
             pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
@@ -1820,6 +1850,27 @@ class TestBuildLayoutBranches:
         assert os.path.realpath(home / ".zshrc") not in read
         assert os.path.realpath(home / ".nvm") not in read
 
+    def test_standard_read_grants_include_etc_and_home_without_broad_file_access(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        home = tmp_path / "h"
+        (home / ".hermes").mkdir(parents=True)
+        (home / ".hermes" / "config.yaml").write_text("safe: true\n")
+        workdir = tmp_path / "wd"
+        workdir.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        layout = ll.build_layout(str(workdir))
+        assert layout is not None
+        read = {os.path.realpath(p) for p in layout.read_roots}
+        read_dirs = {os.path.realpath(p) for p in layout.read_dir_roots}
+        assert os.path.realpath("/etc") in read_dirs
+        assert os.path.realpath(home) in read_dirs
+        assert os.path.realpath(home / ".hermes") in read_dirs
+        assert os.path.realpath("/etc/hostname") in read
+        assert os.path.realpath(home / ".hermes" / "config.yaml") in read
+        assert os.path.realpath("/etc/shadow") not in read
+        assert os.path.realpath(home / ".hermes") not in read
+
     def test_toolchain_tails_granted_when_present(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1863,19 +1914,17 @@ class TestBuildLayoutBranches:
         layout = ll.build_layout(str(workdir), payload_argv=argv)
         assert layout is not None
         read = {os.path.realpath(p) for p in layout.read_roots}
-        granted = {
-            os.path.realpath(p) for p in (*layout.read_roots, *layout.write_roots)
+        granted_all = {
+            os.path.realpath(p)
+            for p in (*layout.read_roots, *layout.read_dir_roots, *layout.write_roots)
         }
-        # the venv root + the base prefix under HOME are granted...
         assert os.path.realpath(venv_dir) in read
         assert os.path.realpath(base) in read
-        # ...the interpreter's own bin dir, and the tools tail
         assert os.path.realpath(venv_dir / "bin") in read
         assert os.path.realpath(home / "tools") in read
-        # NO wholesale HOME grant appears anywhere
-        assert os.path.realpath(home) not in granted
-        # the credential surface stays ungranted
-        assert os.path.realpath(home / ".ssh") not in granted
+        # HOME is listable/traversable only; it is not a file-content grant.
+        assert os.path.realpath(home) not in read
+        assert os.path.realpath(home / ".ssh") not in granted_all
 
     def test_toolchain_copied_interpreter_resolved_dir_granted(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

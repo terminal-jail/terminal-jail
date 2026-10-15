@@ -63,6 +63,12 @@ reason; `not from the tool` = that layer belongs to the platform in this shape,
 and the tool's own stderr says so (`jail_layer=platform`, `proc_view=…`,
 `filesystem: NOT isolated by this tool`).
 
+With the default Landlock filesystem tier enabled, `/etc` and the HOME root
+are traversable/listable without granting their contents wholesale. Named
+read-only exceptions include `/etc/hostname` and `~/.hermes/config.yaml`; the
+rest of `~/.hermes` and unlisted `/etc` files (including `/etc/shadow`) remain
+denied by omission. The write grants are unchanged.
+
 ---
 
 ## 3. Worked example: Ubuntu 26.04.1 LTS, kernel 7.0.0-31 (this host)
