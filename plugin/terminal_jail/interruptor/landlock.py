@@ -22,10 +22,11 @@ the process or a less-privileged child):
 
 Landlock is allowlist-shaped: a ruleset DECLares which access types it
 handles, and everything NOT covered by an added rule is denied. The tier
-grants a read-only runner set (system mounts, the loader/nss/release-file
-paths under /etc, DNS resolver state, the home allowlist: shell rc files,
-``~/.cargo``, ``~/.rustup``, ``~/.nvm``, ``~/go/pkg/mod``,
-``~/.local/{bin,lib,share,pipx}``, ``~/.config/fish``, git config) and a
+grants a read-only runner set (system mounts, /etc traversal/listing plus
+named loader/NSS/release/DNS files incl. ``/etc/hostname``, and HOME-root
+listing/traversal plus the home allowlist: shell rc files, ``~/.cargo``,
+``~/.rustup``, ``~/.nvm``, ``~/go/pkg/mod``, ``~/.local/{bin,lib,share,pipx}``,
+``~/.config/fish``, git config and ``~/.hermes/config.yaml``) and a
 read-write set (workdir, temp dirs, ``~/.cache``, ``/dev`` — so
 ``/dev/null`` and ``/dev/shm`` keep working). Denied subtrees are added as
 explicit zero-access rules so they stay denied even under the workdir or
@@ -399,6 +400,11 @@ def _build_rules_fd(
     for path in layout.read_roots:
         allowed = _READ_EXEC if _is_dir(path) else _READ_EXEC & file_bits
         rules.append((allowed, path, _open_path_beneath(path)))
+    # Keep traversal/listing grants separate from file-content grants so
+    # /etc and HOME can be inspected without granting every descendant file.
+    for path in layout.read_dir_roots:
+        allowed = LANDLOCK_ACCESS_FS_READ_DIR | LANDLOCK_ACCESS_FS_EXECUTE
+        rules.append((allowed, path, _open_path_beneath(path)))
 
     attr = _RulesetAttr(HANDLED_ACCESS_FS)
     ctypes.set_errno(0)
@@ -448,7 +454,10 @@ def _make_enforcement_probe(layout: "TierLayout") -> str:
     Raises LandlockError when no such host exists — the property cannot
     be proven, which is exactly when the tier must refuse to claim.
     """
-    granted = [os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)]
+    granted = [
+        os.path.realpath(p)
+        for p in (*layout.write_roots, *layout.read_roots, *layout.read_dir_roots)
+    ]
 
     def _ungranted(candidate: str) -> bool:
         real = os.path.realpath(candidate)
@@ -590,12 +599,13 @@ class TierLayout:
 
     workdir: str
     read_roots: list[str] = field(default_factory=list)
+    read_dir_roots: list[str] = field(default_factory=list)
     write_roots: list[str] = field(default_factory=list)
     ungranted_paths: list[str] = field(default_factory=list)
 
     @property
     def rule_count(self) -> int:
-        return len(self.read_roots) + len(self.write_roots)
+        return len(self.read_roots) + len(self.read_dir_roots) + len(self.write_roots)
 
 
 def _exists_dir(path: str) -> bool:
@@ -718,6 +728,7 @@ _ETC_READ = (
     "/etc/protocols",
     "/etc/services",
     "/etc/localtime",
+    "/etc/hostname",
     "/etc/passwd",
     "/etc/group",
     "/etc/os-release",
@@ -807,6 +818,7 @@ def build_layout(
     # procfs anyway, and on unshare the host-view exposure is the already
     # documented known limit (docs/backend-parity.md (a)) — the tier
     # neither improves nor worsens it, so it is granted read-only.
+    read_dir = ["/etc", resolved_home]
     read = [
         "/bin",
         "/sbin",
@@ -820,6 +832,12 @@ def build_layout(
         *_ETC_READ,
         *_RUN_READ,
     ]
+    # HOME is listable/traversable, but files are granted individually. The
+    # documented config exception does not grant the rest of ~/.hermes.
+    hermes_config = os.path.join(resolved_home, ".hermes", "config.yaml")
+    if _exists_file(hermes_config):
+        read.append(hermes_config)
+        read_dir.append(os.path.dirname(hermes_config))
     for tail in _HOME_READ:
         candidate = os.path.join(resolved_home, tail)
         if _exists_dir(candidate) or _exists_file(candidate):
@@ -830,6 +848,7 @@ def build_layout(
     argv = list(payload_argv) if payload_argv is not None else _loader_payload_argv()
     read.extend(_toolchain_roots(resolved_home, argv))
     layout.read_roots = _dedupe_existing(read, exclude=(*layout.write_roots,))
+    layout.read_dir_roots = _dedupe_existing(read_dir, exclude=(*layout.write_roots,))
 
     # ── the workdir grant is SUBDIVIDED around credential surfaces ───────
     # (an ungranted parent would deny the whole workdir — the deny must
