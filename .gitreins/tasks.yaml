@@ -1746,3 +1746,48 @@ tasks:
   status: complete
   created_at: '2026-10-14T11:16:40.106088+00:00'
   completed_at: '2026-10-14T12:29:07.677628+00:00'
+- id: TJ-DF-045
+  title: Landlock fs tier denies reads the docs promise are allowed /etc/hostname
+    + HOME root unreadable under default fs-tier-on jail
+  criteria:
+  - 'Default Landlock fs tier on HEAD 6e058d8 denies documented read grants: cat /etc/hostname
+    and head -1 ~/.hermes/config.yaml return Permission denied under the jailed payload
+    (workdir /home/kara/terminal-jail, row TJ-DF-045). Verified fixes required: ./standalone/terminal-jail
+    bash -c ''cat /etc/hostname'' exits 0 in this worktree; jailed mkdir ~/<new-dir>
+    still fails; regression test present in plugin/test_landlock.py for the documented
+    reads; docs updated if carve-out path chosen. Worker commit b48ca66 on wt/TJ-DF-045;
+    foreman probes verified rc=0/0/1; landlock tests 129 passed 1 skipped; pytest
+    1979 passed 11 skipped 1 deselected; guard DEGRADED PASS gitleaks-clean.'
+  status: complete
+  created_at: '2026-10-15T12:19:51.343853+00:00'
+  completed_at: '2026-10-15T12:23:23.335348+00:00'
+- id: REVIEW-TJ-011
+  title: 'Version drift: wrapper self-reports 1.2.0 vs pyproject 1.3.0, plugin.yaml
+    1.2.0, README 1.2.0-shipped'
+  criteria:
+  - 'On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011).
+    Fix required: single version authority = pyproject.toml; wrapper derives at install
+    time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended
+    bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit
+    353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version
+    in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml
+    1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981
+    passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no '':-1.2.0''
+    hardcode remains, README narrative untouched.'
+  status: complete
+  created_at: '2026-10-15T12:20:02.298244+00:00'
+  completed_at: '2026-10-15T12:38:41.598617+00:00'
+- id: INT-CI-006
+  title: 'Composed-mode live three-cell run flaky: docker live cell FAILs under pytest
+    then passes with zero code change'
+  criteria:
+  - 'the battery''s explicit-backend-no-downgrade arm stderr contract passes deterministically
+    on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice
+    consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base
+    (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical
+    arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic
+    pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing
+    container-conditional skips); uvx ruff check . clean'
+  status: complete
+  created_at: '2026-10-15T21:01:59.859442+00:00'
+  completed_at: '2026-10-15T21:02:49.581747+00:00'

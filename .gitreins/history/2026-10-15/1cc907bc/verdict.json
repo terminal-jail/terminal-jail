@@ -1,0 +1,121 @@
+{
+  "task_id": "INT-CI-006",
+  "task_title": "Composed-mode live three-cell run flaky: docker live cell FAILs under pytest then passes with zero code change",
+  "task_criteria": [
+    "the battery's explicit-backend-no-downgrade arm stderr contract passes deterministically on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing container-conditional skips); uvx ruff check . clean"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "204fc09353e7e61b58b04741bd764f0a7017bb82",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T205423.855443Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n4:02PM INF scanned ~6920601 bytes (6.92 MB) in 695ms\n4:02PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 229 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T205423.855443Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1995 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 28%]\n.........................................                                [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n\n\u2026 [2080 chars omitted \u2014 26 line(s)] \u2026\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 88%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 88%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 1984 passed, 11 skipped in 190.61s (0:03:10) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T205423.855443Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 the battery's explicit-backend-no-downgrade arm stderr contract passes deterministically on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing container-conditional skips); uvx ruff check . clean: All sub-claims verified with fresh command output. (1) test_live_three_cell_run passes twice consecutively: run 1 `pytest tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run -p no:cacheprovider` -> '1 passed in 16.14s'; run 2 same command -> '1 passed in 17.87s'. Docker IS on PATH (/home/kara/bin/docker) so the live three-cell run actually executed rather than skipping. (2) Hermetic env base: scripts/composed-mode-battery.py:93 `_CLI_ENV_DROP_PREFIXES = (\"GIT_\", \"PYTEST_\", \"COVERAGE_\", \"BUILD_\")`; :96-108 `_cli_env()` copies os.environ and deletes every key with those prefixes while retaining PATH/HOME/TERMINAL_JAIL_*; :117 `_cli_run` calls `env = _cli_env()`, layers env_extra, and passes `env=env` to subprocess.run. (3) Byte-identical arm pins Landlock tiers like its sibling: battery :257-258 sets TERMINAL_JAIL_LANDLOCK=\"0\" and TERMINAL_JAIL_LANDLOCK_NET=\"0\" (plus :259 TERMINAL_JAIL_VERDICT_LOG=\"0\") in the explicit-backend-no-downgrade arm, mirroring tests/test_composed_mode.py:167-172 test_explicit_unshare_pin_refusal_byte_identical; the arm asserts rc==2 and stderr == the exact refusal string (battery :266-278). (4) tests/test_composed_mode.py:377-436 test_cli_run_child_env_is_hermetic PASSED in 0.02s, asserting no GIT_/PYTEST_/COVERAGE_/BUILD_ leak, PATH/HOME/TERMINAL_JAIL_COMPOSED preserved, and that _cli_run wires the hermetic base + env_extra to the child. (5) Full file: `pytest tests/test_composed_mode.py -v -p no:cacheprovider` -> '15 passed, 3 skipped in 17.53s' (the 3 skips are the container-conditional TestInsideContainer class, skipif not /.dockerenv). (6) `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.30; tests/test_composed_mode.py, composed-mode-battery.py]\nAll INT-CI-006 sub-claims verified by fresh execution: live three-cell run passed twice consecutively, hermetic _cli_env/_cli_run wiring and Landlock tier pins are present, the env-hygiene test passes, the full file reports 15 passed/3 skipped, and ruff is clean.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 the battery's explicit-backend-no-downgrade arm stderr contract passes deterministically on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing container-conditional skips); uvx ruff check . clean: All sub-claims verified with fresh command output. (1) test_live_three_cell_run passes twice consecutively: run 1 `pytest tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run -p no:cacheprovider` -> '1 passed in 16.14s'; run 2 same command -> '1 passed in 17.87s'. Docker IS on PATH (/home/kara/bin/docker) so the live three-cell run actually executed rather than skipping. (2) Hermetic env base: scripts/composed-mode-battery.py:93 `_CLI_ENV_DROP_PREFIXES = (\"GIT_\", \"PYTEST_\", \"COVERAGE_\", \"BUILD_\")`; :96-108 `_cli_env()` copies os.environ and deletes every key with those prefixes while retaining PATH/HOME/TERMINAL_JAIL_*; :117 `_cli_run` calls `env = _cli_env()`, layers env_extra, and passes `env=env` to subprocess.run. (3) Byte-identical arm pins Landlock tiers like its sibling: battery :257-258 sets TERMINAL_JAIL_LANDLOCK=\"0\" and TERMINAL_JAIL_LANDLOCK_NET=\"0\" (plus :259 TERMINAL_JAIL_VERDICT_LOG=\"0\") in the explicit-backend-no-downgrade arm, mirroring tests/test_composed_mode.py:167-172 test_explicit_unshare_pin_refusal_byte_identical; the arm asserts rc==2 and stderr == the exact refusal string (battery :266-278). (4) tests/test_composed_mode.py:377-436 test_cli_run_child_env_is_hermetic PASSED in 0.02s, asserting no GIT_/PYTEST_/COVERAGE_/BUILD_ leak, PATH/HOME/TERMINAL_JAIL_COMPOSED preserved, and that _cli_run wires the hermetic base + env_extra to the child. (5) Full file: `pytest tests/test_composed_mode.py -v -p no:cacheprovider` -> '15 passed, 3 skipped in 17.53s' (the 3 skips are the container-conditional TestInsideContainer class, skipif not /.dockerenv). (6) `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.30; tests/test_composed_mode.py, composed-mode-battery.py]\nAll INT-CI-006 sub-claims verified by fresh execution: live three-cell run passed twice consecutively, hermetic _cli_env/_cli_run wiring and Landlock tier pins are present, the env-hygiene test passes, the full file reports 15 passed/3 skipped, and ruff is clean.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "the battery's explicit-backend-no-downgrade arm stderr contract passes deterministically on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing container-conditional skips); uvx ruff check . clean",
+                "status": "PASS",
+                "detail": "All sub-claims verified with fresh command output. (1) test_live_three_cell_run passes twice consecutively: run 1 `pytest tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run -p no:cacheprovider` -> '1 passed in 16.14s'; run 2 same command -> '1 passed in 17.87s'. Docker IS on PATH (/home/kara/bin/docker) so the live three-cell run actually executed rather than skipping. (2) Hermetic env base: scripts/composed-mode-battery.py:93 `_CLI_ENV_DROP_PREFIXES = (\"GIT_\", \"PYTEST_\", \"COVERAGE_\", \"BUILD_\")`; :96-108 `_cli_env()` copies os.environ and deletes every key with those prefixes while retaining PATH/HOME/TERMINAL_JAIL_*; :117 `_cli_run` calls `env = _cli_env()`, layers env_extra, and passes `env=env` to subprocess.run. (3) Byte-identical arm pins Landlock tiers like its sibling: battery :257-258 sets TERMINAL_JAIL_LANDLOCK=\"0\" and TERMINAL_JAIL_LANDLOCK_NET=\"0\" (plus :259 TERMINAL_JAIL_VERDICT_LOG=\"0\") in the explicit-backend-no-downgrade arm, mirroring tests/test_composed_mode.py:167-172 test_explicit_unshare_pin_refusal_byte_identical; the arm asserts rc==2 and stderr == the exact refusal string (battery :266-278). (4) tests/test_composed_mode.py:377-436 test_cli_run_child_env_is_hermetic PASSED in 0.02s, asserting no GIT_/PYTEST_/COVERAGE_/BUILD_ leak, PATH/HOME/TERMINAL_JAIL_COMPOSED preserved, and that _cli_run wires the hermetic base + env_extra to the child. (5) Full file: `pytest tests/test_composed_mode.py -v -p no:cacheprovider` -> '15 passed, 3 skipped in 17.53s' (the 3 skips are the container-conditional TestInsideContainer class, skipif not /.dockerenv). (6) `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.30; tests/test_composed_mode.py, composed-mode-battery.py]",
+                "resolution_probability": 0.3,
+                "cited_path": "tests/test_composed_mode.py, composed-mode-battery.py"
+              }
+            ],
+            "summary": "All INT-CI-006 sub-claims verified by fresh execution: live three-cell run passed twice consecutively, hermetic _cli_env/_cli_run wiring and Landlock tier pins are present, the env-hygiene test passes, the full file reports 15 passed/3 skipped, and ruff is clean."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-006\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 the battery's explicit-backend-no-downgrade arm stderr contract passes deterministically on this host: tests/test_composed_mode.py::test_live_three_cell_run passes twice consecutively; composed-mode-battery.py spawns CLI arms with a hermetic env base (_cli_env strips GIT_/PYTEST_/COVERAGE_/BUILD_ namespaces) and the byte-identical arm pins the Landlock tiers like its sibling test; tests/test_composed_mode.py::test_cli_run_child_env_is_hermetic pins the env hygiene; full tests/test_composed_mode.py 15 passed 3 skipped (pre-existing container-conditional skips); uvx ruff check . clean: All sub-claims verified with fresh command output. (1) test_live_three_cell_run passes twice consecutively: run 1 `pytest tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run -p no:cacheprovider` -> '1 passed in 16.14s'; run 2 same command -> '1 passed in 17.87s'. Docker IS on PATH (/home/kara/bin/docker) so the live three-cell run actually executed rather than skipping. (2) Hermetic env base: scripts/composed-mode-battery.py:93 `_CLI_ENV_DROP_PREFIXES = (\"GIT_\", \"PYTEST_\", \"COVERAGE_\", \"BUILD_\")`; :96-108 `_cli_env()` copies os.environ and deletes every key with those prefixes while retaining PATH/HOME/TERMINAL_JAIL_*; :117 `_cli_run` calls `env = _cli_env()`, layers env_extra, and passes `env=env` to subprocess.run. (3) Byte-identical arm pins Landlock tiers like its sibling: battery :257-258 sets TERMINAL_JAIL_LANDLOCK=\"0\" and TERMINAL_JAIL_LANDLOCK_NET=\"0\" (plus :259 TERMINAL_JAIL_VERDICT_LOG=\"0\") in the explicit-backend-no-downgrade arm, mirroring tests/test_composed_mode.py:167-172 test_explicit_unshare_pin_refusal_byte_identical; the arm asserts rc==2 and stderr == the exact refusal string (battery :266-278). (4) tests/test_composed_mode.py:377-436 test_cli_run_child_env_is_hermetic PASSED in 0.02s, asserting no GIT_/PYTEST_/COVERAGE_/BUILD_ leak, PATH/HOME/TERMINAL_JAIL_COMPOSED preserved, and that _cli_run wires the hermetic base + env_extra to the child. (5) Full file: `pytest tests/test_composed_mode.py -v -p no:cacheprovider` -> '15 passed, 3 skipped in 17.53s' (the 3 skips are the container-conditional TestInsideContainer class, skipif not /.dockerenv). (6) `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.30; tests/test_composed_mode.py, composed-mode-battery.py]\nAll INT-CI-006 sub-claims verified by fresh execution: live three-cell run passed twice consecutively, hermetic _cli_env/_cli_run wiring and Landlock tier pins are present, the env-hygiene test passes, the full file reports 15 passed/3 skipped, and ruff is clean.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-15T21:08:02.522646",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-15T21:08:02.570120+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 608,
+        "truncated": false,
+        "source": "git show 204fc09353e7"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 65120,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-006"
+  }
+}

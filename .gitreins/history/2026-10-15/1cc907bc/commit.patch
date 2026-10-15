@@ -1,0 +1,12 @@
+commit 204fc09353e7e61b58b04741bd764f0a7017bb82
+Merge: 2c13f86 455ab4a
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Oct 15 16:01:32 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Oct 15 16:01:32 2026 -0500
+
+    merge(INT-CI-006): hermetic CLI env + Landlock tier pins make the live three-cell run deterministic
+
+ scripts/composed-mode-battery.py | 40 ++++++++++++++++++++++++++-
+ tests/test_composed_mode.py      | 58 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 97 insertions(+), 1 deletion(-)

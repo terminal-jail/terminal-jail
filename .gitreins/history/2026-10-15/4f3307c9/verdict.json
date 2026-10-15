@@ -1,0 +1,119 @@
+{
+  "task_id": "REVIEW-TJ-011",
+  "task_title": "Version drift: wrapper self-reports 1.2.0 vs pyproject 1.3.0, plugin.yaml 1.2.0, README 1.2.0-shipped",
+  "task_criteria": [
+    "On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011). Fix required: single version authority = pyproject.toml; wrapper derives at install time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit 353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml 1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981 passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no ':-1.2.0' hardcode remains, README narrative untouched."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2c13f860e24230784700ffe4ec24a490778b60b0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run [first failing i",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T122302.673253Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n7:38AM INF scanned ~6917831 bytes (6.92 MB) in 588ms\n7:38AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 229 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T122302.673253Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1994 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 28%]\n.........................................                                [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n\n\u2026 [2240 chars omitted \u2014 28 line(s)] \u2026\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss....F\n\n=================================== FAILURES ===================================\n_______________ TestCompositionBattery.test_live_three_cell_run ________________\ntests/test_composed_mode.py:388: in test_live_three_cell_run\n    assert result.returncode == 0, result.stderr\nE   AssertionError: \nE   assert 1 == 0\nE    +  where 1 = CompletedProcess(args=['/home/kara/terminal-jail/.venv/bin/python', '/home/kara/terminal-jail/scripts/composed-mode-ba...it-backend-no-downgrade: rc=2\\nsummary: 2/3 PASS, 0 UNAVAILABLE \u2014 unavailable cells never count as green\\n\", stderr='').returncode\n=========================== short test summary info ============================\nFAILED tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============ 1 failed, 1885 passed, 11 skipped in 201.00s (0:03:21) ============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run",
+              "first_failing_test": "tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261015T122302.673253Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011). Fix required: single version authority = pyproject.toml; wrapper derives at install time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit 353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml 1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981 passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no ':-1.2.0' hardcode remains, README narrative untouched.: REVIEW-TJ-011 verification progress:\n\n1. Single version authority = pyproject.toml: PASS\n   - pyproject.toml:7 version = \"1.3.0\"\n   - standalone/terminal-jail:97-107 reads ${SCRIPT_DIR}/../pyproject.toml at runtime in checkout\n   - install.sh:1152-1171 reads $SCRIPT_DIR/pyproject.toml, sed-bakes into installed wrapper\n\n2. Wrapper derives at install time: PASS\n   - install.sh:1177 sed \"s/^VERSION_DEFAULT=\\\"\\\"$/VERSION_DEFAULT=\\\"$LOCAL_VERSION\\\"/\"\n   - E2E verified: ./install.sh -> \"installing v1.3.0\", installed wrapper /tmp/tjtest/bin/terminal-jail --version => \"terminal-jail 1.3.0\", baked line VERSION_DEFAULT=\"1.3.0\"\n\n3. TERMINAL_JAIL_VERSION override preserved: PASS\n   - standalone/terminal-jail:109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - TERMINAL_JAIL_VERSION=9.9.9 ./standalone/terminal-jail --version => \"terminal-jail 9.9.9\"\n   - baked wrapper override also => 9.9.9\n\n4. Drift-guard test added: PASS\n   - tests/test_version.py (3 tests): test_standalone_reports_pyproject_version, test_standalone_version_override_still_works, test_plugin_manifest_version_matches_pyproject\n   - .venv/bin/python -m pytest tests/test_version.py -v => 3 passed in 0.07s\n\n5. No unintended bumps to 1.3.0 shipped narrative / README untouched: PASS\n   - README.md NOT in git diff 6e058d8..HEAD --name-only\n   - README.md:19 still \"v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008\"\n\n6. plugin.yaml 1.3.0: PASS - plugin/plugin.yaml:2 version: \"1.3.0\"\n\n7. No ':-1.2.0' hardcode in wrapper: PASS\n   - HEAD 6e058d8 standalone/terminal-jail:80 was VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"\n   - HEAD now :109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - NOTE: install.sh:13 still has TERMINAL_JAIL_VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\" (release-download default, separate concern)\n\n8. Full suite: RUNNING in background (/tmp/fullsuite.log) - awaiting result\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011). Fix required: single version authority = pyproject.toml; wrapper derives at install time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit 353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml 1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981 passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no ':-1.2.0' hardcode remains, README narrative untouched.: REVIEW-TJ-011 verification progress:\n\n1. Single version authority = pyproject.toml: PASS\n   - pyproject.toml:7 version = \"1.3.0\"\n   - standalone/terminal-jail:97-107 reads ${SCRIPT_DIR}/../pyproject.toml at runtime in checkout\n   - install.sh:1152-1171 reads $SCRIPT_DIR/pyproject.toml, sed-bakes into installed wrapper\n\n2. Wrapper derives at install time: PASS\n   - install.sh:1177 sed \"s/^VERSION_DEFAULT=\\\"\\\"$/VERSION_DEFAULT=\\\"$LOCAL_VERSION\\\"/\"\n   - E2E verified: ./install.sh -> \"installing v1.3.0\", installed wrapper /tmp/tjtest/bin/terminal-jail --version => \"terminal-jail 1.3.0\", baked line VERSION_DEFAULT=\"1.3.0\"\n\n3. TERMINAL_JAIL_VERSION override preserved: PASS\n   - standalone/terminal-jail:109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - TERMINAL_JAIL_VERSION=9.9.9 ./standalone/terminal-jail --version => \"terminal-jail 9.9.9\"\n   - baked wrapper override also => 9.9.9\n\n4. Drift-guard test added: PASS\n   - tests/test_version.py (3 tests): test_standalone_reports_pyproject_version, test_standalone_version_override_still_works, test_plugin_manifest_version_matches_pyproject\n   - .venv/bin/python -m pytest tests/test_version.py -v => 3 passed in 0.07s\n\n5. No unintended bumps to 1.3.0 shipped narrative / README untouched: PASS\n   - README.md NOT in git diff 6e058d8..HEAD --name-only\n   - README.md:19 still \"v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008\"\n\n6. plugin.yaml 1.3.0: PASS - plugin/plugin.yaml:2 version: \"1.3.0\"\n\n7. No ':-1.2.0' hardcode in wrapper: PASS\n   - HEAD 6e058d8 standalone/terminal-jail:80 was VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"\n   - HEAD now :109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - NOTE: install.sh:13 still has TERMINAL_JAIL_VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\" (release-download default, separate concern)\n\n8. Full suite: RUNNING in background (/tmp/fullsuite.log) - awaiting result\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011). Fix required: single version authority = pyproject.toml; wrapper derives at install time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit 353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml 1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981 passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no ':-1.2.0' hardcode remains, README narrative untouched.",
+                "status": "FAIL",
+                "detail": "REVIEW-TJ-011 verification progress:\n\n1. Single version authority = pyproject.toml: PASS\n   - pyproject.toml:7 version = \"1.3.0\"\n   - standalone/terminal-jail:97-107 reads ${SCRIPT_DIR}/../pyproject.toml at runtime in checkout\n   - install.sh:1152-1171 reads $SCRIPT_DIR/pyproject.toml, sed-bakes into installed wrapper\n\n2. Wrapper derives at install time: PASS\n   - install.sh:1177 sed \"s/^VERSION_DEFAULT=\\\"\\\"$/VERSION_DEFAULT=\\\"$LOCAL_VERSION\\\"/\"\n   - E2E verified: ./install.sh -> \"installing v1.3.0\", installed wrapper /tmp/tjtest/bin/terminal-jail --version => \"terminal-jail 1.3.0\", baked line VERSION_DEFAULT=\"1.3.0\"\n\n3. TERMINAL_JAIL_VERSION override preserved: PASS\n   - standalone/terminal-jail:109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - TERMINAL_JAIL_VERSION=9.9.9 ./standalone/terminal-jail --version => \"terminal-jail 9.9.9\"\n   - baked wrapper override also => 9.9.9\n\n4. Drift-guard test added: PASS\n   - tests/test_version.py (3 tests): test_standalone_reports_pyproject_version, test_standalone_version_override_still_works, test_plugin_manifest_version_matches_pyproject\n   - .venv/bin/python -m pytest tests/test_version.py -v => 3 passed in 0.07s\n\n5. No unintended bumps to 1.3.0 shipped narrative / README untouched: PASS\n   - README.md NOT in git diff 6e058d8..HEAD --name-only\n   - README.md:19 still \"v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008\"\n\n6. plugin.yaml 1.3.0: PASS - plugin/plugin.yaml:2 version: \"1.3.0\"\n\n7. No ':-1.2.0' hardcode in wrapper: PASS\n   - HEAD 6e058d8 standalone/terminal-jail:80 was VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"\n   - HEAD now :109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - NOTE: install.sh:13 still has TERMINAL_JAIL_VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\" (release-download default, separate concern)\n\n8. Full suite: RUNNING in background (/tmp/fullsuite.log) - awaiting result\n"
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-011\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run [first failing i\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 On HEAD 6e058d8 four artifacts disagreed on shipped version (row REVIEW-TJ-011). Fix required: single version authority = pyproject.toml; wrapper derives at install time; TERMINAL_JAIL_VERSION override preserved; drift-guard test added; no unintended bumps to 1.3.0 shipped narrative (release hold RELEASE-TJ-008 stays). Worker commit 353f176 on wt/REVIEW-TJ-011: standalone/terminal-jail reads pyproject version in checkout, install.sh sed-bakes VERSION_DEFAULT into installed wrapper; plugin.yaml 1.3.0 + tests/test_version.py (3 tests incl override); full worktree suite 1981 passed 11 skipped; foreman re-verified --version=1.3.0, override=9.9.9, no ':-1.2.0' hardcode remains, README narrative untouched.: REVIEW-TJ-011 verification progress:\n\n1. Single version authority = pyproject.toml: PASS\n   - pyproject.toml:7 version = \"1.3.0\"\n   - standalone/terminal-jail:97-107 reads ${SCRIPT_DIR}/../pyproject.toml at runtime in checkout\n   - install.sh:1152-1171 reads $SCRIPT_DIR/pyproject.toml, sed-bakes into installed wrapper\n\n2. Wrapper derives at install time: PASS\n   - install.sh:1177 sed \"s/^VERSION_DEFAULT=\\\"\\\"$/VERSION_DEFAULT=\\\"$LOCAL_VERSION\\\"/\"\n   - E2E verified: ./install.sh -> \"installing v1.3.0\", installed wrapper /tmp/tjtest/bin/terminal-jail --version => \"terminal-jail 1.3.0\", baked line VERSION_DEFAULT=\"1.3.0\"\n\n3. TERMINAL_JAIL_VERSION override preserved: PASS\n   - standalone/terminal-jail:109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - TERMINAL_JAIL_VERSION=9.9.9 ./standalone/terminal-jail --version => \"terminal-jail 9.9.9\"\n   - baked wrapper override also => 9.9.9\n\n4. Drift-guard test added: PASS\n   - tests/test_version.py (3 tests): test_standalone_reports_pyproject_version, test_standalone_version_override_still_works, test_plugin_manifest_version_matches_pyproject\n   - .venv/bin/python -m pytest tests/test_version.py -v => 3 passed in 0.07s\n\n5. No unintended bumps to 1.3.0 shipped narrative / README untouched: PASS\n   - README.md NOT in git diff 6e058d8..HEAD --name-only\n   - README.md:19 still \"v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008\"\n\n6. plugin.yaml 1.3.0: PASS - plugin/plugin.yaml:2 version: \"1.3.0\"\n\n7. No ':-1.2.0' hardcode in wrapper: PASS\n   - HEAD 6e058d8 standalone/terminal-jail:80 was VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"\n   - HEAD now :109 VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\"\n   - NOTE: install.sh:13 still has TERMINAL_JAIL_VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\" (release-download default, separate concern)\n\n8. Full suite: RUNNING in background (/tmp/fullsuite.log) - awaiting result\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-15T14:55:12.623566",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-15T14:55:12.699665+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show 2c13f860e242"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 64090,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-011"
+  }
+}
