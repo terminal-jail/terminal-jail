@@ -90,10 +90,31 @@ def _proc_props() -> dict:
     return props
 
 
+_CLI_ENV_DROP_PREFIXES = ("GIT_", "PYTEST_", "COVERAGE_", "BUILD_")
+
+
+def _cli_env() -> dict:
+    """Hermetic base env for the CLI arms (INT-CI-006).
+
+    The arms assert stderr contracts byte-identically, so the child must
+    not inherit whatever the spawning process tree carries: a pytest/CI
+    caller leaks its own state namespaces (PYTEST_* — pytest exports its
+    own state under that namespace itself — plus GIT_* from git hooks,
+    COVERAGE_*, BUILD_* from build/CI systems), and caller-tree state has
+    nothing to do with the wrapper's contract. PATH/HOME and the
+    TERMINAL_JAIL_* vars stay — the wrapper needs them and env_extra
+    layers the arm-specific knobs on top.
+    """
+    env = os.environ.copy()
+    for key in [key for key in env if key.startswith(_CLI_ENV_DROP_PREFIXES)]:
+        del env[key]
+    return env
+
+
 def _cli_run(
     args: list[str], env_extra: dict | None = None, timeout: float = 30
 ) -> tuple[subprocess.CompletedProcess, float]:
-    env = os.environ.copy()
+    env = _cli_env()
     if env_extra:
         env.update(env_extra)
     t0 = time.time()
@@ -218,6 +239,23 @@ def _inner_cell() -> dict:
             ["echo", "x"],
             env_extra={
                 "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
+                # QA-TERMINAL-JAIL-20 (INT-CI-006): the contract under test
+                # is the namespace REFUSAL block, byte-identical. The fs/net
+                # Landlock tiers' loud degradation warnings fire BEFORE the
+                # refusal on hosts where the tiers cannot prove themselves —
+                # deterministically inside the slim container (the
+                # enforcement-probe candidates are all granted there:
+                # HOME=/root is a read-dir grant, /tmp+/var/tmp are write
+                # grants, /run/user/0 does not exist), which broke the
+                # byte-identical contract in CI. The explicit-falsy knobs
+                # are the tiers' own DOCUMENTED acknowledgment seam
+                # (landlock.py/_degrade and landlock_net.py/_degrade print
+                # nothing when the var is explicitly falsy) — same pins as
+                # test_explicit_unshare_pin_refusal_byte_identical; the
+                # loud-degrade product behavior stays covered by
+                # plugin/test_landlock.py / plugin/test_landlock_net.py.
+                "TERMINAL_JAIL_LANDLOCK": "0",
+                "TERMINAL_JAIL_LANDLOCK_NET": "0",
                 # REVIEW-TJ-015: the per-verdict stderr log is diagnostic
                 # surface; this arm asserts the refusal block byte-identical.
                 "TERMINAL_JAIL_VERDICT_LOG": "0",

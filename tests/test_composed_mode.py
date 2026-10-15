@@ -374,6 +374,64 @@ class TestCompositionBattery:
         assert "SELFTEST PASS" in result.stdout
         assert "5 malformed rows rejected" in result.stdout
 
+    def test_cli_run_child_env_is_hermetic(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """INT-CI-006: the battery's CLI arms spawn with a hermetic base env.
+
+        The arms assert stderr contracts byte-identically, so the child
+        must not inherit the spawning process tree's state namespaces
+        (PYTEST_* under pytest, GIT_* from git hooks, COVERAGE_*/BUILD_*
+        from build/CI systems): caller-tree state has nothing to do with
+        the wrapper's contract. PATH/HOME and the terminal-jail vars stay,
+        env_extra layers on top, and _cli_run actually passes the
+        hermetic base to the child (wiring, not just the helper).
+        """
+        contaminated = {
+            "PATH": "/usr/bin:/bin",
+            "HOME": "/home/tj",
+            "PYTEST_CURRENT_TEST": "tests/test_composed_mode.py::x",
+            "PYTEST_VERSION": "8.3.0",
+            "GIT_DIR": "/srv/git/.git",
+            "GIT_AUTHOR_NAME": "tj",
+            "COVERAGE_FILE": "/tmp/.coverage",
+            "COVERAGE_CORE": "sysmon",
+            "BUILD_NUMBER": "38734228019",
+            "TERMINAL_JAIL_COMPOSED": "auto",
+        }
+        monkeypatch.setattr(os, "environ", dict(contaminated))
+
+        env = self.battery._cli_env()
+        leaked = [
+            key
+            for key in env
+            if key.startswith(("GIT_", "PYTEST_", "COVERAGE_", "BUILD_"))
+        ]
+        assert leaked == []
+        assert env["PATH"] == "/usr/bin:/bin"
+        assert env["HOME"] == "/home/tj"
+        assert env["TERMINAL_JAIL_COMPOSED"] == "auto"
+
+        # Wiring: _cli_run gives the child the hermetic base + env_extra.
+        captured: dict = {}
+
+        def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            captured["env"] = kwargs["env"]
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(self.battery.subprocess, "run", fake_run)
+        self.battery._cli_run(
+            ["echo", "x"], env_extra={"TERMINAL_JAIL_VERDICT_LOG": "0"}
+        )
+        child_env = captured["env"]
+        assert not any(
+            key.startswith(("GIT_", "PYTEST_", "COVERAGE_", "BUILD_"))
+            for key in child_env
+        )
+        assert child_env["TERMINAL_JAIL_VERDICT_LOG"] == "0"
+        assert child_env["PATH"] == "/usr/bin:/bin"
+        assert child_env["TERMINAL_JAIL_COMPOSED"] == "auto"
+
     @pytest.mark.skipif(
         not shutil_which_docker(), reason="docker not available on this host"
     )
