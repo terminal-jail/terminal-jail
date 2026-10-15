@@ -1148,11 +1148,33 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "terminal-jail installer: installing v${TERMINAL_JAIL_VERSION}..."
+LOCAL_VERSION=""
+if [ -n "$LOCAL_WRAPPER" ]; then
+    if [ -f "$SCRIPT_DIR/pyproject.toml" ]; then
+        while IFS= read -r version_line; do
+            case "$version_line" in
+                'version = "'*)
+                    LOCAL_VERSION="${version_line#version = \"}"
+                    LOCAL_VERSION="${LOCAL_VERSION%\"}"
+                    break
+                    ;;
+            esac
+        done < "$SCRIPT_DIR/pyproject.toml"
+        if [ -z "$LOCAL_VERSION" ]; then
+            echo "terminal-jail installer: could not read project version from $SCRIPT_DIR/pyproject.toml" >&2
+            exit 1
+        fi
+    else
+        # Minimal fixture/legacy checkouts may omit packaging metadata.
+        LOCAL_VERSION="$TERMINAL_JAIL_VERSION"
+    fi
+fi
+
+echo "terminal-jail installer: installing v${LOCAL_VERSION:-$TERMINAL_JAIL_VERSION}..."
 
 if [ -n "$LOCAL_WRAPPER" ]; then
-    echo "terminal-jail installer: repository checkout detected — installing local wrapper (${LOCAL_WRAPPER})"
-    cp "$LOCAL_WRAPPER" "$tmp_payload"
+    echo "terminal-jail installer: repository checkout detected — installing local wrapper (${LOCAL_WRAPPER}, version ${LOCAL_VERSION})"
+    sed "s/^VERSION_DEFAULT=\"\"$/VERSION_DEFAULT=\"$LOCAL_VERSION\"/" "$LOCAL_WRAPPER" > "$tmp_payload"
 
     # Ship the runtime support tree next to the binary so the installed CLI
     # finds the interruptor bridge and seccomp loader (fail-closed: a binary

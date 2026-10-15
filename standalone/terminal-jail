@@ -77,7 +77,9 @@ while IFS= read -r -d '' _tj_entry; do
 done < /proc/self/environ
 unset -v _TJ_HOOK_RE _TJ_VAR_KEEP_RE _tj_entry _tj_name _tj_val
 
-VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"
+# The installer replaces the empty default with pyproject.toml's version.
+# In a checkout, read that same authority relative to this script instead.
+VERSION_DEFAULT=""
 # Resolve the script's directory using bash parameter expansion (no external
 # commands needed — safe in stripped-PATH environments).
 SCRIPT_DIR="${0%/*}"
@@ -92,6 +94,19 @@ if [[ "$SCRIPT_DIR" == "$0" ]]; then
     fi
 fi
 SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
+if [ -z "$VERSION_DEFAULT" ] && [ -f "${SCRIPT_DIR}/../pyproject.toml" ]; then
+    while IFS= read -r _tj_version_line; do
+        case "$_tj_version_line" in
+            'version = "'*)
+                VERSION_DEFAULT="${_tj_version_line#version = \"}"
+                VERSION_DEFAULT="${VERSION_DEFAULT%\"}"
+                break
+                ;;
+        esac
+    done < "${SCRIPT_DIR}/../pyproject.toml"
+    unset -v _tj_version_line
+fi
+VERSION="${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}"
 # Installed layout (install.sh local mode): plugin tree + seccomp loader land in
 # ${INSTALL_DIR}/../lib/terminal-jail — i.e. ~/.local/lib/terminal-jail for the
 # default ~/.local/bin install.
