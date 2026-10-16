@@ -30,6 +30,10 @@ def _env(tmp_path: Path) -> dict[str, str]:
         "HOME": str(home),
         "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
         "TERMINAL_JAIL_RULES_DIR": str(tmp_path / "rules.d"),
+        # Never inherit CI=SUDO_USER from the invoking shell: the --no-path
+        # feature auto-skips PATH when CI=true or SUDO_USER is set.
+        "CI": "",
+        "SUDO_USER": "",
     }
 
 
@@ -42,6 +46,10 @@ def _home_env(tmp_path: Path) -> dict[str, str]:
         "HOME": str(home),
         "TERMINAL_JAIL_INSTALL_DIR": "",
         "TERMINAL_JAIL_RULES_DIR": "",
+        # Never inherit CI=SUDO_USER from the invoking shell: the --no-path
+        # feature auto-skips PATH when CI=true or SUDO_USER is set.
+        "CI": "",
+        "SUDO_USER": "",
     }
 
 

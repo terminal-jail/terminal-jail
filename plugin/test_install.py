@@ -1868,6 +1868,11 @@ def _install_env(tmp_path: Path) -> dict[str, str]:
         # Never inherit a rules target from the invoking shell: these tests must
         # write into the scratch prefix only (an empty value == unset here).
         "TERMINAL_JAIL_RULES_DIR": "",
+        # Never inherit CI=SUDO_USER from the invoking shell: the --no-path
+        # feature auto-skips PATH when CI=true or SUDO_USER is set; these
+        # tests must exercise the default-PATH-append behaviour.
+        "CI": "",
+        "SUDO_USER": "",
     }
 
 
