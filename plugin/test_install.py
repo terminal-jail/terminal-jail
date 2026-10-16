@@ -2687,6 +2687,13 @@ def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
         # _install_env): empty == unset for both defaults.
         "TERMINAL_JAIL_INSTALL_DIR": "",
         "TERMINAL_JAIL_RULES_DIR": "",
+        # Clear CI / SUDO_USER to prevent the --no-path auto-skip, and set
+        # TERMINAL_JAIL_TEST=1 to suppress the /tmp auto-skip so this test
+        # can verify default-scope PATH-append behaviour (CI=true on GitHub
+        # Actions would auto-skip; tmp_path is /tmp).
+        "CI": "",
+        "SUDO_USER": "",
+        "TERMINAL_JAIL_TEST": "1",
     }
 
     first = subprocess.run(
