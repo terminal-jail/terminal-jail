@@ -34,6 +34,9 @@ def _env(tmp_path: Path) -> dict[str, str]:
         # feature auto-skips PATH when CI=true or SUDO_USER is set.
         "CI": "",
         "SUDO_USER": "",
+        # pytest tmp_path always lives under /tmp; install.sh auto-skips PATH
+        # for /tmp prefixes. TERMINAL_JAIL_TEST=1 suppresses that skip.
+        "TERMINAL_JAIL_TEST": "1",
     }
 
 
@@ -50,6 +53,9 @@ def _home_env(tmp_path: Path) -> dict[str, str]:
         # feature auto-skips PATH when CI=true or SUDO_USER is set.
         "CI": "",
         "SUDO_USER": "",
+        # pytest tmp_path always lives under /tmp; install.sh auto-skips PATH
+        # for /tmp prefixes. TERMINAL_JAIL_TEST=1 suppresses that skip.
+        "TERMINAL_JAIL_TEST": "1",
     }
 
 

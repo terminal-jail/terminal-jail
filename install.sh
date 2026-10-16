@@ -1361,7 +1361,8 @@ elif [ "${CI:-}" != "" ] \
     && [ "${CI}" != "no" ] \
     && [ "${CI}" != "off" ]; then
     path_block_skip_reason="CI environment detected (CI=${CI})"
-elif case "$TERMINAL_JAIL_INSTALL_DIR" in /tmp/*) true ;; *) false ;; esac; then
+elif [ "${TERMINAL_JAIL_TEST:-}" != "1" ] \
+    && case "$TERMINAL_JAIL_INSTALL_DIR" in /tmp/*) true ;; *) false ;; esac; then
     path_block_skip_reason="ephemeral install prefix (${TERMINAL_JAIL_INSTALL_DIR} under /tmp)"
 fi
 

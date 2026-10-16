@@ -1873,6 +1873,10 @@ def _install_env(tmp_path: Path) -> dict[str, str]:
         # tests must exercise the default-PATH-append behaviour.
         "CI": "",
         "SUDO_USER": "",
+        # pytest tmp_path always lives under /tmp; install.sh auto-skips PATH
+        # for /tmp prefixes. TERMINAL_JAIL_TEST=1 suppresses that skip so
+        # tests can verify default-scope PATH-append behaviour.
+        "TERMINAL_JAIL_TEST": "1",
     }
 
 
@@ -2726,10 +2730,15 @@ def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
 def _baseline_env_without_ci_sudo(tmp_path: Path) -> dict[str, str]:
     """A clean baseline env: ambient CI / SUDO_USER from the invoking shell
     would flip the REVIEW-TJ-014 auto-skips and make every assertion in this
-    section environment-dependent — pin both off (empty == unset)."""
+    section environment-dependent — pin both off (empty == unset).
+
+    Also clears TERMINAL_JAIL_TEST to re-enable the /tmp prefix auto-skip
+    for tests that need to verify that behaviour (test_tmp_prefix_skips_path_block).
+    """
     env = _install_env(tmp_path)
     env["CI"] = ""
     env["SUDO_USER"] = ""
+    env["TERMINAL_JAIL_TEST"] = ""
     return env
 
 
