@@ -2732,13 +2732,13 @@ def _baseline_env_without_ci_sudo(tmp_path: Path) -> dict[str, str]:
     would flip the REVIEW-TJ-014 auto-skips and make every assertion in this
     section environment-dependent — pin both off (empty == unset).
 
-    Also clears TERMINAL_JAIL_TEST to re-enable the /tmp prefix auto-skip
-    for tests that need to verify that behaviour (test_tmp_prefix_skips_path_block).
+    Inherits TERMINAL_JAIL_TEST=1 from _install_env (suppresses /tmp
+    auto-skip) so most tests can verify default-scope PATH-append. Tests
+    that need to verify the /tmp auto-skip must clear it themselves.
     """
     env = _install_env(tmp_path)
     env["CI"] = ""
     env["SUDO_USER"] = ""
-    env["TERMINAL_JAIL_TEST"] = ""
     return env
 
 
@@ -2802,6 +2802,10 @@ def test_tmp_prefix_skips_path_block(tmp_path: Path) -> None:
     prefix is a real /tmp path (skip must fire) while every install write —
     wrapper, lib tree, rules — lands inside that unique throwaway tree."""
     env = _baseline_env_without_ci_sudo(tmp_path)
+    # Re-enable the /tmp auto-skip: this test exists specifically to verify
+    # that a /tmp install prefix triggers the skip. _baseline inherits
+    # TERMINAL_JAIL_TEST=1 to suppress it; clear it here.
+    env["TERMINAL_JAIL_TEST"] = ""
     home = Path("/tmp") / f"tj014-home-{os.getpid()}-{time.time_ns()}"
     home.mkdir(parents=True)
     rc = home / ".profile"
