@@ -67,6 +67,14 @@ cd terminal-jail
 
 The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
 
+**Skipping the PATH block (REVIEW-TJ-014).** Run `./install.sh --no-path` to leave every shell rc file untouched — the install completes and the installer still prints the `export PATH=…` line for you to add manually (`--no-path` is a flag; `--no-path=1` is refused with exit 2). The block is also skipped automatically, each with a one-line notice naming the reason, when:
+
+- `TERMINAL_JAIL_INSTALL_DIR` points under `/tmp` (ephemeral/scratch install);
+- `CI` is set to a truthy value (`CI=true`, `1`, `yes`, … — `0`/`false`/`no`/`off` do not count);
+- `SUDO_USER` is set (the run is under `sudo`; the rc file belongs to the invoking user, and the installer running as root must not append to it).
+
+The first matching skip wins and only one notice is printed. The `--uninstall` path is unchanged: it removes the marked block wherever an (unskipped) install appended it.
+
 **Where the rules land.** Rules follow the install scope:
 
 | Scope | Rules directory |

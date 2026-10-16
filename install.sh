@@ -262,6 +262,13 @@ Options:
                         previous behavior holds: an installed name is skipped
                         with a hint pointing here.
   --list-rule-packs     List the rule packs this checkout ships (exit 0).
+  --no-path             Do not touch any shell rc file: skip the PATH setup
+                        block entirely (the installer still prints the export
+                        line to add manually). Auto-skips that need no flag:
+                        ephemeral /tmp install prefixes, CI environments
+                        (CI non-empty and != 0/false/no/off), and runs under
+                        sudo (SUDO_USER set). Each skip prints a one-line
+                        notice naming the reason.
   --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
                         __init__.py, terminal_jail/) into dir (default:
                         $HOME/.hermes/plugins/terminal-jail, override also via
@@ -370,6 +377,16 @@ while [ $# -gt 0 ]; do
         --list-rule-packs)
             LIST_RULE_PACKS=1
             shift
+            ;;
+        --no-path)
+            NO_PATH=1
+            shift
+            ;;
+        --no-path=*)
+            # Boolean-style flag: only the bare spelling (and its implicit
+            # value) is meaningful — an explicit value is a caller error.
+            echo "terminal-jail installer: --no-path takes no value (it is a flag, not an option)" >&2
+            exit 2
             ;;
         --hermes-plugin)
             HERMES_PLUGIN=1
@@ -1328,6 +1345,30 @@ mv "$tmp_payload" "${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
 echo "terminal-jail installer: installed to ${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
 
 # --- PATH setup --------------------------------------------------------------
+# REVIEW-TJ-014: the PATH block must never pollute an environment that does
+# not own the rc file or that is not a real login shell: --no-path opts out
+# explicitly, and three conditions skip it automatically. Skips are evaluated
+# in order and the first hit wins; each prints a one-line notice naming the
+# reason.
+path_block_skip_reason=""
+if [ "${NO_PATH:-0}" -eq 1 ]; then
+    path_block_skip_reason="--no-path flag"
+elif [ "${SUDO_USER:-}" != "" ]; then
+    path_block_skip_reason="running under sudo (SUDO_USER=${SUDO_USER}): the rc file belongs to the invoking user, not root"
+elif [ "${CI:-}" != "" ] \
+    && [ "${CI}" != "0" ] \
+    && [ "${CI}" != "false" ] \
+    && [ "${CI}" != "no" ] \
+    && [ "${CI}" != "off" ]; then
+    path_block_skip_reason="CI environment detected (CI=${CI})"
+elif case "$TERMINAL_JAIL_INSTALL_DIR" in /tmp/*) true ;; *) false ;; esac; then
+    path_block_skip_reason="ephemeral install prefix (${TERMINAL_JAIL_INSTALL_DIR} under /tmp)"
+fi
+
+if [ -n "$path_block_skip_reason" ]; then
+    echo "terminal-jail installer: skipping PATH setup — $path_block_skip_reason"
+    echo "terminal-jail installer: to use immediately, run: export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:\$PATH\""
+else
 case ":${PATH}:" in
     *:"${TERMINAL_JAIL_INSTALL_DIR}":*)
         echo "terminal-jail installer: ${TERMINAL_JAIL_INSTALL_DIR} is already on PATH"
@@ -1387,6 +1428,7 @@ SHELLRC
         fi
         ;;
 esac
+fi
 
 # --- TJ-GAP-087: report the containment tier the host actually enforces ------
 # The installer is the operator's first contact with the tool; an install that
