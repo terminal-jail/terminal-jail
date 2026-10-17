@@ -527,3 +527,59 @@ exec. The --script uploader shell-escapes single quotes as '\'' and mangles
 Python heredocs — write probe scripts with NO single quotes (chr(123)
 construction or temp-file indirection instead). Not a repo bug: an
 exec-script remotely triggerable quoting path, noted here for the next run.
+
+## 15. Run 17 (2026-10-17): egress tier + install.sh skip ladder
+
+**How this run was aimed.** Run 16 (10-13) left one candidate unfiled: the
+README's own flagship egress example ran CONNECTED under `TERMINAL_JAIL_LANDLOCK_NET=1`
+through the installed CLI. Since then install.sh changed (`4dfad2f` skip
+ladder, `cc3c664` test-env fixes for the CI red INT-CI-007) — the deltas
+fixed the angle of this run.
+
+**What the egress evidence says.** The engine+loader+kernel contract is
+GOOD: at the loader seam (`python3 landlock-net-loader.py -- …`) the allowlist
+of 22,53,80,443 kills a `connect()` to a live listener on 9999 with errno 13
+after an honest `kernel egress tier APPLIED` banner, and an
+explicit `TERMINAL_JAIL_LANDLOCK_NET_ALLOW=9999` lets it through. What does
+NOT get the loader is any launch whose bridge verdict is a plain ALLOW:
+`action=allow rule_id=null`. The FS tier's wrapper attach (checked into
+`standalone/terminal-jail` at lines ~1175/1189/1206) has no net-tier
+equivalent; the net prefix only exists inside the modify rewrite. So
+`python3 -c` (regex-bypass semantics by construction) is exactly the shape
+the tier cannot see — the TJ-DF-046 P1. The right fix lives in the wrapper
+and the engine's prefix orchestration; the README contract line needs a
+test that runs through the CLI, not the loader.
+
+**Why the warnings half is P2 and not noise.** TJ-DF-044 was closed as
+premise-false (loaders ARE shipped, THAT half verified green on three
+install methods now). But the milestone's real safety property — "you will
+be TOLD when a tier is not applied" — still holds only for the modify path.
+On the plain-allow path the launch runs the command with no tier and no
+stderr line at all on a host with sane permissions; the only tell is a
+later inspection. A containment product's worst failure mode is silent
+less-containment-than-assumed; hence TJ-DF-047.
+
+**Install ladder mechanics (for the next person writing tests here).** The
+auto-skip order in install.sh is: `--no-path` flag > SUDO_USER > CI truthy
+(not 0/false/no/off) > `/tmp` prefix unless `TERMINAL_JAIL_TEST=1`. Notices
+always name the reason and always end up in the INSTALL LOG, not the rc
+file. Tests that need the default PATH-append behavior must set
+`CI="" SUDO_USER="" TERMINAL_JAIL_TEST=1` explicitly (the `_install_env`
+helper and, since cc3c664, `test_default_install_keeps_classic_path_behavior`
+build that env themselves — never inherit from the calling shell).
+
+**Perf discipline note.** Three interleaved ON/OFF sessions under load
+29–42 produced +107/+121/+405ms medians — the +405 outlier happened while
+other fleet crons burst; medians-on-same-window is the only defensible way
+to report at that noise floor. The stable story: ~+120ms per wrapped
+invocation for the fs tier, ~+80ms of it inside the loader itself. Future
+perf rows on this repo should (a) log the 1-min loadavg captured during the
+run, (b) prefer interleaved over sequential A/B, (c) never compare across
+host-load regimes.
+
+**Fresh-machine protocol changes worth keeping.** Bros without sudo work
+fine (install is unprivileged, PATH block targets `~/.profile`). The
+`bunker spawn --server <host>` flag must actually name a target this
+session (`no target bound` otherwise — a prior `bunker use` default is NOT
+honored for mutating commands). Destroy-then-90s-recheck gave 0 residual
+users this time; keep that cadence before ever filing a residue row.

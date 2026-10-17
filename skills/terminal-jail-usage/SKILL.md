@@ -510,3 +510,31 @@ structurally-zero counters (TJ-DF-033) — do not chart it as telemetry.
   E2E-001 is the recurring full-battery tick; NEVER-DONE the audit tick.
 - Commits must carry `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>`
   and pass `gitreins guard` (see AGENTS.md).
+
+## Fresh-time additions (run 17, verified live 2026-10-17 at 34b2bf0)
+
+**Install PATH-skip ladder (REVIEW-TJ-014 / INT-CI-007).** `install.sh`
+skips the rc-file PATH block when the first hit of: `--no-path` flag >
+`SUDO_USER` set > `CI` truthy (0/false/no/off do NOT count) > `TERMINAL_JAIL_INSTALL_DIR`
+under `/tmp` (suppressed by `TERMINAL_JAIL_TEST=1`). The skip notice prints
+to the INSTALL LOG, never writes the rc file; `--no-path` is a bare flag
+(`--no-path=1` exits 2 with nothing written). Tests that must prove
+PATH-append behavior build their own env with `CI="" SUDO_USER="" TERMINAL_JAIL_TEST=1`
+— never inherit from the calling shell (that CI-env leak was INT-CI-007).
+
+**Egress tier (TERMINAL_JAIL_LANDLOCK_NET=1) current reality.** The
+kernel/loader contract is real: `python3 ~/.local/lib/terminal-jail/landlock-net-loader.py
+-- <cmd>` prints `kernel egress tier APPLIED` and kills connects to
+non-allowlisted ports with EPERM. Through the CLI, the loader rides ONLY
+commands whose verdict is a MODIFY/auto-script wrap; a plain-ALLOW
+verdict (`rule_id=null`, e.g. the README's own `python3 -c socket.connect`
+example) runs WITHOUT the tier and WITHOUT any warning (TJ-DF-046/047,
+open). Until the fix lands: verify egress behavior at the loader seam, not
+through the CLI, and never treat a CONNECTED result as "the tier is
+broken" — it is verdict-gated.
+
+**Perf anchor (TJ-DF-048).** With load recorded in the run (1-min loadavg
+29–42, fleet-cron saturated), interleaved ON/OFF medians gave ~+120ms per
+wrapped invocation from the fs tier (≈+80ms of it inside
+landlock-loader.py itself). Never sequential-A/B this repo on a shared
+host: interleaved pairs + the loadavg line in the row are the standard.
