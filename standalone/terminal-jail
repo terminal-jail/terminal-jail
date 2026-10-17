@@ -139,6 +139,32 @@ if [ -z "$LANDLOCK_LOADER" ]; then
         fi
     done
 fi
+# TJ-DF-046: the kernel-enforced TCP-connect (egress) tier's pre-exec loader
+# (TJ-GAP-083). Same search order as LANDLOCK_LOADER above, same rationale.
+# NOTE the hyphen: the egress loader is landlock-net-loader.py — never
+# landlock-loader.py (that is the filesystem tier's loader, and attaching it
+# twice is not the egress tier).
+LANDLOCK_NET_LOADER="${TERMINAL_JAIL_LANDLOCK_NET_LOADER:-}"
+if [ -z "$LANDLOCK_NET_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/landlock-net-loader.py" \
+        "${INSTALLED_LIB_DIR}/landlock-net-loader.py"; do
+        if [ -f "$candidate" ]; then
+            LANDLOCK_NET_LOADER="$candidate"
+            break
+        fi
+    done
+fi
+# The knob gates the ATTACH decision (the loader re-checks it as well; the
+# engine's own tail uses the same truthy spellings — landlock_net.
+# net_enabled_from_environment). Unset/falsy/unrecognised keeps the tier off,
+# exactly as documented for the opt-in egress tier.
+TJ_LANDLOCK_NET_ON=0
+case "${TERMINAL_JAIL_LANDLOCK_NET:-}" in
+    1|true|yes|on|TRUE|True|YES|Yes|ON|On)
+        TJ_LANDLOCK_NET_ON=1
+        ;;
+esac
 USE_SECCOMP=0
 USE_USER_NS=0
 # TJ-GAP-082: the Landlock tier attaches ONLY when not disabled here —
@@ -981,6 +1007,66 @@ _tj_composed_decision() {
     esac
 }
 
+# --- TJ-DF-046: the Landlock egress tier on the plain-allow path --------------
+# The engine composes the TCP-connect (egress) loader into its auto-sandbox
+# REWRITES only (decider.py:_wrap_payload composes both tails), so a
+# rule_id=null verdict — a command matching NO rule — used to run the payload
+# with the net tier never attached: CONNECTED to every non-allowlisted TCP
+# port, contradicting the README's kernel-deny contract ("every connect(2) to
+# a TCP port outside the allowlist fails EPERM/EACCES ... even when the command
+# string matches no egress regex"). These two helpers attach the SAME loader
+# (standalone/landlock-net-loader.py) to every non-rewritten payload exec,
+# with the filesystem tier's own probe-before-wrap discipline.
+
+_tj_egress_degrade() {
+    # ONE loud line naming the cause — the allow path's twin of the fs tier's
+    # degrade. The loader prints its own equivalent line when it RUNS but
+    # cannot apply the tier (ABI < 4, unproven enforcement, bad allowlist);
+    # this one covers the attach decision it never gets to make.
+    echo "terminal-jail: WARNING: Landlock network (egress) tier not applied ($1); commands run with network egress unchanged — classify the host with scripts/landlock-capability-probe.py (network rules need Landlock ABI >= 4), or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK_NET=0" >&2
+}
+
+# Decide whether the egress loader attaches to the launch about to run; sets
+# TJ_EGRESS_TIER_ATTACH (1 = splice `python3 "$LANDLOCK_NET_LOADER" -- ` in
+# front of the payload, 0 = run the payload unchanged).
+#
+#   _tj_egress_tier_decide [--here] <launcher tokens...>
+#
+# Without --here the loader is probed for READABILITY under the launcher that
+# will run the payload (unshare/bwrap plus the launch's exact flags; bubblewrap
+# keeps its `--` separator inside the tokens) — the same TJ-DF-019 preflight the
+# filesystem tier uses: a mapping-less launch may run the payload as a uid that
+# cannot open a loader under a 0750/0700 home, and attaching it there would kill
+# every allowed command with Errno 13. `--here` probes in THIS context, for the
+# composed launch, where the payload gets no inner namespace and no uid mapping.
+#
+# With the knob ON, every non-attach outcome is stated LOUDLY — a payload is
+# never silently left CONNECTED.
+TJ_EGRESS_TIER_ATTACH=0
+_tj_egress_tier_decide() {
+    TJ_EGRESS_TIER_ATTACH=0
+    [ "$TJ_LANDLOCK_NET_ON" -eq 1 ] || return 0
+    local _tj_here=0
+    if [ "${1:-}" = "--here" ]; then
+        _tj_here=1
+        shift
+    fi
+    if [ -z "$LANDLOCK_NET_LOADER" ] || [ ! -f "$LANDLOCK_NET_LOADER" ]; then
+        _tj_egress_degrade "landlock-net-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
+        return 0
+    fi
+    if [ "$_tj_here" -eq 0 ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" = "mapped" ]; then
+        _tj_egress_degrade "the uid-mapped launch runs the payload as the subordinate uid, which cannot read ${LANDLOCK_NET_LOADER}"
+        return 0
+    fi
+    if "$@" test -r "$LANDLOCK_NET_LOADER" >/dev/null 2>&1; then
+        TJ_EGRESS_TIER_ATTACH=1
+        return 0
+    fi
+    _tj_egress_degrade "the payload cannot read ${LANDLOCK_NET_LOADER} in the launch that would run it"
+    return 0
+}
+
 _tj_launch_composed() {
     # Run the payload WITHOUT creating an inner namespace. States every layer
     # honestly and never claims what it does not provide:
@@ -1006,6 +1092,15 @@ _tj_launch_composed() {
     if [ "${TERMINAL_JAIL_SECCOMP_REQUESTED:-0}" -eq 1 ]; then
         echo "terminal-jail: WARNING: --seccomp requested but the seccomp filter is NOT applied in composed mode — the loader path needs the inner namespace this layer cannot create; the outer layer's own seccomp profile (if any) remains the active filter (composed mode runs with the firewall only)" >&2
         export TERMINAL_JAIL_SECCOMP_LOAD=0
+    fi
+    # TJ-DF-046: the egress tier needs neither a namespace nor a uid mapping
+    # (Landlock restricts the calling process), so it attaches here too — the
+    # operator's opt-in is honored in every launch shape, and the layer report
+    # above stays accurate because the tier is stated separately below.
+    _tj_egress_tier_decide --here
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        echo "terminal-jail: composed layers — egress: enforced by terminal-jail (kernel Landlock TCP-connect allowlist; this tier needs no namespace)" >&2
+        exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
     fi
     exec bash -c 'exec "$@"' terminal-jail "$@"
 }
@@ -1148,12 +1243,28 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
     # The seccomp filter must be applied inside the PID namespace. Both
     # backends use the identical argv-preserving trampoline; the `--` below is
     # bubblewrap's option/payload separator.
+    #
+    # TJ-DF-046: the egress tier rides the SAME trampoline on this path too —
+    # spliced into the loader argv the trampoline exec's (seccomp loader →
+    # net loader → payload), so an allowed command under --seccomp is not
+    # silently left CONNECTED while the knob is on.
     if [ "$TJ_BACKEND" = "bwrap" ]; then
         echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+        _tj_egress_tier_decide "$_TJ_BWRAP_BIN" $BWRAP_FLAGS --
+        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+        fi
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
     fi
     echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+    _tj_egress_tier_decide unshare $UNSHARE_FLAGS
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        exec unshare \
+            $UNSHARE_FLAGS \
+            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+    fi
     exec unshare \
         $UNSHARE_FLAGS \
         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
@@ -1181,20 +1292,50 @@ elif [ "$MODIFIED" -eq 1 ]; then
 else
     if [ "$TJ_BACKEND" = "bwrap" ]; then
         echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+        # TJ-DF-046: decide the egress tier for THIS launch first — the fs
+        # tier's wrap below composes it when both apply (the allow path never
+        # rewrote the command, so nothing else attaches the net loader here).
+        _tj_egress_tier_decide "$_TJ_BWRAP_BIN" $BWRAP_FLAGS --
         # TJ-GAP-082: the Landlock tier rides the bwrap launch too (loader
         # inside the bwrap namespace, right before the payload; skipped under
         # a mapped launch, or when the payload-uid cannot READ the loader —
         # the 0750/0700-home shape, probed with the exact bwrap flags).
         if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
             if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                # TJ-DF-046: with the egress tier on, the two loaders compose —
+                # the EGRESS loader OUTERMOST, the filesystem loader innermost.
+                # Landlock domains accumulate (each restrict_self INTERSECTS the
+                # current domain), so the payload gets both restrictions either
+                # way; the order is chosen for STARTABILITY (measured: with the
+                # fs loader outer, the INNER loader's own interpreter must start
+                # inside the file-restricting domain — on a host where python3
+                # resolves to an interpreter whose files the fs tier does not
+                # grant (a venv under $HOME), every allowed command died with
+                # `PermissionError: pyvenv.cfg`, the TJ-DF-019 shape one layer
+                # up). The file-restricting tier goes innermost so the chain
+                # that launches it can still start.
+                if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                    exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                fi
                 exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
                     bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
             fi
+        fi
+        # TJ-DF-046: the egress tier's own wrap when the fs tier did not take
+        # the launch (knob on the allow path — the verdict that never rewrote).
+        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
         fi
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec "$@"' terminal-jail "$@"
     fi
     echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+    # TJ-DF-046: decide the egress tier for THIS launch first — the fs tier's
+    # wrap below composes it when both apply (this is the launch the plain-allow
+    # verdict takes, so nothing else would attach the net loader at all).
+    _tj_egress_tier_decide unshare $UNSHARE_FLAGS
     # TJ-GAP-082: the Landlock tier rides this launch when the host
     # permits it — the loader applies the ruleset inside the namespace,
     # right before the payload exec (-a terminal-jail keeps argv[0]).
@@ -1205,10 +1346,27 @@ else
     # probed with the exact launch flags; unreadable → run unchanged.
     if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
         if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+            # TJ-DF-046: with the egress tier on, the two loaders compose —
+            # the EGRESS loader OUTERMOST, the filesystem loader innermost
+            # (Landlock domains accumulate/intersect either way; the order is
+            # chosen for STARTABILITY of the inner loader's interpreter — see
+            # the bwrap arm's note for the measurement).
+            if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                exec unshare \
+                    $UNSHARE_FLAGS \
+                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+            fi
             exec unshare \
                 $UNSHARE_FLAGS \
                 bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
         fi
+    fi
+    # TJ-DF-046: the egress tier's own wrap when the fs tier did not take the
+    # launch (knob on the allow path — the verdict that never rewrote).
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        exec unshare \
+            $UNSHARE_FLAGS \
+            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
     fi
     exec unshare \
         $UNSHARE_FLAGS \
