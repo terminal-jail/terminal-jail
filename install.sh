@@ -1450,6 +1450,9 @@ run_tier_probe() {
     # Set on EVERY path (set -eu: the caller assigns from these even when the
     # probe is missing or failed — an unset variable would abort under dash).
     TIER_DETAIL=""
+    # TJ-DF-047: the FULL probe output, for callers that need more than the
+    # first line (the landlock summary parses the ABI/cause lines out of it).
+    TIER_FULL_OUT=""
     if [ -z "$SCRIPT_DIR" ] || [ ! -f "$probe_path" ]; then
         echo "terminal-jail installer: $2 containment tier: unknown (probe not present in this install source)"
         return 0
@@ -1460,6 +1463,7 @@ run_tier_probe() {
     fi
     echo "terminal-jail installer: containment tier report (${1%.py}):"
     printf '%s\n' "$probe_out"
+    TIER_FULL_OUT="$probe_out"
     TIER_VERDICT="$(printf '%s\n' "$probe_out" | grep -o 'FULL' | head -n 1)"
     # What the probe actually said (first line) — the demand-failure message
     # quotes it so the operator sees the probe's own diagnosis, not just the
@@ -1524,6 +1528,57 @@ if [ -n "$DEMAND" ]; then
     if [ "$demand_failed" -eq 1 ]; then
         exit 1
     fi
+fi
+
+# --- TJ-DF-047: containment-ceiling summary for the Landlock tiers ------------
+# TERMINAL_JAIL_LANDLOCK (fs tier, default on) needs Landlock ABI >= 1;
+# TERMINAL_JAIL_LANDLOCK_NET (the opt-in egress tier, default off) needs
+# ABI >= 4 (kernel 6.7: LANDLOCK_ACCESS_NET_CONNECT_TCP). The fs probe's
+# report already carries the measured ABI, so the summary reads its verdict
+# and — for the net tier — refines FULL down to PARTIAL (fs enforceable,
+# TCP-connect rules not) instead of restating a ceiling the tiers do not
+# share. Advisory only: never blocks the install, never depends on the
+# demand variables above.
+LL_SUMMARY_OUT="${TIER_FULL_OUT:-}"
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/scripts/landlock-capability-probe.py" ] \
+    && command -v python3 >/dev/null 2>&1; then
+    # The demand-gated runs above may not have executed the landlock probe
+    # (TERMINAL_JAIL_REQUIRE_TIER scopes them), so run it fresh — and
+    # DISPLAY it, so a degraded host's cause is in the operator's transcript
+    # exactly when the summary points at it ("the output above").
+    LL_SUMMARY_OUT="$(python3 "$SCRIPT_DIR/scripts/landlock-capability-probe.py" 2>/dev/null || true)"
+    if [ -n "$LL_SUMMARY_OUT" ]; then
+        echo "terminal-jail installer: containment tier report (landlock-capability-probe):"
+        printf '%s\n' "$LL_SUMMARY_OUT"
+    fi
+fi
+# UNKNOWN until the probe RAN and said something: an absent probe (or a run
+# that failed) must read "unknown", never "DEGRADED" — a degraded verdict
+# asserts the probe's own diagnosis, which does not exist here.
+LL_VERDICT="UNKNOWN"
+LL_ABI_LINE=""
+if [ -n "$LL_SUMMARY_OUT" ]; then
+    case "$(printf '%s\n' "$LL_SUMMARY_OUT" | head -n 1)" in
+        *"FULL"*) LL_VERDICT="FULL" ;;
+        *"DEGRADED"*) LL_VERDICT="DEGRADED" ;;
+    esac
+    # "  ABI version (max supported): N" — the tier floors are read off this.
+    LL_ABI_LINE="$(printf '%s\n' "$LL_SUMMARY_OUT" | grep 'ABI version (max supported)' | head -n 1)"
+fi
+if [ "$LL_VERDICT" = "FULL" ]; then
+    LL_ABI="$(printf '%s' "$LL_ABI_LINE" | sed 's/.*: *//')"
+    case "$LL_ABI" in
+        ''|*[!0-9]*) LL_ABI=0 ;;
+    esac
+    if [ "$LL_ABI" -ge 4 ]; then
+        echo "terminal-jail installer: containment ceiling (Landlock): fs tier CAN engage and net (egress) tier CAN engage on this host (Landlock ABI ${LL_ABI} >= 4; opt in with TERMINAL_JAIL_LANDLOCK_NET=1)"
+    else
+        echo "terminal-jail installer: containment ceiling (Landlock): fs tier CAN engage; net (egress) tier CANNOT (Landlock ABI ${LL_ABI} < 4 — TCP-connect rules need kernel 6.7+). Commands still run with network egress unchanged; the run-time degrade warning names it"
+    fi
+elif [ "$LL_VERDICT" = "DEGRADED" ]; then
+    echo "terminal-jail installer: containment ceiling (Landlock): NEITHER Landlock tier can engage on this host (the landlock-capability-probe output above names the cause) — containment here is the namespace layer only; commands run with no kernel fs/net tier"
+else
+    echo "terminal-jail installer: containment ceiling (Landlock): unknown (the probe is absent from this install source or could not run — classify the host manually: python3 scripts/landlock-capability-probe.py)"
 fi
 
 echo "terminal-jail installer: done."

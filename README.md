@@ -67,6 +67,15 @@ cd terminal-jail
 
 The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
 
+**Containment-ceiling summary (TJ-DF-047).** Before `done.`, every install prints one `containment ceiling (Landlock)` line naming whether each kernel Landlock tier CAN engage on the host that just installed the tool — so a fresh install self-reports its containment ceiling instead of leaving the operator to discover it at first run:
+
+- `fs tier CAN engage and net (egress) tier CAN engage` — Landlock ABI ≥ 4: both tiers available (the net tier still ships **off**; opt in with `TERMINAL_JAIL_LANDLOCK_NET=1`);
+- `fs tier CAN engage; net (egress) tier CANNOT (Landlock ABI N < 4 …)` — the filesystem tier works, TCP-connect rules need kernel 6.7+;
+- `NEITHER Landlock tier can engage` — the probe's own cause diagnosis is printed just above the line;
+- `unknown` — the probe is absent from the install source or could not run (classify the host manually: `python3 scripts/landlock-capability-probe.py`).
+
+The summary is advisory: it never blocks the install and is independent of `TERMINAL_JAIL_REQUIRE_TIER` (which gates only the fs/pidns probes). At RUN time the same contract holds per launch: with the net tier opted in, a payload is never silently left with network egress unchanged — every non-attach outcome prints `terminal-jail: WARNING: Landlock network (egress) tier not applied (<cause>)` naming why (loader missing, unreadable under the launch, uid-mapped launch, ABI < 4, unproven enforcement, refused allowlist), on the plain-allow path exactly as on the auto-sandbox path (TJ-DF-046/047).
+
 **Skipping the PATH block (REVIEW-TJ-014).** Run `./install.sh --no-path` to leave every shell rc file untouched — the install completes and the installer still prints the `export PATH=…` line for you to add manually (`--no-path` is a flag; `--no-path=1` is refused with exit 2). The block is also skipped automatically, each with a one-line notice naming the reason, when:
 
 - `TERMINAL_JAIL_INSTALL_DIR` points under `/tmp` (ephemeral/scratch install);
