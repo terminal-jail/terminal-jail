@@ -667,3 +667,87 @@ plain-allow invocation — one interpreter start — on top of a ~300 ms wrapper
 Sub-second and floor-dominated: **no PERF row**, because a win nobody can feel is not a
 finding. Machine-scale numbers, and the noise band at this load is wider than the delta;
 quote them as directions, not precision.
+
+## 17. Run 21 (2026-10-20): composed mode, the degrade arms, and two attach decisions that disagree
+
+**Why this angle.** Run 20 (same tick family, sibling lane) had just driven the
+fresh-install ceiling summary and the plain-allow attach on the dev host at
+HEAD `29ae69f`. Because that surface was already spoken for, this run took the
+launch SHAPES it could not: composed mode (`TERMINAL_JAIL_COMPOSED=on`, which
+only engages where an inner namespace cannot be created), the four loader-degrade
+arms, the knob spelling matrix, the installed-CLI parity of the new tier, and a
+fresh 0750-home bunker box.
+
+**How the tier is actually attached — two decisions, not one.** The egress tier
+reaches a payload through two independent code paths, and each has its own
+readability gate:
+
+1. **The wrapper's plain path.** `standalone/terminal-jail` `_tj_egress_tier_decide`
+   probes `"$@" test -r "$LANDLOCK_NET_LOADER"` **under the launcher that will run
+   the payload** (bwrap/unshare + the launch's exact flags) and degrades with a
+   named cause otherwise. The `--here` variant probes in the CURRENT context —
+   documented for the composed launch, "where the payload gets no inner namespace
+   and no uid mapping". This is the half TJ-DF-046/047 fixed, and it works.
+2. **The engine's compose gate.** `plugin/terminal_jail/interruptor/landlock_net.py:727-731`
+   (`sandbox_prefix()` for auto-sandbox/modify rewrites) gates on
+   `_world_traversable` (`landlock.py:1201`), which demands `o+x` on EVERY ancestor
+   because "a mapping-less rewrite runs its payload as nobody (65534)". The fs
+   twin is `landlock.py:1312`; both emit
+   `WARNING: Landlock … tier not applied (… is not reachable by the launch's payload uid (a parent … lacks o+x …))`.
+
+In a **composed launch** both run for one launch, and on a 0750 home they
+disagree: the engine's nobody-assuming gate says "not reachable", while the
+composed `--here` probe (payload = owner) succeeds and attaches. The transcript
+then contains `WARNING: … not applied …` **and** `composed layers — egress:
+enforced by terminal-jail` **and** `kernel egress tier APPLIED`, with the kernel
+really denying (`errno=13` on a non-allowlisted port). The applied half is right;
+the warning is a false negative. Filed as **TJ-DF-051**. The same two-surface
+reporting shows up as a duplicated refusal line for an invalid
+`TERMINAL_JAIL_LANDLOCK_NET_ALLOW` token (one from the wrapper's probe, one from
+the engine).
+
+**Reading a fresh box is a different job from reading the dev host.** On
+bunker-mvp (kernel 6.8.0-142, ABI 4, HOME mode 0750) the plain launch cannot
+create a namespace at all — `rc=2 namespace creation failed (unshare exit 1)` plus
+the CAP_SYS_ADMIN/composed remediation — because the agent is a container. The
+composed and `--user` arms DO run and DO apply the tier there, which is exactly
+where the double report appears. On the control host (HOME mode 751) the same
+commands look clean, and `TERMINAL_JAIL_COMPOSED=on` silently takes the normal
+bwrap path, so the composed shape cannot be rehearsed locally.
+
+**A 750 directory is not by itself the trigger.** The control-host A/B (a
+user-owned 750 parent vs 755, plain bwrap launch, tier on) applied the tier in
+both cases with no warning. Filing "0750 home breaks the tier" from the fresh-box
+transcript alone would have been wrong: the trigger is the composed/userns-less
+launch shape, and the engine's conservative `nobody` assumption is what turns the
+mode into a false degrade line. Test the shape, not just the mode.
+
+**Harness lessons (mine, so the next run is shorter).**
+
+- **The payload's shape picks the path you are testing.** `python3 -c '<code>'`
+  matches no rule → `action:allow, rule_id:null` (plain-allow path).
+  `python3 /tmp/script.py` matches `auto-script` → `action:modify` (the engine
+  rewrite path). A "plain-allow" ladder that passes a script FILE measures the
+  modify path; half of this editor's first ladder had to be thrown away for that.
+- **`printf` with `%` inside a generated python payload silently truncates it.**
+  A broken payload surfaces as a `SyntaxError: '(' was never closed` and `rc=1`
+  that looks like a product failure. Write payloads with `write_file` and pass
+  them via `-c "$(cat file)"`; never build code with `printf`.
+- **Don't pipe a long ladder into `head`.** `bash ladder.sh | head -150` kills the
+  script with SIGPIPE mid-run (three legs silently never executed). Redirect to a
+  log file and read the log.
+- **A scratch copy of `standalone/` dies on `interruptor-bridge-unavailable`**
+  (the copy has no `../plugin` tree) — pass `TERMINAL_JAIL_BRIDGE=<checkout>/plugin/terminal_jail/interruptor_bridge.py`,
+  or drive the loader arms with `TERMINAL_JAIL_LANDLOCK_NET_LOADER` instead.
+- **`install.sh` writes the wrapper to `$TERMINAL_JAIL_INSTALL_DIR/terminal-jail`,
+  not `$DIR/bin/terminal-jail`** (the lib tree goes to `$DIR/../lib/terminal-jail`).
+  Assuming `bin/` costs a leg ("No such file or directory", rc=127).
+- **The knob's unrecognised spellings fail silently, by design.** The matrix that
+  matters: `true/TRUE/Yes/ON/1/yes/on` attach; `0/false/no/off/2/garbage/" 1"`
+  stay off with NO line at all (README:450 documents it). Worth knowing before
+  reading a silent transcript as "the tier ran and allowed it".
+- **Drive the tier with errno, not with a listener.** `connect()` to an
+  allowlisted port with nothing listening returns `ECONNREFUSED (111)`; a
+  kernel-denied port returns `EACCES (13)`. That one-bit difference lets a whole
+  ladder run without binding anything (and survives hosts where the agent's
+  loopback is shared).

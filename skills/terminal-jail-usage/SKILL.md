@@ -599,3 +599,54 @@ Stage scripts with `bunker cp <local> <agent>:<rel-path>` and run them with
 `bunker exec <id> --server <server> -- bash -c 'bash $HOME/script.sh'`;
 harvest with `bash -c 'cat $HOME/leg.log'` (a bare `bunker exec … cat 'path'`
 passes the quotes literally).
+
+## Run 21 additions (2026-10-20, verified live at 2177a3c/319e02b)
+
+**The payload's shape selects the path you are testing — pick deliberately.**
+`python3 -c '<code>'` matches no interruptor rule and runs the **plain-allow**
+path (`{"action":"allow","rule_id":null}`); `python3 /path/to/script.py` matches
+`auto-script` and runs the **modify** (engine-rewrite) path. A "plain-allow"
+ladder that passes a script file is measuring the modify path instead.
+
+**Composed mode (`TERMINAL_JAIL_COMPOSED=on`) can print the egress tier BOTH
+ways in one launch.** On a box whose home is mode 750 (a stock bunker agent), one
+composed launch emits `WARNING: Landlock network (egress) tier not applied (…
+not reachable by the launch's payload uid (a parent … lacks o+x …))` **and**,
+seconds later, `composed layers — egress: enforced by terminal-jail` plus
+`kernel egress tier APPLIED`. The APPLIED half is the truth there (a
+non-allowlisted port returns `errno=13`), so **never judge the tier from the
+warning line alone** — judge it from `connect()`'s errno. Tracked as TJ-DF-051;
+the same double reporting duplicates the refusal line for an invalid
+`TERMINAL_JAIL_LANDLOCK_NET_ALLOW` token.
+
+**A 750 home or a 750 directory is not by itself the trigger.** On a
+mapping-capable host the plain bwrap launch applies the tier through a 750 parent
+with no degrade line (A/B: parent 750 vs 755, both `APPLIED`). What turns it into
+a false degrade line is the composed/userns-less shape, where the engine's
+`_world_traversable` gate (which assumes the payload runs as `nobody`) is
+consulted alongside the composed attach.
+
+**Drive the tier with errno, not with a listener.** `connect()` to an
+allowlisted port with nothing listening gives `ECONNREFUSED (111)`; a
+kernel-denied port gives `EACCES (13)`. That difference is enough to build a
+whole ladder without binding anything — useful where the agent's loopback is
+shared with the host.
+
+**Knob spellings.** `TERMINAL_JAIL_LANDLOCK_NET=true|TRUE|Yes|ON|1|yes|on`
+attach; `0|false|no|off|2|garbage|" 1"` stay off **with no notice at all**
+(README:450 documents the fallback). A silent transcript is not evidence the tier
+ran — check the port's errno.
+
+**The installed layout, exactly.** `install.sh` writes the wrapper to
+`$TERMINAL_JAIL_INSTALL_DIR/terminal-jail` and the loader/plugin tree to
+`$TERMINAL_JAIL_INSTALL_DIR/../lib/terminal-jail/`. A scratch copy of
+`standalone/` alone refuses with `COMMAND BLOCKED — interruptor-bridge-unavailable`
+unless you pass `TERMINAL_JAIL_BRIDGE`; drive loader-reachability arms with
+`TERMINAL_JAIL_LANDLOCK_NET_LOADER` instead of copying trees.
+
+**Degrade arms, verbatim causes (both CLIs, 2026-10-20).** missing loader →
+`… not found (searched <script-dir> and <lib-dir>)`; unreadable loader →
+`the payload cannot read <path> in the launch that would run it`; composed/0750
+home → `… not reachable by the launch's payload uid (a parent … lacks o+x — e.g.
+a 0700/0750 home)`. Each is followed by `commands run with network egress
+unchanged` — the payload still runs, so a degraded leg is not a failed command.
