@@ -320,12 +320,17 @@ class TestFsDegradePlainAllow:
 
     def test_integrity_attach_prints_no_wrapper_degrade(self, tmp_path: Path) -> None:
         """Negative control: when the loader resolves and reads, the WRAPPER's
-        degrade must NOT fire (the attach decision succeeded; whatever the
-        loader itself prints downstream is its own pre-existing contract)."""
+        degrade must NOT fire (the attach decision succeeded). Scoped to the
+        wrapper's own two causes: the PLUGIN's engine-level degrade shares the
+        warning prefix and may legitimately print on hosts whose checkout
+        parent lacks o+x (the GH runner's — landlock.py's own
+        _world_traversable rule), pre-existing behavior outside this seam."""
         result = self._run(tmp_path, "echo", "DF047-FS-INTACT")
         assert result.returncode == 0, result.stderr
         assert "DF047-FS-INTACT" in result.stdout
-        assert DEGRADE_PREFIX not in result.stderr, result.stderr
+        stderr = result.stderr
+        assert "landlock-loader.py not found (searched" not in stderr, stderr
+        assert "in the launch that would run it" not in stderr, stderr
 
     def test_knob_off_prints_no_fs_degrade_line(self, tmp_path: Path) -> None:
         """TERMINAL_JAIL_LANDLOCK=0 is the deliberate opt-out: no tier, no
