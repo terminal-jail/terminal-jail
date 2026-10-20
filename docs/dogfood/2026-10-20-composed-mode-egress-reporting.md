@@ -126,3 +126,56 @@ here with "no caller-writable ungranted path for the enforcement probe".)
   granularity was driven numerically instead.
 - The two fresh-box transcripts were read over ssh while the agent was alive and
   are quoted verbatim here; the agent was then destroyed (archive on bunker-mvp).
+
+---
+
+## Second angle (run 21b, same tick): the documented audit tooling, and why the suite stayed green
+
+After run 21 filed TJ-DF-051, the honest next question was not "drive one more feature"
+but "why did a 2027-passing suite and two documented batteries not catch this?".
+
+**Both documented batteries were driven and are honest.**
+
+| Tool | Command | Result |
+|---|---|---|
+| live E2E firewall battery (README §Audit tooling) | `python3 scripts/e2e-battery-live-probe.py` | **rc=0, `LIVE-PROBE: 13/13 PASS`**, 14 PASS lines / 0 FAIL, wall **1352 ms**, empty stderr; positive control held (one allow WITH a rule id + one allow with `rule_id None`) |
+| composed-stack battery (README:836, docs/composed-deployment.md:177,240) | `python3 scripts/composed-mode-battery.py` | **rc=0, `summary: 3/3 PASS, 0 UNAVAILABLE`** — cells carry raw properties (host: `proc_entry_count=1038`, `proc_1_comm=systemd`; platform/both: `proc_entry_count=1`, `seccomp_state=2`, `dockerenv=True`) and its own vocabulary refuses to convert an unmeasured cell into a pass |
+
+Neither covers the surface TJ-DF-051 hits, and that is not a defect in either: the
+E2E battery's pinned matrix is the *firewall verdict path* by its own docstring
+(0 hits for `landlock|egress|composed|seccomp`), and the composed battery measures
+per-layer properties (PID-ns inode, `/proc` counts, seccomp), not tier reporting.
+
+**The coverage that was supposed to catch it cannot.** `plugin/test_tjdf046_egress_allow_path.py`'s
+composed arm is the only cell pairing `TERMINAL_JAIL_COMPOSED=on` with
+`TERMINAL_JAIL_LANDLOCK_NET=1`, and it ends with:
+
+```python
+if "COMPOSED MODE" not in result.stderr:
+    pytest.skip("this host creates inner namespaces, so composed mode is unreachable here")
+assert "tj-df-046-composed" in result.stdout, result.stderr
+assert "egress: enforced by terminal-jail" in result.stderr or (
+    "Landlock network (egress) tier not applied" in result.stderr
+), result.stderr
+```
+
+1. The final `assert` is an **`or`**: a launch that prints *both* line families — the
+   TJ-DF-051 state — satisfies it. A cell written to pin a mutually-exclusive contract
+   must assert the *absence* of the other half.
+2. The cell **skips** wherever composed mode is unreachable, i.e. on every host that can
+   create an inner namespace (verified here: `TERMINAL_JAIL_COMPOSED=on` on the control
+   host took the plain bwrap path and printed no `COMPOSED MODE` line), so on the dev
+   host and on namespace-capable CI it asserts nothing and reads as green.
+3. Where it *does* run, it drives the **checkout** loader (`standalone/…`, ancestors
+   world-traversable on the dev host), so the engine's `_world_traversable` gate passes
+   and the false degrade line cannot appear. The failing shape — loader behind a **0750**
+   ancestor, which is Ubuntu's user-home default and the fleet's own bunker-agent default
+   — is not exercised by any cell.
+
+Filed as **TJ-DF-052 (P3)** with fix directions (assert the pair cannot co-occur; add a
+0750-ancestor cell; make the skip visible), plus event 691 against TJ-DF-051.
+
+**Not driven this angle (recorded so the next run can pick them):**
+`scripts/backend-parity-battery.py`, `scripts/arg_size_benchmark.py`,
+`scripts/kernel-matrix-teardown.py`; `gtfobins-sweep.py` and `rule-pack-tool.py` were
+covered by runs 11 and 13.

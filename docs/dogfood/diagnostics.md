@@ -751,3 +751,35 @@ mode into a false degrade line. Test the shape, not just the mode.
   kernel-denied port returns `EACCES (13)`. That one-bit difference lets a whole
   ladder run without binding anything (and survives hosts where the agent's
   loopback is shared).
+
+## 18. Run 21b (2026-10-20, same tick, second angle): the audit tooling is honest, the regression cell is not
+
+**What was driven.** The two README-documented audit batteries, as a maintainer runs them:
+`scripts/e2e-battery-live-probe.py` (rc=0, `LIVE-PROBE: 13/13 PASS`, 1352 ms, positive
+control held — one allow WITH a rule id and one with `rule_id None`) and
+`scripts/composed-mode-battery.py` (rc=0, `summary: 3/3 PASS, 0 UNAVAILABLE`, per-cell raw
+properties, `dockerenv=True` in the platform/both cells). Both are honest: the E2E battery
+pins action AND provenance per case and fails closed on a missing verdict; the composed
+battery refuses to convert an unmeasured cell into a pass (`unavailable cells never count
+as green`). Neither covers the egress-tier reporting surface, and neither claims to — the
+E2E matrix is the firewall verdict path by its own docstring.
+
+**The lesson worth keeping.** "The suite is green" and "two batteries pass" answered a
+different question than the one that mattered: *which cell would have to fail for the
+defect I just found to be visible?* For TJ-DF-051 the answer was
+`plugin/test_tjdf046_egress_allow_path.py`, and reading it settled the question in one
+pass: its composed arm asserts `"egress: enforced by terminal-jail" in stderr **or**
+"Landlock network (egress) tier not applied" in stderr`. An `or` across two mutually
+exclusive outcomes cannot fail on a launch that emits both — and the cell
+`pytest.skip`s whenever the host can create an inner namespace, so on the developer host
+it never asserts anything at all. Two further shapes hide behind that: the skip is
+indistinguishable from a pass in the summary, and the only loader path the cell drives is
+the checkout's (world-traversable on this host), never a 0750 ancestor — the one condition
+that produces the false line. Filed as TJ-DF-052, with the fix counted as: assert the
+absence of the other half, add a 0750-ancestor cell, and make the skip visible.
+
+**Method note for future dogfood runs.** After filing a defect on a project with a large
+suite, spend one short pass asking which test *should* have caught it and reading that
+test's assertions. It is cheap, it converts "the suite is green" from a mystery into
+either a test-quality row or a confirmation that the surface is genuinely uncovered — and
+it is the difference between filing a defect and explaining why the defect survived.
