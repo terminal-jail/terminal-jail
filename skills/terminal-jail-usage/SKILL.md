@@ -73,7 +73,14 @@ description: >-
   path — validate ≠ install; TJ-DF-035 pack-authoring schema learnable only
   from source; TJ-DF-036 SKIPPED-install-bunker, all three bunker hosts down
   — see §Operator gates and pitfalls 15-17),
-version: 1.13.0
+  refreshed 2026-10-19 (run 20, ceiling-summary + plain-allow-egress angle:
+  the install now prints an honest containment-ceiling line and the opt-in
+  kernel egress tier FINALLY attaches on plain-allow verdicts — TJ-DF-046
+  verified fixed on a dev host AND a fresh bunker box; NEW: TJ-DF-049 the
+  ceiling line fabricates an ABI when the landlock probe is absent, TJ-DF-050
+  the auto-sandbox path splices the net loader without a readability preflight,
+  INT-CI-009 the fleet QA battery renders EMPTY — see §Run 20 additions),
+version: 1.14.0
 category: software-development
 ---
 
@@ -522,19 +529,73 @@ to the INSTALL LOG, never writes the rc file; `--no-path` is a bare flag
 PATH-append behavior build their own env with `CI="" SUDO_USER="" TERMINAL_JAIL_TEST=1`
 — never inherit from the calling shell (that CI-env leak was INT-CI-007).
 
-**Egress tier (TERMINAL_JAIL_LANDLOCK_NET=1) current reality.** The
-kernel/loader contract is real: `python3 ~/.local/lib/terminal-jail/landlock-net-loader.py
--- <cmd>` prints `kernel egress tier APPLIED` and kills connects to
-non-allowlisted ports with EPERM. Through the CLI, the loader rides ONLY
-commands whose verdict is a MODIFY/auto-script wrap; a plain-ALLOW
-verdict (`rule_id=null`, e.g. the README's own `python3 -c socket.connect`
-example) runs WITHOUT the tier and WITHOUT any warning (TJ-DF-046/047,
-open). Until the fix lands: verify egress behavior at the loader seam, not
-through the CLI, and never treat a CONNECTED result as "the tier is
-broken" — it is verdict-gated.
+**Egress tier (TERMINAL_JAIL_LANDLOCK_NET=1) current reality (RE-VERIFIED
+2026-10-19 at 29ae69f, run 20 — TJ-DF-046 fixed).** The kernel/loader
+contract is real AND the tier now attaches on the plain-allow path: with the
+knob on, a `rule_id=null` / `action=allow` command (`python3 -c
+socket.connect` — the README's own flagship shape) to a non-allowlisted port
+is denied EPERM at the kernel by `landlock-net-loader.py`, printed with the
+`kernel egress tier APPLIED — TCP connect() restricted to ports [...]`
+banner, and `TERMINAL_JAIL_LANDLOCK_NET_ALLOW=9999` lets the same command
+through. Non-attach outcomes on that path name their cause loudly
+(unreadable loader, missing loader, unreachable parents, invalid allowlist).
+TWO caveats remain: (a) the AUTO-SANDBOX/modify path splices the loader
+without a readability preflight, so an unreadable loader kills the command
+(raw `python3: can't open file …: [Errno 13]`, rc=2, no named cause) —
+TJ-DF-050; (b) a 0750/0700 `$HOME` makes the loaders unreachable for the
+payload uid, so on that class of box the tiers degrade loudly on EVERY launch
+even though the installer's ceiling line says the kernel "CAN engage" (that
+line states the kernel ceiling, not the install layout). Verify egress
+behaviour through the CLI at a fresh install; the loader seam stays the
+fallback oracle.
 
 **Perf anchor (TJ-DF-048).** With load recorded in the run (1-min loadavg
 29–42, fleet-cron saturated), interleaved ON/OFF medians gave ~+120ms per
 wrapped invocation from the fs tier (≈+80ms of it inside
 landlock-loader.py itself). Never sequential-A/B this repo on a shared
 host: interleaved pairs + the loadavg line in the row are the standard.
+
+## Run 20 additions (2026-10-19, verified live at 29ae69f)
+
+**The install now self-reports its containment ceiling — and one arm lies.**
+Every install prints one `containment ceiling (Landlock)` line before `done.`
+(README §Install): `fs tier CAN engage and net (egress) tier CAN engage (…ABI N >= 4…)`,
+`fs … net CANNOT (ABI N < 4 …)`, `NEITHER … can engage`, or `unknown`. Verified
+correct for a real host (ABI 8 here) and for stubbed ABI-3/DEGRADED arms, and
+the line matched the run-time behaviour in the same session. But when
+`scripts/landlock-capability-probe.py` is ABSENT from the install source the
+line prints a fabricated `net (egress) tier CANNOT (Landlock ABI 0 < 4)` —
+a leftover `FULL` from the pidns probe — instead of the documented `unknown`
+(TJ-DF-049). Do not read the ABI in that line as measured until that row is
+fixed; run `python3 scripts/landlock-capability-probe.py` yourself.
+
+**Launching on the fleet's own base image: expect a refusal, use `--user`.**
+A stock Ubuntu-kernel bunker agent (6.8.0-142) denies bare unprivileged PID
+namespaces: `./standalone/terminal-jail sh -c …` exits 2 with
+`namespace creation failed (unshare exit 1)` plus the AppArmor
+`unprivileged_userns` cause and the `--user`/composed remediation. That is
+documented behaviour, not a bug, but it IS the quickstart's first command —
+plan a `--user` (mapping-less: PID ns + firewall, no fs isolation) or
+composed launch on that class of host. The launch shares the HOST network
+namespace (`ip -o addr` inside shows the host's `eth0`), as README's
+"SANDBOXED — not network-contained" states.
+
+**Reading a fresh-box egress probe.** Drive the tier with a payload that
+prints a verdict from `socket.connect(...)` alone. If your listener is a bare
+`python3 -m http.server`, a successful TCP connect still shows up as a
+`TimeoutError` on `recv` (the server never writes first) — a post-connect
+recv timeout is evidence the connect SUCCEEDED; only an
+`EPERM`/`PermissionError` at connect is the kernel deny.
+
+**Fresh-machine install leg in one sitting (the fleet battery may be down).**
+`bunker-qa.sh launch` currently renders an EMPTY battery (unescaped
+`$UI_PORTS` in the generated heredoc under `set -u`) and aborts after spawning
+(INT-CI-009) — when that happens, run the leg by hand: spawn
+(`bunker spawn --server bunker-mvp --ttl 2h`), clone the documented https
+origin inside, run `./install.sh` verbatim (measured 1.09 s on a fresh agent,
+clone 2.08 s), smoke `--version` + the bridge block + the landlock probe, then
+`bunker destroy <id> --server <server>` and re-read the list after ~90 s.
+Stage scripts with `bunker cp <local> <agent>:<rel-path>` and run them with
+`bunker exec <id> --server <server> -- bash -c 'bash $HOME/script.sh'`;
+harvest with `bash -c 'cat $HOME/leg.log'` (a bare `bunker exec … cat 'path'`
+passes the quotes literally).

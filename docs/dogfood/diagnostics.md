@@ -583,3 +583,87 @@ fine (install is unprivileged, PATH block targets `~/.profile`). The
 session (`no target bound` otherwise — a prior `bunker use` default is NOT
 honored for mutating commands). Destroy-then-90s-recheck gave 0 residual
 users this time; keep that cadence before ever filing a residue row.
+
+## 16. Run 20 (2026-10-19): the ceiling summary, the plain-allow egress attach, and why the QA battery died
+
+**What changed since run 17-19, and why this run exists.** Two commits landed on
+2026-10-18 that both rows read as "fixed": `7971495` splices the Landlock net loader into
+every non-rewritten (plain-ALLOW) payload exec, and `9a5a642` adds the installer's
+containment-ceiling summary plus the plain-allow degrade contract, pinned by
+`plugin/test_tjdf047_plain_allow_degrade.py`. Neither new door had ever been driven by a
+user, so this run drove exactly those two and nothing else.
+
+**How the two new mechanisms actually work (read this before touching either).**
+
+1. *Two attach paths, two different checks.* The plain-allow path decides inside the
+   wrapper: `standalone/terminal-jail:1046 _tj_egress_tier_decide` runs
+   `"$@" test -r "$LANDLOCK_NET_LOADER"` under the launcher it is about to use, and every
+   non-attach outcome goes through `_tj_egress_degrade` (`:1021`) which prints one
+   `WARNING: Landlock network (egress) tier not applied (<cause>)` line naming the
+   launcher and the two knob remedies. The auto-sandbox/modify path cannot do that: the
+   tail is composed INSIDE the engine, at import time
+   (`plugin/terminal_jail/interruptor/decider.py:76 _LANDLOCK_NET_TAIL =
+   landlock_net_sandbox_prefix()`, spliced in `_wrap_payload`:79), and the wrapper just
+   execs the already-composed rewrite (`standalone/terminal-jail:1271+`). The engine's
+   only reachability gate is `_world_traversable()` — which walks the ancestors'
+   `S_IXOTH` and **never the loader file's own read bits** (`landlock.py:1201`). That
+   asymmetry is the whole of TJ-DF-050: a path-traversable but unreadable loader passes
+   the gate, gets spliced in, and the launch dies as `python3: can't open file …:
+   [Errno 13]` with rc=2 and no named cause, while the plain-allow path on the identical
+   host state degrades loudly.
+
+2. *The ceiling summary parses someone else's variable.* `install.sh:1542` seeds
+   `LL_SUMMARY_OUT` from `TIER_FULL_OUT`, which the tier-probe helper resets on every
+   call (`:1455`) and sets from whichever probe ran last (`:1466`) — and in the advisory
+   path the last caller is the **pidns** probe (`:1504`). The landlock probe is never
+   routed through that helper; it runs only inside the summary block (`:1549`) and only
+   when the file exists (`:1543`). Consequence: on an install source with the probe
+   removed, the summary inherits the pidns `FULL`, the ABI grep finds nothing (forced to
+   `0`), and the `ABI < 4` branch prints a ceiling claim and an ABI the run never
+   measured. The documented `unknown` arm (`:1580`) is dead code on any source whose
+   other probes run — TJ-DF-049.
+
+**Errors hit in this run, and the right way.**
+
+- *The fleet QA battery renders EMPTY.* `bunker-qa.sh launch` spawned its agent, then
+  died with `line 1061: UI_PORTS: unbound variable` twice and
+  `ERROR: battery shipped EMPTY (~/qa-run.sh 0 bytes) … NOT launching`. The rendered
+  battery is a heredoc opened at `:1061`; the ui-probe block in its BODY references
+  `$UI_PORTS` unescaped at `:2397-2407` while its siblings escape correctly
+  (`:2424/:2436`). Render-time expansion under `set -u` kills the `cat`, so the error is
+  attributed to the heredoc's opening line rather than the real line — read the body for
+  the unescaped reference, not the line number in the message. The abort also leaves the
+  spawned agent running: check `bunker list --server <host>` after ANY failed launch and
+  `bunker destroy <id>` it (done here for `1dd1f7eb`) — INT-CI-009.
+- *Right way to run the install leg when the battery is down:* the generic ephemeral
+  procedure still works and is cheap — `bunker spawn --server bunker-mvp --ttl 2h`,
+  `bunker cp <script> <agent>:leg.sh`, `bunker exec <agent> --server <server> -- bash -c
+  'bash $HOME/leg.sh'`, harvest with `bash -c 'cat $HOME/leg.log'`, then destroy and
+  re-read the list after ~90 s. Measured on a fresh agent: documented https clone
+  2.08 s, documented `./install.sh` 1.09 s rc=0, `--version` 1.3.0 rc=0.
+- *`bunker exec … cat '$HOME/leg.log'` silently yields 48 bytes.* Single quotes are
+  passed literally to the remote shell, so `cat` looks for a file named `$HOME/leg.log`.
+  Always wrap: `bash -c 'cat $HOME/leg.log'`. First harvest returned 48 bytes and no
+  `LEG-DONE`; the wrapper form returned the full 15 KB log.
+- *A fresh-box egress probe reads as a timeout when the listener never speaks.* Against
+  `python3 -m http.server`, a connect that SUCCEEDED still raises `TimeoutError` on
+  `recv` (the server waits for a request). Only `PermissionError [Errno 13]` at connect
+  is the kernel deny — do not grade a control leg as "blocked" on a recv timeout, and
+  prefer a payload that prints immediately after `connect()`.
+- *A one-off reading must be re-probed before it becomes a row.* The first fresh-box
+  delta leg printed `/usr/bin/python3: can't open file '<home>/payload.py': [Errno 13]
+  Permission denied` on the modify path; a mode bisect (600 vs 644, same file, same
+  command) and four replays under the identical and adjacent conditions all returned
+  `PAYLOAD CONNECTED`. It was recorded as a leg artifact and NOT filed — the only
+  reproducible pair (unreadable loader: modify path dies raw vs plain-allow path degrades
+  loudly on the same host state) became TJ-DF-050.
+
+**Cost, measured, with the honest answer.** `hyperfine --warmup 3 --runs 15` on a fresh
+install at 1-min loadavg 12.9-17.5 (16 cores): plain command tier-OFF 305.6 ms ± 36.3,
+tier-ON 367.8 ms ± 28.4; interpreter payload tier-OFF 321.2 ms ± 25.2, tier-ON
+390.1 ms ± 18.2; bare unwrapped `python3 -c 'import socket'` 16.3 ms ± 1.4; net loader
+alone at the seam 47.2 ms ± 8.3. So the egress tier costs roughly +60-70 ms per
+plain-allow invocation — one interpreter start — on top of a ~300 ms wrapper floor.
+Sub-second and floor-dominated: **no PERF row**, because a win nobody can feel is not a
+finding. Machine-scale numbers, and the noise band at this load is wider than the delta;
+quote them as directions, not precision.
