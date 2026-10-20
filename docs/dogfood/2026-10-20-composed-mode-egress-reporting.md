@@ -152,7 +152,9 @@ composed arm is the only cell pairing `TERMINAL_JAIL_COMPOSED=on` with
 
 ```python
 if "COMPOSED MODE" not in result.stderr:
-    pytest.skip("this host creates inner namespaces, so composed mode is unreachable here")
+    pytest.skip(
+        "this host creates inner namespaces, so composed mode is unreachable here"
+    )
 assert "tj-df-046-composed" in result.stdout, result.stderr
 assert "egress: enforced by terminal-jail" in result.stderr or (
     "Landlock network (egress) tier not applied" in result.stderr
