@@ -783,3 +783,29 @@ suite, spend one short pass asking which test *should* have caught it and readin
 test's assertions. It is cheap, it converts "the suite is green" from a mystery into
 either a test-quality row or a confirmation that the surface is genuinely uncovered — and
 it is the difference between filing a defect and explaining why the defect survived.
+
+## 19. Run 21c (2026-10-20, same tick, third angle): the refusal ladders are honest
+
+The fail-closed paths had zero dogfood coverage before this angle. They were driven on two
+hosts (control host + a fresh bunker agent) with the method the claims deserve: each leg
+runs a payload that would `touch` a per-leg marker file, and the verdict is read from the
+MARKER, not from the exit code. Fifteen of fifteen legs matched the documented behaviour —
+refusals (`--private-proc` over a backend that cannot deliver a private procfs, an explicit
+backend whose probe fails, a missing explicit seccomp loader, unknown values for
+`TERMINAL_JAIL_JAIL_BACKEND`/`TERMINAL_JAIL_PRIVATE_PROC`/`TERMINAL_JAIL_COMPOSED`) all
+exited 2 with the marker ABSENT and a one-line cause naming the fix, and the running legs
+printed the `proc_view=` they actually delivered. The `auto` backend with an unusable bwrap
+is the nicest piece of honesty in the set: it warns that the fallback does NOT provide a
+private `/proc` instead of quietly downgrading. `scripts/backend-parity-battery.py` reaches
+the same conclusion independently (`rc=0`, cells 6 and 8 `FAIL-CLOSED-PROVEN` with
+`marker=ABSENT`).
+
+**Method notes worth carrying forward.**
+ - "exit 2" is not evidence the command did not run: assert a SIDE EFFECT the payload would
+   have created. Two legs that should not have run and did would otherwise grade green.
+ - A composed-mode fallback is not an override: `TERMINAL_JAIL_COMPOSED=on` only engages
+   when namespace creation FAILS (specs/cli.md:278), so on a namespace-capable host the flag
+   is not honoured and that is documented. Drive the composed arm on a container (a bunker
+   agent), or the leg measures the plain path while claiming to test composed mode.
+ - Simulate an unusable optional dependency by stubbing it early on `PATH` (a `bwrap` that
+   exits 1) instead of trying to uninstall it; simulate an ABSENT one by a curated PATH.

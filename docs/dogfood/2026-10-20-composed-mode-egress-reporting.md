@@ -179,3 +179,41 @@ Filed as **TJ-DF-052 (P3)** with fix directions (assert the pair cannot co-occur
 `scripts/backend-parity-battery.py`, `scripts/arg_size_benchmark.py`,
 `scripts/kernel-matrix-teardown.py`; `gtfobins-sweep.py` and `rule-pack-tool.py` were
 covered by runs 11 and 13.
+
+---
+
+## Third angle (run 21c, same tick): the refusal ladders, driven with side-effect proof
+
+No prior entry in `.coding-hermes/dogfood-log.md` had touched the fail-closed paths
+(grep for `private-proc`: 0 hits before this run). Every leg below asserts the
+**marker file the payload would create**, not the exit status — "exit 2" alone does not
+prove the command did not run.
+
+| Leg | Shape | Result |
+|---|---|---|
+| R1/R2 | no demand; `--private-proc` on bwrap | rc=0, `proc_view=private`, marker PRESENT |
+| R3 | `--private-proc` over `TERMINAL_JAIL_JAIL_BACKEND=unshare` | **rc=2, marker ABSENT**, cause names the backend, the bwrap-only limit and `docs/backend-parity.md` known limit (a) |
+| A1/A3 | `--private-proc` with `TERMINAL_JAIL_COMPOSED=on` / auto, on a container (composed engages) | **rc=2, marker ABSENT**, same named cause |
+| A2 | `TERMINAL_JAIL_COMPOSED=on`, no demand | rc=0 running composed, `proc_view=none`, and the loud *"NO layer of this launch provides namespace isolation (operator decision)"* warning; marker PRESENT |
+| A4 | `TERMINAL_JAIL_COMPOSED=off` | rc=2 plain-host refusal + cause + the three options |
+| R5 | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` with a PATH-stubbed probe-failing `bwrap` | **rc=2, marker ABSENT**, *"never silently downgraded"* |
+| R6 | `auto` with the same stubbed `bwrap` | runs, and **warns that the fallback does NOT provide a private `/proc`**; `proc_view=host` |
+| R7 | `TERMINAL_JAIL_SECCOMP_LOADER=/nonexistent` + `--seccomp` | **rc=2, marker ABSENT**, names the path |
+| R8 | `TERMINAL_JAIL_UID_MAP=0 --user` | runs mapping-less with a warning naming the reduced containment |
+| R9/R10/A5 | unknown `JAIL_BACKEND` / `PRIVATE_PROC` / `COMPOSED` values | **rc=2, marker ABSENT**, each naming the accepted vocabulary |
+
+15/15 honest, across the control host and a fresh bunker agent (clone rc=0 at `928ff93`,
+destroyed and verified gone). The project's own documented parity battery independently
+proves the same two refusals with the same marker-file method — `python3
+scripts/backend-parity-battery.py` → **rc=0**, *"zero unexplained divergences: every cell
+is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN"*, including cell 6 (namespace
+probe failure, bwrap+unshare, `marker=ABSENT`) and cell 8 (private-proc demand,
+`marker=ABSENT`).
+
+**No rows filed.** A green verification is a legitimate tick result, and filing one
+alongside TJ-DF-051/052 would dilute the board. One reading worth recording so a future
+run does not mis-file it: `TERMINAL_JAIL_COMPOSED=on` is a **namespace-failure fallback**
+(`specs/cli.md:278` — "when namespace creation fails, the wrapper consults
+`TERMINAL_JAIL_COMPOSED`"), so on a namespace-capable host it deliberately takes the
+normal backend path and prints no `COMPOSED MODE` line. That is documented behaviour, not
+a silently ignored demand.
