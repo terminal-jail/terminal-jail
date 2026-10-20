@@ -729,6 +729,14 @@ def _compute_sandbox_prefix() -> str:
             "landlock-net-loader.py is not reachable by the launch's payload "
             f"uid (a parent of {loader} lacks o+x — e.g. a 0700/0750 home)"
         )
+    try:
+        loader_mode = os.stat(loader).st_mode
+    except OSError as exc:
+        return _degrade(f"landlock-net-loader.py cannot be inspected: {exc}")
+    if not loader_mode & 0o004:
+        return _degrade(
+            f"landlock-net-loader.py is not readable by the launch's payload uid ({loader})"
+        )
     return f"python3 {shlex.quote(loader)} -- "
 
 

@@ -444,6 +444,38 @@ class TestLaunchShape:
         argv = _payload_argv(_launch_records(log)[0])
         assert str(NET_LOADER) not in argv and "not-shipped.py" not in " ".join(argv)
 
+    def test_modify_path_unreadable_loader_degrades_before_composition(
+        self, tmp_path: Path
+    ) -> None:
+        """A path-traversable but unreadable net loader never enters a rewrite.
+
+        ch:trace row=TJ-DF-050 spec=README.md#containment-and-egress test=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape doc=README.md#containment-and-egress prompt=/tmp/tj-050-brief-20261020-225751.txt evidence=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition witness=live:focused-pytest verdict=none:foreman-runs-after-commit commit=75cdf309fa1c3f7f7c62d28898e4dedeb5ccde24 memory=none:project-memory-not-required
+        STATUS: complete
+        TIER: T3 (focused modify-path regression and loader argv observation)
+        EVIDENCE: plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition
+        """
+        payload = (_payload_python(), "-c", "print('SHAPE-OK')")
+        hidden = tmp_path / "landlock-net-loader.py"
+        hidden.write_text("# not readable\\n", encoding="utf-8")
+        hidden.chmod(0o000)
+        result, log = self._run(
+            tmp_path,
+            *payload,
+            TERMINAL_JAIL_LANDLOCK="0",
+            TERMINAL_JAIL_LANDLOCK_NET="1",
+            TERMINAL_JAIL_LANDLOCK_NET_LOADER=str(hidden),
+        )
+        assert result.returncode == 0, result.stderr
+        assert "SHAPE-OK" in result.stdout
+        assert (
+            result.stderr.count("WARNING: Landlock network (egress) tier not applied")
+            == 1
+        )
+        assert "cannot read" in result.stderr or "not readable" in result.stderr
+        assert "can't open file" not in result.stderr
+        argv = _payload_argv(_launch_records(log)[0])
+        assert str(hidden) not in argv
+
     def test_unreadable_loader_degrades_loudly(self, tmp_path: Path) -> None:
         payload = (_payload_python(), "-c", "print('SHAPE-OK')")
         hidden = tmp_path / "landlock-net-loader.py"
