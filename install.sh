@@ -1539,7 +1539,7 @@ fi
 # TCP-connect rules not) instead of restating a ceiling the tiers do not
 # share. Advisory only: never blocks the install, never depends on the
 # demand variables above.
-LL_SUMMARY_OUT="${TIER_FULL_OUT:-}"
+LL_SUMMARY_OUT=""
 if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/scripts/landlock-capability-probe.py" ] \
     && command -v python3 >/dev/null 2>&1; then
     # The demand-gated runs above may not have executed the landlock probe
