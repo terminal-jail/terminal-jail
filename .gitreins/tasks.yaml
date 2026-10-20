@@ -1799,3 +1799,17 @@ tasks:
     QA harness.'
   status: in_progress
   created_at: '2026-10-20T02:17:48.629699+00:00'
+- id: TJ-DF-049
+  title: Fix installer fabricated Landlock ABI when probe absent
+  criteria:
+  - 'install.sh line 1542 seeds LL_SUMMARY_OUT from TIER_FULL_OUT (pidns probe output)
+    instead of empty string, so when landlock-capability-probe.py is absent the summary
+    prints ''fs tier CAN engage; net CANNOT (Landlock ABI 0 < 4)'' instead of the
+    documented ''unknown'' arm. Fix: initialize LL_SUMMARY_OUT="" so the probe-absent
+    path reaches the UNKNOWN branch. Acceptance: scratch install with probe removed
+    prints ''unknown'' line (no ABI number, no per-tier CAN/CANNOT claim), exits 0;
+    normal install with probe present keeps current wording for all four arms (FULL/ABI>=4,
+    FULL/ABI<4, DEGRADED, UNKNOWN).'
+  status: complete
+  created_at: '2026-10-20T04:00:30.529030+00:00'
+  completed_at: '2026-10-20T12:02:01.192509+00:00'
