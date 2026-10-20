@@ -1067,6 +1067,15 @@ _tj_egress_tier_decide() {
     return 0
 }
 
+# TJ-DF-047: the filesystem tier's attach-decision degrade — the plain-allow
+# twin of _tj_egress_degrade above, in the loader's OWN warning wording (the
+# modify path prints this same line from standalone/landlock-loader.py when
+# the tier cannot apply, so both paths read as one family). ONE loud line
+# naming the cause; TERMINAL_JAIL_LANDLOCK=0 is the deliberate opt-out.
+_tj_fs_degrade() {
+    echo "terminal-jail: WARNING: Landlock filesystem tier not applied ($1); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0" >&2
+}
+
 _tj_launch_composed() {
     # Run the payload WITHOUT creating an inner namespace. States every layer
     # honestly and never claims what it does not provide:
@@ -1300,26 +1309,46 @@ else
         # inside the bwrap namespace, right before the payload; skipped under
         # a mapped launch, or when the payload-uid cannot READ the loader —
         # the 0750/0700-home shape, probed with the exact bwrap flags).
-        if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
-            if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
-                # TJ-DF-046: with the egress tier on, the two loaders compose —
-                # the EGRESS loader OUTERMOST, the filesystem loader innermost.
-                # Landlock domains accumulate (each restrict_self INTERSECTS the
-                # current domain), so the payload gets both restrictions either
-                # way; the order is chosen for STARTABILITY (measured: with the
-                # fs loader outer, the INNER loader's own interpreter must start
-                # inside the file-restricting domain — on a host where python3
-                # resolves to an interpreter whose files the fs tier does not
-                # grant (a venv under $HOME), every allowed command died with
-                # `PermissionError: pyvenv.cfg`, the TJ-DF-019 shape one layer
-                # up). The file-restricting tier goes innermost so the chain
-                # that launches it can still start.
-                if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
-                    exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+        #
+        # TJ-DF-047: every non-attach outcome of this gate is stated LOUDLY
+        # (_tj_fs_degrade) — a plain-allow payload is never silently left
+        # without kernel filesystem enforcement. The mapped-launch skip stays
+        # SILENT: a uid mapping IS filesystem isolation (a substitution, not
+        # a degradation), exactly like the fs-isolation decision above.
+        if [ "$TJ_LANDLOCK_ON" -eq 1 ]; then
+            if [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ]; then
+                if [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+                    if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                        # TJ-DF-046: with the egress tier on, the two loaders compose —
+                        # the EGRESS loader OUTERMOST, the filesystem loader innermost.
+                        # Landlock domains accumulate (each restrict_self INTERSECTS the
+                        # current domain), so the payload gets both restrictions either
+                        # way; the order is chosen for STARTABILITY (measured: with the
+                        # fs loader outer, the INNER loader's own interpreter must start
+                        # inside the file-restricting domain — on a host where python3
+                        # resolves to an interpreter whose files the fs tier does not
+                        # grant (a venv under $HOME), every allowed command died with
+                        # `PermissionError: pyvenv.cfg`, the TJ-DF-019 shape one layer
+                        # up). The file-restricting tier goes innermost so the chain
+                        # that launches it can still start.
+                        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                        fi
+                        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                    else
+                        # TJ-DF-047: the tier cannot attach on THIS launch — say why,
+                        # exactly as the egress decision above does (unreadable = the
+                        # TJ-DF-019 shape: attaching would kill the payload with
+                        # Errno 13 under a 0700/0750 home).
+                        _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
+                    fi
                 fi
-                exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+            else
+                # TJ-DF-047: no loader to attach — never silent on the
+                # plain-allow path.
+                _tj_fs_degrade "landlock-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
             fi
         fi
         # TJ-DF-046: the egress tier's own wrap when the fs tier did not take
@@ -1344,21 +1373,38 @@ else
     # (65534) — on a 0750 (or 0700) home it cannot even open the loader,
     # and attaching it would kill every launch with Errno 13. The tier is
     # probed with the exact launch flags; unreadable → run unchanged.
-    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
-        if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
-            # TJ-DF-046: with the egress tier on, the two loaders compose —
-            # the EGRESS loader OUTERMOST, the filesystem loader innermost
-            # (Landlock domains accumulate/intersect either way; the order is
-            # chosen for STARTABILITY of the inner loader's interpreter — see
-            # the bwrap arm's note for the measurement).
-            if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
-                exec unshare \
-                    $UNSHARE_FLAGS \
-                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+    #
+    # TJ-DF-047: "run unchanged" is stated LOUDLY (never silent) — same
+    # discipline as the bwrap arm and the egress decision. The mapped-launch
+    # skip stays silent (a uid mapping IS filesystem isolation).
+    if [ "$TJ_LANDLOCK_ON" -eq 1 ]; then
+        if [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ]; then
+            if [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+                if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                    # TJ-DF-046: with the egress tier on, the two loaders compose —
+                    # the EGRESS loader OUTERMOST, the filesystem loader innermost
+                    # (Landlock domains accumulate/intersect either way; the order is
+                    # chosen for STARTABILITY of the inner loader's interpreter — see
+                    # the bwrap arm's note for the measurement).
+                    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                        exec unshare \
+                            $UNSHARE_FLAGS \
+                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                    fi
+                    exec unshare \
+                        $UNSHARE_FLAGS \
+                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                else
+                    # TJ-DF-047: the tier cannot attach on THIS launch — say why
+                    # (unreadable = the TJ-DF-019 shape; the payload runs with the
+                    # host /proc view and NO kernel filesystem enforcement).
+                    _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
+                fi
             fi
-            exec unshare \
-                $UNSHARE_FLAGS \
-                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+        else
+            # TJ-DF-047: no loader to attach — never silent on the
+            # plain-allow path.
+            _tj_fs_degrade "landlock-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
         fi
     fi
     # TJ-DF-046: the egress tier's own wrap when the fs tier did not take the
