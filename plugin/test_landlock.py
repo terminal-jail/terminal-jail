@@ -2285,11 +2285,21 @@ class TestLoaderPath:
 class TestWorldTraversable:
     def test_open_chain_under_tmp_is_traversable(self, monkeypatch) -> None:
         """The positive case anchored at /tmp (1777) so every ancestor's
-        mode is known: mkdtemp dir chmod 0755, then /tmp, then /."""
-        host = tempfile.mkdtemp(prefix="tj-ll-wt-")
+        mode is known: pin dir chmod 0755, mkdtemp dir chmod 0755, then
+        /tmp, then /.
+
+        The caller's TMPDIR may be private (a 0750 home or CI scratch
+        dir), so neither dir trusts the ambient -- or process-cached --
+        tempfile resolution: the pin is created directly under /tmp and
+        the host is created explicitly inside the pin."""
+        # A direct child of /tmp. mkdtemp makes 0700 dirs, so the pin
+        # needs its own chmod before the walk can cross it.
+        pin_dir = tempfile.mkdtemp(prefix="tj-pin-", dir="/tmp")
+        os.chmod(pin_dir, 0o755)
         monkeypatch.delenv("TMPDIR", raising=False)
         monkeypatch.delenv("TEMP", raising=False)
         monkeypatch.delenv("TMP", raising=False)
+        host = tempfile.mkdtemp(prefix="tj-ll-wt-", dir=pin_dir)
         try:
             os.chmod(host, 0o755)
             assert ll._world_traversable(os.path.join(host, "loader.py")) is True
@@ -2297,6 +2307,7 @@ class TestWorldTraversable:
             assert ll._world_traversable("/tmp") is True
         finally:
             os.rmdir(host)
+            os.rmdir(pin_dir)
 
     def test_one_0700_ancestor_blocks_traversability(self, tmp_path: Path) -> None:
         locked = tmp_path / "locked"
