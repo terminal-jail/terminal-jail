@@ -1813,3 +1813,14 @@ tasks:
   status: complete
   created_at: '2026-10-20T04:00:30.529030+00:00'
   completed_at: '2026-10-20T12:02:01.192509+00:00'
+- id: INT-CI-011
+  title: Fix duplicate Landlock egress degrade warning on unreadable loader
+  criteria:
+  - The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition
+    observe exactly one Landlock network degrade warning while the payload runs, preserve
+    a named unreadable-loader cause, avoid composing the unreadable loader, and include
+    repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression
+    and the configured full unit suite.
+  status: complete
+  created_at: '2026-10-21T00:25:26.872993+00:00'
+  completed_at: '2026-10-21T07:28:38.281670+00:00'
