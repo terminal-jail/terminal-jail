@@ -1791,14 +1791,6 @@ tasks:
   status: complete
   created_at: '2026-10-15T21:01:59.859442+00:00'
   completed_at: '2026-10-15T21:02:49.581747+00:00'
-- id: INT-CI-008
-  title: Fix test_open_chain_under_tmp_is_traversable harness premise
-  criteria:
-  - 'Test inherits harness TMPDIR (~0750-ancestor) making ''anchored at /tmp'' premise
-    false. Fix: relax premise or skip when TMPDIR != /tmp, ensure CI passes on bunker
-    QA harness.'
-  status: in_progress
-  created_at: '2026-10-20T02:17:48.629699+00:00'
 - id: TJ-DF-049
   title: Fix installer fabricated Landlock ABI when probe absent
   criteria:
