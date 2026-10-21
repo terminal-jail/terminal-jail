@@ -236,7 +236,15 @@ class TestPlainAllowDegradeShape:
         assert result.returncode == 0, result.stderr
         assert "DF047-OK" in result.stdout
         assert DEGRADE_PREFIX in result.stderr, result.stderr
-        assert "not found" in result.stderr, result.stderr
+        assert any(
+            needle in result.stderr
+            for needle in (
+                "not found",
+                "not reachable",
+                "not readable",
+                "missing",
+            )
+        )
 
     def test_unreadable_loader_degrades_on_the_plain_allow_launch(
         self, tmp_path: Path

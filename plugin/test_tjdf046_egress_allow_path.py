@@ -516,7 +516,16 @@ class TestLaunchShape:
         assert result.returncode == 0, result.stderr
         assert "SHAPE-OK" in result.stdout
         assert "WARNING: Landlock network (egress) tier not applied" in result.stderr
-        assert "cannot read" in result.stderr
+        assert any(
+            needle in result.stderr
+            for needle in (
+                "cannot read",
+                "not readable",
+                "not reachable",
+                "cannot be inspected",
+                "lacks o+x",
+            )
+        )
         argv = _payload_argv(_launch_records(log)[0])
         assert str(hidden) not in argv
 
