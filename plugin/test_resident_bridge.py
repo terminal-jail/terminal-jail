@@ -11,9 +11,15 @@ Covers, hermetically (tmp socket paths, short timeouts):
 ch:trace row=TJ-GAP-084 evidence=plugin/test_resident_bridge.py witness=none:local benchmarks in docs (live numbers cited)
 """
 
+# ch:trace row=TJ-REVIEW-073 spec=none:review-finding wave=none:serial test=plugin/test_resident_bridge.py::TestSignalShutdown doc=none:code-fix prompt=none:review-073-brief evidence=none:pending-implementation witness=live:test verdict=none:pending commit=none:pending memory=none:not-written
+# STATUS: complete
+# TIER: T3 (real resident subprocess signal lifecycle tests)
+# EVIDENCE: plugin/test_resident_bridge.py::TestSignalShutdown
+
 from __future__ import annotations
 
 import json
+import signal
 import socket
 import stat
 import subprocess
@@ -463,6 +469,73 @@ class TestWarnMode:
             assert verdict["action"] == "allow"
         finally:
             proc2.kill()
+
+
+class TestSignalShutdown:
+    """TJ-REVIEW-073: SIGTERM/SIGINT must run the socket-unlink cleanup.
+
+    The original serve() relied on its finally block, but default SIGTERM
+    disposition terminates the process outright — no finally, no unlink —
+    so the socket inode survived and the next launcher silently repaired
+    it via the stale-socket probe. These tests drive the REAL daemon
+    process lifecycle (subprocess + real signals), not a helper in
+    isolation, so they fail against the pre-fix behavior.
+    """
+
+    def _signal_and_wait(self, proc: subprocess.Popen) -> None:
+        proc.send_signal(signal.SIGTERM if sys.platform == "win32" else signal.SIGTERM)
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            raise
+
+    def test_sigterm_removes_socket(self, tmp_path: Path) -> None:
+        sock = tmp_path / "s.sock"
+        proc = _start_daemon(sock)
+        self._signal_and_wait(proc)
+        rc = proc.returncode
+        assert rc == 128 + signal.SIGTERM, (
+            f"daemon exited {rc} instead of the signal-handler exit code"
+        )
+        assert not sock.exists(), (
+            "SIGTERM left the Unix socket behind — cleanup did not run"
+        )
+
+    def test_sigint_removes_socket(self, tmp_path: Path) -> None:
+        sock = tmp_path / "s.sock"
+        proc = _start_daemon(sock)
+        proc.send_signal(signal.SIGINT)
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            raise
+        rc = proc.returncode
+        assert rc == 128 + signal.SIGINT, (
+            f"daemon exited {rc} instead of the signal-handler exit code"
+        )
+        assert not sock.exists(), (
+            "SIGINT left the Unix socket behind — cleanup did not run"
+        )
+
+    def test_sigterm_mid_stream_still_cleans_up(self, tmp_path: Path) -> None:
+        """A SIGTERM arriving while a request is in flight still unlinks
+        the socket — the handler path is the same as the idle one."""
+        sock = tmp_path / "s.sock"
+        proc = _start_daemon(sock)
+        mid = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        mid.connect(str(sock))
+        try:
+            mid.sendall(b'{"command": "echo hello"}\n')
+            self._signal_and_wait(proc)
+        finally:
+            mid.close()
+        assert not sock.exists(), (
+            "SIGTERM mid-request left the socket behind — cleanup did not run"
+        )
 
 
 class TestNoTcpListener:

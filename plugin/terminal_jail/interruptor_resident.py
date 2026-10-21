@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import socket
 import sys
 from pathlib import Path
@@ -212,6 +213,22 @@ def serve(sock_path: Path) -> None:
         )
         raise SystemExit(1) from None
 
+    # TJ-REVIEW-073: install signal handlers before exposing the listening
+    # socket. The handler performs the same idempotent cleanup as finally so
+    # termination is safe even while accept() or a client request is blocked.
+    def _cleanup() -> None:
+        server.close()
+        try:
+            sock_path.unlink()
+        except OSError:
+            pass
+
+    def _clean_exit(signum: int, _frame: object) -> None:
+        _cleanup()
+        raise SystemExit(128 + signum)
+
+    prev_term = signal.signal(signal.SIGTERM, _clean_exit)
+    prev_int = signal.signal(signal.SIGINT, _clean_exit)
     server.listen(16)
     print(f"[resident-bridge] serving on {sock_path} (mode={_mode()})", file=sys.stderr)
     try:
@@ -222,11 +239,9 @@ def serve(sock_path: Path) -> None:
                 continue
             _serve_connection(conn)
     finally:
-        server.close()
-        try:
-            sock_path.unlink()
-        except OSError:
-            pass
+        signal.signal(signal.SIGTERM, prev_term)
+        signal.signal(signal.SIGINT, prev_int)
+        _cleanup()
 
 
 def _serve_connection(conn: socket.socket) -> None:
