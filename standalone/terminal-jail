@@ -1320,10 +1320,12 @@ elif [ "$MODIFIED" -eq 1 ]; then
     # The bridge already prepended its own unshare prefix — run as-is,
     # no additional wrapping (double unshare → EPERM).
     #
-    # INT-CI-011: this launch consumed the egress mark (the engine's wrap
-    # composition verdict is final — its own preflight already stated any
-    # degradation); the mark is removed so a LATER launch cannot read a
-    # stale record of this launch's engine state.
+    # INT-CI-011: CONSUME the egress mark BEFORE removing — this tells the
+    # launch preflight that the engine already stated any degradation, so the
+    # attach decision stays silent (it checks TJ_EGRESS_ENGINE_DEGRADED
+    # set to 2).  Then remove the mark so a LATER launch cannot read a stale
+    # record of THIS launch's engine state.
+    _tj_egress_engine_degradation_mark
     if [ -n "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" ]; then
         rm -f "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" 2>/dev/null || :
     fi
