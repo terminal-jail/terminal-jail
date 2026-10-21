@@ -440,6 +440,18 @@ CMD_STR="${CMD_STR:1}"  # strip leading space
 INTERRUPTOR_MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
 
 if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
+    # INT-CI-011: the engine's degrade path records its cause into this
+    # launch-private mark file; the attach decision consults it so a
+    # degradation stated while composing the verdict's wrap (the bridge is
+    # a child process, so its warning is the ONE report) is not stated a
+    # second time by the launch preflight. The variable is a
+    # TERMINAL_JAIL_* control variable (kept by the hygiene sweep above).
+    if [ "$TJ_LANDLOCK_NET_ON" -eq 1 ]; then
+        TERMINAL_JAIL_LANDLOCK_NET_MARK="$(
+            mktemp "${TMPDIR:-${HOME:-/tmp}}/terminal-jail-net-mark.XXXXXXXX" 2>/dev/null || true
+        )"
+        export TERMINAL_JAIL_LANDLOCK_NET_MARK
+    fi
     # TJ-DF-044: no 2>/dev/null here — _interruptor_evaluate passes the
     # bridge's stderr (tier banners, loud degradation warnings) through; a
     # command substitution only swallows stdout, so the caller must not
@@ -1042,20 +1054,44 @@ _tj_egress_degrade() {
 #
 # With the knob ON, every non-attach outcome is stated LOUDLY — a payload is
 # never silently left CONNECTED.
+#
+# INT-CI-011: the ENGINE may already have stated this degradation while
+# composing the verdict's wrap (decider.py snapshots
+# ``landlock_net.sandbox_prefix()``; its capability/readability preflight
+# prints the warning). Before the engine is invoked, this launch creates a
+# private mark file (TERMINAL_JAIL_LANDLOCK_NET_MARK) that the engine's
+# degrade path appends its cause to; the attach decision below reads it
+# ONCE and, when non-empty, keeps the re-derived non-attach verdict
+# silent — the one loud line (with its named cause) already went out.
+# Scoped to the SAME launch: the mark is a launch-private temp file, so a
+# later independent launch (green engine, no mark) keeps its own warning.
 TJ_EGRESS_TIER_ATTACH=0
+TJ_EGRESS_ENGINE_DEGRADED=0
+_tj_egress_engine_degradation_mark() {
+    # Load-once: did the engine already degrade during wrap composition?
+    [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 0 ] || return 0
+    TJ_EGRESS_ENGINE_DEGRADED=1
+    if [ -n "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" ] &&
+        [ -s "$TERMINAL_JAIL_LANDLOCK_NET_MARK" ]; then
+        TJ_EGRESS_ENGINE_DEGRADED=2
+    fi
+}
 _tj_egress_tier_decide() {
     TJ_EGRESS_TIER_ATTACH=0
     [ "$TJ_LANDLOCK_NET_ON" -eq 1 ] || return 0
+    _tj_egress_engine_degradation_mark
     local _tj_here=0
     if [ "${1:-}" = "--here" ]; then
         _tj_here=1
         shift
     fi
     if [ -z "$LANDLOCK_NET_LOADER" ] || [ ! -f "$LANDLOCK_NET_LOADER" ]; then
+        [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
         _tj_egress_degrade "landlock-net-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
         return 0
     fi
     if [ "$_tj_here" -eq 0 ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" = "mapped" ]; then
+        [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
         _tj_egress_degrade "the uid-mapped launch runs the payload as the subordinate uid, which cannot read ${LANDLOCK_NET_LOADER}"
         return 0
     fi
@@ -1063,6 +1099,9 @@ _tj_egress_tier_decide() {
         TJ_EGRESS_TIER_ATTACH=1
         return 0
     fi
+    # The launch preflight re-derived a non-attach verdict; when the engine
+    # already stated it for this launch, stay silent (one named warning).
+    [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
     _tj_egress_degrade "the payload cannot read ${LANDLOCK_NET_LOADER} in the launch that would run it"
     return 0
 }
@@ -1280,6 +1319,16 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
 elif [ "$MODIFIED" -eq 1 ]; then
     # The bridge already prepended its own unshare prefix — run as-is,
     # no additional wrapping (double unshare → EPERM).
+    #
+    # INT-CI-011: CONSUME the egress mark BEFORE removing — this tells the
+    # launch preflight that the engine already stated any degradation, so the
+    # attach decision stays silent (it checks TJ_EGRESS_ENGINE_DEGRADED
+    # set to 2).  Then remove the mark so a LATER launch cannot read a stale
+    # record of THIS launch's engine state.
+    _tj_egress_engine_degradation_mark
+    if [ -n "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" ]; then
+        rm -f "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" 2>/dev/null || :
+    fi
     #
     # TJ-GAP-082: the Landlock tier rides the SAME rewrite when the host
     # permits it — the loader wraps the bridge's rewrite and applies the

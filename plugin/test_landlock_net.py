@@ -471,6 +471,44 @@ class TestDegradation:
         assert applied is False
         assert "oops" in cause
 
+    def test_degrade_records_the_cause_in_the_launch_mark(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """INT-CI-011: the engine's degrade appends its cause to the launch's
+        mark file — the wrapper's one-warning handoff for the SAME launch."""
+        mark = tmp_path / "mark"
+        mark.write_text("", encoding="utf-8")
+        monkeypatch.setenv(ln.ENV_VAR, "1")
+        monkeypatch.setenv(ln.DEGRADED_MARK_FILE_ENV, str(mark))
+        monkeypatch.setattr(ln, "_WARNED", False)
+        monkeypatch.setattr(ln, "_SANDBOX_PREFIX_CACHE", None)
+        assert ln._degrade("landlock-net-loader.py not readable (x)") == ""
+        assert "not readable" in mark.read_text(encoding="utf-8")
+        # ...and the warning itself still printed (this layer reports too).
+        # (The print side is pinned by the existing degrade tests.)
+
+    def test_degrade_is_inert_without_a_mark_file(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No TERMINAL_JAIL_LANDLOCK_NET_MARK in the env (any launch shape:
+        knob off, plain allow, direct API use) → nothing is written anywhere."""
+        monkeypatch.delenv(ln.DEGRADED_MARK_FILE_ENV, raising=False)
+        monkeypatch.setenv(ln.ENV_VAR, "1")
+        monkeypatch.setattr(ln, "_WARNED", False)
+        assert ln._degrade("some cause") == ""  # no crash, no write target
+
+    def test_degrade_mark_write_failure_never_breaks_the_launch(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """The mark is diagnostics: an unwritable target must not turn the
+        degrade into an exception (the payload still runs either way)."""
+        monkeypatch.setenv(ln.ENV_VAR, "1")
+        monkeypatch.setenv(
+            ln.DEGRADED_MARK_FILE_ENV, str(tmp_path / "no-such-dir" / "mark")
+        )
+        monkeypatch.setattr(ln, "_WARNED", False)
+        assert ln._degrade("some cause") == ""
+
     def test_sandbox_prefix_empty_while_knob_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

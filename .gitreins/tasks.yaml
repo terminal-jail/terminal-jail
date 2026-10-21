@@ -1791,14 +1791,6 @@ tasks:
   status: complete
   created_at: '2026-10-15T21:01:59.859442+00:00'
   completed_at: '2026-10-15T21:02:49.581747+00:00'
-- id: INT-CI-008
-  title: Fix test_open_chain_under_tmp_is_traversable harness premise
-  criteria:
-  - 'Test inherits harness TMPDIR (~0750-ancestor) making ''anchored at /tmp'' premise
-    false. Fix: relax premise or skip when TMPDIR != /tmp, ensure CI passes on bunker
-    QA harness.'
-  status: in_progress
-  created_at: '2026-10-20T02:17:48.629699+00:00'
 - id: TJ-DF-049
   title: Fix installer fabricated Landlock ABI when probe absent
   criteria:
@@ -1813,3 +1805,14 @@ tasks:
   status: complete
   created_at: '2026-10-20T04:00:30.529030+00:00'
   completed_at: '2026-10-20T12:02:01.192509+00:00'
+- id: INT-CI-011
+  title: Fix duplicate Landlock egress degrade warning on unreadable loader
+  criteria:
+  - The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition
+    observe exactly one Landlock network degrade warning while the payload runs, preserve
+    a named unreadable-loader cause, avoid composing the unreadable loader, and include
+    repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression
+    and the configured full unit suite.
+  status: complete
+  created_at: '2026-10-21T00:25:26.872993+00:00'
+  completed_at: '2026-10-21T07:28:38.281670+00:00'

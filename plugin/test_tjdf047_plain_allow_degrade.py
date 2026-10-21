@@ -258,6 +258,73 @@ class TestPlainAllowDegradeShape:
         assert "DF047-OK" in result.stdout
         assert DEGRADE_PREFIX in result.stderr, result.stderr
 
+    def test_same_launch_handoff_wiring_is_shipped(self, tmp_path: Path) -> None:
+        """INT-CI-011 mechanism wiring: the wrapper creates a launch-private
+        engine-degradation mark before the bridge runs, and the attach
+        decision consults it before its own degrade.
+
+        The wrapper OWNS the mark (it creates a fresh private temp file
+        when the knob is on — a pre-set env value is deliberately
+        replaced, so a hostile inherited mark cannot fake or hide a
+        degradation report). Behavior is pinned end to end by
+        test_tjdf046's modify-path regression on the degraded hosts; this
+        pin holds on every host.
+        """
+        text = CLI_SCRIPT.read_text(encoding="utf-8")
+        # The mark is created for THIS launch before the engine is invoked.
+        assert 'TERMINAL_JAIL_LANDLOCK_NET_MARK="$(\n            mktemp' in text
+        # ...only when the egress knob is on (never otherwise)...
+        assert (
+            'if [ "$TJ_LANDLOCK_NET_ON" -eq 1 ]; then\n        TERMINAL_JAIL_LANDLOCK_NET_MARK'
+            in text
+        )
+        # ...and the attach decision consults it before its own degrade.
+        body_start = text.index("_tj_egress_engine_degradation_mark() {")
+        body_end = text.index("_tj_launch_composed() {")
+        body = text[body_start:body_end]
+        assert '[ -s "$TERMINAL_JAIL_LANDLOCK_NET_MARK" ]' in body
+        assert body.count("TJ_EGRESS_ENGINE_DEGRADED") >= 4
+        # The module side records the degrade into the mark (best effort).
+        module_text = (
+            PROJECT_ROOT
+            / "plugin"
+            / "terminal_jail"
+            / "interruptor"
+            / "landlock_net.py"
+        ).read_text(encoding="utf-8")
+        assert (
+            'DEGRADED_MARK_FILE_ENV = "TERMINAL_JAIL_LANDLOCK_NET_MARK"' in module_text
+        )
+        assert "open(mark_path" in module_text
+
+    def test_each_independent_launch_reports_exactly_once(self, tmp_path: Path) -> None:
+        """INT-CI-011 scoping: the one-warning handoff is PER LAUNCH. Two
+        independent launches each state the degradation exactly once — the
+        suppression can never leak into (hide) a later launch's report,
+        whoever reports (engine preflight or launch preflight).
+        """
+        hidden = tmp_path / "landlock-net-loader.py"
+        hidden.write_text("# not readable\n", encoding="utf-8")
+        hidden.chmod(0o000)
+        if os.access(str(hidden), os.R_OK):
+            pytest.skip("running with privileges that ignore the file mode")
+        payload = (_payload_python(), "-c", "print('DF047-OK')")
+        for launch_no in (1, 2):
+            result = self._run(
+                tmp_path,
+                *payload,
+                TERMINAL_JAIL_LANDLOCK="0",
+                TERMINAL_JAIL_LANDLOCK_NET="1",
+                TERMINAL_JAIL_LANDLOCK_NET_LOADER=str(hidden),
+            )
+            assert result.returncode == 0, result.stderr
+            assert "DF047-OK" in result.stdout
+            count = result.stderr.count(DEGRADE_PREFIX)
+            assert count == 1, (
+                f"launch {launch_no}: expected exactly ONE degradation "
+                f"report, got {count}: stderr={result.stderr!r}"
+            )
+
     def test_knob_off_prints_no_tier_line(self, tmp_path: Path) -> None:
         """The knob is opt-in: off means silence about this tier (the knob is
         the deliberate opt-out, per the degrade line's own way-out)."""

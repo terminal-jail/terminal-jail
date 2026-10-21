@@ -2283,10 +2283,13 @@ class TestLoaderPath:
 
 
 class TestWorldTraversable:
-    def test_open_chain_under_tmp_is_traversable(self) -> None:
+    def test_open_chain_under_tmp_is_traversable(self, monkeypatch) -> None:
         """The positive case anchored at /tmp (1777) so every ancestor's
         mode is known: mkdtemp dir chmod 0755, then /tmp, then /."""
         host = tempfile.mkdtemp(prefix="tj-ll-wt-")
+        monkeypatch.delenv("TMPDIR", raising=False)
+        monkeypatch.delenv("TEMP", raising=False)
+        monkeypatch.delenv("TMP", raising=False)
         try:
             os.chmod(host, 0o755)
             assert ll._world_traversable(os.path.join(host, "loader.py")) is True

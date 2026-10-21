@@ -589,6 +589,21 @@ _WARNING_PREFIX = "terminal-jail: WARNING: Landlock network (egress) tier not ap
 
 _WARNED = False
 
+# INT-CI-011: the modify path's SAME non-attach outcome must be reported
+# ONCE. The engine composes the wrap at import time (decider.py) — when the
+# capability preflight or the loader readability preflight degrades there,
+# the loud warning fires from the engine process — and the wrapper's own
+# launch preflight (``_tj_egress_tier_decide``, TJ-DF-046) independently
+# re-derives the same non-attach verdict for the launch that would run the
+# loader, printing the warning a SECOND time. The engine writes a
+# per-launch mark file (path in ``TERMINAL_JAIL_LANDLOCK_NET_MARK`` —
+# created by the wrapper for THIS launch, a launch-private temp file)
+# naming the degraded loader; the launch preflight consults it before its
+# own degrade and stays silent when the engine already reported. It is
+# scoped to the same launch: a later independent launch (no mark, or a
+# green engine that never writes one) keeps its own warning.
+DEGRADED_MARK_FILE_ENV = "TERMINAL_JAIL_LANDLOCK_NET_MARK"
+
 
 def degradation_warning(cause: str) -> str:
     """One line naming the degradation, its cause and the way out."""
@@ -600,6 +615,26 @@ def degradation_warning(cause: str) -> str:
     )
 
 
+def _note_engine_degradation(cause: str) -> None:
+    """Record THIS process's degradation in the launch's mark file (best effort).
+
+    The wrapper creates the mark file for THIS launch (empty) before it
+    calls the engine; the engine appends the degradation cause — the
+    loader-arm causes name the degraded loader, capability-probe arms
+    name their own failure. The wrapper's suppression decision is token
+    PRESENCE: a non-empty mark means the engine already stated the same
+    non-attach outcome for this launch.
+    """
+    mark_path = os.environ.get(DEGRADED_MARK_FILE_ENV)
+    if not mark_path:
+        return
+    try:
+        with open(mark_path, "a", encoding="utf-8") as fh:
+            fh.write(cause + "\n")
+    except OSError:
+        pass  # a diagnostics mark must never break the launch
+
+
 def _degrade(cause: str) -> str:
     """Print the loud warning ONCE per process; return the empty prefix."""
     global _WARNED
@@ -609,6 +644,7 @@ def _degrade(cause: str) -> str:
     if not _WARNED:
         _WARNED = True
         print(degradation_warning(cause), file=sys.stderr)
+        _note_engine_degradation(cause)
     return ""
 
 
