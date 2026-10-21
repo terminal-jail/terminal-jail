@@ -447,11 +447,22 @@ class TestLaunchShape:
     def test_modify_path_unreadable_loader_degrades_before_composition(
         self, tmp_path: Path
     ) -> None:
-        """A path-traversable but unreadable net loader never enters a rewrite.
+        """A path-traversable but unreadable net loader never enters a rewrite,
+        and the SAME non-attach outcome is stated exactly ONCE (INT-CI-011).
 
-        ch:trace row=TJ-DF-050 spec=README.md#containment-and-egress test=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape doc=README.md#containment-and-egress prompt=/tmp/tj-050-brief-20261020-225751.txt evidence=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition witness=live:focused-pytest verdict=none:foreman-runs-after-commit commit=75cdf309fa1c3f7f7c62d28898e4dedeb5ccde24 memory=none:project-memory-not-required
+        The engine's own egress preflight may degrade first (on CI the
+        checkout loader sits under a non-world-traversable home); the
+        launch preflight re-derives the verdict for the launch that would
+        run the loader and must NOT print a second warning — the engine
+        records its degradation into this launch's mark file
+        (TERMINAL_JAIL_LANDLOCK_NET_MARK) and the launch preflight stays
+        silent when it is non-empty. Whichever layer reported, the one
+        warning names the loader cause, the payload still runs, and the
+        unreadable loader is absent from the composed argv (fail-safe).
+
+        ch:trace row=INT-CI-011 spec=README.md#containment-and-egress test=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition doc=README.md#containment-and-egress prompt=/tmp/terminal-jail-INT-CI-011-20261021-0021-brief.txt evidence=plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition witness=live:red-green dual-engine probe: HEAD module=2 warnings (CI run 39520106420 shape), fixed module=1 warning verdict=none:foreman-runs-after-commit commit=PENDING_SHA memory=none:project-memory-not-required
         STATUS: complete
-        TIER: T3 (focused modify-path regression and loader argv observation)
+        TIER: T3 (focused modify-path regression, dual-engine red/green duplicate-warning probe, full pytest+coverage, ruff, git diff --check)
         EVIDENCE: plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition
         """
         payload = (_payload_python(), "-c", "print('SHAPE-OK')")
@@ -471,7 +482,19 @@ class TestLaunchShape:
             result.stderr.count("WARNING: Landlock network (egress) tier not applied")
             == 1
         )
-        assert "cannot read" in result.stderr or "not readable" in result.stderr
+        # The ONE warning names the loader cause — whichever layer reported
+        # it (engine readability preflight: "not readable"/"not reachable"/
+        # "cannot be inspected"/"lacks o+x"; launch preflight: "cannot read").
+        assert any(
+            needle in result.stderr
+            for needle in (
+                "cannot read",
+                "not readable",
+                "not reachable",
+                "cannot be inspected",
+                "lacks o+x",
+            )
+        ), result.stderr
         assert "can't open file" not in result.stderr
         argv = _payload_argv(_launch_records(log)[0])
         assert str(hidden) not in argv
