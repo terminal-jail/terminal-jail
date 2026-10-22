@@ -392,6 +392,40 @@ name is catalogued in [docs/rule-catalog.md](rule-catalog.md) and the full
 contract (including the TJ-GAP-070 verdict table) in
 [specs/interruptor.md](../specs/interruptor.md) §3.5–§3.6.
 
+### 3a3. Kernel containment tiers (Landlock)
+
+Beside the namespace/scrub layer above, terminal-jail ships two **kernel
+Landlock tiers**. If your install printed a `containment ceiling (Landlock)`
+line, these are the two tiers it was reporting on:
+
+1. **Filesystem tier — on by default** (TJ-GAP-082). Wherever the launch
+   comes up, the kernel-enforced Landlock deny layer makes credential
+   surfaces (`~/.ssh`, `~/.config/terminal-jail`, other users' homes)
+   unreadable and confines writes to the working tree + temp dirs — no user
+   namespace and no privileges needed, inherited by the payload after every
+   exec/fork. `TERMINAL_JAIL_LANDLOCK=0` disables it.
+2. **Egress (network) tier — opt-in** (TJ-GAP-083). Set
+   `TERMINAL_JAIL_LANDLOCK_NET=1` and every `connect(2)` to a TCP port
+   outside `TERMINAL_JAIL_LANDLOCK_NET_ALLOW` (default `22,53,80,443`: ssh,
+   DNS-over-TCP, http, https — git push/fetch and pypi traffic) fails
+   EPERM/EACCES at the kernel, inside the payload and every descendant, even
+   when the command string matches no firewall rule. Deny is fail-closed;
+   hosts with Landlock ABI < 4 (kernel < 6.7) refuse the tier with a named
+   cause instead of silently running without it.
+
+A tier is a *ceiling*, not a promise: each install prints one
+`terminal-jail installer: containment ceiling (Landlock): …` line naming
+whether each tier CAN engage on that host (`fs tier CAN engage and net
+(egress) tier CAN engage`, the fs-only variant, `NEITHER`, or `unknown` —
+classify manually with `python3 scripts/landlock-capability-probe.py`). At
+run time an opted-in tier that could not attach prints
+`terminal-jail: WARNING: Landlock … tier not applied (<cause>)` — a named
+degrade, never a silent no-op.
+
+The full per-host picture — enforced / degraded / unavailable per enforcement
+layer across every launch shape — is the one matrix in
+[docs/capability-matrix.md](capability-matrix.md).
+
 ### 3b. Interruptor modes
 
 ```bash
