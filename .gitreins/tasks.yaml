@@ -1816,3 +1816,13 @@ tasks:
     in the two failing tests.'
   status: in_progress
   created_at: '2026-10-21T16:25:52.198599+00:00'
+- id: TJ-REVIEW-073
+  title: Remove resident bridge socket on SIGTERM
+  criteria:
+  - 'The committed fix 2ac9fed must make plugin/test_resident_bridge.py::TestSignalShutdown
+    pass: a real resident bridge receiving SIGTERM and SIGINT removes its Unix socket,
+    including while a request is in flight; existing behavior remains green; committed
+    trace marker for row TJ-REVIEW-073 is present.'
+  status: complete
+  created_at: '2026-10-21T23:53:41.401472+00:00'
+  completed_at: '2026-10-21T23:53:42.162384+00:00'
