@@ -5,9 +5,16 @@ The E2E battery uses this probe to label each run FULL or DEGRADED
 (TJ-GAP-042): a battery must never report ALL GREEN without having actually
 verified the PID-namespace layer.
 
-- FULL: bare mode (./standalone/terminal-jail true) succeeds — the host can
-  create the PID namespace, so bare-mode containment tests actually run.
-- DEGRADED: bare mode exits 2 with the wrapper's degradation message
+- FULL (backend: <name>): the bare-mode launch (./standalone/terminal-jail
+  true) succeeded UNDER THE BACKEND the wrapper resolved
+  (TERMINAL_JAIL_JAIL_BACKEND, default auto = bwrap when installed and its
+  probe is green, else unshare). This is a per-backend verdict, not a host
+  property: on a host where bwrap works but bare unshare is denied (AppArmor
+  apparmor_restrict_unprivileged_userns=1), the auto backend reports FULL
+  while a TERMINAL_JAIL_JAIL_BACKEND=unshare pin reports DEGRADED
+  (TJ-REVIEW-071). The resolved backend is reported in parentheses.
+- DEGRADED (backend: <name>): bare mode exits 2 with the wrapper's
+  degradation message under the named backend
   (TJ-GAP-034 fail-closed contract naming --user); the host refuses
   unprivileged PID namespace creation and bare-mode tests must skip.
 - UNKNOWN: anything else (missing wrapper, timeouts, unexpected output).
@@ -96,6 +103,34 @@ def _jail_aware_verdict() -> str:
     )
 
 
+def _resolved_backend(launch_stderr: str) -> str:
+    """The backend the wrapper resolved for this launch (TJ-REVIEW-071).
+
+    The wrapper names the backend on launch stderr on every shape that
+    actually launches (e.g. "proc_view=private (bwrap backend: …)" /
+    "proc_view=host (unshare backend: …)"). The env REQUEST may differ from
+    what was resolved under auto (bwrap absent or probe-failed falls back to
+    unshare), so the launch's own stderr — not the request — is the
+    authority. The fail-closed degradation path exits before any
+    backend-marked launch line, but its message still names the attempted
+    backend ("namespace creation failed (unshare exit N)" /
+    "bwrap namespace creation failed"), so those markers are consulted
+    first. Falls back to the request when stderr carries no marker, and to
+    "unknown" when neither is available.
+    """
+    markers = (
+        ("bwrap backend", "bwrap"),
+        ("unshare backend", "unshare"),
+        ("bwrap namespace creation failed", "bwrap"),
+        ("unshare exit ", "unshare"),
+    )
+    for marker, name in markers:
+        if marker in launch_stderr:
+            return name
+    request = os.environ.get("TERMINAL_JAIL_JAIL_BACKEND", "")
+    return request if request in ("auto", "bwrap", "unshare") else "unknown"
+
+
 def _classify() -> str:
     # DF-TERMINAL-JAIL-18: when the probe itself is jailed, the nested
     # bare-mode launch below cannot succeed — short-circuit to an honest
@@ -121,12 +156,13 @@ def _classify() -> str:
         # anything still running at 3s cannot be classified from here.
         return "UNKNOWN: probe timed out after 3s"
 
+    backend = _resolved_backend(result.stderr)
     if result.returncode == 0:
-        return "FULL"
+        return f"FULL (backend: {backend})"
     if result.returncode == 2 and any(
         marker in result.stderr for marker in _DEGRADATION_MARKERS
     ):
-        return "DEGRADED"
+        return f"DEGRADED (backend: {backend})"
     return f"UNKNOWN: rc={result.returncode}, stderr={result.stderr.strip()!r}"
 
 

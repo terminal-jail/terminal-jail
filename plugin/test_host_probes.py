@@ -151,7 +151,13 @@ class TestPidnsDirectClassification:
     ) -> None:
         monkeypatch.setattr(pidns_probe, "_nspid_values", lambda: ["4242"])
         monkeypatch.setattr(pidns_probe.subprocess, "run", self._fake_run(0))
-        assert pidns_probe._classify() == "FULL"
+        verdict = pidns_probe._classify()
+        assert verdict.startswith("FULL (backend: "), (
+            f"verdict must name the resolved backend (TJ-REVIEW-071): {verdict!r}"
+        )
+        assert verdict.split("(backend: ")[1].rstrip(")") in ("bwrap", "unshare", "auto", "unknown"), (
+            f"backend name must be a known backend value: {verdict!r}"
+        )
 
     def test_degraded_on_fail_closed_message(
         self, monkeypatch: pytest.MonkeyPatch
@@ -162,7 +168,10 @@ class TestPidnsDirectClassification:
             "command not run — on unprivileged hosts try --user"
         )
         monkeypatch.setattr(pidns_probe.subprocess, "run", self._fake_run(2, stderr))
-        assert pidns_probe._classify() == "DEGRADED"
+        # The degradation stderr names the unshare backend → the parenthetical
+        # must report it, per-backend (TJ-REVIEW-071); still DEGRADED, exit 0
+        # contract unchanged (main() prints and returns).
+        assert pidns_probe._classify() == "DEGRADED (backend: unshare)"
 
     def test_unknown_on_unexpected_failure(
         self, monkeypatch: pytest.MonkeyPatch
@@ -384,7 +393,7 @@ class TestJailedProbesThroughCli:
             )
             assert result.returncode == 0, result.stderr
             first_line = result.stdout.splitlines()[0] if result.stdout else ""
-            assert first_line.split(":")[0] in {
+            assert first_line.split(" ")[0].split(":")[0] in {
                 "FULL",
                 "DEGRADED",
                 "UNKNOWN",

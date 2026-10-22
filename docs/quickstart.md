@@ -101,8 +101,19 @@ engine action, the installed action, and both file paths.
 #                  continues with containment only.
 # Classify both layers before trusting any run below:
 python3 scripts/pidns-capability-probe.py
-# FULL     → the host can create unprivileged PID namespaces — bare mode works
-# DEGRADED → it cannot (bare mode exits 2, fail-closed) — use --user
+# FULL (backend: X)     → the bare-mode launch succeeded UNDER backend X.
+#   bwrap   = the auto backend resolved bubblewrap: private /proc, composed
+#             shape — bare unshare may still be denied on this host.
+#   unshare = bare unshare itself works — the original bare branch below.
+#   (TJ-REVIEW-071: the verdict is per-backend, not a host property. A host
+#    where bwrap works but bare unshare is denied — e.g. AppArmor
+#    apparmor_restrict_unprivileged_userns=1 — reports FULL (backend: bwrap)
+#    and would report DEGRADED (backend: unshare) under
+#    TERMINAL_JAIL_JAIL_BACKEND=unshare. Check the backend name before
+#    choosing a branch.)
+# DEGRADED (backend: X) → THAT backend's bare launch exits 2, fail-closed —
+#   use --user (or, for bwrap hosts where unshare is denied, see the backend
+#   table below: auto already picked the backend that works).
 # UNKNOWN  → read the probe's message before trusting either branch
 ```
 
@@ -110,7 +121,11 @@ python3 scripts/pidns-capability-probe.py
 the jailed process landing in a **different PID-namespace inode** than the
 host; `rc=0` on its own proves nothing about isolation.
 
-`FULL` — bare mode is contained; prove the PID namespace:
+`FULL` — bare mode is contained under the backend the probe printed
+(`backend: bwrap` → the auto backend resolved bubblewrap, giving the
+composed/private-`/proc` shape described in the backend table below;
+`backend: unshare` → the classic bare-unshare shape; both prove the same
+PID-namespace containment this way). Prove the PID namespace:
 
 ```bash
 readlink /proc/self/ns/pid                         # host: pid:[4026531836]
@@ -120,8 +135,8 @@ readlink /proc/self/ns/pid                         # host: pid:[4026531836]
 ~/.local/bin/terminal-jail rm -rf /                # → COMMAND BLOCKED, exit 126
 ```
 
-`DEGRADED` — bare mode refuses and does **not** fall back (fail-closed by
-design, TJ-GAP-034); `--user` is the supported path:
+`DEGRADED (backend: unshare)` — bare `unshare` refuses and does **not** fall
+back (fail-closed by design, TJ-GAP-034); `--user` is the supported path:
 
 ```bash
 ~/.local/bin/terminal-jail echo "in jail"

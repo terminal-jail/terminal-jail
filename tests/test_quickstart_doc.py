@@ -46,7 +46,7 @@ _PLACEHOLDER_RE = re.compile(r"<[a-z-]+>|\{[a-z_]+\}|YOUR_|<PATH>")
 # TJ-DF-042's doc-pin test requires verbatim.
 _PROSE_PLACEHOLDER_RE = re.compile(r"<[^<>\n]{1,60}>|\{[a-z_][a-z0-9_]*\}|YOUR_|<PATH>")
 _PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = {
-    330: {"<the rule's block_message>"},
+    334: {"<the rule's block_message>"},
 }
 
 # The capability vocabulary the page must carry (probe layer names, either
