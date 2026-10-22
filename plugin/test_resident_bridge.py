@@ -51,8 +51,10 @@ def _start_daemon(sock_path: Path, mode: str | None = None) -> subprocess.Popen:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    # Wait for readiness: socket exists AND accepts connections.
-    deadline = time.time() + 10.0
+    # Wait for readiness: socket exists AND accepts connections. Budget is
+    # generous (30s): a loaded CI host can make interpreter startup take
+    # seconds; the loop still fails loudly the moment the daemon dies.
+    deadline = time.time() + 30.0
     while time.time() < deadline:
         if proc.poll() is not None:
             err = proc.stderr.read().decode() if proc.stderr else ""
@@ -485,7 +487,10 @@ class TestSignalShutdown:
     def _signal_and_wait(self, proc: subprocess.Popen) -> None:
         proc.send_signal(signal.SIGTERM if sys.platform == "win32" else signal.SIGTERM)
         try:
-            proc.wait(timeout=10)
+            # Generous exit budget: under host load the interpreter can take
+            # seconds to unwind to the handler's exit (same rationale as the
+            # SIGINT variant).
+            proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
@@ -508,7 +513,10 @@ class TestSignalShutdown:
         proc = _start_daemon(sock)
         proc.send_signal(signal.SIGINT)
         try:
-            proc.wait(timeout=10)
+            # Generous exit budget: under host load the interpreter can take
+            # seconds to unwind to the handler's exit — the property under
+            # test (exit code + socket unlinked) is not timing-bound.
+            proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()

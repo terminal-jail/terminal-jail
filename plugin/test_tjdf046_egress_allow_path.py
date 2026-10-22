@@ -642,10 +642,14 @@ class TestLive:
             "s.connect(('127.0.0.1', 9999)); print('CONNECTED')",
             env=env,
         )
-        combined = result.stdout + result.stderr
+        combined = result.stdout
         assert "CONNECTED" not in combined, (
             f"the documented shape reported a connection with no listener: {combined!r}"
         )
+        # The connect-DENIAL tracebacks (Errno 13 under the kernel tier) land on
+        # stderr and ECHO the payload's own source line — an echo that contains
+        # the literal — so the no-connection check reads stdout (a successful
+        # connect prints there; the class's other live cells assert stdout too).
 
     def test_composed_launch_attaches_the_egress_tier(self) -> None:
         """The knob is honored in composed mode too (no namespace needed).
