@@ -211,11 +211,9 @@ def test_pidns_capability_probe_is_host_agnostic() -> None:
         f"stderr={result.stderr.strip()!r}"
     )
     verdict = result.stdout.strip()
-    assert verdict.startswith(("FULL (backend: ", "DEGRADED (backend: ")) or verdict.startswith(
-        "UNKNOWN"
-    ), (
-        f"probe printed unexpected verdict: {verdict!r}"
-    )
+    assert verdict.startswith(
+        ("FULL (backend: ", "DEGRADED (backend: ")
+    ) or verdict.startswith("UNKNOWN"), f"probe printed unexpected verdict: {verdict!r}"
 
 
 RULES_SOURCE = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor" / "rules.py"

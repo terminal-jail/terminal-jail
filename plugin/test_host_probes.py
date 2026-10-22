@@ -155,9 +155,12 @@ class TestPidnsDirectClassification:
         assert verdict.startswith("FULL (backend: "), (
             f"verdict must name the resolved backend (TJ-REVIEW-071): {verdict!r}"
         )
-        assert verdict.split("(backend: ")[1].rstrip(")") in ("bwrap", "unshare", "auto", "unknown"), (
-            f"backend name must be a known backend value: {verdict!r}"
-        )
+        assert verdict.split("(backend: ")[1].rstrip(")") in (
+            "bwrap",
+            "unshare",
+            "auto",
+            "unknown",
+        ), f"backend name must be a known backend value: {verdict!r}"
 
     def test_degraded_on_fail_closed_message(
         self, monkeypatch: pytest.MonkeyPatch
