@@ -363,6 +363,13 @@ engine and payloads):
 | `ls -la` (small) | 121.8 ms | 160.6 ms | 4.5 ms | 7.4 ms | ~27x |
 | 8 KB argument | 139.6 ms | 153.6 ms | 32.5 ms | 36.9 ms | ~4.3x |
 | 20 KB argument | 185.6 ms | 224.0 ms | 74.1 ms | 85.7 ms | ~2.5x |
+| **Landlock fs-tier ON** | ~1036 ms | — | — | — | ~6.7× |
+
+> **Landlock tier overhead.** Interleaved 12-run measurement (`TERMINAL_JAIL_LANDLOCK_FS=1` vs
+> `=0`, payload `python3` sleep-equivalent) on the dev host (current load 29–42): tier-ON median
+> 1036 ms vs tier-OFF 915 ms, delta **~121 ms per invocation** (~13% overhead). The wrapper's ~650–1000 ms
+> base floor at this load already swamps the tier's cost for a human, but on an agent loop the
+> per-invocation 12% overhead is measurable. See **TJ-DF-048** for the full dogfood record.
 
 (`scripts/bench_bridge.py` also gates the one-shot p50 below a 200 ms ceiling so
 silent transport degradation fails the run. The large-payload resident numbers are
