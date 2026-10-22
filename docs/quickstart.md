@@ -418,9 +418,9 @@ A tier is a *ceiling*, not a promise: each install prints one
 whether each tier CAN engage on that host (`fs tier CAN engage and net
 (egress) tier CAN engage`, the fs-only variant, `NEITHER`, or `unknown` —
 classify manually with `python3 scripts/landlock-capability-probe.py`). At
-run time an opted-in tier that could not attach prints
-`terminal-jail: WARNING: Landlock … tier not applied (<cause>)` — a named
-degrade, never a silent no-op.
+run time an opted-in tier that could not attach prints one
+`terminal-jail: WARNING: Landlock filesystem tier not applied (…)` line —
+the parenthetical names the host cause, then the classify/disarm way out — a named degrade, never a silent no-op.
 
 The full per-host picture — enforced / degraded / unavailable per enforcement
 layer across every launch shape — is the one matrix in
