@@ -89,7 +89,7 @@ engine action, the installed action, and both file paths.
 **Step 1 — classify the host** (the probe always exits 0):
 
 ```bash
-~/.local/bin/terminal-jail --version   # → terminal-jail 1.2.0
+~/.local/bin/terminal-jail --version   # → terminal-jail 1.3.0
 # Two independent host-capability layers gate what this tool can prove:
 #   PID-NS       — can this host create unprivileged PID namespaces?
 #                  FULL  -> bare mode gives real PID-namespace containment.
@@ -593,7 +593,7 @@ sweep picks the plugin up, then **verify it loaded** — `register()` logs its s
 line to `agent.log`:
 
 ```bash
-grep "terminal-jail v1.2.0 loaded" ~/.hermes/logs/agent.log
+grep "terminal-jail v1.3.0 loaded" ~/.hermes/logs/agent.log
 ```
 
 and confirm the hooks actually fire on terminal tool use:
@@ -626,7 +626,7 @@ stock host — the interpreter has neither PyYAML nor pytest.
 **Installed version may lag the repo.** The installed copy is a snapshot: an install
 made earlier can report an older `version:` in
 `~/.hermes/plugins/terminal-jail/plugin.yaml` than the repo ships (e.g. `0.2.0`
-installed vs `1.2.0` in the repo today). Check yours:
+installed vs `1.3.0` in the repo today). Check yours:
 
 ```bash
 grep "^version" ~/.hermes/plugins/terminal-jail/plugin.yaml
