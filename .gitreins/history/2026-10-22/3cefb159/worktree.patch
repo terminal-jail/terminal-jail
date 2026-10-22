@@ -1,0 +1,66 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 5aa78de..6f34764 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1846,3 +1846,22 @@ tasks:
+   status: complete
+   created_at: '2026-10-22T02:39:45.754136+00:00'
+   completed_at: '2026-10-22T03:19:58.724987+00:00'
++- id: INT-CI-012
++  title: 'Fix hosted-CI red: quickstart Landlock doc placeholders vs allowlist drift'
++  criteria:
++  - A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py
++    -q) exits 0 with 8 passed and 0 failed.
++  - 'docs/quickstart.md no longer contains the literal placeholder ''<cause>'' in
++    the Landlock WARNING description; the described warning shape stays truthful to
++    the engine (prefix ''terminal-jail: WARNING: Landlock filesystem tier not applied''
++    from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause +
++    way out in the warning line)'
++  - 'The prose placeholder allowlist in tests/test_quickstart_doc.py carries exactly
++    one live entry: the ''<the rule''s block_message>'' token pinned verbatim by the
++    TJ-DF-042 warn-reason contract, at its actual line in docs/quickstart.md; no stale
++    allowlist entries remain'
++  - Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no
++    other doc test is relaxed or skipped
++  status: complete
++  created_at: '2026-10-22T06:40:01.586720+00:00'
++  completed_at: '2026-10-22T07:28:43.827101+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 924662e..bb02963 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -155,3 +155,4 @@
+ {"ts": 1792532192.305947, "tokens_in": 1219960, "tokens_out": 5775, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792537338.337413, "tokens_in": 7665, "tokens_out": 580, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792627878.376698, "tokens_in": 167300, "tokens_out": 1925, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792654382.069088, "tokens_in": 86152, "tokens_out": 3333, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index 856da36..be9de82 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -190,3 +190,25 @@
+ {"from":"plugin/test_landlock.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:signal","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:stat","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:terminal_jail.interruptor_resident","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_resident_bridge.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:threading","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}

@@ -1,0 +1,27 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index e274e61..8971a77 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1816,3 +1816,13 @@ tasks:
+     in the two failing tests.'
+   status: in_progress
+   created_at: '2026-10-21T16:25:52.198599+00:00'
++- id: TJ-REVIEW-073
++  title: Remove resident bridge socket on SIGTERM
++  criteria:
++  - 'The committed fix 2ac9fed must make plugin/test_resident_bridge.py::TestSignalShutdown
++    pass: a real resident bridge receiving SIGTERM and SIGINT removes its Unix socket,
++    including while a request is in flight; existing behavior remains green; committed
++    trace marker for row TJ-REVIEW-073 is present.'
++  status: complete
++  created_at: '2026-10-21T23:53:41.401472+00:00'
++  completed_at: '2026-10-21T23:53:42.162384+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 91c122f..924662e 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -154,3 +154,4 @@
+ {"ts": 1792466859.2536936, "tokens_in": 125868, "tokens_out": 2647, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792532192.305947, "tokens_in": 1219960, "tokens_out": 5775, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792537338.337413, "tokens_in": 7665, "tokens_out": 580, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792627878.376698, "tokens_in": 167300, "tokens_out": 1925, "cache_read": 0, "cache_write": 0, "step": "tier2"}

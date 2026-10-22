@@ -1,0 +1,158 @@
+commit 2ac9feda615c3685bc1df9e8a9acb963f3190f91
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 21 18:29:28 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 21 18:29:28 2026 -0500
+
+    fix(resident-bridge): clean socket on signal shutdown. Addresses TJ-REVIEW-073.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ plugin/terminal_jail/interruptor_resident.py | 25 ++++++++--
+ plugin/test_resident_bridge.py               | 73 ++++++++++++++++++++++++++++
+ 2 files changed, 93 insertions(+), 5 deletions(-)
+
+diff --git a/plugin/terminal_jail/interruptor_resident.py b/plugin/terminal_jail/interruptor_resident.py
+index c04945b..77ebcd1 100644
+--- a/plugin/terminal_jail/interruptor_resident.py
++++ b/plugin/terminal_jail/interruptor_resident.py
+@@ -42,6 +42,7 @@ from __future__ import annotations
+ import argparse
+ import json
+ import os
++import signal
+ import socket
+ import sys
+ from pathlib import Path
+@@ -212,6 +213,22 @@ def serve(sock_path: Path) -> None:
+         )
+         raise SystemExit(1) from None
+ 
++    # TJ-REVIEW-073: install signal handlers before exposing the listening
++    # socket. The handler performs the same idempotent cleanup as finally so
++    # termination is safe even while accept() or a client request is blocked.
++    def _cleanup() -> None:
++        server.close()
++        try:
++            sock_path.unlink()
++        except OSError:
++            pass
++
++    def _clean_exit(signum: int, _frame: object) -> None:
++        _cleanup()
++        raise SystemExit(128 + signum)
++
++    prev_term = signal.signal(signal.SIGTERM, _clean_exit)
++    prev_int = signal.signal(signal.SIGINT, _clean_exit)
+     server.listen(16)
+     print(f"[resident-bridge] serving on {sock_path} (mode={_mode()})", file=sys.stderr)
+     try:
+@@ -222,11 +239,9 @@ def serve(sock_path: Path) -> None:
+                 continue
+             _serve_connection(conn)
+     finally:
+-        server.close()
+-        try:
+-            sock_path.unlink()
+-        except OSError:
+-            pass
++        signal.signal(signal.SIGTERM, prev_term)
++        signal.signal(signal.SIGINT, prev_int)
++        _cleanup()
+ 
+ 
+ def _serve_connection(conn: socket.socket) -> None:
+diff --git a/plugin/test_resident_bridge.py b/plugin/test_resident_bridge.py
+index da4dce1..75caa71 100644
+--- a/plugin/test_resident_bridge.py
++++ b/plugin/test_resident_bridge.py
+@@ -11,9 +11,15 @@ Covers, hermetically (tmp socket paths, short timeouts):
+ ch:trace row=TJ-GAP-084 evidence=plugin/test_resident_bridge.py witness=none:local benchmarks in docs (live numbers cited)
+ """
+ 
++# ch:trace row=TJ-REVIEW-073 spec=none:review-finding wave=none:serial test=plugin/test_resident_bridge.py::TestSignalShutdown doc=none:code-fix prompt=none:review-073-brief evidence=none:pending-implementation witness=live:test verdict=none:pending commit=none:pending memory=none:not-written
++# STATUS: complete
++# TIER: T3 (real resident subprocess signal lifecycle tests)
++# EVIDENCE: plugin/test_resident_bridge.py::TestSignalShutdown
++
+ from __future__ import annotations
+ 
+ import json
++import signal
+ import socket
+ import stat
+ import subprocess
+@@ -465,6 +471,73 @@ class TestWarnMode:
+             proc2.kill()
+ 
+ 
++class TestSignalShutdown:
++    """TJ-REVIEW-073: SIGTERM/SIGINT must run the socket-unlink cleanup.
++
++    The original serve() relied on its finally block, but default SIGTERM
++    disposition terminates the process outright — no finally, no unlink —
++    so the socket inode survived and the next launcher silently repaired
++    it via the stale-socket probe. These tests drive the REAL daemon
++    process lifecycle (subprocess + real signals), not a helper in
++    isolation, so they fail against the pre-fix behavior.
++    """
++
++    def _signal_and_wait(self, proc: subprocess.Popen) -> None:
++        proc.send_signal(signal.SIGTERM if sys.platform == "win32" else signal.SIGTERM)
++        try:
++            proc.wait(timeout=10)
++        except subprocess.TimeoutExpired:
++            proc.kill()
++            proc.wait()
++            raise
++
++    def test_sigterm_removes_socket(self, tmp_path: Path) -> None:
++        sock = tmp_path / "s.sock"
++        proc = _start_daemon(sock)
++        self._signal_and_wait(proc)
++        rc = proc.returncode
++        assert rc == 128 + signal.SIGTERM, (
++            f"daemon exited {rc} instead of the signal-handler exit code"
++        )
++        assert not sock.exists(), (
++            "SIGTERM left the Unix socket behind — cleanup did not run"
++        )
++
++    def test_sigint_removes_socket(self, tmp_path: Path) -> None:
++        sock = tmp_path / "s.sock"
++        proc = _start_daemon(sock)
++        proc.send_signal(signal.SIGINT)
++        try:
++            proc.wait(timeout=10)
++        except subprocess.TimeoutExpired:
++            proc.kill()
++            proc.wait()
++            raise
++        rc = proc.returncode
++        assert rc == 128 + signal.SIGINT, (
++            f"daemon exited {rc} instead of the signal-handler exit code"
++        )
++        assert not sock.exists(), (
++            "SIGINT left the Unix socket behind — cleanup did not run"
++        )
++
++    def test_sigterm_mid_stream_still_cleans_up(self, tmp_path: Path) -> None:
++        """A SIGTERM arriving while a request is in flight still unlinks
++        the socket — the handler path is the same as the idle one."""
++        sock = tmp_path / "s.sock"
++        proc = _start_daemon(sock)
++        mid = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++        mid.connect(str(sock))
++        try:
++            mid.sendall(b'{"command": "echo hello"}\n')
++            self._signal_and_wait(proc)
++        finally:
++            mid.close()
++        assert not sock.exists(), (
++            "SIGTERM mid-request left the socket behind — cleanup did not run"
++        )
++
++
+ class TestNoTcpListener:
+     def test_no_tcp_in_module_source(self) -> None:
+         """AF_UNIX only: no TCP socket types anywhere in the resident module."""

@@ -1,0 +1,145 @@
+{
+  "task_id": "INT-CI-012",
+  "task_title": "Fix hosted-CI red: quickstart Landlock doc placeholders vs allowlist drift",
+  "task_criteria": [
+    "A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py -q) exits 0 with 8 passed and 0 failed.",
+    "docs/quickstart.md no longer contains the literal placeholder '<cause>' in the Landlock WARNING description; the described warning shape stays truthful to the engine (prefix 'terminal-jail: WARNING: Landlock filesystem tier not applied' from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause + way out in the warning line)",
+    "The prose placeholder allowlist in tests/test_quickstart_doc.py carries exactly one live entry: the '<the rule's block_message>' token pinned verbatim by the TJ-DF-042 warn-reason contract, at its actual line in docs/quickstart.md; no stale allowlist entries remain",
+    "Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no other doc test is relaxed or skipped"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "45604d972b5ba1027d919acdb5f6044fec8ca3e8",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T072722.106293Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": false,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n2:28AM INF scanned ~7528964 bytes (7.53 MB) in 487ms\n2:28AM WRN leaks found: 1\nsecrets: gitleaks: findings found (exit 1)\nsecrets: builtin cross-check: Scanned 235 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T072722.106293Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2061 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2043 passed, 18 skipped in 228.52s (0:03:48) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T072722.106293Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py -q) exits 0 with 8 passed and 0 failed.: Ran `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` => output `........ [100%]` / `8 passed in 0.02s`, exit_code 0. Re-ran under a scrubbed environment (`env -i HOME=/home/kara PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python -m pytest tests/test_quickstart_doc.py -q`) => `8 passed in 0.02s`. 8 passed, 0 failed. [resolution 0.09; tests/test_quickstart_doc.py]\n  \u2713 docs/quickstart.md no longer contains the literal placeholder '<cause>' in the Landlock WARNING description; the described warning shape stays truthful to the engine (prefix 'terminal-jail: WARNING: Landlock filesystem tier not applied' from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause + way out in the warning line): `grep -n '<cause>' docs/quickstart.md` => rc=1, zero hits. docs/quickstart.md:422 now reads: `` `terminal-jail: WARNING: Landlock filesystem tier not applied (\u2026)` line \u2014 the parenthetical names the host cause, then the classify/disarm way out \u2014 a named degrade, never a silent no-op.`` This matches the engine: plugin/terminal_jail/interruptor/landlock.py:1122 `_WARNING_PREFIX = \"terminal-jail: WARNING: Landlock filesystem tier not applied\"` and degradation_warning() at landlock.py:1127-1134 which emits `f\"{_WARNING_PREFIX} ({cause}); ... classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0\"` \u2014 i.e. prefix + cause + way out, exactly as the doc now describes. [resolution 0.09; docs/quickstart.md, plugin/terminal_jail/interruptor/landlock.py]\n  \u2713 The prose placeholder allowlist in tests/test_quickstart_doc.py carries exactly one live entry: the '<the rule's block_message>' token pinned verbatim by the TJ-DF-042 warn-reason contract, at its actual line in docs/quickstart.md; no stale allowlist entries remain: tests/test_quickstart_doc.py:48-50: `_PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = { 330: {\"<the rule's block_message>\"}, }` \u2014 exactly one entry, token verbatim. Line 330 is the fence-stripped line number the test itself counts (it does `re.sub(r\"```.*?```\", \"\", text)` then counts newlines); I reproduced that computation: fence-stripped line 330 == raw docs/quickstart.md:451 == `   `\"would have blocked: <the rule's block_message>\"` \u2014 the matched`. Re-ran the test's own `_prose_placeholder_violations` logic: ALL PROSE HITS = [(330, \"<the rule's block_message>\")], UNEXPECTED = [], MISSING = [] \u2014 so no stale entries and no unlisted hits. Token is pinned verbatim by the TJ-DF-042 contract at plugin/test_tjdf042_warn_docs_pin.py:90 (`assert \"would have blocked: <the rule's block_message>\" in section`), which passes: `7 passed in 0.01s`. [resolution 0.09; tests/test_quickstart_doc.py, docs/quickstart.md]\n  \u2713 Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no other doc test is relaxed or skipped: `git show --name-only --format=\"\" e8d3af6` (the INT-CI-012 fix commit) lists exactly two files: `docs/quickstart.md` and `tests/test_quickstart_doc.py`. The diff is 6 lines in the doc (reworded WARNING sentence, same 3-line shape) and a 1-line allowlist key change 296\u2192330 in the test; no assertion was weakened. `grep -rn \"skip\\|xfail\" tests/test_quickstart_doc.py tests/test_capability_matrix_doc.py` => rc=1 (no matches). Full doc-test suite `pytest tests/ -q -k doc` => `39 passed, 118 deselected in 0.07s`. [resolution 0.09; docs/quickstart.md, tests/test_quickstart_doc.py]\nAll four criteria verified: the quickstart doc test passes 8/8 in a clean environment, the '<cause>' placeholder is gone and the WARNING description matches landlock.py's degradation_warning prefix/cause/way-out, the prose allowlist holds exactly one live entry at the correct fence-stripped line 330 (raw line 451) with no stale entries, and the fix is confined to the two permitted files with no doc test relaxed or skipped.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py -q) exits 0 with 8 passed and 0 failed.: Ran `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` => output `........ [100%]` / `8 passed in 0.02s`, exit_code 0. Re-ran under a scrubbed environment (`env -i HOME=/home/kara PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python -m pytest tests/test_quickstart_doc.py -q`) => `8 passed in 0.02s`. 8 passed, 0 failed. [resolution 0.09; tests/test_quickstart_doc.py]\n  \u2713 docs/quickstart.md no longer contains the literal placeholder '<cause>' in the Landlock WARNING description; the described warning shape stays truthful to the engine (prefix 'terminal-jail: WARNING: Landlock filesystem tier not applied' from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause + way out in the warning line): `grep -n '<cause>' docs/quickstart.md` => rc=1, zero hits. docs/quickstart.md:422 now reads: `` `terminal-jail: WARNING: Landlock filesystem tier not applied (\u2026)` line \u2014 the parenthetical names the host cause, then the classify/disarm way out \u2014 a named degrade, never a silent no-op.`` This matches the engine: plugin/terminal_jail/interruptor/landlock.py:1122 `_WARNING_PREFIX = \"terminal-jail: WARNING: Landlock filesystem tier not applied\"` and degradation_warning() at landlock.py:1127-1134 which emits `f\"{_WARNING_PREFIX} ({cause}); ... classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0\"` \u2014 i.e. prefix + cause + way out, exactly as the doc now describes. [resolution 0.09; docs/quickstart.md, plugin/terminal_jail/interruptor/landlock.py]\n\n\u2026 [1189 chars omitted \u2014 1 line(s)] \u2026\n  \u2713 Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no other doc test is relaxed or skipped: `git show --name-only --format=\"\" e8d3af6` (the INT-CI-012 fix commit) lists exactly two files: `docs/quickstart.md` and `tests/test_quickstart_doc.py`. The diff is 6 lines in the doc (reworded WARNING sentence, same 3-line shape) and a 1-line allowlist key change 296\u2192330 in the test; no assertion was weakened. `grep -rn \"skip\\|xfail\" tests/test_quickstart_doc.py tests/test_capability_matrix_doc.py` => rc=1 (no matches). Full doc-test suite `pytest tests/ -q -k doc` => `39 passed, 118 deselected in 0.07s`. [resolution 0.09; docs/quickstart.md, tests/test_quickstart_doc.py]\nAll four criteria verified: the quickstart doc test passes 8/8 in a clean environment, the '<cause>' placeholder is gone and the WARNING description matches landlock.py's degradation_warning prefix/cause/way-out, the prose allowlist holds exactly one live entry at the correct fence-stripped line 330 (raw line 451) with no stale entries, and the fix is confined to the two permitted files with no doc test relaxed or skipped.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py -q) exits 0 with 8 passed and 0 failed.",
+                "status": "PASS",
+                "detail": "Ran `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` => output `........ [100%]` / `8 passed in 0.02s`, exit_code 0. Re-ran under a scrubbed environment (`env -i HOME=/home/kara PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python -m pytest tests/test_quickstart_doc.py -q`) => `8 passed in 0.02s`. 8 passed, 0 failed. [resolution 0.09; tests/test_quickstart_doc.py]",
+                "resolution_probability": 0.09,
+                "cited_path": "tests/test_quickstart_doc.py"
+              },
+              {
+                "criterion": "docs/quickstart.md no longer contains the literal placeholder '<cause>' in the Landlock WARNING description; the described warning shape stays truthful to the engine (prefix 'terminal-jail: WARNING: Landlock filesystem tier not applied' from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause + way out in the warning line)",
+                "status": "PASS",
+                "detail": "`grep -n '<cause>' docs/quickstart.md` => rc=1, zero hits. docs/quickstart.md:422 now reads: `` `terminal-jail: WARNING: Landlock filesystem tier not applied (\u2026)` line \u2014 the parenthetical names the host cause, then the classify/disarm way out \u2014 a named degrade, never a silent no-op.`` This matches the engine: plugin/terminal_jail/interruptor/landlock.py:1122 `_WARNING_PREFIX = \"terminal-jail: WARNING: Landlock filesystem tier not applied\"` and degradation_warning() at landlock.py:1127-1134 which emits `f\"{_WARNING_PREFIX} ({cause}); ... classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0\"` \u2014 i.e. prefix + cause + way out, exactly as the doc now describes. [resolution 0.09; docs/quickstart.md, plugin/terminal_jail/interruptor/landlock.py]",
+                "resolution_probability": 0.09,
+                "cited_path": "docs/quickstart.md, plugin/terminal_jail/interruptor/landlock.py"
+              },
+              {
+                "criterion": "The prose placeholder allowlist in tests/test_quickstart_doc.py carries exactly one live entry: the '<the rule's block_message>' token pinned verbatim by the TJ-DF-042 warn-reason contract, at its actual line in docs/quickstart.md; no stale allowlist entries remain",
+                "status": "PASS",
+                "detail": "tests/test_quickstart_doc.py:48-50: `_PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = { 330: {\"<the rule's block_message>\"}, }` \u2014 exactly one entry, token verbatim. Line 330 is the fence-stripped line number the test itself counts (it does `re.sub(r\"```.*?```\", \"\", text)` then counts newlines); I reproduced that computation: fence-stripped line 330 == raw docs/quickstart.md:451 == `   `\"would have blocked: <the rule's block_message>\"` \u2014 the matched`. Re-ran the test's own `_prose_placeholder_violations` logic: ALL PROSE HITS = [(330, \"<the rule's block_message>\")], UNEXPECTED = [], MISSING = [] \u2014 so no stale entries and no unlisted hits. Token is pinned verbatim by the TJ-DF-042 contract at plugin/test_tjdf042_warn_docs_pin.py:90 (`assert \"would have blocked: <the rule's block_message>\" in section`), which passes: `7 passed in 0.01s`. [resolution 0.09; tests/test_quickstart_doc.py, docs/quickstart.md]",
+                "resolution_probability": 0.09,
+                "cited_path": "tests/test_quickstart_doc.py, docs/quickstart.md"
+              },
+              {
+                "criterion": "Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no other doc test is relaxed or skipped",
+                "status": "PASS",
+                "detail": "`git show --name-only --format=\"\" e8d3af6` (the INT-CI-012 fix commit) lists exactly two files: `docs/quickstart.md` and `tests/test_quickstart_doc.py`. The diff is 6 lines in the doc (reworded WARNING sentence, same 3-line shape) and a 1-line allowlist key change 296\u2192330 in the test; no assertion was weakened. `grep -rn \"skip\\|xfail\" tests/test_quickstart_doc.py tests/test_capability_matrix_doc.py` => rc=1 (no matches). Full doc-test suite `pytest tests/ -q -k doc` => `39 passed, 118 deselected in 0.07s`. [resolution 0.09; docs/quickstart.md, tests/test_quickstart_doc.py]",
+                "resolution_probability": 0.09,
+                "cited_path": "docs/quickstart.md, tests/test_quickstart_doc.py"
+              }
+            ],
+            "summary": "All four criteria verified: the quickstart doc test passes 8/8 in a clean environment, the '<cause>' placeholder is gone and the WARNING description matches landlock.py's degradation_warning prefix/cause/way-out, the prose allowlist holds exactly one live entry at the correct fence-stripped line 330 (raw line 451) with no stale entries, and the fix is confined to the two permitted files with no doc test relaxed or skipped."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-012\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 A clean-environment run (.venv/bin/python -m pytest tests/test_quickstart_doc.py -q) exits 0 with 8 passed and 0 failed.: Ran `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` => output `........ [100%]` / `8 passed in 0.02s`, exit_code 0. Re-ran under a scrubbed environment (`env -i HOME=/home/kara PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python -m pytest tests/test_quickstart_doc.py -q`) => `8 passed in 0.02s`. 8 passed, 0 failed. [resolution 0.09; tests/test_quickstart_doc.py]\n  \u2713 docs/quickstart.md no longer contains the literal placeholder '<cause>' in the Landlock WARNING description; the described warning shape stays truthful to the engine (prefix 'terminal-jail: WARNING: Landlock filesystem tier not applied' from plugin/terminal_jail/interruptor/landlock.py degradation_warning, cause + way out in the warning line): `grep -n '<cause>' docs/quickstart.md` => rc=1, zero hits. docs/quickstart.md:422 now reads: `` `terminal-jail: WARNING: Landlock filesystem tier not applied (\u2026)` line \u2014 the parenthetical names the host cause, then the classify/disarm way out \u2014 a named degrade, never a silent no-op.`` This matches the engine: plugin/terminal_jail/interruptor/landlock.py:1122 `_WARNING_PREFIX = \"terminal-jail: WARNING: Landlock filesystem tier not applied\"` and degradation_warning() at landlock.py:1127-1134 which emits `f\"{_WARNING_PREFIX} ({cause}); ... classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0\"` \u2014 i.e. prefix + cause + way out, exactly as the doc now describes. [resolution 0.09; docs/quickstart.md, plugin/terminal_jail/interruptor/landlock.py]\n  \u2713 The prose placeholder allowlist in tests/test_quickstart_doc.py carries exactly one live entry: the '<the rule's block_message>' token pinned verbatim by the TJ-DF-042 warn-reason contract, at its actual line in docs/quickstart.md; no stale allowlist entries remain: tests/test_quickstart_doc.py:48-50: `_PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = { 330: {\"<the rule's block_message>\"}, }` \u2014 exactly one entry, token verbatim. Line 330 is the fence-stripped line number the test itself counts (it does `re.sub(r\"```.*?```\", \"\", text)` then counts newlines); I reproduced that computation: fence-stripped line 330 == raw docs/quickstart.md:451 == `   `\"would have blocked: <the rule's block_message>\"` \u2014 the matched`. Re-ran the test's own `_prose_placeholder_violations` logic: ALL PROSE HITS = [(330, \"<the rule's block_message>\")], UNEXPECTED = [], MISSING = [] \u2014 so no stale entries and no unlisted hits. Token is pinned verbatim by the TJ-DF-042 contract at plugin/test_tjdf042_warn_docs_pin.py:90 (`assert \"would have blocked: <the rule's block_message>\" in section`), which passes: `7 passed in 0.01s`. [resolution 0.09; tests/test_quickstart_doc.py, docs/quickstart.md]\n  \u2713 Changes are confined to docs/quickstart.md and tests/test_quickstart_doc.py; no other doc test is relaxed or skipped: `git show --name-only --format=\"\" e8d3af6` (the INT-CI-012 fix commit) lists exactly two files: `docs/quickstart.md` and `tests/test_quickstart_doc.py`. The diff is 6 lines in the doc (reworded WARNING sentence, same 3-line shape) and a 1-line allowlist key change 296\u2192330 in the test; no assertion was weakened. `grep -rn \"skip\\|xfail\" tests/test_quickstart_doc.py tests/test_capability_matrix_doc.py` => rc=1 (no matches). Full doc-test suite `pytest tests/ -q -k doc` => `39 passed, 118 deselected in 0.07s`. [resolution 0.09; docs/quickstart.md, tests/test_quickstart_doc.py]\nAll four criteria verified: the quickstart doc test passes 8/8 in a clean environment, the '<cause>' placeholder is gone and the WARNING description matches landlock.py's degradation_warning prefix/cause/way-out, the prose allowlist holds exactly one live entry at the correct fence-stripped line 330 (raw line 451) with no stale entries, and the fix is confined to the two permitted files with no doc test relaxed or skipped.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-22T07:33:02.088481",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-22T07:33:02.108827+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 14834,
+        "truncated": false,
+        "source": "git show 45604d972b5b"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5480,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-012"
+  }
+}
