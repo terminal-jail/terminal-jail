@@ -651,6 +651,33 @@ class TestLive:
         # the literal — so the no-connection check reads stdout (a successful
         # connect prints there; the class's other live cells assert stdout too).
 
+    # ── TJ-DF-052: the two egress verdicts are MUTUALLY EXCLUSIVE ───────────
+
+    @staticmethod
+    def _assert_single_egress_verdict(stderr: str) -> str:
+        """Exactly ONE named egress outcome per launch — never the pair.
+
+        The composed launcher says "egress: enforced by terminal-jail" when it
+        splices the tier in; the loader's twin warning says "Landlock network
+        (egress) tier not applied" when the tier cannot engage. Both describe
+        the SAME tier, so a launch may carry one of them and never both:
+        TJ-DF-051 printed both in one run, and the old two-way OR assertion
+        accepted either half, so it could not fail on that pair.
+        """
+        enforced_needle = "egress: enforced by terminal-jail"
+        degraded_needle = "Landlock network (egress) tier not applied"
+        enforced = enforced_needle in stderr
+        degraded = degraded_needle in stderr
+        assert not (enforced and degraded), (
+            "contradictory egress verdicts in ONE launch: stderr carries both "
+            f"{enforced_needle!r} and {degraded_needle!r}; stderr={stderr!r}"
+        )
+        assert enforced or degraded, (
+            "neither egress verdict was reported (the silent class: the tier "
+            f"was neither engaged nor degraded loudly); stderr={stderr!r}"
+        )
+        return "enforced" if enforced else "not-applied"
+
     def test_composed_launch_attaches_the_egress_tier(self) -> None:
         """The knob is honored in composed mode too (no namespace needed).
 
@@ -668,6 +695,31 @@ class TestLive:
                 "unreachable here"
             )
         assert "tj-df-046-composed" in result.stdout, result.stderr
-        assert "egress: enforced by terminal-jail" in result.stderr or (
-            "Landlock network (egress) tier not applied" in result.stderr
-        ), result.stderr
+        # ONE named outcome, never its counterpart (TJ-DF-052): the previous
+        # two-way OR accepted either half, so TJ-DF-051's launch — both lines
+        # in one run — satisfied it.
+        verdict = self._assert_single_egress_verdict(result.stderr)
+        if verdict == "not-applied":
+            # A composed degrade is a legal, LOUD outcome — but it must name
+            # its cause, never a bare claim.
+            assert "not applied (" in result.stderr, result.stderr
+
+    def test_contradictory_verdicts_fail_on_any_host(self) -> None:
+        """TJ-DF-052: the both-messages pair is a contradiction, not coverage.
+
+        The composed arm above SKIPs whenever this host can create inner
+        namespaces, so the contract is pinned here without a launch: a stderr
+        carrying BOTH halves must be rejected, either single half is the legal
+        outcome, and the silent class must still fail.
+        """
+        enforced = "composed layers — egress: enforced by terminal-jail (kernel)"
+        degraded = (
+            "WARNING: Landlock network (egress) tier not applied (the payload "
+            "cannot read landlock-net-loader.py)"
+        )
+        with pytest.raises(AssertionError, match="contradictory egress verdicts"):
+            self._assert_single_egress_verdict(f"{enforced}\n{degraded}\n")
+        assert self._assert_single_egress_verdict(f"{enforced}\n") == "enforced"
+        assert self._assert_single_egress_verdict(f"{degraded}\n") == "not-applied"
+        with pytest.raises(AssertionError, match="neither egress verdict"):
+            self._assert_single_egress_verdict("terminal-jail: nothing said\n")
