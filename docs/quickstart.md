@@ -254,12 +254,14 @@ request  — one JSON object, one line:  {"command": "date"}
            ("command" must be a string; an empty string is valid input,
            not a schema error)
 
-response — one JSON object, one line, always these five fields:
+response — one JSON object, one line, always these six fields:
   action    "allow" | "block" | "modify"
   command   the command as evaluated ("" on an error envelope)
   modified  the rewritten command when action is "modify", else null
   rule_id   the id of the rule that decided, or null (semantics below)
   reason    human-readable explanation ("" on a plain allow)
+  layer     which rule source decided — "engine" | "yaml" | "user" |
+            "pack" | null (semantics below)
 ```
 
 Four real sessions (verdicts captured on this project's host; the two rules
@@ -272,21 +274,27 @@ export TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules
 export TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules   # mkdir both
 
 printf '{"command": "echo hello"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
-# → {"action": "allow", "command": "echo hello", "modified": null, "rule_id": "allow-echo", "reason": ""}
+# → {"action": "allow", "command": "echo hello", "modified": null, "rule_id": "allow-echo",
+#    "reason": "", "layer": "engine"}
 printf '{"command": "date"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
-# → {"action": "allow", "command": "date", "modified": null, "rule_id": null, "reason": ""}
+# → {"action": "allow", "command": "date", "modified": null, "rule_id": null, "reason": "",
+#    "layer": "engine"}
 printf '{"command": "rm -rf /"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
 # → {"action": "block", "command": "rm -rf /", "modified": null, "rule_id": "builtin-rm-rf-root",
-#    "reason": "Recursive root directory removal (rm -rf /) is blocked."}
+#    "reason": "Recursive root directory removal (rm -rf /) is blocked.", "layer": "engine"}
 printf '{"command": "make test"}\n' | python3 plugin/terminal_jail/interruptor_bridge.py
-# → {"action": "modify", "command": "make test", "modified": "unshare --user --pid --fork --kill-child=SIGKILL bash -c 'make test'",
-#    "rule_id": "auto-make", "reason": "Command modified by auto-sandbox"}
+# → {"action": "modify", "command": "make test",
+#    "modified": "unshare --user --pid --fork --kill-child=SIGKILL bash -c 'python3 /home/kara/worktrees/terminal-jail-DOC-15/standalone/landlock-loader.py -- make test'",
+#    "rule_id": "auto-make", "reason": "Command modified by auto-sandbox", "layer": "engine"}
 ```
 
 The `modify` rewrite wraps the command in an unshare namespace; the exact
 prefix flags depend on what the host's namespaces permit (see §3c and
-FAQ §4), so treat `modified` as an opaque string to execute, not a shape to
-parse.
+FAQ §4), and the payload may be re-launched through the checkout's own
+`standalone/landlock-loader.py` — the absolute path visible inside
+`modified` above is the checkout that ran the bridge, which is one more
+reason not to parse it. Treat `modified` as an opaque string to execute,
+not a shape to parse.
 
 **`rule_id` semantics — null is a pass-through, not an approval.** A named
 `rule_id` identifies the rule that decided the verdict (`allow-echo` above
@@ -298,6 +306,30 @@ allow rules as approvals and read `reason` alongside `action`: on the
 error envelope below `rule_id` is null too, and in warn mode a blockable
 command comes back as `action: "allow"` with a non-empty
 `[WARN MODE] Would have blocked: …` reason.
+
+**`layer` semantics — which rule SOURCE decided (TJ-GAP-085, additive).**
+`layer` names the rule source the verdict came from. The domain is a closed
+set the engine can actually emit:
+
+- `"engine"` — a built-in rule from the engine's own Python constants
+  (`blocklist.py` / `allowlist.py` / `sandbox.py`): no rules file was
+  loaded, or no same-id file rule replaced the builtin. It is **also** the
+  value on a default-allow pass-through where no rule matched at all
+  (`"rule_id": null`, the `date` session above), so `layer: "engine"` names
+  the decision path, never an approval.
+- `"yaml"` — the shipped mirror `00-builtins.yaml`, loaded from a `rules.d/`
+  directory (the system dir, or that same file installed into the user
+  dir). A same-id entry there replaces the builtin in its layer — the
+  TJ-GAP-051 silent downgrade, now visible in the verdict.
+- `"user"` — any other `*.yaml` file in a rules directory: operator rules.
+- `"pack"` — a rule pack the installer names `terminal-jail-pack-*.yaml`.
+- `null` — the `[bridge-error]` envelopes only (transport failure, engine
+  failure, or the warn-mode fail-open), where no rule decided anything.
+  Every normal verdict, the default-allow pass-through included, carries a
+  layer string.
+
+With both rules directories pinned empty — the four sessions above — no
+rules file is loaded, so every verdict reports `"layer": "engine"`.
 
 **Failure split — transport failures are mode-aware, engine evaluation
 fails CLOSED (TJ-GAP-070, REVIEW-TJ-008).** Anything that prevents the
