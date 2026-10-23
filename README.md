@@ -71,8 +71,9 @@ The installer detects the repository checkout and installs the local `standalone
 
 - `fs tier CAN engage and net (egress) tier CAN engage` — Landlock ABI ≥ 4: both tiers available (the net tier still ships **off**; opt in with `TERMINAL_JAIL_LANDLOCK_NET=1`);
 - `fs tier CAN engage; net (egress) tier CANNOT (Landlock ABI N < 4 …)` — the filesystem tier works, TCP-connect rules need kernel 6.7+;
-- `NEITHER Landlock tier can engage` — the probe's own cause diagnosis is printed just above the line;
-- `unknown` — the probe is absent from the install source or could not run (classify the host manually: `python3 scripts/landlock-capability-probe.py`).
+- `fs tier CANNOT engage; net (egress) tier CANNOT engage` — the probe reports a degraded host with ABI < 4 and prints its cause just above the line;
+- `fs tier CANNOT engage; net (egress) tier unknown` — filesystem enforcement is degraded but the probe only established an ABI that could support network rules; the network tier still needs its own runtime property proof;
+- `unknown` — the probe is absent from the install source, could not run, or did not provide a usable ABI (classify the host manually: `python3 scripts/landlock-capability-probe.py`).
 
 The summary is advisory: it never blocks the install and is independent of `TERMINAL_JAIL_REQUIRE_TIER` (which gates only the fs/pidns probes). At RUN time the same contract holds per launch: with the net tier opted in, a payload is never silently left with network egress unchanged — every non-attach outcome prints `terminal-jail: WARNING: Landlock network (egress) tier not applied (<cause>)` naming why (loader missing, unreadable under the launch, uid-mapped launch, ABI < 4, unproven enforcement, refused allowlist), on the plain-allow path exactly as on the auto-sandbox path (TJ-DF-046/047).
 

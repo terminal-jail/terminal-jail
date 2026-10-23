@@ -348,6 +348,68 @@ class TestPlainAllowDegradeShape:
         assert DEGRADE_PREFIX not in result.stderr
         assert "egress tier APPLIED" not in result.stderr
 
+    def test_installed_wrapper_warns_once_on_plain_allow_degrade(
+        self, tmp_path: Path
+    ) -> None:
+        """The installed wrapper must retain the checkout wrapper's warning.
+
+        This is a scratch install only: the real HOME and config directories are
+        never touched. A missing overridden loader forces the attach decision's
+        non-attach arm while the allow verdict still runs the payload.
+        """
+        home = tmp_path / "home"
+        install_dir = tmp_path / "bin"
+        home.mkdir()
+        install_dir.mkdir()
+        install = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT)],
+            cwd=str(PROJECT_ROOT),
+            env={
+                **_base_env(),
+                "HOME": str(home),
+                "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+                "TERMINAL_JAIL_RULES_DIR": str(tmp_path / "rules"),
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=180,
+        )
+        assert install.returncode == 0, install.stderr
+
+        env = _base_env()
+        env.update(
+            {
+                "HOME": str(home),
+                "TERMINAL_JAIL_JAIL_BACKEND": "auto",
+                "TERMINAL_JAIL_COMPOSED": "on",
+                "TERMINAL_JAIL_LANDLOCK": "0",
+                "TERMINAL_JAIL_LANDLOCK_NET": "1",
+                "TERMINAL_JAIL_LANDLOCK_NET_LOADER": str(
+                    tmp_path / "missing-net-loader.py"
+                ),
+            }
+        )
+        result = subprocess.run(
+            [
+                str(install_dir / "terminal-jail"),
+                *_payload_python_args("DF047-INSTALLED"),
+            ],
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "DF047-INSTALLED" in result.stdout
+        assert result.stderr.count(DEGRADE_PREFIX) == 1, result.stderr
+
+
+def _payload_python_args(marker: str) -> tuple[str, ...]:
+    return (_payload_python(), "-c", f"print('{marker}')")
+
 
 # ── Live: criterion 3's contract against a bound non-allowlisted port ────────
 
@@ -554,7 +616,8 @@ class TestInstallContainmentCeilingSummary:
         out = (result.stdout + result.stderr).decode("utf-8", "replace")
         assert result.returncode == 0, out
         assert "containment ceiling (Landlock)" in out, out
-        assert "NEITHER Landlock tier can engage" in out, out
+        assert "fs tier CANNOT engage" in out, out
+        assert "net (egress) tier CANNOT engage" in out, out
         # The cause is IN the transcript — the summary points at "the output
         # above", so the probe's diagnosis must actually be there.
         assert "cause: landlock not listed in /sys/kernel/security/lsm" in out, out

@@ -1564,9 +1564,13 @@ if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/scripts/landlock-capability-probe.p
 fi
 # UNKNOWN until the probe RAN and said something: an absent probe (or a run
 # that failed) must read "unknown", never "DEGRADED" — a degraded verdict
-# asserts the probe's own diagnosis, which does not exist here.
+# asserts the probe's own diagnosis, which does not exist here. The probe only
+# proves filesystem enforcement; its ABI line is the sole evidence we have for
+# the network tier's ABI floor. Do not infer network capability from a FULL or
+# DEGRADED filesystem verdict alone.
 LL_VERDICT="UNKNOWN"
 LL_ABI_LINE=""
+LL_ABI=""
 if [ -n "$LL_SUMMARY_OUT" ]; then
     case "$(printf '%s\n' "$LL_SUMMARY_OUT" | head -n 1)" in
         *"FULL"*) LL_VERDICT="FULL" ;;
@@ -1574,19 +1578,23 @@ if [ -n "$LL_SUMMARY_OUT" ]; then
     esac
     # "  ABI version (max supported): N" — the tier floors are read off this.
     LL_ABI_LINE="$(printf '%s\n' "$LL_SUMMARY_OUT" | grep 'ABI version (max supported)' | head -n 1)"
-fi
-if [ "$LL_VERDICT" = "FULL" ]; then
     LL_ABI="$(printf '%s' "$LL_ABI_LINE" | sed 's/.*: *//')"
     case "$LL_ABI" in
-        ''|*[!0-9]*) LL_ABI=0 ;;
+        ''|*[!0-9]*) LL_ABI="" ;;
     esac
+fi
+if [ "$LL_VERDICT" = "FULL" ] && [ -n "$LL_ABI" ]; then
     if [ "$LL_ABI" -ge 4 ]; then
         echo "terminal-jail installer: containment ceiling (Landlock): fs tier CAN engage and net (egress) tier CAN engage on this host (Landlock ABI ${LL_ABI} >= 4; opt in with TERMINAL_JAIL_LANDLOCK_NET=1)"
     else
         echo "terminal-jail installer: containment ceiling (Landlock): fs tier CAN engage; net (egress) tier CANNOT (Landlock ABI ${LL_ABI} < 4 — TCP-connect rules need kernel 6.7+). Commands still run with network egress unchanged; the run-time degrade warning names it"
     fi
-elif [ "$LL_VERDICT" = "DEGRADED" ]; then
-    echo "terminal-jail installer: containment ceiling (Landlock): NEITHER Landlock tier can engage on this host (the landlock-capability-probe output above names the cause) — containment here is the namespace layer only; commands run with no kernel fs/net tier"
+elif [ "$LL_VERDICT" = "DEGRADED" ] && [ -n "$LL_ABI" ] && [ "$LL_ABI" -lt 4 ]; then
+    echo "terminal-jail installer: containment ceiling (Landlock): fs tier CANNOT engage; net (egress) tier CANNOT engage (Landlock ABI ${LL_ABI} < 4 — the filesystem probe's degraded cause is printed above, and TCP-connect rules need kernel 6.7+)"
+elif [ "$LL_VERDICT" = "DEGRADED" ] && [ -n "$LL_ABI" ] && [ "$LL_ABI" -ge 4 ]; then
+    echo "terminal-jail installer: containment ceiling (Landlock): fs tier CANNOT engage; net (egress) tier unknown (Landlock ABI ${LL_ABI} supports TCP-connect rules, but the filesystem probe was degraded and does not prove network enforcement)"
+elif [ "$LL_VERDICT" = "FULL" ] || [ "$LL_VERDICT" = "DEGRADED" ]; then
+    echo "terminal-jail installer: containment ceiling (Landlock): fs tier ${LL_VERDICT} but net (egress) tier unknown (the probe output did not provide a valid ABI version; classify the host manually: python3 scripts/landlock-capability-probe.py)"
 else
     echo "terminal-jail installer: containment ceiling (Landlock): unknown (the probe is absent from this install source or could not run — classify the host manually: python3 scripts/landlock-capability-probe.py)"
 fi
