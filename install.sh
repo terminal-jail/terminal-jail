@@ -10,6 +10,14 @@ set -eu
 # the supported install path; it ships the wrapper, the plugin bridge tree,
 # and the seccomp loader together.
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
+# The default below is the last released tag, not the version of this tree, and
+# the difference is deliberate. This value builds the release-mode download URL
+# (TERMINAL_JAIL_BASE_URL, below), so it must name a tag whose assets actually
+# exist — v1.3.0 is not tagged yet, which leaves v1.2.0 as the newest tag that
+# resolves. Do not "sync" it to pyproject.toml. A normal checkout install never
+# uses it: the LOCAL_VERSION block in the install section reads the version out
+# of pyproject.toml and reports that one instead; only a checkout with no
+# packaging metadata falls back to this value.
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
@@ -300,7 +308,9 @@ Environment (all optional):
                                (default: derived from the install scope)
   TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
                                local checkout (rule packs need the checkout)
-  TERMINAL_JAIL_VERSION        version to install (default: 1.2.0)
+  TERMINAL_JAIL_VERSION        release version to download (default: 1.2.0,
+                               the last released tag; a checkout install uses
+                               the pyproject version)
   TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
   TERMINAL_JAIL_REQUIRE_TIER   demand a containment tier instead of the default
                                advisory report: 'pidns' requires the PID-
