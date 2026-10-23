@@ -26,7 +26,11 @@ Socket safety (pre-verified mechanism, corpus TJ-GAP-084):
   loop, and REFUSES TO SERVE (fail-closed) if the chmod fails.
 
 No TCP listener anywhere: AF_UNIX only. "0 grep hits for listener" must
-stay true — see docs/bridge.md.
+stay true — the property is pinned, not assumed: see
+``plugin/test_resident_bridge.py::TestNoTcpListener``. The transport
+choice itself (decision table, measured numbers, and how to run either
+transport) lives in README.md §"Choosing a bridge transport: one-shot vs
+resident (TJ-GAP-084)".
 
 Client mode (``--sock PATH --client --command "..."`` or command on stdin):
   On transport failure the client does NOT answer with a verdict of its
