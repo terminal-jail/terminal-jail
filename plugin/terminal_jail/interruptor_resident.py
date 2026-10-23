@@ -44,11 +44,13 @@ Client mode (``--sock PATH --client --command "..."`` or command on stdin):
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import signal
 import socket
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 # Same sys.path bootstrap as the one-shot bridge (works from plugin/ or standalone/).
@@ -66,6 +68,14 @@ ENV_SOCK = "TERMINAL_JAIL_BRIDGE_SOCK"
 # fall back to the one-shot bridge". Deliberately distinct from 0 (verdict
 # delivered) and 1 (generic error).
 _EXIT_FALLBACK = 3
+
+# TJ-GAP-097 shutdown state. The SIGTERM/SIGINT handler sets these BEFORE it
+# closes the listening socket, so the accept loop can distinguish an OSError
+# caused by our own teardown from a transient accept() error worth retrying.
+# The daemon is single-threaded (signal handlers run in the main thread), so
+# plain module state needs no locking.
+_shutting_down = False
+_shutdown_signum = 0
 
 
 def _sock_path() -> Path:
@@ -160,6 +170,66 @@ def evaluate_payload(payload: object) -> dict:
     }
 
 
+def _reset_shutdown_state() -> None:
+    """Clear the TJ-GAP-097 shutdown marker for a fresh ``serve()``."""
+    global _shutting_down, _shutdown_signum
+    _shutting_down = False
+    _shutdown_signum = 0
+
+
+def _listener_gone(exc: OSError, server: socket.socket) -> bool:
+    """True when ``exc`` means the LISTENER is gone, not "retry the accept".
+
+    Three independent witnesses, any one of which is conclusive:
+      * the shutdown marker — our own signal handler already closed it;
+      * ``EBADF`` — the descriptor the kernel was asked about no longer exists;
+      * ``fileno() == -1`` — the socket object itself is closed.
+    Anything else (EINTR, ECONNABORTED, ENOMEM, ...) is transient.
+    """
+    if _shutting_down:
+        return True
+    if exc.errno == errno.EBADF:
+        return True
+    try:
+        return server.fileno() == -1
+    except OSError:
+        return True
+
+
+def _accept_loop(
+    server: socket.socket, handle: Callable[[socket.socket], None]
+) -> None:
+    """Accept one connection at a time; return only when the listener is dead.
+
+    Every iteration MUST make progress. ``accept()`` on a CLOSED listener
+    raises ``OSError`` forever, so treating every ``OSError`` as transient is
+    an infinite busy loop — that is TJ-GAP-097, where the daemon ignored its
+    own SIGTERM and sat at 100% CPU (``State: R``, 7:45 CPU in 7:47 of wall
+    time, py-spy parked in ``accept``) while its caller waited out a timeout.
+
+    A dead listener therefore ENDS the loop: with the shutdown marker set the
+    exit code is the signal's ``128 + signum`` (the property the signal cells
+    assert); without it the daemon can serve nothing, so it exits non-zero
+    instead of pretending it shut down cleanly. Genuine transient errors
+    still ``continue`` — the retry is narrowed, not deleted.
+    """
+    while True:
+        try:
+            conn, _ = server.accept()
+        except OSError as exc:
+            if not _listener_gone(exc, server):
+                continue
+            if _shutting_down:
+                raise SystemExit(128 + _shutdown_signum) from None
+            print(
+                "[resident-bridge] listening socket closed under the accept "
+                "loop — stopping (cannot serve without a listener)",
+                file=sys.stderr,
+            )
+            raise SystemExit(1) from None
+        handle(conn)
+
+
 def serve(sock_path: Path) -> None:
     """Bind, chmod 0o600 (fail-closed), then serve the accept loop forever."""
     sock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -228,20 +298,24 @@ def serve(sock_path: Path) -> None:
             pass
 
     def _clean_exit(signum: int, _frame: object) -> None:
+        # TJ-GAP-097: mark BEFORE closing. Once the listener is closed the
+        # blocked accept() reports EBADF/EINTR on every retry, so the loop has
+        # to read that error as "we are shutting down" — not as transient.
+        global _shutting_down, _shutdown_signum
+        _shutting_down = True
+        _shutdown_signum = signum
         _cleanup()
         raise SystemExit(128 + signum)
 
+    # A previous serve() in the same process must not be able to abort this
+    # one through a leftover marker.
+    _reset_shutdown_state()
     prev_term = signal.signal(signal.SIGTERM, _clean_exit)
     prev_int = signal.signal(signal.SIGINT, _clean_exit)
     server.listen(16)
     print(f"[resident-bridge] serving on {sock_path} (mode={_mode()})", file=sys.stderr)
     try:
-        while True:
-            try:
-                conn, _ = server.accept()
-            except OSError:
-                continue
-            _serve_connection(conn)
+        _accept_loop(server, _serve_connection)
     finally:
         signal.signal(signal.SIGTERM, prev_term)
         signal.signal(signal.SIGINT, prev_int)

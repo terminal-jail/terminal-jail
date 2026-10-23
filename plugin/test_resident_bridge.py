@@ -18,6 +18,7 @@ ch:trace row=TJ-GAP-084 evidence=plugin/test_resident_bridge.py witness=none:loc
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import select
@@ -638,6 +639,121 @@ class TestSignalShutdown:
             f"daemon exited {rc} instead of the signal-handler exit code"
         )
         assert clean, "SIGTERM mid-request left the socket behind — cleanup did not run"
+
+
+_ACCEPT_LOOP_CALL_BOUND = 50
+
+
+class _ScriptedListener:
+    """Fake listening socket for the TJ-GAP-097 accept-loop cells.
+
+    ``steps`` is a list of ``(outcome, fileno)`` pairs: an exception instance
+    to raise from ``accept()`` or an object to return as the accepted
+    connection, plus the ``fileno()`` the fake reports for that step. Once the
+    script is exhausted its last step repeats. The call bound turns a spin
+    into a test failure instead of a wall-clock timeout.
+    """
+
+    def __init__(self, steps: list[tuple[object, int]]) -> None:
+        self._steps = list(steps)
+        self._fileno = steps[0][1] if steps else 7
+        self._last = (object(), self._fileno)
+        self.calls = 0
+
+    def accept(self) -> tuple[object, None]:
+        self.calls += 1
+        if self.calls > _ACCEPT_LOOP_CALL_BOUND:
+            raise AssertionError(
+                f"accept loop called accept() {self.calls} times without "
+                f"stopping (bound {_ACCEPT_LOOP_CALL_BOUND}) — it is spinning "
+                "on a listener that can never serve (TJ-GAP-097)"
+            )
+        if self._steps:
+            self._last = self._steps.pop(0)
+        outcome, self._fileno = self._last
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome, None
+
+    def fileno(self) -> int:
+        return self._fileno
+
+
+class TestAcceptLoopOnDeadListener:
+    """TJ-GAP-097: a dead listener ENDS the accept loop, a transient error does not.
+
+    Deterministic by construction: no signals, no load, no timing. The loop is
+    driven with a fake listener, so the spin is caught by the call bound — the
+    live defect needed host pressure to reproduce (the same 4x4 signal matrix
+    exits cleanly 16/16 on an idle box), which is exactly why the guard must
+    not depend on re-running the race.
+    """
+
+    def test_closed_listener_ends_the_loop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """EBADF forever must stop the loop on the FIRST accept() error."""
+        monkeypatch.setattr(resident, "_shutting_down", False, raising=False)
+        monkeypatch.setattr(resident, "_shutdown_signum", 0, raising=False)
+        listener = _ScriptedListener(
+            [(OSError(errno.EBADF, "Bad file descriptor"), -1)]
+        )
+        with pytest.raises(SystemExit) as exc:
+            resident._accept_loop(listener, lambda _conn: None)  # type: ignore[arg-type]
+        assert listener.calls == 1, (
+            f"loop kept calling accept() {listener.calls} times on a closed "
+            "listener — the pre-fix busy loop (TJ-GAP-097)"
+        )
+        assert exc.value.code not in (0, None), (
+            "a daemon that lost its listener must not report a clean exit"
+        )
+
+    def test_shutdown_marker_ends_the_loop_with_the_signal_exit_code(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """After our own handler closed the listener, exit 128+signum.
+
+        ``fileno()`` still reports a live descriptor here, so the ONLY thing
+        that can stop the loop is the shutdown marker the handler sets — the
+        witness the live defect needed (accept() erroring with the socket file
+        already unlinked, handlers installed, process still running).
+        """
+        monkeypatch.setattr(resident, "_shutting_down", True, raising=False)
+        monkeypatch.setattr(
+            resident, "_shutdown_signum", int(signal.SIGTERM), raising=False
+        )
+        listener = _ScriptedListener([(OSError(errno.EINVAL, "Interrupted"), 7)])
+        with pytest.raises(SystemExit) as exc:
+            resident._accept_loop(listener, lambda _conn: None)  # type: ignore[arg-type]
+        assert exc.value.code == 128 + signal.SIGTERM
+        assert listener.calls == 1
+
+    def test_transient_error_keeps_serving(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """EINTR/ECONNABORTED retry; the accepted connection is still served.
+
+        The retry is narrowed, not deleted: deleting it would break the
+        EINTR-after-signal-window path the original ``continue`` guarded.
+        """
+        monkeypatch.setattr(resident, "_shutting_down", False, raising=False)
+        monkeypatch.setattr(resident, "_shutdown_signum", 0, raising=False)
+        served: list[object] = []
+        conn = object()
+        listener = _ScriptedListener(
+            [
+                (OSError(errno.EINTR, "Interrupted system call"), 7),
+                (OSError(errno.ECONNABORTED, "Software caused connection abort"), 7),
+                (conn, 7),
+                (OSError(errno.EBADF, "Bad file descriptor"), -1),
+            ]
+        )
+        with pytest.raises(SystemExit):
+            resident._accept_loop(listener, served.append)  # type: ignore[arg-type]
+        assert served == [conn], "the accepted connection was never served"
+        assert listener.calls == 4, (
+            f"expected 2 retries + 1 served + 1 stop, got {listener.calls} accept() calls"
+        )
 
 
 class TestNoTcpListener:
