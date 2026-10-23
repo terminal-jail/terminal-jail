@@ -1,0 +1,137 @@
+{
+  "task_id": "DOC-15",
+  "task_title": "quickstart bridge schema documents the sixth response field layer",
+  "task_criteria": [
+    "docs/quickstart.md response schema block names all six response fields including layer, states layer's value domain and what a null layer means, and no longer claims the envelope has five fields",
+    "All four bridge transcripts in docs/quickstart.md include the layer key with the value produced by a live bridge run under the documented empty-rules env pins",
+    "The change touches only docs/quickstart.md against base 8730de5"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "e50fecef006f002992bd48f74213b0da2f2e07e3",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n11:27PM INF scanned ~5715774 bytes (5.72 MB) in 435ms\n11:27PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 236 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2065 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2050 passed, 15 skipped in 170.65s (0:02:50) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md response schema block names all six response fields including layer, states layer's value domain and what a null layer means, and no longer claims the envelope has five fields: docs/quickstart.md:257 now reads 'response \u2014 one JSON object, one line, always these six fields:' and lists action/command/modified/rule_id/reason plus 'layer  which rule source decided \u2014 \"engine\" | \"yaml\" | \"user\" | \"pack\" | null (semantics below)' at lines 263-264. The 'layer semantics' section (lines 314-334) enumerates the closed domain (engine/yaml/user/pack) and states null explicitly: '`null` \u2014 the `[bridge-error]` envelopes only (transport failure, engine failure, or the warn-mode fail-open), where no rule decided anything.' grep for 'five fields' in docs/quickstart.md returns no hits. Domain matches the engine: plugin/terminal_jail/interruptor/types.py:35-37 Layer enum ENGINE/YAML/USER/PACK and interruptor_bridge.py:276,291,318 emit layer None on error envelopes. Test run: `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` -> '8 passed in 0.09s' (exit 0). [resolution 0.22; docs/quickstart.md]\n  \u2713 All four bridge transcripts in docs/quickstart.md include the layer key with the value produced by a live bridge run under the documented empty-rules env pins: All four transcripts carry the key: docs/quickstart.md:278 (echo hello), :281 (date), :284 (rm -rf /), :288 (make test), each ending '\"layer\": \"engine\"'. Live verification with the documented pins (TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules, TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules) produced exactly: {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"allow\", \"command\": \"date\", ... \"rule_id\": null, \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"block\", \"command\": \"rm -rf /\", ... \"rule_id\": \"builtin-rm-rf-root\", ... \"layer\": \"engine\"}; {\"action\": \"modify\", \"command\": \"make test\", ... \"rule_id\": \"auto-make\", \"reason\": \"Command modified by auto-sandbox\", \"layer\": \"engine\"} \u2014 all exit 0, matching the doc values field-for-field (only the host-specific landlock-loader path in `modified` differs, which the doc already explains as opaque). [resolution 0.22; docs/quickstart.md]\n  \u2713 The change touches only docs/quickstart.md against base 8730de5: `git diff --name-only 8730de5 9448549` returns exactly one path: docs/quickstart.md (git diff --stat: 1 file changed, 40 insertions(+), 8 deletions(-)). The DOC-15 commit 9448549 modifies no other file; the later working-tree changes to .gitreins/tasks.yaml, install.sh, plugin/* and tests/test_quickstart_doc.py belong to other tasks (TJ-GAP-095, TJ-GAP-097, INT-CI-014, e50fece) landed after the DOC-15 merge b1de4ab. [resolution 0.22; docs/quickstart.md]\nAll three DOC-15 criteria verified: the schema block names six fields with the layer domain and null semantics, all four transcripts carry layer:\"engine\" matching a live bridge run under the documented empty-rules pins, and the DOC-15 commit touches only docs/quickstart.md.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md response schema block names all six response fields including layer, states layer's value domain and what a null layer means, and no longer claims the envelope has five fields: docs/quickstart.md:257 now reads 'response \u2014 one JSON object, one line, always these six fields:' and lists action/command/modified/rule_id/reason plus 'layer  which rule source decided \u2014 \"engine\" | \"yaml\" | \"user\" | \"pack\" | null (semantics below)' at lines 263-264. The 'layer semantics' section (lines 314-334) enumerates the closed domain (engine/yaml/user/pack) and states null explicitly: '`null` \u2014 the `[bridge-error]` envelopes only (transport failure, engine failure, or the warn-mode fail-open), where no rule decided anything.' grep for 'five fields' in docs/quickstart.md returns no hits. Domain matches the engine: plugin/terminal_jail/interruptor/types.py:35-37 Layer enum ENGINE/YAML/USER/PACK and interruptor_bridge.py:276,291,318 emit layer None on error envelopes. Test run: `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` -> '8 passed in 0.09s' (exit 0). [resolution 0.22; docs/quickstart.md]\n  \u2713 All four bridge transcripts in docs/quickstart.md include the layer key with the value produced by a live bridge run under the documented empty-rules env pins: All four transcripts carry the key: docs/quickstart.md:278 (echo hello), :281 (date), :284 (rm -rf /), :288 (make test), each ending '\"layer\": \"engine\"'. Live verification with the documented pins (TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules, TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules) produced exactly: {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"allow\", \"command\": \"date\", ... \"rule_id\": null, \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"block\", \"command\": \"rm -rf /\", ... \"rule_id\": \"builtin-rm-rf-root\", ... \"layer\": \"engine\"}; {\"action\": \"modify\", \"command\": \"make test\", ... \"rule_id\": \"auto-make\", \"reason\": \"Command modified by auto-sandbox\", \"layer\": \"engine\"} \u2014 all exit 0, matching the doc values field-for-field (only the host-specific landlock-loader path in `modified` differs, which the doc already explains as opaque). [resolution 0.22; docs/quickstart.md]\n  \u2713 The change touches only docs/quickstart.md against base 8730de5: `git diff --name-only 8730de5 9448549` returns exactly one path: docs/quickstart.md (git diff --stat: 1 file changed, 40 insertions(+), 8 deletions(-)). The DOC-15 commit 9448549 modifies no other file; the later working-tree changes to .gitreins/tasks.yaml, install.sh, plugin/* and tests/test_quickstart_doc.py belong to other tasks (TJ-GAP-095, TJ-GAP-097, INT-CI-014, e50fece) landed after the DOC-15 merge b1de4ab. [resolution 0.22; docs/quickstart.md]\nAll three DOC-15 criteria verified: the schema block names six fields with the layer domain and null semantics, all four transcripts carry layer:\"engine\" matching a live bridge run under the documented empty-rules pins, and the DOC-15 commit touches only docs/quickstart.md.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md response schema block names all six response fields including layer, states layer's value domain and what a null layer means, and no longer claims the envelope has five fields",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:257 now reads 'response \u2014 one JSON object, one line, always these six fields:' and lists action/command/modified/rule_id/reason plus 'layer  which rule source decided \u2014 \"engine\" | \"yaml\" | \"user\" | \"pack\" | null (semantics below)' at lines 263-264. The 'layer semantics' section (lines 314-334) enumerates the closed domain (engine/yaml/user/pack) and states null explicitly: '`null` \u2014 the `[bridge-error]` envelopes only (transport failure, engine failure, or the warn-mode fail-open), where no rule decided anything.' grep for 'five fields' in docs/quickstart.md returns no hits. Domain matches the engine: plugin/terminal_jail/interruptor/types.py:35-37 Layer enum ENGINE/YAML/USER/PACK and interruptor_bridge.py:276,291,318 emit layer None on error envelopes. Test run: `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` -> '8 passed in 0.09s' (exit 0). [resolution 0.22; docs/quickstart.md]",
+                "resolution_probability": 0.22,
+                "cited_path": "docs/quickstart.md"
+              },
+              {
+                "criterion": "All four bridge transcripts in docs/quickstart.md include the layer key with the value produced by a live bridge run under the documented empty-rules env pins",
+                "status": "PASS",
+                "detail": "All four transcripts carry the key: docs/quickstart.md:278 (echo hello), :281 (date), :284 (rm -rf /), :288 (make test), each ending '\"layer\": \"engine\"'. Live verification with the documented pins (TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules, TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules) produced exactly: {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"allow\", \"command\": \"date\", ... \"rule_id\": null, \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"block\", \"command\": \"rm -rf /\", ... \"rule_id\": \"builtin-rm-rf-root\", ... \"layer\": \"engine\"}; {\"action\": \"modify\", \"command\": \"make test\", ... \"rule_id\": \"auto-make\", \"reason\": \"Command modified by auto-sandbox\", \"layer\": \"engine\"} \u2014 all exit 0, matching the doc values field-for-field (only the host-specific landlock-loader path in `modified` differs, which the doc already explains as opaque). [resolution 0.22; docs/quickstart.md]",
+                "resolution_probability": 0.22,
+                "cited_path": "docs/quickstart.md"
+              },
+              {
+                "criterion": "The change touches only docs/quickstart.md against base 8730de5",
+                "status": "PASS",
+                "detail": "`git diff --name-only 8730de5 9448549` returns exactly one path: docs/quickstart.md (git diff --stat: 1 file changed, 40 insertions(+), 8 deletions(-)). The DOC-15 commit 9448549 modifies no other file; the later working-tree changes to .gitreins/tasks.yaml, install.sh, plugin/* and tests/test_quickstart_doc.py belong to other tasks (TJ-GAP-095, TJ-GAP-097, INT-CI-014, e50fece) landed after the DOC-15 merge b1de4ab. [resolution 0.22; docs/quickstart.md]",
+                "resolution_probability": 0.22,
+                "cited_path": "docs/quickstart.md"
+              }
+            ],
+            "summary": "All three DOC-15 criteria verified: the schema block names six fields with the layer domain and null semantics, all four transcripts carry layer:\"engine\" matching a live bridge run under the documented empty-rules pins, and the DOC-15 commit touches only docs/quickstart.md."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-15\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md response schema block names all six response fields including layer, states layer's value domain and what a null layer means, and no longer claims the envelope has five fields: docs/quickstart.md:257 now reads 'response \u2014 one JSON object, one line, always these six fields:' and lists action/command/modified/rule_id/reason plus 'layer  which rule source decided \u2014 \"engine\" | \"yaml\" | \"user\" | \"pack\" | null (semantics below)' at lines 263-264. The 'layer semantics' section (lines 314-334) enumerates the closed domain (engine/yaml/user/pack) and states null explicitly: '`null` \u2014 the `[bridge-error]` envelopes only (transport failure, engine failure, or the warn-mode fail-open), where no rule decided anything.' grep for 'five fields' in docs/quickstart.md returns no hits. Domain matches the engine: plugin/terminal_jail/interruptor/types.py:35-37 Layer enum ENGINE/YAML/USER/PACK and interruptor_bridge.py:276,291,318 emit layer None on error envelopes. Test run: `.venv/bin/python -m pytest tests/test_quickstart_doc.py -q` -> '8 passed in 0.09s' (exit 0). [resolution 0.22; docs/quickstart.md]\n  \u2713 All four bridge transcripts in docs/quickstart.md include the layer key with the value produced by a live bridge run under the documented empty-rules env pins: All four transcripts carry the key: docs/quickstart.md:278 (echo hello), :281 (date), :284 (rm -rf /), :288 (make test), each ending '\"layer\": \"engine\"'. Live verification with the documented pins (TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules, TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules) produced exactly: {\"action\": \"allow\", \"command\": \"echo hello\", \"modified\": null, \"rule_id\": \"allow-echo\", \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"allow\", \"command\": \"date\", ... \"rule_id\": null, \"reason\": \"\", \"layer\": \"engine\"}; {\"action\": \"block\", \"command\": \"rm -rf /\", ... \"rule_id\": \"builtin-rm-rf-root\", ... \"layer\": \"engine\"}; {\"action\": \"modify\", \"command\": \"make test\", ... \"rule_id\": \"auto-make\", \"reason\": \"Command modified by auto-sandbox\", \"layer\": \"engine\"} \u2014 all exit 0, matching the doc values field-for-field (only the host-specific landlock-loader path in `modified` differs, which the doc already explains as opaque). [resolution 0.22; docs/quickstart.md]\n  \u2713 The change touches only docs/quickstart.md against base 8730de5: `git diff --name-only 8730de5 9448549` returns exactly one path: docs/quickstart.md (git diff --stat: 1 file changed, 40 insertions(+), 8 deletions(-)). The DOC-15 commit 9448549 modifies no other file; the later working-tree changes to .gitreins/tasks.yaml, install.sh, plugin/* and tests/test_quickstart_doc.py belong to other tasks (TJ-GAP-095, TJ-GAP-097, INT-CI-014, e50fece) landed after the DOC-15 merge b1de4ab. [resolution 0.22; docs/quickstart.md]\nAll three DOC-15 criteria verified: the schema block names six fields with the layer domain and null semantics, all four transcripts carry layer:\"engine\" matching a live bridge run under the documented empty-rules pins, and the DOC-15 commit touches only docs/quickstart.md.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-23T04:31:04.453187",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-23T04:31:04.480077+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3948,
+        "truncated": false,
+        "source": "git show e50fecef006f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 81381,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-15"
+  }
+}

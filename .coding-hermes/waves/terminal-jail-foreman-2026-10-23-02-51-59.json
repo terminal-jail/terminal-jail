@@ -1,0 +1,12 @@
+{
+  "scheduler_tick": "terminal-jail-foreman-2026-10-23-02-51-59",
+  "budget": 8,
+  "composed": 5,
+  "tasks": [
+    {"id": "INT-CI-014", "worktree": "/home/kara/worktrees/terminal-jail-INT-CI-014", "branch": "wt/INT-CI-014", "base_sha": "8730de5", "files": ["plugin/test_resident_bridge.py"], "model": "minimax-m3@minimax", "outcome": "merged f3eca48"},
+    {"id": "DOC-15", "worktree": "/home/kara/worktrees/terminal-jail-DOC-15", "branch": "wt/DOC-15", "base_sha": "8730de5", "files": ["docs/quickstart.md"], "model": "glm-5.3-flash@zai-glm-default", "outcome": "merged b1de4ab"},
+    {"id": "TJ-GAP-095", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-095", "branch": "wt/TJ-GAP-095", "base_sha": "8730de5", "files": ["install.sh"], "model": "glm-5.3-flash@zai-glm-default", "outcome": "merged cc33ce4"},
+    {"id": "DOC-18", "worktree": "/home/kara/worktrees/terminal-jail-DOC-18", "branch": "wt/DOC-18", "base_sha": "8730de5", "files": ["plugin/terminal_jail/interruptor_resident.py"], "model": "glm-5.3-flash@zai-glm-default", "outcome": "merged 0796064"},
+    {"id": "TJ-GAP-097", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-097", "branch": "wt/TJ-GAP-097", "base_sha": "f3eca48", "files": ["plugin/terminal_jail/interruptor_resident.py", "plugin/test_resident_bridge.py"], "model": "minimax-m3@minimax", "outcome": "dispatched mid-tick after the gate exposed a live daemon spin"}
+  ]
+}

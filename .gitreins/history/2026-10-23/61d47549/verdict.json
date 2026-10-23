@@ -1,0 +1,144 @@
+{
+  "task_id": "TJ-GAP-097",
+  "task_title": "Resident bridge accept loop cannot spin on a closed listening socket",
+  "task_criteria": [
+    "A SIGINT or SIGTERM delivered while plugin/terminal_jail/interruptor_resident.py is blocked in accept() terminates the daemon with exit code 128 plus the signal number instead of leaving it looping",
+    "The accept loop stops when the listening socket is closed (EBADF or a marked shutdown) and still continues on a genuine transient OSError",
+    "plugin/test_resident_bridge.py contains a regression test that drives the loop with a listener raising EBADF and asserts it stops, plus the transient-error direction, and that test fails against the pre-fix loop",
+    ".venv/bin/python -m pytest plugin/test_resident_bridge.py passes and uvx ruff check . reports All checks passed"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "e50fecef006f002992bd48f74213b0da2f2e07e3",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n10:52PM INF scanned ~5715461 bytes (5.72 MB) in 490ms\n10:52PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 236 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2065 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2050 passed, 15 skipped in 154.68s (0:02:34) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 A SIGINT or SIGTERM delivered while plugin/terminal_jail/interruptor_resident.py is blocked in accept() terminates the daemon with exit code 128 plus the signal number instead of leaving it looping: Live probe (/tmp/sig_probe.py) started the real daemon, waited for socket readiness, then signalled it: 'SIGTERM rc= 143 expected= 143 sock_exists= False' and 'SIGINT rc= 130 expected= 130 sock_exists= False' \u2014 no hang. Code: interruptor_resident.py _clean_exit sets _shutting_down/_shutdown_signum BEFORE _cleanup() then raises SystemExit(128+signum); _accept_loop raises SystemExit(128 + _shutdown_signum) when _listener_gone() and _shutting_down. TestSignalShutdown cells (test_sigterm_removes_socket, test_sigint_removes_socket, test_sigterm_mid_stream_still_cleans_up) assert rc == 128+signal and pass in the 29-passed run. [resolution 0.04; plugin/terminal_jail/interruptor_resident.py]\n  \u2713 The accept loop stops when the listening socket is closed (EBADF or a marked shutdown) and still continues on a genuine transient OSError: interruptor_resident.py _listener_gone(): returns True on _shutting_down marker, exc.errno == errno.EBADF, or server.fileno() == -1. _accept_loop: 'if not _listener_gone(exc, server): continue' (transient EINTR/ECONNABORTED retried), else SystemExit(128+signum) when shutting down, else SystemExit(1) with a stderr note. test_transient_error_keeps_serving proves EINTR then ECONNABORTED are retried, the connection is served, and the loop stops on EBADF (calls == 4).\n  \u2713 plugin/test_resident_bridge.py contains a regression test that drives the loop with a listener raising EBADF and asserts it stops, plus the transient-error direction, and that test fails against the pre-fix loop: TestAcceptLoopOnDeadListener (test_resident_bridge.py:700-760) with _ScriptedListener: test_closed_listener_ends_the_loop (EBADF, asserts listener.calls == 1 and SystemExit code not in (0, None)), test_shutdown_marker_ends_the_loop_with_the_signal_exit_code (asserts 128+SIGTERM), test_transient_error_keeps_serving (EINTR/ECONNABORTED retried, conn served, calls == 4). Pre-fix verification: restoring a623273^ interruptor_resident.py (inline 'while True: try accept except OSError: continue') made all 3 cells FAIL \u2014 'AttributeError: module terminal_jail.interruptor_resident has no attribute _accept_loop' \u2014 i.e. the cells cannot pass against the pre-fix loop. Files restored afterwards (git status clean for plugin/). [resolution 0.04; plugin/test_resident_bridge.py]\n  \u2713 .venv/bin/python -m pytest plugin/test_resident_bridge.py passes and uvx ruff check . reports All checks passed: '.venv/bin/python -m pytest plugin/test_resident_bridge.py -q' -> exit_code 0, '29 passed in 2.31s' (re-run after restoring files: '29 passed in 2.34s'). 'uvx ruff check .' -> exit_code 0, 'All checks passed!'. [resolution 0.04; plugin/test_resident_bridge.py]\nThe accept loop now stops on a dead listener (EBADF/shutdown marker) while retrying genuine transient errors, signals exit with 128+signum (verified live: 143/130), the new regression cells fail against the pre-fix loop, and pytest (29 passed) plus ruff (All checks passed) are green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 A SIGINT or SIGTERM delivered while plugin/terminal_jail/interruptor_resident.py is blocked in accept() terminates the daemon with exit code 128 plus the signal number instead of leaving it looping: Live probe (/tmp/sig_probe.py) started the real daemon, waited for socket readiness, then signalled it: 'SIGTERM rc= 143 expected= 143 sock_exists= False' and 'SIGINT rc= 130 expected= 130 sock_exists= False' \u2014 no hang. Code: interruptor_resident.py _clean_exit sets _shutting_down/_shutdown_signum BEFORE _cleanup() then raises SystemExit(128+signum); _accept_loop raises SystemExit(128 + _shutdown_signum) when _listener_gone() and _shutting_down. TestSignalShutdown cells (test_sigterm_removes_socket, test_sigint_removes_socket, test_sigterm_mid_stream_still_cleans_up) assert rc == 128+signal and pass in the 29-passed run. [resolution 0.04; plugin/terminal_jail/interruptor_resident.py]\n  \u2713 The accept loop stops when the listening socket is closed (EBADF or a marked shutdown) and still continues on a genuine transient OSError: interruptor_resident.py _listener_gone(): returns True on _shutting_down marker, exc.errno == errno.EBADF, or server.fileno() == -1. _accept_loop: 'if not _listener_gone(exc, server): continue' (transient EINTR/ECONNABORTED retried), else SystemExit(128+signum) when shutting down, else SystemExit(1) with a stderr note. test_transient_error_keeps_serving proves EINTR then ECONNABORTED are retried, the connection is served, and the loop stops on EBADF (calls == 4).\n  \u2713 plugin/test_resident_bridge.py contains a regression test that drives the loop with a listener raising EBADF and asserts it stops, plus the transient-error direction, and that test fails against the pre-fix loop: TestAcceptLoopOnDeadListener (test_resident_bridge.py:700-760) with _ScriptedListener: test_closed_listener_ends_the_loop (EBADF, asserts listener.calls == 1 and SystemExit code not in (0, None)), test_shutdown_marker_ends_the_loop_with_the_signal_exit_code (asserts 128+SIGTERM), test_transient_error_keeps_serving (EINTR/ECONNABORTED retried, conn served, calls == 4). Pre-fix verification: restoring a623273^ interruptor_resident.py (inline 'while True: try accept except OSError: continue') made all 3 cells FAIL \u2014 'AttributeError: module terminal_jail.interruptor_resident has no attribute _accept_loop' \u2014 i.e. the cells cannot pass against the pre-fix loop. Files restored afterwards (git status clean for plugin/). [resolution 0.04; plugin/test_resident_bridge.py]\n  \u2713 .venv/bin/python -m pytest plugin/test_resident_bridge.py passes and uvx ruff check . reports All checks passed: '.venv/bin/python -m pytest plugin/test_resident_bridge.py -q' -> exit_code 0, '29 passed in 2.31s' (re-run after restoring files: '29 passed in 2.34s'). 'uvx ruff check .' -> exit_code 0, 'All checks passed!'. [resolution 0.04; plugin/test_resident_bridge.py]\nThe accept loop now stops on a dead listener (EBADF/shutdown marker) while retrying genuine transient errors, signals exit with 128+signum (verified live: 143/130), the new regression cells fail against the pre-fix loop, and pytest (29 passed) plus ruff (All checks passed) are green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "A SIGINT or SIGTERM delivered while plugin/terminal_jail/interruptor_resident.py is blocked in accept() terminates the daemon with exit code 128 plus the signal number instead of leaving it looping",
+                "status": "PASS",
+                "detail": "Live probe (/tmp/sig_probe.py) started the real daemon, waited for socket readiness, then signalled it: 'SIGTERM rc= 143 expected= 143 sock_exists= False' and 'SIGINT rc= 130 expected= 130 sock_exists= False' \u2014 no hang. Code: interruptor_resident.py _clean_exit sets _shutting_down/_shutdown_signum BEFORE _cleanup() then raises SystemExit(128+signum); _accept_loop raises SystemExit(128 + _shutdown_signum) when _listener_gone() and _shutting_down. TestSignalShutdown cells (test_sigterm_removes_socket, test_sigint_removes_socket, test_sigterm_mid_stream_still_cleans_up) assert rc == 128+signal and pass in the 29-passed run. [resolution 0.04; plugin/terminal_jail/interruptor_resident.py]",
+                "resolution_probability": 0.04,
+                "cited_path": "plugin/terminal_jail/interruptor_resident.py"
+              },
+              {
+                "criterion": "The accept loop stops when the listening socket is closed (EBADF or a marked shutdown) and still continues on a genuine transient OSError",
+                "status": "PASS",
+                "detail": "interruptor_resident.py _listener_gone(): returns True on _shutting_down marker, exc.errno == errno.EBADF, or server.fileno() == -1. _accept_loop: 'if not _listener_gone(exc, server): continue' (transient EINTR/ECONNABORTED retried), else SystemExit(128+signum) when shutting down, else SystemExit(1) with a stderr note. test_transient_error_keeps_serving proves EINTR then ECONNABORTED are retried, the connection is served, and the loop stops on EBADF (calls == 4).",
+                "resolution_probability": 0.04
+              },
+              {
+                "criterion": "plugin/test_resident_bridge.py contains a regression test that drives the loop with a listener raising EBADF and asserts it stops, plus the transient-error direction, and that test fails against the pre-fix loop",
+                "status": "PASS",
+                "detail": "TestAcceptLoopOnDeadListener (test_resident_bridge.py:700-760) with _ScriptedListener: test_closed_listener_ends_the_loop (EBADF, asserts listener.calls == 1 and SystemExit code not in (0, None)), test_shutdown_marker_ends_the_loop_with_the_signal_exit_code (asserts 128+SIGTERM), test_transient_error_keeps_serving (EINTR/ECONNABORTED retried, conn served, calls == 4). Pre-fix verification: restoring a623273^ interruptor_resident.py (inline 'while True: try accept except OSError: continue') made all 3 cells FAIL \u2014 'AttributeError: module terminal_jail.interruptor_resident has no attribute _accept_loop' \u2014 i.e. the cells cannot pass against the pre-fix loop. Files restored afterwards (git status clean for plugin/). [resolution 0.04; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.04,
+                "cited_path": "plugin/test_resident_bridge.py"
+              },
+              {
+                "criterion": ".venv/bin/python -m pytest plugin/test_resident_bridge.py passes and uvx ruff check . reports All checks passed",
+                "status": "PASS",
+                "detail": "'.venv/bin/python -m pytest plugin/test_resident_bridge.py -q' -> exit_code 0, '29 passed in 2.31s' (re-run after restoring files: '29 passed in 2.34s'). 'uvx ruff check .' -> exit_code 0, 'All checks passed!'. [resolution 0.04; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.04,
+                "cited_path": "plugin/test_resident_bridge.py"
+              }
+            ],
+            "summary": "The accept loop now stops on a dead listener (EBADF/shutdown marker) while retrying genuine transient errors, signals exit with 128+signum (verified live: 143/130), the new regression cells fail against the pre-fix loop, and pytest (29 passed) plus ruff (All checks passed) are green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-097\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 A SIGINT or SIGTERM delivered while plugin/terminal_jail/interruptor_resident.py is blocked in accept() terminates the daemon with exit code 128 plus the signal number instead of leaving it looping: Live probe (/tmp/sig_probe.py) started the real daemon, waited for socket readiness, then signalled it: 'SIGTERM rc= 143 expected= 143 sock_exists= False' and 'SIGINT rc= 130 expected= 130 sock_exists= False' \u2014 no hang. Code: interruptor_resident.py _clean_exit sets _shutting_down/_shutdown_signum BEFORE _cleanup() then raises SystemExit(128+signum); _accept_loop raises SystemExit(128 + _shutdown_signum) when _listener_gone() and _shutting_down. TestSignalShutdown cells (test_sigterm_removes_socket, test_sigint_removes_socket, test_sigterm_mid_stream_still_cleans_up) assert rc == 128+signal and pass in the 29-passed run. [resolution 0.04; plugin/terminal_jail/interruptor_resident.py]\n  \u2713 The accept loop stops when the listening socket is closed (EBADF or a marked shutdown) and still continues on a genuine transient OSError: interruptor_resident.py _listener_gone(): returns True on _shutting_down marker, exc.errno == errno.EBADF, or server.fileno() == -1. _accept_loop: 'if not _listener_gone(exc, server): continue' (transient EINTR/ECONNABORTED retried), else SystemExit(128+signum) when shutting down, else SystemExit(1) with a stderr note. test_transient_error_keeps_serving proves EINTR then ECONNABORTED are retried, the connection is served, and the loop stops on EBADF (calls == 4).\n  \u2713 plugin/test_resident_bridge.py contains a regression test that drives the loop with a listener raising EBADF and asserts it stops, plus the transient-error direction, and that test fails against the pre-fix loop: TestAcceptLoopOnDeadListener (test_resident_bridge.py:700-760) with _ScriptedListener: test_closed_listener_ends_the_loop (EBADF, asserts listener.calls == 1 and SystemExit code not in (0, None)), test_shutdown_marker_ends_the_loop_with_the_signal_exit_code (asserts 128+SIGTERM), test_transient_error_keeps_serving (EINTR/ECONNABORTED retried, conn served, calls == 4). Pre-fix verification: restoring a623273^ interruptor_resident.py (inline 'while True: try accept except OSError: continue') made all 3 cells FAIL \u2014 'AttributeError: module terminal_jail.interruptor_resident has no attribute _accept_loop' \u2014 i.e. the cells cannot pass against the pre-fix loop. Files restored afterwards (git status clean for plugin/). [resolution 0.04; plugin/test_resident_bridge.py]\n  \u2713 .venv/bin/python -m pytest plugin/test_resident_bridge.py passes and uvx ruff check . reports All checks passed: '.venv/bin/python -m pytest plugin/test_resident_bridge.py -q' -> exit_code 0, '29 passed in 2.31s' (re-run after restoring files: '29 passed in 2.34s'). 'uvx ruff check .' -> exit_code 0, 'All checks passed!'. [resolution 0.04; plugin/test_resident_bridge.py]\nThe accept loop now stops on a dead listener (EBADF/shutdown marker) while retrying genuine transient errors, signals exit with 128+signum (verified live: 143/130), the new regression cells fail against the pre-fix loop, and pytest (29 passed) plus ruff (All checks passed) are green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-23T03:55:23.836934",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-23T03:55:23.861276+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3948,
+        "truncated": false,
+        "source": "git show e50fecef006f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 81043,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-097"
+  }
+}

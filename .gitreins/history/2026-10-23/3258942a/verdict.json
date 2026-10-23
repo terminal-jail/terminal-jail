@@ -1,0 +1,152 @@
+{
+  "task_id": "INT-CI-014",
+  "task_title": "SIGTERM resident-bridge cells get the bounded runner-stall retry plus stderr evidence",
+  "task_criteria": [
+    "Both SIGTERM cells in plugin/test_resident_bridge.py still assert the daemon exit code equals 128 + signal.SIGTERM AND that the socket path no longer exists after the signal",
+    "A shared _sigterm_once helper in plugin/test_resident_bridge.py retries exactly once on a fresh socket path and reads the daemon stderr before killing it, printing a [sigterm-cell] daemon stderr at hang marker",
+    "Running .venv/bin/python -m pytest plugin/test_resident_bridge.py passes, with TestSignalShutdown reporting 3 passed",
+    "The change touches only plugin/test_resident_bridge.py against base 8730de5; no production module is modified",
+    "uvx ruff check . reports All checks passed"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "e50fecef006f002992bd48f74213b0da2f2e07e3",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n10:55PM INF scanned ~5715774 bytes (5.72 MB) in 351ms\n10:55PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 236 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2065 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2050 passed, 15 skipped in 174.75s (0:02:54) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261023T035201.075947Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Both SIGTERM cells in plugin/test_resident_bridge.py still assert the daemon exit code equals 128 + signal.SIGTERM AND that the socket path no longer exists after the signal: plugin/test_resident_bridge.py:573-577 (test_sigterm_removes_socket) asserts `rc == 128 + signal.SIGTERM` and `assert clean` where clean = `not sock.exists()` from _sigterm_once (L536); plugin/test_resident_bridge.py:637-641 (test_sigterm_mid_stream_still_cleans_up) has the identical pair of assertions. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 A shared _sigterm_once helper in plugin/test_resident_bridge.py retries exactly once on a fresh socket path and reads the daemon stderr before killing it, printing a [sigterm-cell] daemon stderr at hang marker: plugin/test_resident_bridge.py:490-536 defines _sigterm_once(sock, mid_stream) which starts a fresh daemon, and on TimeoutExpired does select.select([proc.stderr]) + os.read(...) to capture stderr BEFORE proc.kill() (L514-527), then prints f\"[sigterm-cell] daemon stderr at hang:\\n{daemon_err}\" to sys.stderr (L528-531). _sigterm_with_retry (L538-558) retries exactly once on a fresh path tmp_path/'s2.sock' (L552, L555-557) after the first attempt on tmp_path/'s.sock' (L550). [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 Running .venv/bin/python -m pytest plugin/test_resident_bridge.py passes, with TestSignalShutdown reporting 3 passed: `.venv/bin/python -m pytest plugin/test_resident_bridge.py -q` -> exit_code 0, '29 passed in 2.05s'. `-k TestSignalShutdown -v` -> exit_code 0, 'collected 29 items / 26 deselected / 3 selected ... 3 passed, 26 deselected in 0.28s'. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 The change touches only plugin/test_resident_bridge.py against base 8730de5; no production module is modified: `git diff 8730de5 4bdec78 --stat` (the INT-CI-014 implementation commit, merged as f3eca48) shows exactly one file: 'plugin/test_resident_bridge.py | 124 +++++++++++++++++++++++----------, 1 file changed, 96 insertions(+), 28 deletions(-)'. No production module (e.g. plugin/terminal_jail/interruptor_resident.py) appears in that diff. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 uvx ruff check . reports All checks passed: `uvx ruff check .` -> exit_code 0, output 'All checks passed!'.\nAll five criteria verified: both SIGTERM cells keep the exit-code and socket-removed assertions, the shared _sigterm_once helper captures stderr before kill and retries once on a fresh socket, pytest reports 29 passed with TestSignalShutdown at 3 passed, the diff against 8730de5 touches only plugin/test_resident_bridge.py, and ruff reports All checks passed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Both SIGTERM cells in plugin/test_resident_bridge.py still assert the daemon exit code equals 128 + signal.SIGTERM AND that the socket path no longer exists after the signal: plugin/test_resident_bridge.py:573-577 (test_sigterm_removes_socket) asserts `rc == 128 + signal.SIGTERM` and `assert clean` where clean = `not sock.exists()` from _sigterm_once (L536); plugin/test_resident_bridge.py:637-641 (test_sigterm_mid_stream_still_cleans_up) has the identical pair of assertions. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 A shared _sigterm_once helper in plugin/test_resident_bridge.py retries exactly once on a fresh socket path and reads the daemon stderr before killing it, printing a [sigterm-cell] daemon stderr at hang marker: plugin/test_resident_bridge.py:490-536 defines _sigterm_once(sock, mid_stream) which starts a fresh daemon, and on TimeoutExpired does select.select([proc.stderr]) + os.read(...) to capture stderr BEFORE proc.kill() (L514-527), then prints f\"[sigterm-cell] daemon stderr at hang:\\n{daemon_err}\" to sys.stderr (L528-531). _sigterm_with_retry (L538-558) retries exactly once on a fresh path tmp_path/'s2.sock' (L552, L555-557) after the first attempt on tmp_path/'s.sock' (L550). [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 Running .venv/bin/python -m pytest plugin/test_resident_bridge.py passes, with TestSignalShutdown reporting 3 passed: `.venv/bin/python -m pytest plugin/test_resident_bridge.py -q` -> exit_code 0, '29 passed in 2.05s'. `-k TestSignalShutdown -v` -> exit_code 0, 'collected 29 items / 26 deselected / 3 selected ... 3 passed, 26 deselected in 0.28s'. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 The change touches only plugin/test_resident_bridge.py against base 8730de5; no production module is modified: `git diff 8730de5 4bdec78 --stat` (the INT-CI-014 implementation commit, merged as f3eca48) shows exactly one file: 'plugin/test_resident_bridge.py | 124 +++++++++++++++++++++++----------, 1 file changed, 96 insertions(+), 28 deletions(-)'. No production module (e.g. plugin/terminal_jail/interruptor_resident.py) appears in that diff. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 uvx ruff check . reports All checks passed: `uvx ruff check .` -> exit_code 0, output 'All checks passed!'.\nAll five criteria verified: both SIGTERM cells keep the exit-code and socket-removed assertions, the shared _sigterm_once helper captures stderr before kill and retries once on a fresh socket, pytest reports 29 passed with TestSignalShutdown at 3 passed, the diff against 8730de5 touches only plugin/test_resident_bridge.py, and ruff reports All checks passed.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Both SIGTERM cells in plugin/test_resident_bridge.py still assert the daemon exit code equals 128 + signal.SIGTERM AND that the socket path no longer exists after the signal",
+                "status": "PASS",
+                "detail": "plugin/test_resident_bridge.py:573-577 (test_sigterm_removes_socket) asserts `rc == 128 + signal.SIGTERM` and `assert clean` where clean = `not sock.exists()` from _sigterm_once (L536); plugin/test_resident_bridge.py:637-641 (test_sigterm_mid_stream_still_cleans_up) has the identical pair of assertions. [resolution 0.12; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.12,
+                "cited_path": "plugin/test_resident_bridge.py"
+              },
+              {
+                "criterion": "A shared _sigterm_once helper in plugin/test_resident_bridge.py retries exactly once on a fresh socket path and reads the daemon stderr before killing it, printing a [sigterm-cell] daemon stderr at hang marker",
+                "status": "PASS",
+                "detail": "plugin/test_resident_bridge.py:490-536 defines _sigterm_once(sock, mid_stream) which starts a fresh daemon, and on TimeoutExpired does select.select([proc.stderr]) + os.read(...) to capture stderr BEFORE proc.kill() (L514-527), then prints f\"[sigterm-cell] daemon stderr at hang:\\n{daemon_err}\" to sys.stderr (L528-531). _sigterm_with_retry (L538-558) retries exactly once on a fresh path tmp_path/'s2.sock' (L552, L555-557) after the first attempt on tmp_path/'s.sock' (L550). [resolution 0.12; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.12,
+                "cited_path": "plugin/test_resident_bridge.py"
+              },
+              {
+                "criterion": "Running .venv/bin/python -m pytest plugin/test_resident_bridge.py passes, with TestSignalShutdown reporting 3 passed",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest plugin/test_resident_bridge.py -q` -> exit_code 0, '29 passed in 2.05s'. `-k TestSignalShutdown -v` -> exit_code 0, 'collected 29 items / 26 deselected / 3 selected ... 3 passed, 26 deselected in 0.28s'. [resolution 0.12; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.12,
+                "cited_path": "plugin/test_resident_bridge.py"
+              },
+              {
+                "criterion": "The change touches only plugin/test_resident_bridge.py against base 8730de5; no production module is modified",
+                "status": "PASS",
+                "detail": "`git diff 8730de5 4bdec78 --stat` (the INT-CI-014 implementation commit, merged as f3eca48) shows exactly one file: 'plugin/test_resident_bridge.py | 124 +++++++++++++++++++++++----------, 1 file changed, 96 insertions(+), 28 deletions(-)'. No production module (e.g. plugin/terminal_jail/interruptor_resident.py) appears in that diff. [resolution 0.12; plugin/test_resident_bridge.py]",
+                "resolution_probability": 0.12,
+                "cited_path": "plugin/test_resident_bridge.py"
+              },
+              {
+                "criterion": "uvx ruff check . reports All checks passed",
+                "status": "PASS",
+                "detail": "`uvx ruff check .` -> exit_code 0, output 'All checks passed!'.",
+                "resolution_probability": 0.12
+              }
+            ],
+            "summary": "All five criteria verified: both SIGTERM cells keep the exit-code and socket-removed assertions, the shared _sigterm_once helper captures stderr before kill and retries once on a fresh socket, pytest reports 29 passed with TestSignalShutdown at 3 passed, the diff against 8730de5 touches only plugin/test_resident_bridge.py, and ruff reports All checks passed."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-014\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Both SIGTERM cells in plugin/test_resident_bridge.py still assert the daemon exit code equals 128 + signal.SIGTERM AND that the socket path no longer exists after the signal: plugin/test_resident_bridge.py:573-577 (test_sigterm_removes_socket) asserts `rc == 128 + signal.SIGTERM` and `assert clean` where clean = `not sock.exists()` from _sigterm_once (L536); plugin/test_resident_bridge.py:637-641 (test_sigterm_mid_stream_still_cleans_up) has the identical pair of assertions. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 A shared _sigterm_once helper in plugin/test_resident_bridge.py retries exactly once on a fresh socket path and reads the daemon stderr before killing it, printing a [sigterm-cell] daemon stderr at hang marker: plugin/test_resident_bridge.py:490-536 defines _sigterm_once(sock, mid_stream) which starts a fresh daemon, and on TimeoutExpired does select.select([proc.stderr]) + os.read(...) to capture stderr BEFORE proc.kill() (L514-527), then prints f\"[sigterm-cell] daemon stderr at hang:\\n{daemon_err}\" to sys.stderr (L528-531). _sigterm_with_retry (L538-558) retries exactly once on a fresh path tmp_path/'s2.sock' (L552, L555-557) after the first attempt on tmp_path/'s.sock' (L550). [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 Running .venv/bin/python -m pytest plugin/test_resident_bridge.py passes, with TestSignalShutdown reporting 3 passed: `.venv/bin/python -m pytest plugin/test_resident_bridge.py -q` -> exit_code 0, '29 passed in 2.05s'. `-k TestSignalShutdown -v` -> exit_code 0, 'collected 29 items / 26 deselected / 3 selected ... 3 passed, 26 deselected in 0.28s'. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 The change touches only plugin/test_resident_bridge.py against base 8730de5; no production module is modified: `git diff 8730de5 4bdec78 --stat` (the INT-CI-014 implementation commit, merged as f3eca48) shows exactly one file: 'plugin/test_resident_bridge.py | 124 +++++++++++++++++++++++----------, 1 file changed, 96 insertions(+), 28 deletions(-)'. No production module (e.g. plugin/terminal_jail/interruptor_resident.py) appears in that diff. [resolution 0.12; plugin/test_resident_bridge.py]\n  \u2713 uvx ruff check . reports All checks passed: `uvx ruff check .` -> exit_code 0, output 'All checks passed!'.\nAll five criteria verified: both SIGTERM cells keep the exit-code and socket-removed assertions, the shared _sigterm_once helper captures stderr before kill and retries once on a fresh socket, pytest reports 29 passed with TestSignalShutdown at 3 passed, the diff against 8730de5 touches only plugin/test_resident_bridge.py, and ruff reports All checks passed.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-23T03:58:40.271226",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-23T03:58:40.294008+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3948,
+        "truncated": false,
+        "source": "git show e50fecef006f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 81211,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-014"
+  }
+}
