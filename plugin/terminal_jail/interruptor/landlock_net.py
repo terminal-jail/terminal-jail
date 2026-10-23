@@ -760,7 +760,10 @@ def _compute_sandbox_prefix() -> str:
     loader = loader_path()
     if loader is None:
         return _degrade("landlock-net-loader.py not found next to the plugin")
-    if not _world_traversable(loader):
+    # TJ-DF-051: in composed mode the payload runs as the owner, not nobody;
+    # skip the S_IXOTH gate that assumes a uid-mapped inner namespace.
+    composed = os.environ.get("TERMINAL_JAIL_COMPOSED", "").lower() == "on"
+    if not composed and not _world_traversable(loader):
         return _degrade(
             "landlock-net-loader.py is not reachable by the launch's payload "
             f"uid (a parent of {loader} lacks o+x — e.g. a 0700/0750 home)"
