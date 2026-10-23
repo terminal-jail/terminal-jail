@@ -40,13 +40,14 @@ _PLACEHOLDER_RE = re.compile(r"<[a-z-]+>|\{[a-z_]+\}|YOUR_|<PATH>")
 # (``terminal-jail <command> [args...]``), output/JSON templates
 # (``<reason>``, ``[bridge-error] <detail>``), install-path patterns
 # (``<prefix>/lib/terminal-jail/``). Those are not paste targets, so every
-# occurrence is allowlisted by (1-based line number, exact token); an
-# unlisted occurrence fails, and so does a stale entry — the table cannot
-# rot silently. The single entry below pins the warn-reason template that
-# TJ-DF-042's doc-pin test requires verbatim.
+# occurrence is allowlisted by exact token; an unlisted occurrence fails, and
+# so does a stale entry — the table cannot rot silently. The single entry below
+# pins the warn-reason template that TJ-DF-042's doc-pin test requires verbatim.
+# Keyed by TOKEN, not by line: a (line, token) table rots on every prose edit
+# above the token (DOC-15's +32 lines broke it while the prose was correct).
 _PROSE_PLACEHOLDER_RE = re.compile(r"<[^<>\n]{1,60}>|\{[a-z_][a-z0-9_]*\}|YOUR_|<PATH>")
-_PROSE_PLACEHOLDER_ALLOWLIST: dict[int, set[str]] = {
-    334: {"<the rule's block_message>"},
+_PROSE_PLACEHOLDER_ALLOWLIST: set[str] = {
+    "<the rule's block_message>",
 }
 
 # The capability vocabulary the page must carry (probe layer names, either
@@ -106,8 +107,8 @@ def test_inline_prompts_have_no_placeholders() -> None:
 
 def _prose_placeholder_violations(
     text: str,
-    allowlist: dict[int, set[str]] | None = None,
-) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+    allowlist: set[str] | None = None,
+) -> tuple[list[tuple[int, str]], list[str]]:
     """Placeholder hits OUTSIDE runnable commands, split unexpected/stale.
 
     Fenced bash/console/sh blocks and inline ``$`` prompts are covered by
@@ -120,15 +121,9 @@ def _prose_placeholder_violations(
         (unfenced.count("\n", 0, m.start()) + 1, m.group(0))
         for m in _PROSE_PLACEHOLDER_RE.finditer(unfenced)
     ]
-    unexpected = [
-        (line, tok) for line, tok in hits if tok not in allow.get(line, set())
-    ]
-    missing = [
-        (line, tok)
-        for line, toks in sorted(allow.items())
-        for tok in sorted(toks)
-        if (line, tok) not in hits
-    ]
+    unexpected = [(line, tok) for line, tok in hits if tok not in allow]
+    present = {tok for _, tok in hits}
+    missing = [tok for tok in sorted(allow) if tok not in present]
     return unexpected, missing
 
 
