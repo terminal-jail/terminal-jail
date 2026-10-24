@@ -210,6 +210,30 @@ def test_missing_uname_on_linux_host(cli_path: Path, tmp_path: Path) -> None:
         os.environ["PATH"] = orig_path
 
 
+# ── Filesystem-isolation warning verbosity ────────────────────────────────
+
+
+@pytest.mark.standalone_cli
+def test_fs_isolation_warning_verbosity(cli_path: Path) -> None:
+    """The degraded auto-sandbox warning is concise by default and verbose on request."""
+    default = _run_cli(cli_path, "--user", "true")
+    verbose = _run_cli(
+        cli_path,
+        "--user",
+        "true",
+        extra_env={"TERMINAL_JAIL_VERBOSE_WARN": "1"},
+    )
+    default_stderr = default.stderr.decode("utf-8", errors="replace")
+    verbose_stderr = verbose.stderr.decode("utf-8", errors="replace")
+    if "filesystem isolation degraded" not in default_stderr:
+        pytest.skip("HOST-NOT-DEGRADED-FSISO: mapped launch warning did not fire")
+    default_lines = default_stderr.splitlines()
+    verbose_lines = verbose_stderr.splitlines()
+    assert len(default_lines) < 10, default.stderr
+    assert len(verbose_lines) >= 10, verbose.stderr
+    assert "no filesystem isolation" in verbose_stderr
+
+
 # ── Command execution (host-constrained: unshare --mount-proc may fail) ─────
 
 
