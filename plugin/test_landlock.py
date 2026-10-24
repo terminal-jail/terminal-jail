@@ -2284,17 +2284,28 @@ class TestLoaderPath:
 
 class TestWorldTraversable:
     def test_open_chain_under_tmp_is_traversable(self, monkeypatch) -> None:
-        """The positive case anchored at /tmp (1777) so every ancestor's
-        mode is known: pin dir chmod 0755, mkdtemp dir chmod 0755, then
-        /tmp, then /.
+        """A private traversable fixture must not depend on shared /tmp.
 
-        The caller's TMPDIR may be private (a 0750 home or CI scratch
-        dir), so neither dir trusts the ambient -- or process-cached --
-        tempfile resolution: the pin is created directly under /tmp and
-        the host is created explicitly inside the pin."""
-        # A direct child of /tmp. mkdtemp makes 0700 dirs, so the pin
-        # needs its own chmod before the walk can cross it.
-        pin_dir = tempfile.mkdtemp(prefix="tj-pin-", dir="/tmp")
+        The positive chain uses an isolated system temporary filesystem with
+        an existing other-executable anchor.  The test only changes modes on
+        its own directories, so it remains valid when /tmp is private (0700).
+        """
+        anchors = (Path("/dev/shm"), Path("/var/tmp"), Path("/run"))
+        anchor = next(
+            (
+                candidate
+                for candidate in anchors
+                if candidate.is_dir()
+                and os.stat(candidate).st_mode & stat.S_IXOTH
+            ),
+            None,
+        )
+        if anchor is None:
+            pytest.fail("no isolated temporary anchor grants other-execute")
+
+        # mkdtemp makes 0700 dirs, so each fixture directory needs its own
+        # mode before the walk can cross it.  No shared ancestor is changed.
+        pin_dir = tempfile.mkdtemp(prefix="tj-pin-", dir=str(anchor))
         os.chmod(pin_dir, 0o755)
         monkeypatch.delenv("TMPDIR", raising=False)
         monkeypatch.delenv("TEMP", raising=False)
@@ -2303,8 +2314,8 @@ class TestWorldTraversable:
         try:
             os.chmod(host, 0o755)
             assert ll._world_traversable(os.path.join(host, "loader.py")) is True
-            # / itself terminates the walk True
-            assert ll._world_traversable("/tmp") is True
+            # The known other-executable anchor terminates the fixture chain.
+            assert ll._world_traversable(str(anchor)) is True
         finally:
             os.rmdir(host)
             os.rmdir(pin_dir)
