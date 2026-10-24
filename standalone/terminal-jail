@@ -1210,6 +1210,23 @@ if [ "$MODIFIED" -eq 1 ]; then
             # shellcheck disable=SC2086
             if unshare $_tj_prefix_flags true >/dev/null 2>&1; then
                 :  # rewrite prefix probe green — proceed to launch
+                # The namespace can be creatable while its payload interpreter
+                # is not executable for the namespace uid (for example, a
+                # python3 symlink under a non-traversable home). Probe the
+                # interpreter used by the composed Landlock rewrite before
+                # handing the command to bash; otherwise bash leaks rc=126
+                # and a raw Permission-denied diagnostic from inside it.
+                _tj_rewrite_payload="${CMD_STR#* bash -c }"
+                if [[ "$_tj_rewrite_payload" == *python3* ]]; then
+                    if unshare $_tj_prefix_flags bash -c 'python3 -c "pass"' >/dev/null 2>&1; then
+                        :  # the rewrite's payload interpreter is usable
+                    else
+                        interpreter_rc=$?
+                        echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's own prefix cannot execute its payload interpreter python3; unshare exit ${interpreter_rc} with prefix flags: unshare ${_tj_prefix_flags}); command not run — see README \"Graceful Degradation\"" >&2
+                        exit 2
+                    fi
+                fi
+                unset -v _tj_rewrite_payload
             else
                 prefix_rc=$?
                 # TJ-GAP-089: the rewrite's namespace is not creatable here.
