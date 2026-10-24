@@ -1992,8 +1992,9 @@ tasks:
   - plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable
     passes AND plugin/test_userns.py::TestDegradedFallback::test_degraded_host_warns_and_keeps_working
     passes AND CI green on main
-  status: in_progress
+  status: complete
   created_at: '2026-10-24T01:50:33.776671+00:00'
+  completed_at: '2026-10-24T09:14:31.055489+00:00'
 - id: TJ-REVIEW-074
   title: Fix auto-sandbox modify preflight diagnostic
   criteria:
@@ -2003,3 +2004,37 @@ tasks:
   status: complete
   created_at: '2026-10-24T02:17:36.519177+00:00'
   completed_at: '2026-10-24T02:45:58.660553+00:00'
+- id: TJ-REVIEW-071
+  title: "pidns probe reports FULL via auto/bwrap backend while bare unshare is denied\
+    \ \u2014 per-backend classification"
+  criteria:
+  - '1) python3 scripts/pidns-capability-probe.py exits 0 AND its output names the
+    backend it used (e.g. FULL (backend: bwrap) or DEGRADED (backend: unshare)); 2)
+    with TERMINAL_JAIL_JAIL_BACKEND=unshare exported the same probe must print DEGRADED
+    (or exit nonzero) on this host where plain unshare is AppArmor-denied, while the
+    default auto run stays exit 0; 3) grep -c TERMINAL_JAIL_JAIL_BACKEND docs/quickstart.md
+    exits 0 with count >= 1 AND quickstart 3a branches on backend, not on a single
+    FULL/DEGRADED label; 4) full pytest suite green (uv run pytest plugin -q) AND
+    gitreins guard PASS 4/4; 5) commit includes Co-authored-by trailer.'
+  status: complete
+  created_at: '2026-10-24T03:22:45.710796+00:00'
+  completed_at: '2026-10-24T03:50:21.562966+00:00'
+- id: REVIEW-TJ-016
+  title: 'Release runbook: remove unsupported --dry-run claim for release-cut-check.sh'
+  criteria:
+  - 'docs/releasing.md no longer presents --dry-run as a supported release-cut-check.sh
+    invocation: the dry-run-proof section states the versioned invocation scripts/release-cut-check.sh
+    vX.Y.Z is the read-only pre-cut check and that the script accepts only a positional
+    tag; verified by grepping docs/releasing.md for the removed flag phrasing'
+  - 'tests/test_release_workflow.py pins the documented behaviour: a test asserts
+    scripts/release-cut-check.sh --dry-run exits 2 with the usage message naming the
+    vX.Y.Z tag requirement, and the versioned pre-cut check is asserted read-only
+    (no tree mutation across a run) and green; verified by .venv/bin/python -m pytest
+    tests/test_release_workflow.py -q passing'
+  - the full suite stays green (.venv/bin/python -m pytest -q, no new failures) and
+    docs/releasing.md plus CHANGELOG.md document the change
+  - the implementation commit carries a ch:trace line naming row=REVIEW-TJ-016 with
+    spec, test and evidence paths
+  status: complete
+  created_at: '2026-10-24T08:09:49.386918+00:00'
+  completed_at: '2026-10-24T08:28:04.750833+00:00'
