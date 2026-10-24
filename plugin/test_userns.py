@@ -482,10 +482,19 @@ class TestDegradedFallback:
                 "HOST-MAPPED-FSISO: this host supports the mapped launch — "
                 "the degraded path is not reachable by default"
             )
-        result = _run_cli(CLI_SCRIPT, "--user", "echo", "tj015-degraded")
+        result = _run_cli(
+            CLI_SCRIPT,
+            "--user",
+            "echo",
+            "tj015-degraded",
+            extra_env={"TERMINAL_JAIL_VERBOSE_WARN": "0"},
+        )
         assert result.returncode == 0
         assert "tj015-degraded" in result.stdout
-        assert "no filesystem isolation" in result.stderr
+        assert (
+            "terminal-jail: filesystem isolation degraded (AppArmor); "
+            "set TERMINAL_JAIL_VERBOSE_WARN=1 for details"
+        ) in result.stderr
         # Machine-readable marker says degraded.
         marker = _run_cli(
             CLI_SCRIPT, "--user", "printenv", "TERMINAL_JAIL_FS_ISOLATION"

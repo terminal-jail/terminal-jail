@@ -361,10 +361,18 @@ def test_auto_keeps_unshare_mapped_launch_for_user(tmp_path: Path) -> None:
 def test_auto_uses_bwrap_for_user_when_mapping_unavailable(tmp_path: Path) -> None:
     """Degraded uid mapping => the bwrap backend still adds private /proc."""
     path = _make_stub_path(tmp_path)
-    env = _env(tmp_path, path, TJ_UNSHARE_PROBE_EXIT="1")
+    env = _env(
+        tmp_path,
+        path,
+        TJ_UNSHARE_PROBE_EXIT="1",
+        TERMINAL_JAIL_VERBOSE_WARN="0",
+    )
     result = _run_cli("--no-interruptor", "--user", "cmd", env=env)
     assert result.returncode == 0, result.stderr
-    assert "no filesystem isolation" in result.stderr  # unchanged warning
+    assert (
+        "terminal-jail: filesystem isolation degraded (AppArmor); "
+        "set TERMINAL_JAIL_VERBOSE_WARN=1 for details"
+    ) in result.stderr
     launch = _records(Path(env["TJ_STUB_LOG"]))[1]
     assert _payload_argv(launch) == [
         "bash",
