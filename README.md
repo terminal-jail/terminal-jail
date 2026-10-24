@@ -354,6 +354,8 @@ The same verdict contract is served by two transports:
 | Cost per verdict | ~2 ms engine + full interpreter start | ~2 ms engine + socket round-trip |
 | Deployment | Zero setup — every host | Optional; a host must keep the daemon alive (systemd unit, supervisor) |
 
+**Single-client serialization.** The resident daemon serves one client at a time; concurrent clients queue behind each other (no parallelism).
+
 **Measured on this repo's reference host** (`karaHermes-mde-7840hs`, Linux x86_64,
 Python 3.14.5, 2026-10-07, `scripts/bench_bridge.py --n 50`, wall-clock per verdict;
 one-shot includes interpreter start; resident measured against a warm daemon, same
