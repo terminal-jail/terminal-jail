@@ -1947,3 +1947,12 @@ tasks:
   status: complete
   created_at: '2026-10-23T19:21:59.755390+00:00'
   completed_at: '2026-10-23T19:22:00.402599+00:00'
+- id: E2E-001
+  title: E2E battery run 54
+  criteria:
+  - pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend
+    parity has zero unexplained divergences; benchmark thresholds pass; PID namespace
+    and filesystem isolation layers are reported honestly
+  status: complete
+  created_at: '2026-10-24T00:26:42.621373+00:00'
+  completed_at: '2026-10-24T00:26:48.203607+00:00'

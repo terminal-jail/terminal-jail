@@ -1,0 +1,128 @@
+{
+  "task_id": "E2E-001",
+  "task_title": "E2E battery run 54",
+  "task_criteria": [
+    "pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend parity has zero unexplained divergences; benchmark thresholds pass; PID namespace and filesystem isolation layers are reported honestly"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "91a102c764cd2e686be1225747f796279087d588",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T002600.443033Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n7:26PM INF scanned ~5201267 bytes (5.20 MB) in 347ms\n7:26PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 237 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T002600.443033Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2066 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2051 passed, 15 skipped in 161.05s (0:02:41) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T002600.443033Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend parity has zero unexplained divergences; benchmark thresholds pass; PID namespace and filesystem isolation layers are reported honestly: All six sub-claims independently re-verified on the working tree. (1) pytest: `.venv/bin/python -m pytest -q -rs -p no:cacheprovider` -> '2051 passed, 15 skipped in 393.87s (0:06:33)', exit 0 (second confirming run: '2051 passed, 15 skipped in 389.01s'). (2) Live engine probe: `.venv/bin/python scripts/e2e-battery-live-probe.py` -> 14 PASS lines incl. 'PASS default-allow-provenance -> action=allow rule_id=None' and 'LIVE-PROBE: 13/13 PASS', EXIT=0. (3) YAML mirror parity: `scripts/yaml-mirror-parity-probe.py` -> 'engine: 55 rules (36 block / 9 sandbox / 10 allow)', '[ids] yaml=55 engine=55 only-in-yaml=[] only-in-engine=[] -> OK', '[totals] block=36/36 sandbox=9/9 allow=10/10 total=55/55 -> OK', 'ALL PROBES PASS', EXIT=0. (4) Backend parity: `scripts/backend-parity-battery.py` -> 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN'; `--json` cell dump shows 0 DIFFERS cells (SAME x8, KNOWN-LIMIT x2 = unshare host /proc per docs/backend-parity.md known limit (a) at line 72, and FS uid-mapping per known limit (c) at line 324; FAIL-CLOSED-PROVEN x3). (5) Benchmarks: `scripts/arg_size_benchmark.py --ceiling-check` -> 'ceiling check OK (20x pins, see tests/test_arg_size_ceiling.py)' EXIT=0; `scripts/benchmark-interruptor.py` -> cold 3.77ms PASS (<50ms), warm 3.650ms PASS (<5ms), 1KB parse 0.316ms PASS (<10ms), 500-rule eval 0.136ms PASS (<5ms), EXIT=0; `scripts/bench_bridge.py` -> 'Cost guard OK: worst one-shot p50 164.2ms < 200ms ceiling' EXIT=0. (6) Isolation honesty: `scripts/pidns-capability-probe.py` -> 'FULL (backend: bwrap)' (per-backend verdict, not an all-green claim) and `scripts/fs-isolation-probe.py` -> 'DEGRADED: mapped launch failed (rc=1, stderr=unshare: setgroups failed: Operation not permitted); causes: uid-mapping denied ... [kernel.apparmor_restrict_unprivileged_userns=1]. remediation: ...' \u2014 the degraded layer is named with cause and remediation rather than reported green, and the backend battery propagates both verbatim (cells 7). The 15 skips are likewise honest host-capability markers, not silent passes: HOST-DEGRADED-UNSHARE (test_env_scrub.py:481), HOST-DEGRADED-FSISO (test_env_scrub.py:543, test_userns.py:443/540), HOST-DENIED-USERNS (test_install.py:1016), HOST-DENIES-MAPPED (test_tjdf047_fs_degrade_plain_allow.py:409), seccomp CAP_SYS_ADMIN x3, container-only composed x3, SIGHUP reload, and landlock 'host verdict is FULL, not DEGRADED'.\nEvery element of the E2E battery claim was reproduced live: 2051 passed/15 skipped, live probe 13/13, YAML parity 55/55, zero DIFFERS backend-parity cells, all benchmark thresholds green, and the PID-namespace (FULL/bwrap) and filesystem-isolation (DEGRADED, with cause and remediation) layers reported honestly.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend parity has zero unexplained divergences; benchmark thresholds pass; PID namespace and filesystem isolation layers are reported honestly: All six sub-claims independently re-verified on the working tree. (1) pytest: `.venv/bin/python -m pytest -q -rs -p no:cacheprovider` -> '2051 passed, 15 skipped in 393.87s (0:06:33)', exit 0 (second confirming run: '2051 passed, 15 skipped in 389.01s'). (2) Live engine probe: `.venv/bin/python scripts/e2e-battery-live-probe.py` -> 14 PASS lines incl. 'PASS default-allow-provenance -> action=allow rule_id=None' and 'LIVE-PROBE: 13/13 PASS', EXIT=0. (3) YAML mirror parity: `scripts/yaml-mirror-parity-probe.py` -> 'engine: 55 rules (36 block / 9 sandbox / 10 allow)', '[ids] yaml=55 engine=55 only-in-yaml=[] only-in-engine=[] -> OK', '[totals] block=36/36 sandbox=9/9 allow=10/10 total=55/55 -> OK', 'ALL PROBES PASS', EXIT=0. (4) Backend parity: `scripts/backend-parity-battery.py` -> 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN'; `--json` cell dump shows 0 DIFFERS cells (SAME x8, KNOWN-LIMIT x2 = unshare host /proc per docs/backend-parity.md known limit (a) at line 72, and FS uid-mapping per known limit (c) at line 324; FAIL-CLOSED-PROVEN x3). (5) Benchmarks: `scripts/arg_size_benchmark.py --ceiling-check` -> 'ceiling check OK (20x pins, see tests/test_arg_size_ceiling.py)' EXIT=0; `scripts/benchmark-interruptor.py` -> cold 3.77ms PASS (<50ms), warm 3.650ms PASS (<5ms), 1KB parse 0.316ms PASS (<10ms), 500-rule eval 0.136ms PASS (<5ms), EXIT=0; `scripts/bench_bridge.py` -> 'Cost guard OK: worst one-shot p50 164.2ms < 200ms ceiling' EXIT=0. (6) Isolation honesty: `scripts/pidns-capability-probe.py` -> 'FULL (backend: bwrap)' (per-backend verdict, not an all-green claim) and `scripts/fs-isolation-probe.py` -> 'DEGRADED: mapped launch failed (rc=1, stderr=unshare: setgroups failed: Operation not permitted); causes: uid-mapping denied ... [kernel.apparmor_restrict_unprivileged_userns=1]. remediation: ...' \u2014 the degraded layer is named with cause and remediation rather than reported green, and the backend battery propagates both verbatim (cells 7). The 15 skips are likewise honest host-capability markers, not silent passes: HOST-DEGRADED-UNSHARE (test_env_scrub.py:481), HOST-DEGRADED-FSISO (test_env_scrub.py:543, test_userns.py:443/540), HOST-DENIED-USERNS (test_install.py:1016), HOST-DENIES-MAPPED (test_tjdf047_fs_degrade_plain_allow.py:409), seccomp CAP_SYS_ADMIN x3, container-only composed x3, SIGHUP reload, and landlock 'host verdict is FULL, not DEGRADED'.\nEvery element of the E2E battery claim was reproduced live: 2051 passed/15 skipped, live probe 13/13, YAML parity 55/55, zero DIFFERS backend-parity cells, all benchmark thresholds green, and the PID-namespace (FULL/bwrap) and filesystem-isolation (DEGRADED, with cause and remediation) layers reported honestly.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend parity has zero unexplained divergences; benchmark thresholds pass; PID namespace and filesystem isolation layers are reported honestly",
+                "status": "PASS",
+                "detail": "All six sub-claims independently re-verified on the working tree. (1) pytest: `.venv/bin/python -m pytest -q -rs -p no:cacheprovider` -> '2051 passed, 15 skipped in 393.87s (0:06:33)', exit 0 (second confirming run: '2051 passed, 15 skipped in 389.01s'). (2) Live engine probe: `.venv/bin/python scripts/e2e-battery-live-probe.py` -> 14 PASS lines incl. 'PASS default-allow-provenance -> action=allow rule_id=None' and 'LIVE-PROBE: 13/13 PASS', EXIT=0. (3) YAML mirror parity: `scripts/yaml-mirror-parity-probe.py` -> 'engine: 55 rules (36 block / 9 sandbox / 10 allow)', '[ids] yaml=55 engine=55 only-in-yaml=[] only-in-engine=[] -> OK', '[totals] block=36/36 sandbox=9/9 allow=10/10 total=55/55 -> OK', 'ALL PROBES PASS', EXIT=0. (4) Backend parity: `scripts/backend-parity-battery.py` -> 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN'; `--json` cell dump shows 0 DIFFERS cells (SAME x8, KNOWN-LIMIT x2 = unshare host /proc per docs/backend-parity.md known limit (a) at line 72, and FS uid-mapping per known limit (c) at line 324; FAIL-CLOSED-PROVEN x3). (5) Benchmarks: `scripts/arg_size_benchmark.py --ceiling-check` -> 'ceiling check OK (20x pins, see tests/test_arg_size_ceiling.py)' EXIT=0; `scripts/benchmark-interruptor.py` -> cold 3.77ms PASS (<50ms), warm 3.650ms PASS (<5ms), 1KB parse 0.316ms PASS (<10ms), 500-rule eval 0.136ms PASS (<5ms), EXIT=0; `scripts/bench_bridge.py` -> 'Cost guard OK: worst one-shot p50 164.2ms < 200ms ceiling' EXIT=0. (6) Isolation honesty: `scripts/pidns-capability-probe.py` -> 'FULL (backend: bwrap)' (per-backend verdict, not an all-green claim) and `scripts/fs-isolation-probe.py` -> 'DEGRADED: mapped launch failed (rc=1, stderr=unshare: setgroups failed: Operation not permitted); causes: uid-mapping denied ... [kernel.apparmor_restrict_unprivileged_userns=1]. remediation: ...' \u2014 the degraded layer is named with cause and remediation rather than reported green, and the backend battery propagates both verbatim (cells 7). The 15 skips are likewise honest host-capability markers, not silent passes: HOST-DEGRADED-UNSHARE (test_env_scrub.py:481), HOST-DEGRADED-FSISO (test_env_scrub.py:543, test_userns.py:443/540), HOST-DENIED-USERNS (test_install.py:1016), HOST-DENIES-MAPPED (test_tjdf047_fs_degrade_plain_allow.py:409), seccomp CAP_SYS_ADMIN x3, container-only composed x3, SIGHUP reload, and landlock 'host verdict is FULL, not DEGRADED'.",
+                "resolution_probability": 0.12
+              }
+            ],
+            "summary": "Every element of the E2E battery claim was reproduced live: 2051 passed/15 skipped, live probe 13/13, YAML parity 55/55, zero DIFFERS backend-parity cells, all benchmark thresholds green, and the PID-namespace (FULL/bwrap) and filesystem-isolation (DEGRADED, with cause and remediation) layers reported honestly.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: E2E-001\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 pytest full suite passes; live engine probe 13/13; YAML mirror parity 55/55; backend parity has zero unexplained divergences; benchmark thresholds pass; PID namespace and filesystem isolation layers are reported honestly: All six sub-claims independently re-verified on the working tree. (1) pytest: `.venv/bin/python -m pytest -q -rs -p no:cacheprovider` -> '2051 passed, 15 skipped in 393.87s (0:06:33)', exit 0 (second confirming run: '2051 passed, 15 skipped in 389.01s'). (2) Live engine probe: `.venv/bin/python scripts/e2e-battery-live-probe.py` -> 14 PASS lines incl. 'PASS default-allow-provenance -> action=allow rule_id=None' and 'LIVE-PROBE: 13/13 PASS', EXIT=0. (3) YAML mirror parity: `scripts/yaml-mirror-parity-probe.py` -> 'engine: 55 rules (36 block / 9 sandbox / 10 allow)', '[ids] yaml=55 engine=55 only-in-yaml=[] only-in-engine=[] -> OK', '[totals] block=36/36 sandbox=9/9 allow=10/10 total=55/55 -> OK', 'ALL PROBES PASS', EXIT=0. (4) Backend parity: `scripts/backend-parity-battery.py` -> 'zero unexplained divergences: every cell is SAME, KNOWN-LIMIT (documented) or FAIL-CLOSED-PROVEN'; `--json` cell dump shows 0 DIFFERS cells (SAME x8, KNOWN-LIMIT x2 = unshare host /proc per docs/backend-parity.md known limit (a) at line 72, and FS uid-mapping per known limit (c) at line 324; FAIL-CLOSED-PROVEN x3). (5) Benchmarks: `scripts/arg_size_benchmark.py --ceiling-check` -> 'ceiling check OK (20x pins, see tests/test_arg_size_ceiling.py)' EXIT=0; `scripts/benchmark-interruptor.py` -> cold 3.77ms PASS (<50ms), warm 3.650ms PASS (<5ms), 1KB parse 0.316ms PASS (<10ms), 500-rule eval 0.136ms PASS (<5ms), EXIT=0; `scripts/bench_bridge.py` -> 'Cost guard OK: worst one-shot p50 164.2ms < 200ms ceiling' EXIT=0. (6) Isolation honesty: `scripts/pidns-capability-probe.py` -> 'FULL (backend: bwrap)' (per-backend verdict, not an all-green claim) and `scripts/fs-isolation-probe.py` -> 'DEGRADED: mapped launch failed (rc=1, stderr=unshare: setgroups failed: Operation not permitted); causes: uid-mapping denied ... [kernel.apparmor_restrict_unprivileged_userns=1]. remediation: ...' \u2014 the degraded layer is named with cause and remediation rather than reported green, and the backend battery propagates both verbatim (cells 7). The 15 skips are likewise honest host-capability markers, not silent passes: HOST-DEGRADED-UNSHARE (test_env_scrub.py:481), HOST-DEGRADED-FSISO (test_env_scrub.py:543, test_userns.py:443/540), HOST-DENIED-USERNS (test_install.py:1016), HOST-DENIES-MAPPED (test_tjdf047_fs_degrade_plain_allow.py:409), seccomp CAP_SYS_ADMIN x3, container-only composed x3, SIGHUP reload, and landlock 'host verdict is FULL, not DEGRADED'.\nEvery element of the E2E battery claim was reproduced live: 2051 passed/15 skipped, live probe 13/13, YAML parity 55/55, zero DIFFERS backend-parity cells, all benchmark thresholds green, and the PID-namespace (FULL/bwrap) and filesystem-isolation (DEGRADED, with cause and remediation) layers reported honestly.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-24T00:46:54.468882",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-24T00:46:54.657476+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 33419,
+        "truncated": false,
+        "source": "git show 91a102c764cd"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1472,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "E2E-001"
+  }
+}
