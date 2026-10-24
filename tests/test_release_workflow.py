@@ -140,6 +140,13 @@ def test_check_script_rejects_malformed_tag() -> None:
     assert "not vX.Y.Z" in proc.stderr
 
 
+def test_check_script_rejects_unsupported_dry_run_flag() -> None:
+    proc = _run_script(PROJECT_ROOT, "--dry-run")
+    assert proc.returncode == 2
+    assert "tag '--dry-run' is not vX.Y.Z" in proc.stderr
+    assert "vX.Y.Z" in proc.stderr
+
+
 def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     """GREEN path: new tag, clean tree, matching version, green CI -> exit 0.
 
@@ -222,6 +229,14 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
         timeout=60,
     )
 
+    before_status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=clone,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout
     proc = _run_script(
         clone,
         tag,
@@ -229,7 +244,16 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
             "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
         },
     )
+    after_status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=clone,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout
     assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    assert after_status == before_status, "versioned pre-cut check mutated the tree"
     assert f"OK: tag '{tag}' does not exist yet" in proc.stdout
     assert "OK: working tree clean" in proc.stdout
     assert f"OK: pyproject.toml version {tag[1:]} == tag {tag}" in proc.stdout

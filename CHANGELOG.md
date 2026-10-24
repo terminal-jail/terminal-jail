@@ -20,6 +20,9 @@
 
 ### Fixed
 
+- **Release runbook (`REVIEW-TJ-016`):** removed the unsupported `--dry-run`
+  claim for `release-cut-check.sh` and pinned the versioned read-only pre-cut
+  check and rejection behavior in the release workflow tests.
 - **Tests (QA-TERMINAL-JAIL-20):** the two environment-dependent failures
   that kept CI red across 6 consecutive runs (the `Python 3.11/3.12/3.13`
   jobs) are fixed by correcting the TESTS' environment assumptions — the

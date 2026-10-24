@@ -97,10 +97,11 @@ publish step cannot run outside GitHub without a real token by design):
    (`contents: write`), build step (`python -m build`), checksum step
    (`sha256sum -c`) and publish step (`gh release create`) are present —
    this is the act-style structural dry-run and it runs in CI on every PR.
-2. Live script dry-run: `scripts/release-cut-check.sh v1.3.0` on a clean
+2. Versioned pre-cut check: `scripts/release-cut-check.sh vX.Y.Z` on a clean
    tree exercises every pre-cut gate (tag absence, version match, CI
-   green) end to end without touching anything — its `--dry-run` behaviour
-   is the whole script: it is read-only by construction.
+   green) end to end without touching anything. The script accepts only a
+   positional tag (no flags) and is read-only by construction, so running
+   this versioned invocation is the dry run.
 3. The publish step itself is proven only by a real tag push (see steps
    above: `gh release view vX.Y.Z` then `sha256sum -c` on the downloaded
    assets). Nothing else counts — the workflow fails loudly rather than
