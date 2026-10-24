@@ -81,10 +81,6 @@ if [ -n "${TJ_DEGRADED:-}" ] && [ "$has_user" -eq 0 ]; then
 fi
 if [ "$bash_idx" -ge 0 ]; then
     bash_command="${args[$((bash_idx + 2))]:-}"
-    if [ -n "${TJ_INTERPRETER_PROBE_FAIL:-}" ] && [[ "$bash_command" == *"python3 -c"* ]]; then
-        echo "bash: line 1: python3: Permission denied" >&2
-        exit 126
-    fi
     exec "${args[@]:$bash_idx}"
 fi
 exit "${TJ_PROBE_EXIT:-0}"
@@ -129,21 +125,6 @@ json.dump(response, sys.stdout)
 sys.stdout.write("\\n")
 """
 
-# Payload interpreter stand-in: wrapper-owned Python invocations (the bridge
-# and JSON parser) still use the real interpreter, while a rewritten payload
-# gets the controlled Permission-denied shape from the reviewed launch path.
-_PYTHON3_STUB = """#!/usr/bin/env bash
-case "${1:-}" in
-    -c|*bridge-stub.py|*interruptor_bridge.py)
-        exec "${TJ_REAL_PYTHON3:-/usr/bin/python3}" "$@"
-        ;;
-    *)
-        echo "bash: line 1: python3: Permission denied" >&2
-        exit 126
-        ;;
-esac
-"""
-
 
 def _make_stub_path(tmp_path: Path) -> str:
     """Curated PATH: real bash/uname/python3 plus the argv-recording stub.
@@ -183,7 +164,6 @@ def _env(
     mode: str = "modify",
     probe_exit: str = "0",
     bridge: Path | None = None,
-    interpreter_probe_fail: bool = False,
 ) -> dict[str, str]:
     bridge_stub = tmp_path / "bridge-stub.py"
     bridge_stub.write_text(_BRIDGE_STUB, encoding="utf-8")
@@ -204,8 +184,6 @@ def _env(
     }
     if degraded:
         env["TJ_DEGRADED"] = "1"
-    if interpreter_probe_fail:
-        env["TJ_INTERPRETER_PROBE_FAIL"] = "1"
     Path(env["HOME"]).mkdir(exist_ok=True)
     return env
 
@@ -260,15 +238,18 @@ def test_degraded_host_modify_executes_and_propagates_inner_rc(tmp_path: Path) -
     assert "auto-sandbox modify unavailable" not in result.stderr
 
     records = _records(env["TJ_UNSHARE_STUB_LOG"])
-    # Exactly two invocations: the rewrite's own prefix probe, then the rewrite.
-    assert len(records) == 2, records
+    # Three invocations: the rewrite's namespace probe, its interpreter
+    # preflight, then the rewrite itself.
+    assert len(records) == 3, records
     assert _bare_mode_probes(records) == [], (
         "the wrapper ran its bare-mode preflight for an already-prefixed rewrite"
     )
     assert records[0] == ["--user", "--pid", "--fork", "--kill-child=SIGKILL", "true"]
-    assert records[1][:4] == ["--user", "--pid", "--fork", "--kill-child=SIGKILL"]
     assert records[1][4:6] == ["bash", "-c"]
-    assert str(inner) in records[1][6]
+    assert "command -v" in records[1][6]
+    assert records[2][:4] == ["--user", "--pid", "--fork", "--kill-child=SIGKILL"]
+    assert records[2][4:6] == ["bash", "-c"]
+    assert str(inner) in records[2][6]
 
     # Bridge command reconstruction is unchanged: the reconstructed CMD_STR is
     # what the bridge evaluated (quote-preserving, one arg per token).
@@ -310,19 +291,19 @@ def test_degraded_host_uncreatable_rewrite_prefix_is_honest(tmp_path: Path) -> N
 def test_modify_rewrite_interpreter_denial_is_named(tmp_path: Path) -> None:
     """A rewrite must preflight its interpreter, not leak rc=126 from bash."""
     path = _make_stub_path(tmp_path)
-    python3 = Path(path) / "python3"
-    python3.unlink()
-    python3.write_text(_PYTHON3_STUB, encoding="utf-8")
-    python3.chmod(python3.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    denied_interpreter = tmp_path / "denied-python3"
+    denied_interpreter.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    denied_interpreter.chmod(0o644)
+    pytest_executable = Path(path) / "pytest"
+    pytest_executable.write_text(f"#!{denied_interpreter}\n", encoding="utf-8")
+    pytest_executable.chmod(0o755)
 
     env = _env(
         tmp_path,
         path,
         degraded=False,
-        interpreter_probe_fail=True,
     )
-    env["TJ_REAL_PYTHON3"] = shutil.which("python3") or "/usr/bin/python3"
-    result = _run_cli("python3", str(tmp_path / "payload.py"), env=env)
+    result = _run_cli("pytest", "--version", env=env)
 
     assert result.returncode == 2, result.stderr
     assert "auto-sandbox modify unavailable" in result.stderr
@@ -330,7 +311,8 @@ def test_modify_rewrite_interpreter_denial_is_named(tmp_path: Path) -> None:
     records = _records(env["TJ_UNSHARE_STUB_LOG"])
     assert len(records) == 2, records
     assert records[0][-1] == "true"
-    assert records[1][-3:] == ["bash", "-c", 'python3 -c "pass"'], records
+    assert records[1][4:6] == ["bash", "-c"], records
+    assert "command -v" in records[1][6], records
 
 
 # ── 4. DEGRADED host + no rewrite: bare mode stays fail-closed ─────────────

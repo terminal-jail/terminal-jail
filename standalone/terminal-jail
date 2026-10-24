@@ -595,6 +595,10 @@ print(r.get('modified') or r.get('command', ''))
             # The modified command ALREADY contains the unshare prefix (the
             # bridge prepends it). Mark so we don't double-wrap below.
             MODIFIED=1
+            # Preserve the original command name for the rewrite's interpreter
+            # preflight below; the positional parameters become the composed
+            # `bash -c` trampoline immediately after this branch.
+            MODIFIED_COMMAND="${1:-}"
             # Unset the args — we'll execute via bash -c with the modified command
             set --
             set -- bash -c "$CMD_STR"
@@ -1210,23 +1214,42 @@ if [ "$MODIFIED" -eq 1 ]; then
             # shellcheck disable=SC2086
             if unshare $_tj_prefix_flags true >/dev/null 2>&1; then
                 :  # rewrite prefix probe green — proceed to launch
-                # The namespace can be creatable while its payload interpreter
-                # is not executable for the namespace uid (for example, a
-                # python3 symlink under a non-traversable home). Probe the
-                # interpreter used by the composed Landlock rewrite before
-                # handing the command to bash; otherwise bash leaks rc=126
-                # and a raw Permission-denied diagnostic from inside it.
-                _tj_rewrite_payload="${CMD_STR#* bash -c }"
-                if [[ "$_tj_rewrite_payload" == *python3* ]]; then
-                    if unshare $_tj_prefix_flags bash -c 'python3 -c "pass"' >/dev/null 2>&1; then
-                        :  # the rewrite's payload interpreter is usable
-                    else
-                        interpreter_rc=$?
-                        echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's own prefix cannot execute its payload interpreter python3; unshare exit ${interpreter_rc} with prefix flags: unshare ${_tj_prefix_flags}); command not run — see README \"Graceful Degradation\"" >&2
-                        exit 2
-                    fi
+                # The namespace can be creatable while the command's own
+                # interpreter is not executable for the namespace uid (for
+                # example, pytest's shebang points into a non-traversable
+                # virtualenv). Probe that command under the rewrite prefix
+                # before handing it to bash; otherwise bash leaks rc=126 and
+                # a raw Permission-denied diagnostic from inside it.
+                if unshare $_tj_prefix_flags bash -c '
+                    _tj_command_path=$(command -v "$1" 2>/dev/null) || exit 127
+                    case "$_tj_command_path" in
+                        /*) ;;
+                        *) exit 0 ;;
+                    esac
+                    [ -x "$_tj_command_path" ] || exit 126
+                    IFS= read -r _tj_shebang < "$_tj_command_path" || _tj_shebang=""
+                    case "$_tj_shebang" in
+                        "#!"*)
+                            _tj_interpreter="${_tj_shebang#\#!}"
+                            _tj_interpreter="${_tj_interpreter%% *}"
+                            [ -x "$_tj_interpreter" ] || exit 126
+                            case "$_tj_interpreter" in
+                                *python*)
+                                    "$_tj_interpreter" -c ':' >/dev/null 2>&1 || exit 126
+                                    ;;
+                                *)
+                                    "$_tj_interpreter" --version >/dev/null 2>&1 || exit 126
+                                    ;;
+                            esac
+                            ;;
+                    esac
+                ' terminal-jail "$MODIFIED_COMMAND" >/dev/null 2>&1; then
+                    :  # the rewrite's payload interpreter is usable
+                else
+                    interpreter_rc=$?
+                    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's own prefix cannot execute the payload interpreter for '${MODIFIED_COMMAND}'; unshare exit ${interpreter_rc} with prefix flags: unshare ${_tj_prefix_flags}); command not run — see README \"Graceful Degradation\"" >&2
+                    exit 2
                 fi
-                unset -v _tj_rewrite_payload
             else
                 prefix_rc=$?
                 # TJ-GAP-089: the rewrite's namespace is not creatable here.
