@@ -439,7 +439,49 @@ name is catalogued in [docs/rule-catalog.md](rule-catalog.md) and the full
 contract (including the TJ-GAP-070 verdict table) in
 [specs/interruptor.md](../specs/interruptor.md) §3.5–§3.6.
 
-### 3a3. Kernel containment tiers (Landlock)
+### 3a3. Resident bridge transport (optional daemon)
+
+The same verdict contract is also available through the **resident bridge**:
+`plugin/terminal_jail/interruptor_resident.py` runs as a long-lived AF_UNIX
+stream daemon, while client invocations send one command and print its verdict.
+This avoids a full Python interpreter start for every verdict. The daemon binds a
+Unix socket and tightens its permissions to **0600** before accepting requests,
+so the socket is accessible only to its owner.
+
+Start the daemon in the background with an explicit socket path:
+
+```bash
+TERMINAL_JAIL_BRIDGE_SOCK=/tmp/tj.sock \
+  python3 plugin/terminal_jail/interruptor_resident.py --serve &
+```
+
+The `TERMINAL_JAIL_BRIDGE_SOCK` environment variable sets the path to the Unix
+socket. If it is unset, the default is
+`~/.local/run/terminal-jail/interruptor.sock`. Query the resident daemon with
+`--client`:
+
+```bash
+TERMINAL_JAIL_BRIDGE_SOCK=/tmp/tj.sock \
+  python3 plugin/terminal_jail/interruptor_resident.py \
+  --client --command "ls -la"
+```
+
+A client that cannot reach the daemon does not answer with an allow verdict. By
+default, it exits **3** with no stdout so the caller can fall back to the
+one-shot bridge. Add `--fallback` to evaluate through the one-shot bridge
+in-process when there is no daemon:
+
+```bash
+TERMINAL_JAIL_BRIDGE_SOCK=/tmp/tj.sock \
+  python3 plugin/terminal_jail/interruptor_resident.py \
+  --client --fallback --command "ls -la"
+```
+
+The daemon handles `SIGTERM` as a clean shutdown: it closes the listener and
+removes the Unix socket. Signal the Python daemon process itself, not an outer
+shell wrapper, so the socket is cleaned up.
+
+### 3a4. Kernel containment tiers (Landlock)
 
 Beside the namespace/scrub layer above, terminal-jail ships two **kernel
 Landlock tiers**. If your install printed a `containment ceiling (Landlock)`
