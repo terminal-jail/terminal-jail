@@ -2295,8 +2295,7 @@ class TestWorldTraversable:
             (
                 candidate
                 for candidate in anchors
-                if candidate.is_dir()
-                and os.stat(candidate).st_mode & stat.S_IXOTH
+                if candidate.is_dir() and os.stat(candidate).st_mode & stat.S_IXOTH
             ),
             None,
         )
