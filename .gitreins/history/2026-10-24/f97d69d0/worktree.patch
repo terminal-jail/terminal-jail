@@ -1,0 +1,27 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 3cb97ff..a82a9b6 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2038,3 +2038,13 @@ tasks:
+   status: complete
+   created_at: '2026-10-24T08:09:49.386918+00:00'
+   completed_at: '2026-10-24T08:28:04.750833+00:00'
++- id: TJ-DF-055
++  title: README resident daemon wrapper signal guidance
++  criteria:
++  - README.md resident section (lines 346-412) explicitly instructs operators to signal
++    the Python daemon process, not the wrapping shell; verify the criterion with the
++    exact grep from the task row. This task is documentation-only; do not change wrapper
++    behavior.
++  status: complete
++  created_at: '2026-10-24T09:57:02.053268+00:00'
++  completed_at: '2026-10-24T10:20:03.852672+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index dfb8b13..d0953b4 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -167,3 +167,4 @@
+ {"ts": 1792804852.3580494, "tokens_in": 156824, "tokens_out": 3442, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792805837.3379753, "tokens_in": 130424, "tokens_out": 2809, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792831741.5920773, "tokens_in": 460344, "tokens_out": 4189, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1792837695.8322904, "tokens_in": 227378, "tokens_out": 2310, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}

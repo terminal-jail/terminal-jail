@@ -1,0 +1,31 @@
+commit af869b2e0ee13c21b0172f4a773624fcfc5de48d
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Oct 24 05:04:28 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Oct 24 05:04:28 2026 -0500
+
+    docs(readme): TJ-DF-055 — explain resident daemon signal target
+    
+    Addresses TJ-DF-055.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/README.md b/README.md
+index 99afbd7..1fa2f99 100644
+--- a/README.md
++++ b/README.md
+@@ -391,6 +391,11 @@ dominated by engine parse cost on the padded string, not the socket.)
+   `~/.local/run/terminal-jail/interruptor.sock`), then
+   `interruptor_resident.py --client --command "<cmd>"` per verdict.
+ 
++**Resident signal target.** If the daemon is launched through `bash -lic` or another
++wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the
++Python daemon process, not the wrapping shell; the daemon can then exit cleanly and
++remove its socket.
++
+ **Fail-closed discipline is identical on both transports.** The resident serves the
+ same mode-aware error envelopes (`[bridge-error]`, block in enforce / allow-with-warning
+ in warn mode, `layer: null` on error envelopes). A client that cannot reach the socket

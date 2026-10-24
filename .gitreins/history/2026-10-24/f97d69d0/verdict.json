@@ -1,0 +1,129 @@
+{
+  "task_id": "TJ-DF-055",
+  "task_title": "README resident daemon wrapper signal guidance",
+  "task_criteria": [
+    "README.md resident section (lines 346-412) explicitly instructs operators to signal the Python daemon process, not the wrapping shell; verify the criterion with the exact grep from the task row. This task is documentation-only; do not change wrapper behavior."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "af869b2e0ee13c21b0172f4a773624fcfc5de48d",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T100428.499787Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:20AM INF scanned ~5207466 bytes (5.21 MB) in 331ms\n5:20AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 238 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T100428.499787Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2070 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2055 passed, 15 skipped in 197.18s (0:03:17) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T100428.499787Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 README.md resident section (lines 346-412) explicitly instructs operators to signal the Python daemon process, not the wrapping shell; verify the criterion with the exact grep from the task row. This task is documentation-only; do not change wrapper behavior.: README.md:394-397 (inside the resident section headed at README.md:347 '### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)', well within lines 346-412) reads: '**Resident signal target.** If the daemon is launched through `bash -lic` or another wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the Python daemon process, not the wrapping shell; the daemon can then exit cleanly and remove its socket.' Exact grep `grep -n \"Signal the\" README.md` -> `395:wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the` (exit 0), and `grep -n \"Resident signal target\" README.md` -> `394:`. Documentation-only confirmed: commit af869b2 'docs(readme): TJ-DF-055 \u2014 explain resident daemon signal target' changed only README.md (+5 lines, 1 file changed), and `git diff HEAD --stat -- standalone/ plugin/ scripts/` is empty (no wrapper behavior change). Tests run fresh: `.venv/bin/python -m pytest tests/test_signal_reach_doc.py tests/test_quickstart_doc.py -q` -> '13 passed in 0.03s' exit 0; full suite `.venv/bin/python -m pytest -q --tb=line -p no:cacheprovider` -> '2055 passed, 15 skipped in 187.68s (0:03:07)' exit 0. [resolution 0.26; README.md]\nREADME.md:394-397 explicitly tells operators to signal the Python daemon process rather than the wrapping shell, inside the resident section (346-412), with only README.md changed and the full suite green (2055 passed, 15 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 README.md resident section (lines 346-412) explicitly instructs operators to signal the Python daemon process, not the wrapping shell; verify the criterion with the exact grep from the task row. This task is documentation-only; do not change wrapper behavior.: README.md:394-397 (inside the resident section headed at README.md:347 '### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)', well within lines 346-412) reads: '**Resident signal target.** If the daemon is launched through `bash -lic` or another wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the Python daemon process, not the wrapping shell; the daemon can then exit cleanly and remove its socket.' Exact grep `grep -n \"Signal the\" README.md` -> `395:wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the` (exit 0), and `grep -n \"Resident signal target\" README.md` -> `394:`. Documentation-only confirmed: commit af869b2 'docs(readme): TJ-DF-055 \u2014 explain resident daemon signal target' changed only README.md (+5 lines, 1 file changed), and `git diff HEAD --stat -- standalone/ plugin/ scripts/` is empty (no wrapper behavior change). Tests run fresh: `.venv/bin/python -m pytest tests/test_signal_reach_doc.py tests/test_quickstart_doc.py -q` -> '13 passed in 0.03s' exit 0; full suite `.venv/bin/python -m pytest -q --tb=line -p no:cacheprovider` -> '2055 passed, 15 skipped in 187.68s (0:03:07)' exit 0. [resolution 0.26; README.md]\nREADME.md:394-397 explicitly tells operators to signal the Python daemon process rather than the wrapping shell, inside the resident section (346-412), with only README.md changed and the full suite green (2055 passed, 15 skipped).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "README.md resident section (lines 346-412) explicitly instructs operators to signal the Python daemon process, not the wrapping shell; verify the criterion with the exact grep from the task row. This task is documentation-only; do not change wrapper behavior.",
+                "status": "PASS",
+                "detail": "README.md:394-397 (inside the resident section headed at README.md:347 '### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)', well within lines 346-412) reads: '**Resident signal target.** If the daemon is launched through `bash -lic` or another wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the Python daemon process, not the wrapping shell; the daemon can then exit cleanly and remove its socket.' Exact grep `grep -n \"Signal the\" README.md` -> `395:wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the` (exit 0), and `grep -n \"Resident signal target\" README.md` -> `394:`. Documentation-only confirmed: commit af869b2 'docs(readme): TJ-DF-055 \u2014 explain resident daemon signal target' changed only README.md (+5 lines, 1 file changed), and `git diff HEAD --stat -- standalone/ plugin/ scripts/` is empty (no wrapper behavior change). Tests run fresh: `.venv/bin/python -m pytest tests/test_signal_reach_doc.py tests/test_quickstart_doc.py -q` -> '13 passed in 0.03s' exit 0; full suite `.venv/bin/python -m pytest -q --tb=line -p no:cacheprovider` -> '2055 passed, 15 skipped in 187.68s (0:03:07)' exit 0. [resolution 0.26; README.md]",
+                "resolution_probability": 0.26,
+                "cited_path": "README.md"
+              }
+            ],
+            "summary": "README.md:394-397 explicitly tells operators to signal the Python daemon process rather than the wrapping shell, inside the resident section (346-412), with only README.md changed and the full suite green (2055 passed, 15 skipped).",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: TJ-DF-055\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 README.md resident section (lines 346-412) explicitly instructs operators to signal the Python daemon process, not the wrapping shell; verify the criterion with the exact grep from the task row. This task is documentation-only; do not change wrapper behavior.: README.md:394-397 (inside the resident section headed at README.md:347 '### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)', well within lines 346-412) reads: '**Resident signal target.** If the daemon is launched through `bash -lic` or another wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the Python daemon process, not the wrapping shell; the daemon can then exit cleanly and remove its socket.' Exact grep `grep -n \"Signal the\" README.md` -> `395:wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the` (exit 0), and `grep -n \"Resident signal target\" README.md` -> `394:`. Documentation-only confirmed: commit af869b2 'docs(readme): TJ-DF-055 \u2014 explain resident daemon signal target' changed only README.md (+5 lines, 1 file changed), and `git diff HEAD --stat -- standalone/ plugin/ scripts/` is empty (no wrapper behavior change). Tests run fresh: `.venv/bin/python -m pytest tests/test_signal_reach_doc.py tests/test_quickstart_doc.py -q` -> '13 passed in 0.03s' exit 0; full suite `.venv/bin/python -m pytest -q --tb=line -p no:cacheprovider` -> '2055 passed, 15 skipped in 187.68s (0:03:07)' exit 0. [resolution 0.26; README.md]\nREADME.md:394-397 explicitly tells operators to signal the Python daemon process rather than the wrapping shell, inside the resident section (346-412), with only README.md changed and the full suite green (2055 passed, 15 skipped).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-24T10:28:15.852180",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-24T10:28:15.869025+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1362,
+        "truncated": false,
+        "source": "git show af869b2e0ee1"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1895,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-055"
+  }
+}
