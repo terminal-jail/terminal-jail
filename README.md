@@ -391,6 +391,11 @@ dominated by engine parse cost on the padded string, not the socket.)
   `~/.local/run/terminal-jail/interruptor.sock`), then
   `interruptor_resident.py --client --command "<cmd>"` per verdict.
 
+**Resident signal target.** If the daemon is launched through `bash -lic` or another
+wrapping shell, that shell may not forward `SIGINT`/`SIGTERM` to its child. Signal the
+Python daemon process, not the wrapping shell; the daemon can then exit cleanly and
+remove its socket.
+
 **Fail-closed discipline is identical on both transports.** The resident serves the
 same mode-aware error envelopes (`[bridge-error]`, block in enforce / allow-with-warning
 in warn mode, `layer: null` on error envelopes). A client that cannot reach the socket
