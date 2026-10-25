@@ -28,6 +28,7 @@ Cells:
      (TJ-GAP-088, host-independent)
   9  per-launch proc_view attribution: the same host resolves to
      proc_view=private under bwrap and proc_view=host under unshare
+     (proc_view=platform-owned instead on a composed host — TJ-GAP-089)
      (TJ-GAP-088, host-independent)
   10 signal reach under the bwrap private-/proc jail (REVIEW-TJ-009):
      kill -0 1 succeeds namespace-internally (/proc/1 is the reaper)
@@ -389,6 +390,29 @@ def _escape_live_slice_cell() -> dict[str, str]:
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
         return _unmeasured(name, "bwrap", "argv preserved, exit propagated", str(exc))
+    # QA-TERMINAL-JAIL-21: a forced backend that cannot launch on this host
+    # refuses fail-closed (exit 2, command not run) — the documented contract,
+    # NOT a parity divergence. The live argv/exit semantics are simply
+    # unmeasurable without a working backend (any container — TJ-GAP-089
+    # composed hosts — and any bwrap-absent host). Grade the refusal
+    # KNOWN-LIMIT/UNMEASURED and reserve DIFFERS for a launch that actually
+    # happened with mangled argv or a lost exit code.
+    refused = (
+        argv.returncode == 2
+        and exitcode.returncode == 2
+        and "command not run" in argv.stderr
+        and "command not run" in exitcode.stderr
+    )
+    if refused:
+        return _unmeasured(
+            name,
+            "bwrap",
+            "argv preserved, exit propagated",
+            f"forced bwrap backend refuses fail-closed on this host (rc=2: "
+            f"{argv.stderr.strip().splitlines()[-1][:160] if argv.stderr.strip() else 'refused'}) "
+            "— argv/exit semantics UNMEASURED here; run on a host where the "
+            "backend can launch",
+        )
     ok = (
         argv.returncode == 0
         and argv.stdout == "[a b][$(id)][*][]"
@@ -531,6 +555,21 @@ def _private_proc_demand_cell() -> dict[str, str]:
         )
 
 
+def _proc_view_pair_ok(bwrap_view: str, unshare_view: str, rc: int) -> bool:
+    """QA-TERMINAL-JAIL-21: cell 9's verdict logic, pure so it can be pinned
+    host-independently. The bwrap arm must attribute private; the no-bwrap
+    arm must attribute the truth for ITS host — proc_view=host on bare metal
+    (unshare resolution) or proc_view=platform-owned on a composed host
+    (TJ-GAP-089: containers, where no backend can launch). proc_view=none
+    (composed with NO outer layer), a missing attribution, or a non-zero
+    exit are NOT accepted."""
+    bwrap_ok = "proc_view=private" in bwrap_view
+    unshare_ok = (
+        "proc_view=host" in unshare_view or "proc_view=platform-owned" in unshare_view
+    )
+    return rc == 0 and bwrap_ok and unshare_ok
+
+
 def _proc_view_attribution_cell() -> dict[str, str]:
     """Every launch states which /proc view the caller actually got
     (proc_view=private|host|platform-owned|none) on stderr."""
@@ -562,7 +601,9 @@ def _proc_view_attribution_cell() -> dict[str, str]:
         # bwrap recorder stub whose probe succeeds -> auto resolves to bwrap
         # (proc_view=private). A curated PATH WITHOUT bwrap (and WITHOUT the
         # system dirs that hold the real one) makes auto resolve to unshare
-        # (proc_view=host). Same payload, same host, two views.
+        # (proc_view=host) on bare metal — or, on a container/composed host
+        # (TJ-GAP-089) where no backend can launch, to the composed launch
+        # (proc_view=platform-owned). Same payload, same host, two views.
         stub = bindir / "bwrap"
         stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         stub.chmod(0o755)
@@ -594,20 +635,37 @@ def _proc_view_attribution_cell() -> dict[str, str]:
             views[label] = found[0].strip() if found else "(no proc_view line)"
         bwrap_view = views["bwrap"]
         unshare_view = views["unshare (bwrap absent)"]
-        ok = (
-            result.returncode == 0
-            and "proc_view=private" in bwrap_view
-            and "proc_view=host" in unshare_view
-        )
+        # QA-TERMINAL-JAIL-21: the cell's job is the per-launch CONTRACT —
+        # every launch names the view it delivered. Which names are truth
+        # depends on the host: bare metal resolves the no-bwrap arm to the
+        # unshare backend (proc_view=host), while a container (TJ-GAP-089
+        # composed host) composes and truthfully reports
+        # proc_view=platform-owned. A bare-metal-only expectation graded the
+        # composed host's TRUE attribution as a divergence. Accepted pairs:
+        #   host      — bare-metal unshare resolution (documented known limit)
+        #   platform-owned — composed launch, the outer layer owns /proc
+        # (proc_view=none would mean composed with NO outer layer — still a
+        # divergence here, since these arms run inside this tool's process
+        # tree where a container sentinel is always detectable).
+        ok = _proc_view_pair_ok(bwrap_view, unshare_view, result.returncode)
+        composed_host = "proc_view=platform-owned" in unshare_view
         return _cell(
             name,
             "both",
             f"bwrap: {bwrap_view}; unshare: {unshare_view}",
             expected,
             "SAME" if ok else "DIFFERS",
-            "same host, same payload: the auto backend resolves to bwrap "
-            "when present (proc_view=private) and to unshare otherwise "
-            "(proc_view=host) — the run states which /proc view it delivered",
+            (
+                "same host, same payload: the auto backend resolves to bwrap "
+                "when present (proc_view=private) and to unshare otherwise "
+                "(proc_view=host) — the run states which /proc view it delivered"
+                if not composed_host
+                else "composed host (TJ-GAP-089): no backend can launch inside the "
+                "outer containment layer, so the no-bwrap arm composes and "
+                "reports proc_view=platform-owned — the outer layer provides "
+                "the /proc view, not this tool; the per-launch attribution "
+                "contract still holds on every launch"
+            ),
         )
 
 

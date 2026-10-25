@@ -162,7 +162,12 @@ view on stderr**: `proc_view=private` (bwrap), `proc_view=host` (unshare),
 `proc_view=none` (composed forced with no outer layer). Standing probe:
 battery cells 1–2 (entry count + `/proc/1` identity per backend), cell 8
 (the demand enforced, fail-closed, host-independent), cell 9 (the
-attribution, host-independent).
+attribution, host-independent). On a composed host (any container,
+TJ-GAP-089) the backends cannot launch, so cells 1–2 and the live
+argv/exit slice (5b) honestly report `KNOWN-LIMIT/UNMEASURED`, and cell 9
+accepts the composed arm's truthful `proc_view=platform-owned` as `SAME`
+(QA-TERMINAL-JAIL-21: a bare-metal-only expectation graded correct
+fail-closed refusals and correct composed attribution as `DIFFERS`).
 
 **(b) The payload is namespace PID 2 under bwrap, not PID 1.**
 bubblewrap's reaper occupies PID 1 of the jail; the payload runs as PID 2

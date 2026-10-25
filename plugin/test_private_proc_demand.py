@@ -639,15 +639,66 @@ def test_battery_demand_cell_is_host_independent_fail_closed(battery) -> None:
 
 def test_battery_attribution_cell_names_both_views(battery) -> None:
     """Cell 9 (per-run attribution): on a host where auto resolves to
-    bwrap the pair is private/host; where bwrap cannot run it degrades to
-    UNMEASURED notes — never a DIFFERS from a mis-set stub. The cell must
-    always carry at least one proc_view observation (the attribution is
-    the contract, whichever backend resolved)."""
+    bwrap the pair is private/host (bare metal) or private/platform-owned
+    (composed host — containers, TJ-GAP-089); where bwrap cannot run it
+    degrades to UNMEASURED notes — never a DIFFERS from a mis-set stub.
+    The cell must always carry at least one proc_view observation (the
+    attribution is the contract, whichever backend resolved)."""
     cell = battery._proc_view_attribution_cell()
     assert cell["verdict"] in ("SAME", "DIFFERS"), cell
     if cell["verdict"] == "SAME":
+        # The bwrap arm is private; the no-bwrap arm names the view its
+        # host actually delivered — host (bare metal unshare resolution)
+        # or platform-owned (composed host). QA-TERMINAL-JAIL-21.
         assert "proc_view=private" in cell["measured"]
-        assert "proc_view=host" in cell["measured"]
+        assert (
+            "proc_view=host" in cell["measured"]
+            or "proc_view=platform-owned" in cell["measured"]
+        ), cell["measured"]
+
+
+def test_battery_cell9_verdict_accepts_composed_host_attribution(battery) -> None:
+    """QA-TERMINAL-JAIL-21: cell 9's contract is per-launch attribution, so
+    the no-bwrap arm's TRUTHFUL attribution must be accepted on every host
+    shape: proc_view=host (bare metal, unshare resolution) and
+    proc_view=platform-owned (composed host — containers, TJ-GAP-089)
+    alike. Misattribution still fails: proc_view=none (composed with NO
+    outer layer), a missing proc_view line, a host-view bwrap arm, or a
+    failed launch."""
+    pair_ok = battery._proc_view_pair_ok
+    private = "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)"
+    host = "terminal-jail: proc_view=host (unshare backend)"
+    composed = (
+        "terminal-jail: proc_view=platform-owned (composed mode: the outer "
+        "containment layer provides the /proc view, not this tool)"
+    )
+    none_view = "terminal-jail: proc_view=none (composed forced with no outer layer)"
+    assert pair_ok(private, host, 0)
+    assert pair_ok(private, composed, 0), (
+        "a composed host's truthful platform-owned attribution must not be "
+        "graded a divergence (QA-TERMINAL-JAIL-21)"
+    )
+    assert not pair_ok(private, none_view, 0)
+    assert not pair_ok(host, host, 0)
+    assert not pair_ok(private, "(no proc_view line)", 0)
+    assert not pair_ok(private, composed, 2)
+
+
+@pytest.mark.integration
+def test_battery_live_slice_refusal_is_known_limit_not_divergence(battery) -> None:
+    """QA-TERMINAL-JAIL-21: when the forced bwrap backend cannot launch on
+    this host (containers/composed hosts, bwrap-absent hosts), the wrapper
+    refuses fail-closed — the live-slice cell must grade that
+    KNOWN-LIMIT/UNMEASURED, never DIFFERS; a real launch keeps the strict
+    argv/exit SAME grading."""
+    cell = battery._escape_live_slice_cell()
+    if cell["verdict"] == "SAME":
+        assert "argv round-trip rc=0" in cell["measured"], cell
+        assert "exit 42 -> rc=42" in cell["measured"], cell
+    else:
+        assert cell["verdict"] == "KNOWN-LIMIT", cell
+        assert "UNMEASURED" in cell["notes"], cell
+        assert "refuses fail-closed" in cell["notes"], cell
 
 
 @pytest.mark.integration
@@ -674,9 +725,17 @@ def test_battery_full_run_has_no_unexplained_divergence() -> None:
     assert "9 proc_view attribution per launch" in by_cell
     divergences = [c for c in payload["cells"] if c["verdict"] == "DIFFERS"]
     assert not divergences, divergences
-    # cells 1+2 carry the /proc/1 identity the row asked for
+    # cells 1+2 carry the /proc/1 identity the row asked for — wherever the
+    # backend launch could actually run. On a composed host (a container,
+    # TJ-GAP-089) no backend can launch, the cells are honestly UNMEASURED,
+    # and demanding the identity string would demand a measurement the host
+    # cannot deliver (QA-TERMINAL-JAIL-21).
     for name in (
         "1 private /proc — bwrap backend",
         "2 private /proc — unshare backend",
     ):
-        assert "/proc/1 = " in by_cell[name]["measured"], by_cell[name]
+        if by_cell[name]["measured"] == "not measured":
+            assert by_cell[name]["verdict"] == "KNOWN-LIMIT", by_cell[name]
+            assert "UNMEASURED" in by_cell[name]["notes"], by_cell[name]
+        else:
+            assert "/proc/1 = " in by_cell[name]["measured"], by_cell[name]

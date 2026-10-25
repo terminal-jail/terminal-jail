@@ -20,6 +20,23 @@
 
 ### Fixed
 
+- **Parity-battery portability on composed hosts (`QA-TERMINAL-JAIL-21`):**
+  three battery cells graded a containerized host's CORRECT behavior as
+  `DIFFERS`, failing
+  `plugin/test_private_proc_demand.py::test_battery_full_run_has_no_unexplained_divergence`
+  on fresh agents (where no backend can launch — TJ-GAP-089 composed mode):
+  cell 5b counted the wrapper's fail-closed refusal (exit 2, command not
+  run) as a divergence instead of `KNOWN-LIMIT/UNMEASURED`; cell 9
+  demanded `proc_view=host` from the no-bwrap arm even where the composed
+  launch truthfully reports `proc_view=platform-owned`; the full-run test
+  hardcoded the bare-metal attribution pair and demanded `/proc/1`
+  identity strings from cells 1–2 that a container cannot measure (honestly
+  `UNMEASURED`). Fix is verdict-logic-only: real launches keep the strict
+  SAME/DIFFERS grading (re-measured unchanged on the dev host, 0 DIFFERS);
+  refusals and composed attribution now grade honestly. Pinned by
+  `test_battery_cell9_verdict_accepts_composed_host_attribution` and
+  `test_battery_live_slice_refusal_is_known_limit_not_divergence`.
+
 - **Release runbook (`REVIEW-TJ-016`):** removed the unsupported `--dry-run`
   claim for `release-cut-check.sh` and pinned the versioned read-only pre-cut
   check and rejection behavior in the release workflow tests.
