@@ -1,0 +1,129 @@
+{
+  "task_id": "REVIEW-TJ-012",
+  "task_title": "README collect-count is hand-pinned and stale",
+  "task_criteria": [
+    "PASS: fresh .venv pytest collection for plugin tests reports 2070 collected and README.md reports 2070 collected; the two values match. Verify with .venv/bin/python -m pytest plugin tests --collect-only -q and grep -oE '[0-9]+ collected' README.md."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9933184cda6220e742d9f5fe96900e1455740c81",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T030018.115832Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n3:16AM INF scanned ~5204660 bytes (5.20 MB) in 376ms\n3:16AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 238 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T030018.115832Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2070 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2055 passed, 15 skipped in 169.07s (0:02:49) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T030018.115832Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PASS: fresh .venv pytest collection for plugin tests reports 2070 collected and README.md reports 2070 collected; the two values match. Verify with .venv/bin/python -m pytest plugin tests --collect-only -q and grep -oE '[0-9]+ collected' README.md.: Ran `.venv/bin/python -m pytest plugin tests --collect-only -q` in /home/kara/terminal-jail: exit_code 0, final line `2070 tests collected in 0.34s`. Ran `grep -oE '[0-9]+ collected' README.md`: output `2070 collected` (README.md:19, the Version row, which also documents the derivation command and the 2026-10-24 refresh measurement). The two values match exactly at 2070. [resolution 0.22; README.md]\nFresh .venv pytest collection reports 2070 tests collected and README.md:19 reports 2070 collected \u2014 the values match.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PASS: fresh .venv pytest collection for plugin tests reports 2070 collected and README.md reports 2070 collected; the two values match. Verify with .venv/bin/python -m pytest plugin tests --collect-only -q and grep -oE '[0-9]+ collected' README.md.: Ran `.venv/bin/python -m pytest plugin tests --collect-only -q` in /home/kara/terminal-jail: exit_code 0, final line `2070 tests collected in 0.34s`. Ran `grep -oE '[0-9]+ collected' README.md`: output `2070 collected` (README.md:19, the Version row, which also documents the derivation command and the 2026-10-24 refresh measurement). The two values match exactly at 2070. [resolution 0.22; README.md]\nFresh .venv pytest collection reports 2070 tests collected and README.md:19 reports 2070 collected \u2014 the values match.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PASS: fresh .venv pytest collection for plugin tests reports 2070 collected and README.md reports 2070 collected; the two values match. Verify with .venv/bin/python -m pytest plugin tests --collect-only -q and grep -oE '[0-9]+ collected' README.md.",
+                "status": "PASS",
+                "detail": "Ran `.venv/bin/python -m pytest plugin tests --collect-only -q` in /home/kara/terminal-jail: exit_code 0, final line `2070 tests collected in 0.34s`. Ran `grep -oE '[0-9]+ collected' README.md`: output `2070 collected` (README.md:19, the Version row, which also documents the derivation command and the 2026-10-24 refresh measurement). The two values match exactly at 2070. [resolution 0.22; README.md]",
+                "resolution_probability": 0.22,
+                "cited_path": "README.md"
+              }
+            ],
+            "summary": "Fresh .venv pytest collection reports 2070 tests collected and README.md:19 reports 2070 collected \u2014 the values match.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-012\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PASS: fresh .venv pytest collection for plugin tests reports 2070 collected and README.md reports 2070 collected; the two values match. Verify with .venv/bin/python -m pytest plugin tests --collect-only -q and grep -oE '[0-9]+ collected' README.md.: Ran `.venv/bin/python -m pytest plugin tests --collect-only -q` in /home/kara/terminal-jail: exit_code 0, final line `2070 tests collected in 0.34s`. Ran `grep -oE '[0-9]+ collected' README.md`: output `2070 collected` (README.md:19, the Version row, which also documents the derivation command and the 2026-10-24 refresh measurement). The two values match exactly at 2070. [resolution 0.22; README.md]\nFresh .venv pytest collection reports 2070 tests collected and README.md:19 reports 2070 collected \u2014 the values match.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-25T08:19:30.299606",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-25T08:19:30.343625+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show 9933184cda62"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2128,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-012"
+  }
+}
