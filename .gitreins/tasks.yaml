@@ -2058,3 +2058,18 @@ tasks:
   status: complete
   created_at: '2026-10-25T01:32:58.241340+00:00'
   completed_at: '2026-10-25T01:36:26.820931+00:00'
+- id: DOC-20
+  title: Document benchmark interruptor in README
+  criteria:
+  - README names scripts/benchmark-interruptor.py and the exact command exits 0
+  status: complete
+  created_at: '2026-10-25T16:26:24.910162+00:00'
+  completed_at: '2026-10-25T16:29:32.003083+00:00'
+- id: DOC-21
+  title: Refresh quickstart bridge transcript layer fields
+  criteria:
+  - The five later bridge envelopes include layer and a fresh malformed-input probe
+    returns exactly action, command, modified, rule_id, reason, layer
+  status: complete
+  created_at: '2026-10-25T16:36:08.414539+00:00'
+  completed_at: '2026-10-25T16:36:31.119399+00:00'

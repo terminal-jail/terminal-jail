@@ -1,0 +1,128 @@
+{
+  "task_id": "DOC-21",
+  "task_title": "Refresh quickstart bridge transcript layer fields",
+  "task_criteria": [
+    "The five later bridge envelopes include layer and a fresh malformed-input probe returns exactly action, command, modified, rule_id, reason, layer"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "ff61a06f7c1d4fc9259fc9e7b8745da110d33fc7",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T162922.265769Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n11:36AM INF scanned ~5204948 bytes (5.20 MB) in 278ms\n11:36AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 239 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T162922.265769Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2070 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2055 passed, 15 skipped in 160.26s (0:02:40) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T162922.265769Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The five later bridge envelopes include layer and a fresh malformed-input probe returns exactly action, command, modified, rule_id, reason, layer: docs/quickstart.md \u00a73a2: all five later envelopes now carry `layer` \u2014 malformed-input enforce (lines 349-353, \"layer\": null), malformed-input warn (355-357, \"layer\": null), engine-eval failure via poison rules file (381-385, \"layer\": null), warn-mode blockable command (400-403, \"layer\": \"engine\"), max-arg refusal (419-423, \"layer\": \"engine\"). Live re-capture with .venv/bin/python and rules dirs pinned to /tmp/tj-empty-rules reproduced each verbatim, e.g. `printf 'not json {\\n' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"command\": \"\", \"modified\": null, \"rule_id\": \"[bridge-error]\", \"reason\": \"[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)\", \"layer\": null}, rc=0; warn mode -> \"layer\": null; warn blockable -> \"layer\": \"engine\"; 266240-byte command -> rule_id \"builtin-max-arg-bytes\", \"layer\": \"engine\"; poison zz-poison.yaml -> RuleSchemaError reason with \"layer\": null. Programmatic key check on the fresh probe returned exactly ['action', 'command', 'modified', 'rule_id', 'reason', 'layer'] in emission order (plugin/terminal_jail/interruptor_bridge.py:142-160 builds the dict in that order). Tests: `.venv/bin/python -m pytest tests/test_arg_size_ceiling.py tests/test_composed_mode.py tests/test_quickstart_doc.py -q` -> exit 0, \"27 passed, 3 skipped in 19.32s\" (full suite exceeds the 30s tool cap; targeted doc/bridge tests green).\nAll five later quickstart bridge envelopes now include `layer`, each verified against a live bridge capture, and a fresh malformed-input probe returns exactly the six documented keys in order.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The five later bridge envelopes include layer and a fresh malformed-input probe returns exactly action, command, modified, rule_id, reason, layer: docs/quickstart.md \u00a73a2: all five later envelopes now carry `layer` \u2014 malformed-input enforce (lines 349-353, \"layer\": null), malformed-input warn (355-357, \"layer\": null), engine-eval failure via poison rules file (381-385, \"layer\": null), warn-mode blockable command (400-403, \"layer\": \"engine\"), max-arg refusal (419-423, \"layer\": \"engine\"). Live re-capture with .venv/bin/python and rules dirs pinned to /tmp/tj-empty-rules reproduced each verbatim, e.g. `printf 'not json {\\n' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"command\": \"\", \"modified\": null, \"rule_id\": \"[bridge-error]\", \"reason\": \"[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)\", \"layer\": null}, rc=0; warn mode -> \"layer\": null; warn blockable -> \"layer\": \"engine\"; 266240-byte command -> rule_id \"builtin-max-arg-bytes\", \"layer\": \"engine\"; poison zz-poison.yaml -> RuleSchemaError reason with \"layer\": null. Programmatic key check on the fresh probe returned exactly ['action', 'command', 'modified', 'rule_id', 'reason', 'layer'] in emission order (plugin/terminal_jail/interruptor_bridge.py:142-160 builds the dict in that order). Tests: `.venv/bin/python -m pytest tests/test_arg_size_ceiling.py tests/test_composed_mode.py tests/test_quickstart_doc.py -q` -> exit 0, \"27 passed, 3 skipped in 19.32s\" (full suite exceeds the 30s tool cap; targeted doc/bridge tests green).\nAll five later quickstart bridge envelopes now include `layer`, each verified against a live bridge capture, and a fresh malformed-input probe returns exactly the six documented keys in order.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The five later bridge envelopes include layer and a fresh malformed-input probe returns exactly action, command, modified, rule_id, reason, layer",
+                "status": "PASS",
+                "detail": "docs/quickstart.md \u00a73a2: all five later envelopes now carry `layer` \u2014 malformed-input enforce (lines 349-353, \"layer\": null), malformed-input warn (355-357, \"layer\": null), engine-eval failure via poison rules file (381-385, \"layer\": null), warn-mode blockable command (400-403, \"layer\": \"engine\"), max-arg refusal (419-423, \"layer\": \"engine\"). Live re-capture with .venv/bin/python and rules dirs pinned to /tmp/tj-empty-rules reproduced each verbatim, e.g. `printf 'not json {\\n' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"command\": \"\", \"modified\": null, \"rule_id\": \"[bridge-error]\", \"reason\": \"[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)\", \"layer\": null}, rc=0; warn mode -> \"layer\": null; warn blockable -> \"layer\": \"engine\"; 266240-byte command -> rule_id \"builtin-max-arg-bytes\", \"layer\": \"engine\"; poison zz-poison.yaml -> RuleSchemaError reason with \"layer\": null. Programmatic key check on the fresh probe returned exactly ['action', 'command', 'modified', 'rule_id', 'reason', 'layer'] in emission order (plugin/terminal_jail/interruptor_bridge.py:142-160 builds the dict in that order). Tests: `.venv/bin/python -m pytest tests/test_arg_size_ceiling.py tests/test_composed_mode.py tests/test_quickstart_doc.py -q` -> exit 0, \"27 passed, 3 skipped in 19.32s\" (full suite exceeds the 30s tool cap; targeted doc/bridge tests green).",
+                "resolution_probability": 0.14
+              }
+            ],
+            "summary": "All five later quickstart bridge envelopes now include `layer`, each verified against a live bridge capture, and a fresh malformed-input probe returns exactly the six documented keys in order.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: DOC-21\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The five later bridge envelopes include layer and a fresh malformed-input probe returns exactly action, command, modified, rule_id, reason, layer: docs/quickstart.md \u00a73a2: all five later envelopes now carry `layer` \u2014 malformed-input enforce (lines 349-353, \"layer\": null), malformed-input warn (355-357, \"layer\": null), engine-eval failure via poison rules file (381-385, \"layer\": null), warn-mode blockable command (400-403, \"layer\": \"engine\"), max-arg refusal (419-423, \"layer\": \"engine\"). Live re-capture with .venv/bin/python and rules dirs pinned to /tmp/tj-empty-rules reproduced each verbatim, e.g. `printf 'not json {\\n' | .venv/bin/python plugin/terminal_jail/interruptor_bridge.py` -> {\"action\": \"block\", \"command\": \"\", \"modified\": null, \"rule_id\": \"[bridge-error]\", \"reason\": \"[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)\", \"layer\": null}, rc=0; warn mode -> \"layer\": null; warn blockable -> \"layer\": \"engine\"; 266240-byte command -> rule_id \"builtin-max-arg-bytes\", \"layer\": \"engine\"; poison zz-poison.yaml -> RuleSchemaError reason with \"layer\": null. Programmatic key check on the fresh probe returned exactly ['action', 'command', 'modified', 'rule_id', 'reason', 'layer'] in emission order (plugin/terminal_jail/interruptor_bridge.py:142-160 builds the dict in that order). Tests: `.venv/bin/python -m pytest tests/test_arg_size_ceiling.py tests/test_composed_mode.py tests/test_quickstart_doc.py -q` -> exit 0, \"27 passed, 3 skipped in 19.32s\" (full suite exceeds the 30s tool cap; targeted doc/bridge tests green).\nAll five later quickstart bridge envelopes now include `layer`, each verified against a live bridge capture, and a fresh malformed-input probe returns exactly the six documented keys in order.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-25T16:40:47.358935",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-25T16:40:47.376271+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 436,
+        "truncated": false,
+        "source": "git show ff61a06f7c1d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2287,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-21"
+  }
+}

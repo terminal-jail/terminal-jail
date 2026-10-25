@@ -1,0 +1,10 @@
+{
+  "tick": "terminal-jail-foreman-2026-10-25-09-22-05",
+  "project": "terminal-jail",
+  "budget": 2,
+  "base": "28fc2f1",
+  "tasks": [
+    {"id": "DOC-20", "worktree": "/home/kara/worktrees/terminal-jail-DOC-20", "branch": "wt/DOC-20", "base_sha": "28fc2f1", "status": "planned"},
+    {"id": "DOC-21", "worktree": "/home/kara/worktrees/terminal-jail-DOC-21", "branch": "wt/DOC-21", "base_sha": "28fc2f1", "status": "planned"}
+  ]
+}
