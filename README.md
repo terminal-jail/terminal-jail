@@ -16,7 +16,7 @@
 |---|---|
 | **What it is** | Three independent layers around agent-run shell commands: a **bash command firewall** (allow / block / modify, every verdict carrying rule provenance), **namespace containment** (PID namespace via `unshare`, with an optional bubblewrap backend), and **observability** (Hermes plugin hooks, metrics, logging). |
 | **What it is not** | Not a VM, not a network containment layer, and not a boundary to rely on alone. Rules match the **top-level command string** — script bodies are never inspected (see [Scope](#scope-the-top-level-command-string-only)), and the network is never restricted (see [Data-Out Boundary](#data-out-boundary)). |
-| **Version** | v1.3.0 — CI green on proved kernel matrix (Ubuntu 26.04 / kernel 7.0.0-30-generic, see docs/backend-parity.md for pinned evidence; HOST-DEGRADED-PIDNS skip marker present in test_backend_parity.py for hosts lacking unprivileged PID namespaces). Test count is **derived, not hand-restated**: run `.venv/bin/python -m pytest plugin tests --collect-only -q` (the full suite across `plugin/` and `tests/`) — it printed **1967 collected** when this line was last refreshed (measured 2026-10-14 on fresh clone 65665714: 1956 passed / 11 skipped in 146s; suite grows between refreshes — always re-run) (the latest tag is v1.2.0; v1.3.0 is pending release per release row RELEASE-TJ-008). Rule counts below follow the same derived-not-restated discipline ([Rule catalog](#rule-catalog)) |
+| **Version** | v1.3.0 — CI green on proved kernel matrix (Ubuntu 26.04 / kernel 7.0.0-30-generic, see docs/backend-parity.md for pinned evidence; HOST-DEGRADED-PIDNS skip marker present in test_backend_parity.py for hosts lacking unprivileged PID namespaces). Test count is **derived, not hand-restated**: run `.venv/bin/python -m pytest plugin tests --collect-only -q` (the full suite across `plugin/` and `tests/`) — it printed **2070 collected** when this line was last refreshed (measured 2026-10-24: 1900 passed / 12 skipped in 167s; suite grows between refreshes — always re-run) (the latest tag is v1.2.0; v1.3.0 is pending release per release row RELEASE-TJ-009). Rule counts below follow the same derived-not-restated discipline ([Rule catalog](#rule-catalog)) |
 | **Platform** | Linux, `bash`, `util-linux` 2.32+ (`unshare`); `bubblewrap` optional |
 
 **Contents**
@@ -889,7 +889,7 @@ Two limits stated plainly rather than assumed away:
 plugin/            Hermes plugin — observability hooks + the Interruptor engine (plugin/terminal_jail/interruptor/)
 standalone/        Bash wrapper (terminal-jail), gateway shell shim (terminal-jail-sh), seccomp-loader.py
 systemd/           Gateway hardening drop-in snippet
-scripts/           Ops/verification helpers (pidns capability probe, benchmarks, metrics export, watchdogs)
+scripts/           Ops/verification helpers (pidns capability probe, fs-isolation probe, systemd-directive probe, benchmark-interruptor.py, arg_size_benchmark.py, metrics export, watchdogs)
 specs/             Product specs (cli, plugin, integration, interruptor, systemd)
 docs/              User/ops documentation (quickstart, threat model, ADRs, deploy, audits)
 skills/            Repo-local agent skill (skills/terminal-jail-usage/SKILL.md)
