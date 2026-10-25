@@ -349,10 +349,12 @@ the wrapper's warn-mode escape hatch, not the bridge's default.)
 ```bash
 printf 'not json {\n' | python3 plugin/terminal_jail/interruptor_bridge.py
 # → {"action": "block", "command": "", "modified": null, "rule_id": "[bridge-error]",
-#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)"}
+#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-closed: blocking command (enforce mode)",
+#    "layer": null}
 # with TERMINAL_JAIL_INTERRUPTOR_MODE=warn:
 # → {"action": "allow", "command": "", "modified": null, "rule_id": null,
-#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-open: allowing command (warn mode)"}
+#    "reason": "[bridge-error] invalid JSON on stdin \u2014 fail-open: allowing command (warn mode)",
+#    "layer": null}
 ```
 
 (empty stdin → `[bridge-error] empty stdin …`; a missing engine →
@@ -377,7 +379,8 @@ printf '{"command": "rm -rf /"}\n' | python3 plugin/terminal_jail/interruptor_br
 # → {"action": "block", "command": "", "modified": null, "rule_id": "[bridge-error]",
 #    "reason": "[bridge-error] RuleSchemaError: terminal-jail: REFUSING rule file
 #    …/zz-poison.yaml: rule #1 (zz-poison-priority): field priority must be an integer,
-#    got str ('not-a-number') … — fail-closed: blocking command (enforce mode)"}
+#    got str ('not-a-number') … — fail-closed: blocking command (enforce mode)",
+#    "layer": null}
 ```
 
 **Consumers running the real CLI wrapper, not just the bridge:** the
@@ -395,7 +398,8 @@ Two mode caveats when scripting against `TERMINAL_JAIL_INTERRUPTOR_MODE`
 ```bash
 # warn mode — a blockable command returns an ALLOW with a [WARN MODE] reason:
 # → {"action": "allow", "command": "rm -rf /", "modified": null, "rule_id": null,
-#    "reason": "[WARN MODE] Would have blocked: Recursive root directory removal (rm -rf /) is blocked."}
+#    "reason": "[WARN MODE] Would have blocked: Recursive root directory removal (rm -rf /) is blocked.",
+#    "layer": "engine"}
 # disabled mode — every command returns action "allow" with an empty reason;
 # the verdict is then indistinguishable from a default-allow pass-through.
 ```
@@ -415,7 +419,8 @@ The refusal reason names the knob and the limit:
  "rule_id": "builtin-max-arg-bytes",
  "reason": "Command exceeds the maximum argument size: 266240 bytes > 262144
             (tune with TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES; see README
-            'Environment variables and limits')"}
+            'Environment variables and limits')",
+ "layer": "engine"}
 ```
 
 Adjust or disable the refusal with ``TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES``
