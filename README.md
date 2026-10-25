@@ -337,6 +337,7 @@ worked example carries measured numbers for Ubuntu 26.04.1 LTS, kernel
 |---|---|---|
 | `scripts/gtfobins-sweep.py` | The deliberate GTFOBins allow-surface: sweeps a seed catalog of real GTFOBins invocation shapes through the live engine and reports the verdict matrix, posture coverage, POSTURE-DRIFT and unreviewed ALLOW verdicts (TJ-GAP-059). | `python3 scripts/gtfobins-sweep.py` |
 | `scripts/e2e-battery-live-probe.py` | Live-engine E2E battery for the interruptor firewall: every case exercises the real verdict path (JSON bridge subprocess) and asserts action AND provenance rule_id against a pinned matrix, with a positive control (TJ-GAP-074). | `python3 scripts/e2e-battery-live-probe.py` |
+| `scripts/benchmark-interruptor.py` | Interruptor performance against the S05 spec (§13) budget: measures cold start, warm start, 1KB command parse, and 500-rule evaluation, each asserted against its spec threshold (PASS/FAIL per metric). | `python3 scripts/benchmark-interruptor.py` |
 
 With bubblewrap installed, compare the `/proc` view (`TERMINAL_JAIL_JAIL_BACKEND=auto ./standalone/terminal-jail sh -c 'ls /proc | grep -c "^[0-9]"'`) against the host count — the private procfs is the observable difference.
 
