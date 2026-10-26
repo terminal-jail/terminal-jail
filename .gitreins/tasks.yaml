@@ -1805,17 +1805,6 @@ tasks:
   status: complete
   created_at: '2026-10-20T04:00:30.529030+00:00'
   completed_at: '2026-10-20T12:02:01.192509+00:00'
-- id: INT-CI-011
-  title: 'Fix CI test failures: broaden error message assertions for cross-environment
-    compatibility'
-  criteria:
-  - 'CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific
-    error messages (''cannot read'', ''not found'') instead of accepting the union
-    of all valid degradation messages (also ''not reachable''). Fix: use the same
-    multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition
-    in the two failing tests.'
-  status: in_progress
-  created_at: '2026-10-21T16:25:52.198599+00:00'
 - id: TJ-REVIEW-073
   title: Remove resident bridge socket on SIGTERM
   criteria:
@@ -1826,15 +1815,6 @@ tasks:
   status: complete
   created_at: '2026-10-21T23:53:41.401472+00:00'
   completed_at: '2026-10-21T23:53:42.162384+00:00'
-- id: TJ-REVIEW-072
-  title: Version literals still say 1.2.0 in machine surfaces
-  criteria:
-  - 1) grep -rn '1\.2\.0' plugin/ scripts/ docs/quickstart.md returns 0 hits (all
-    version literals updated to 1.3.0 or derived from pyproject). 2) plugin/terminal_jail/__init__.py:82
-    + plugin/__init__.py:103 load message print 1.3.0. 3) scripts/metrics-export.py:36
-    exports version 1.3.0. 4) docs/quickstart.md:562 verification grep matches 1.3.0.
-  status: in_progress
-  created_at: '2026-10-22T02:39:44.462974+00:00'
 - id: TJ-REVIEW-075
   title: Quickstart never mentions Landlock fs/net tiers
   criteria:
