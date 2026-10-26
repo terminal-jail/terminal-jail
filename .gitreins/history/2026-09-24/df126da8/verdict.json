@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-GAP-078",
+  "task_title": "Fix ops docs referencing helper scripts that do not exist",
+  "task_criteria": [
+    "docs/lkml-monitoring.md no longer presents scripts/lkml-check.sh as ready-to-run (explicit not-shipped/future-work annotation or the script added); docs/pentest-plan.md marks the reserved env vars HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES as not read by the plugin (or strips them) and its status line reflects reality; no other docs regress."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "153af1f65575f299577966b9e06e2fd73318a822",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T095333.141743Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n5:13AM INF scanned ~5391059 bytes (5.39 MB) in 685ms\n5:13AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 155 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T095333.141743Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1419 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 35%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 71%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 74%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 76%]\nplugin/test_packaging.py ..........                                      [ 77%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_rule_pack_db.py ............................................ [ 81%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 89%]\n.....                                                                    [ 89%]\nplugin/test_rules_drift_probe.py .................                       [ 90%]\nplugin/test_seccomp.py .........................................sss..... [ 94%]\n.                                                                        [ 94%]\nplugin/test_standalone_cli.py .....................                      [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1412 passed, 7 skipped in 63.34s (0:01:03) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T095333.141743Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/lkml-monitoring.md no longer presents scripts/lkml-check.sh as ready-to-run (explicit not-shipped/future-work annotation or the script added); docs/pentest-plan.md marks the reserved env vars HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES as not read by the plugin (or strips them) and its status line reflects reality; no other docs regress.: docs/lkml-monitoring.md:71-79 retitles the section '(future work \u2014 not shipped)', states 'scripts/lkml-check.sh is **not shipped yet**', and marks the block '(PROPOSED; not in the repo yet)'; `ls scripts/lkml-check.sh` confirms the file is absent. docs/pentest-plan.md:6-8 status line now reads 'Draft \u2014 NOT fully executable as written: two helpers it references (scripts/lkml-check.sh, scripts/pentest-harness.sh) are not shipped ... Updated 2026-09-24'; \u00a72.2 lines 40-42 comment out HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES with a 'RESERVED \u2014 not read by the plugin' marker. Verified the plugin does not read these vars (grep of plugin/ shows only TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL, a different variable); README.md:242-243 corroborates 'Reserved \u2014 not yet read by the plugin'. No other docs regress: commit 3c06ec2 touched only these two files (18 insertions, 8 deletions) and other referenced scripts (kernel-watchdog.sh, scratch-home-hygiene.sh, unshare-tracker.sh) exist. Tests: `plugin/test_plugin.py` 16 passed; `plugin/test_seccomp.py` 47 passed, 3 skipped. [resolution 0.18; docs/lkml-monitoring.md, scripts/lkml-check.sh, docs/pentest-plan.md]\nBoth ops docs now correctly annotate the unshipped helper scripts and reserved env vars, the pentest-plan status line reflects reality, and no other docs regressed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/lkml-monitoring.md no longer presents scripts/lkml-check.sh as ready-to-run (explicit not-shipped/future-work annotation or the script added); docs/pentest-plan.md marks the reserved env vars HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES as not read by the plugin (or strips them) and its status line reflects reality; no other docs regress.: docs/lkml-monitoring.md:71-79 retitles the section '(future work \u2014 not shipped)', states 'scripts/lkml-check.sh is **not shipped yet**', and marks the block '(PROPOSED; not in the repo yet)'; `ls scripts/lkml-check.sh` confirms the file is absent. docs/pentest-plan.md:6-8 status line now reads 'Draft \u2014 NOT fully executable as written: two helpers it references (scripts/lkml-check.sh, scripts/pentest-harness.sh) are not shipped ... Updated 2026-09-24'; \u00a72.2 lines 40-42 comment out HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES with a 'RESERVED \u2014 not read by the plugin' marker. Verified the plugin does not read these vars (grep of plugin/ shows only TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL, a different variable); README.md:242-243 corroborates 'Reserved \u2014 not yet read by the plugin'. No other docs regress: commit 3c06ec2 touched only these two files (18 insertions, 8 deletions) and other referenced scripts (kernel-watchdog.sh, scratch-home-hygiene.sh, unshare-tracker.sh) exist. Tests: `plugin/test_plugin.py` 16 passed; `plugin/test_seccomp.py` 47 passed, 3 skipped. [resolution 0.18; docs/lkml-monitoring.md, scripts/lkml-check.sh, docs/pentest-plan.md]\nBoth ops docs now correctly annotate the unshipped helper scripts and reserved env vars, the pentest-plan status line reflects reality, and no other docs regressed.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/lkml-monitoring.md no longer presents scripts/lkml-check.sh as ready-to-run (explicit not-shipped/future-work annotation or the script added); docs/pentest-plan.md marks the reserved env vars HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES as not read by the plugin (or strips them) and its status line reflects reality; no other docs regress.",
+                "status": "PASS",
+                "detail": "docs/lkml-monitoring.md:71-79 retitles the section '(future work \u2014 not shipped)', states 'scripts/lkml-check.sh is **not shipped yet**', and marks the block '(PROPOSED; not in the repo yet)'; `ls scripts/lkml-check.sh` confirms the file is absent. docs/pentest-plan.md:6-8 status line now reads 'Draft \u2014 NOT fully executable as written: two helpers it references (scripts/lkml-check.sh, scripts/pentest-harness.sh) are not shipped ... Updated 2026-09-24'; \u00a72.2 lines 40-42 comment out HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES with a 'RESERVED \u2014 not read by the plugin' marker. Verified the plugin does not read these vars (grep of plugin/ shows only TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL, a different variable); README.md:242-243 corroborates 'Reserved \u2014 not yet read by the plugin'. No other docs regress: commit 3c06ec2 touched only these two files (18 insertions, 8 deletions) and other referenced scripts (kernel-watchdog.sh, scratch-home-hygiene.sh, unshare-tracker.sh) exist. Tests: `plugin/test_plugin.py` 16 passed; `plugin/test_seccomp.py` 47 passed, 3 skipped. [resolution 0.18; docs/lkml-monitoring.md, scripts/lkml-check.sh, docs/pentest-plan.md]",
+                "resolution_probability": 0.18,
+                "cited_path": "docs/lkml-monitoring.md, scripts/lkml-check.sh, docs/pentest-plan.md"
+              }
+            ],
+            "summary": "Both ops docs now correctly annotate the unshipped helper scripts and reserved env vars, the pentest-plan status line reflects reality, and no other docs regressed."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-078\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/lkml-monitoring.md no longer presents scripts/lkml-check.sh as ready-to-run (explicit not-shipped/future-work annotation or the script added); docs/pentest-plan.md marks the reserved env vars HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES as not read by the plugin (or strips them) and its status line reflects reality; no other docs regress.: docs/lkml-monitoring.md:71-79 retitles the section '(future work \u2014 not shipped)', states 'scripts/lkml-check.sh is **not shipped yet**', and marks the block '(PROPOSED; not in the repo yet)'; `ls scripts/lkml-check.sh` confirms the file is absent. docs/pentest-plan.md:6-8 status line now reads 'Draft \u2014 NOT fully executable as written: two helpers it references (scripts/lkml-check.sh, scripts/pentest-harness.sh) are not shipped ... Updated 2026-09-24'; \u00a72.2 lines 40-42 comment out HERMES_TERMINAL_JAIL_LOG_LEVEL and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES with a 'RESERVED \u2014 not read by the plugin' marker. Verified the plugin does not read these vars (grep of plugin/ shows only TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL, a different variable); README.md:242-243 corroborates 'Reserved \u2014 not yet read by the plugin'. No other docs regress: commit 3c06ec2 touched only these two files (18 insertions, 8 deletions) and other referenced scripts (kernel-watchdog.sh, scratch-home-hygiene.sh, unshare-tracker.sh) exist. Tests: `plugin/test_plugin.py` 16 passed; `plugin/test_seccomp.py` 47 passed, 3 skipped. [resolution 0.18; docs/lkml-monitoring.md, scripts/lkml-check.sh, docs/pentest-plan.md]\nBoth ops docs now correctly annotate the unshipped helper scripts and reserved env vars, the pentest-plan status line reflects reality, and no other docs regressed.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T10:15:59.559194",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T10:15:59.575714+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 582,
+        "truncated": false,
+        "source": "git show 153af1f65575"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2713,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-078"
+  }
+}

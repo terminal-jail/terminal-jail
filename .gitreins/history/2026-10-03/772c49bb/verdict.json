@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-043",
+  "task_title": "Resolve unshare orphan-teardown containment failure (kernel 6.12) or narrow+enforce the backend contract",
+  "task_criteria": [
+    "1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "7018c08210d73b3f73e023e0762c019d179a49f0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_uninstall.py::test_unrule_pack_still_works_unchanged [first failing id])",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n9:10PM INF scanned ~5369952 bytes (5.37 MB) in 435ms\n9:10PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 185 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1582 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................                                 [ 66%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [1481 chars omitted \u2014 20 line(s)] \u2026\n____________________ test_unrule_pack_still_works_unchanged ____________________\nplugin/test_uninstall.py:339: in test_unrule_pack_still_works_unchanged\n    result = _run(tmp_path, \"--unrule-pack\", \"db\", env=env)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nplugin/test_uninstall.py:53: in _run\n    return subprocess.run(\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:550: in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:1209: in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:2116: in _communicate\n    self._check_timeout(endtime, orig_timeout, stdout, stderr)\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:1253: in _check_timeout\n    raise TimeoutExpired(\nE   subprocess.TimeoutExpired: Command '['sh', 'install.sh', '--unrule-pack', 'db']' timed out after 60 seconds\n=========================== short test summary info ============================\nFAILED plugin/test_uninstall.py::test_unrule_pack_still_works_unchanged - sub...\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============ 1 failed, 1487 passed, 6 skipped in 557.61s (0:09:17) =============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: plugin/test_uninstall.py::test_unrule_pack_still_works_unchanged",
+              "first_failing_test": "plugin/test_uninstall.py::test_unrule_pack_still_works_unchanged",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.: All four parts verified. (1) Root cause named with a VERBATIM-ACCURATE kernel citation: `man 2 PR_SET_PDEATHSIG` on this box reads 'The parent-death signal setting is also cleared upon changes to any of the following thread credentials: effective user ID, effective group ID, filesystem user ID, or filesystem group ID' \u2014 matching docs/backend-parity.md:142-146 and the commit message (util-linux arms --kill-child's PR_SET_PDEATHSIG before -S/-G setgid/setuid; kernel/cred.c commit_creds() clears it). Minimal reproducer documented (LD_PRELOAD syscall-order shim showing prctl->setgroups->setgid->setuid->exec, docs/backend-parity.md:140,212) plus 6 committed raw cells under docs/dogfood/tjdf043-kernel-cells/ with per-rep survival times (prefix FAIL >5s, postfix PASS 20ms). (2) Matrix is honestly NOT GREEN (2 kernels of required >=3, docs/backend-parity.md:196-200), so the narrowed+enforced branch applies and is documented at ALL THREE named surfaces: README.md:247 (parent-death note) + README.md:661 (Requirements), --help verified live via `./standalone/terminal-jail --help` (standalone/terminal-jail:156-160), and docs/backend-parity.md known-limit (e) lines 134-176 + release re-eval 202-243 (also specs/cli.md:214,249, CHANGELOG). Enforcement is real: mapped_launch_ok() runs `unshare <mapped flags> true` with flags identical to the launch (userns.py:216-231), so a host whose setpriv lacks --pdeathsig fails the probe and falls back mapping-less loudly \u2014 fail-closed, never silently selected; wrapper/engine flag parity pinned by test_userns.py TestWrapperParity. (3) Regression pinned four ways: scripts/kernel-matrix-teardown.py --gate (run_gate/gate_verdict, lines 440-497; exit 1 only on an OBSERVED orphan, honest SKIP otherwise), wired as a CI cell at .github/workflows/ci.yml:120-124; 6 gate-classifier tests incl. a verdict-flip mutation control (tests/test_kernel_matrix_teardown.py:462-582); plugin/test_tjdf043_pdeathsig_rearm.py (3 contract pins); plugin/test_interruptor.py rejected fixtures for the tail-less defect shape and wrong-signal tail (lines 2812-2820). (4) No weakening: the only code files changed are plugin/terminal_jail/interruptor/userns.py and standalone/terminal-jail, both purely ADDITIVE (--kill-child=SIGKILL retained, setpriv tail appended); no firewall/rule/seccomp/egress/bridge file touched. TEST EVIDENCE (fresh runs): full suite `.venv/bin/python -m pytest -q` -> '1 failed, 1574 passed, 7 skipped in 813.42s'; the single failure is plugin/test_uninstall.py::test_uninstall_removes_installed_pack_and_bak_backups (subprocess.TimeoutExpired on `sh install.sh --rule-pack db` after 60s under fleet load) which PASSES in isolation ('1 passed in 39.35s') and is unrelated to teardown; targeted plugin/test_tjdf043_pdeathsig_rearm.py + tests/test_kernel_matrix_teardown.py -> '56 passed in 1.19s'; plugin/test_interruptor.py -> '517 passed in 2.72s'; containment set (escape_waves, bridge_fail_closed, egress_no_delivery, seccomp, userns, backend_parity) -> '367 passed, 4 skipped in 38.42s'; `scripts/kernel-matrix-teardown.py --gate` -> 'PASS \u2014 teardown held on 7.0.0-31-generic (unshare=20 ms)' exit 0; `--selftest` -> 'SELFTEST PASS'. LSP diagnostics: none.\nTJ-DF-043 is fully resolved: the 6.12 unshare orphan-teardown defect is root-caused with a verbatim-accurate kernel citation and reproducer, fixed additively with a setpriv --pdeathsig re-arm tail, the narrowed guarantee is documented at README/--help/docs/backend-parity.md and enforced by a flag-identical probe, the regression is pinned in the matrix harness + CI + contract tests, and no containment layer was weakened (full suite green apart from one unrelated load-induced install-test timeout that passes in isolation).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n\n\u2026 [3644 chars omitted \u2014 1 line(s)] \u2026\nTJ-DF-043 is fully resolved: the 6.12 unshare orphan-teardown defect is root-caused with a verbatim-accurate kernel citation and reproducer, fixed additively with a setpriv --pdeathsig re-arm tail, the narrowed guarantee is documented at README/--help/docs/backend-parity.md and enforced by a flag-identical probe, the regression is pinned in the matrix harness + CI + contract tests, and no containment layer was weakened (full suite green apart from one unrelated load-induced install-test timeout that passes in isolation).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.",
+                "status": "PASS",
+                "detail": "All four parts verified. (1) Root cause named with a VERBATIM-ACCURATE kernel citation: `man 2 PR_SET_PDEATHSIG` on this box reads 'The parent-death signal setting is also cleared upon changes to any of the following thread credentials: effective user ID, effective group ID, filesystem user ID, or filesystem group ID' \u2014 matching docs/backend-parity.md:142-146 and the commit message (util-linux arms --kill-child's PR_SET_PDEATHSIG before -S/-G setgid/setuid; kernel/cred.c commit_creds() clears it). Minimal reproducer documented (LD_PRELOAD syscall-order shim showing prctl->setgroups->setgid->setuid->exec, docs/backend-parity.md:140,212) plus 6 committed raw cells under docs/dogfood/tjdf043-kernel-cells/ with per-rep survival times (prefix FAIL >5s, postfix PASS 20ms). (2) Matrix is honestly NOT GREEN (2 kernels of required >=3, docs/backend-parity.md:196-200), so the narrowed+enforced branch applies and is documented at ALL THREE named surfaces: README.md:247 (parent-death note) + README.md:661 (Requirements), --help verified live via `./standalone/terminal-jail --help` (standalone/terminal-jail:156-160), and docs/backend-parity.md known-limit (e) lines 134-176 + release re-eval 202-243 (also specs/cli.md:214,249, CHANGELOG). Enforcement is real: mapped_launch_ok() runs `unshare <mapped flags> true` with flags identical to the launch (userns.py:216-231), so a host whose setpriv lacks --pdeathsig fails the probe and falls back mapping-less loudly \u2014 fail-closed, never silently selected; wrapper/engine flag parity pinned by test_userns.py TestWrapperParity. (3) Regression pinned four ways: scripts/kernel-matrix-teardown.py --gate (run_gate/gate_verdict, lines 440-497; exit 1 only on an OBSERVED orphan, honest SKIP otherwise), wired as a CI cell at .github/workflows/ci.yml:120-124; 6 gate-classifier tests incl. a verdict-flip mutation control (tests/test_kernel_matrix_teardown.py:462-582); plugin/test_tjdf043_pdeathsig_rearm.py (3 contract pins); plugin/test_interruptor.py rejected fixtures for the tail-less defect shape and wrong-signal tail (lines 2812-2820). (4) No weakening: the only code files changed are plugin/terminal_jail/interruptor/userns.py and standalone/terminal-jail, both purely ADDITIVE (--kill-child=SIGKILL retained, setpriv tail appended); no firewall/rule/seccomp/egress/bridge file touched. TEST EVIDENCE (fresh runs): full suite `.venv/bin/python -m pytest -q` -> '1 failed, 1574 passed, 7 skipped in 813.42s'; the single failure is plugin/test_uninstall.py::test_uninstall_removes_installed_pack_and_bak_backups (subprocess.TimeoutExpired on `sh install.sh --rule-pack db` after 60s under fleet load) which PASSES in isolation ('1 passed in 39.35s') and is unrelated to teardown; targeted plugin/test_tjdf043_pdeathsig_rearm.py + tests/test_kernel_matrix_teardown.py -> '56 passed in 1.19s'; plugin/test_interruptor.py -> '517 passed in 2.72s'; containment set (escape_waves, bridge_fail_closed, egress_no_delivery, seccomp, userns, backend_parity) -> '367 passed, 4 skipped in 38.42s'; `scripts/kernel-matrix-teardown.py --gate` -> 'PASS \u2014 teardown held on 7.0.0-31-generic (unshare=20 ms)' exit 0; `--selftest` -> 'SELFTEST PASS'. LSP diagnostics: none.",
+                "resolution_probability": 0.24
+              }
+            ],
+            "summary": "TJ-DF-043 is fully resolved: the 6.12 unshare orphan-teardown defect is root-caused with a verbatim-accurate kernel citation and reproducer, fixed additively with a setpriv --pdeathsig re-arm tail, the narrowed guarantee is documented at README/--help/docs/backend-parity.md and enforced by a flag-identical probe, the regression is pinned in the matrix harness + CI + contract tests, and no containment layer was weakened (full suite green apart from one unrelated load-induced install-test timeout that passes in isolation)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-043\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_uninstall.py::test_unrule_pack_still_works_unchanged [first failing id])\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.: All four parts verified. (1) Root cause named with a VERBATIM-ACCURATE kernel citation: `man 2 PR_SET_PDEATHSIG` on this box reads 'The parent-death signal setting is also cleared upon changes to any of the following thread credentials: effective user ID, effective group ID, filesystem user ID, or filesystem group ID' \u2014 matching docs/backend-parity.md:142-146 and the commit message (util-linux arms --kill-child's PR_SET_PDEATHSIG before -S/-G setgid/setuid; kernel/cred.c commit_creds() clears it). Minimal reproducer documented (LD_PRELOAD syscall-order shim showing prctl->setgroups->setgid->setuid->exec, docs/backend-parity.md:140,212) plus 6 committed raw cells under docs/dogfood/tjdf043-kernel-cells/ with per-rep survival times (prefix FAIL >5s, postfix PASS 20ms). (2) Matrix is honestly NOT GREEN (2 kernels of required >=3, docs/backend-parity.md:196-200), so the narrowed+enforced branch applies and is documented at ALL THREE named surfaces: README.md:247 (parent-death note) + README.md:661 (Requirements), --help verified live via `./standalone/terminal-jail --help` (standalone/terminal-jail:156-160), and docs/backend-parity.md known-limit (e) lines 134-176 + release re-eval 202-243 (also specs/cli.md:214,249, CHANGELOG). Enforcement is real: mapped_launch_ok() runs `unshare <mapped flags> true` with flags identical to the launch (userns.py:216-231), so a host whose setpriv lacks --pdeathsig fails the probe and falls back mapping-less loudly \u2014 fail-closed, never silently selected; wrapper/engine flag parity pinned by test_userns.py TestWrapperParity. (3) Regression pinned four ways: scripts/kernel-matrix-teardown.py --gate (run_gate/gate_verdict, lines 440-497; exit 1 only on an OBSERVED orphan, honest SKIP otherwise), wired as a CI cell at .github/workflows/ci.yml:120-124; 6 gate-classifier tests incl. a verdict-flip mutation control (tests/test_kernel_matrix_teardown.py:462-582); plugin/test_tjdf043_pdeathsig_rearm.py (3 contract pins); plugin/test_interruptor.py rejected fixtures for the tail-less defect shape and wrong-signal tail (lines 2812-2820). (4) No weakening: the only code files changed are plugin/terminal_jail/interruptor/userns.py and standalone/terminal-jail, both purely ADDITIVE (--kill-child=SIGKILL retained, setpriv tail appended); no firewall/rule/seccomp/egress/bridge file touched. TEST EVIDENCE (fresh runs): full suite `.venv/bin/python -m pytest -q` -> '1 failed, 1574 passed, 7 skipped in 813.42s'; the single failure is plugin/test_uninstall.py::test_uninstall_removes_installed_pack_and_bak_backups (subprocess.TimeoutExpired on `sh install.sh --rule-pack db` after 60s under fleet load) which PASSES in isolation ('1 passed in 39.35s') and is unrelated to teardown; targeted plugin/test_tjdf043_pdeathsig_rearm.py + tests/test_kernel_matrix_teardown.py -> '56 passed in 1.19s'; plugin/test_interruptor.py -> '517 passed in 2.72s'; containment set (escape_waves, bridge_fail_closed, egress_no_delivery, seccomp, userns, backend_parity) -> '367 passed, 4 skipped in 38.42s'; `scripts/kernel-matrix-teardown.py --gate` -> 'PASS \u2014 teardown held on 7.0.0-31-generic (unshare=20 ms)' exit 0; `--selftest` -> 'SELFTEST PASS'. LSP diagnostics: none.\nTJ-DF-043 is fully resolved: the 6.12 unshare orphan-teardown defect is root-caused with a verbatim-accurate kernel citation and reproducer, fixed additively with a setpriv --pdeathsig re-arm tail, the narrowed guarantee is documented at README/--help/docs/backend-parity.md and enforced by a flag-identical probe, the regression is pinned in the matrix harness + CI + contract tests, and no containment layer was weakened (full suite green apart from one unrelated load-induced install-test timeout that passes in isolation).\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-03T02:43:17.692573",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-03T02:43:17.722639+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 65217,
+        "truncated": false,
+        "source": "git show 7018c08210d7"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 19319,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-043"
+  }
+}

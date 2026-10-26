@@ -1,0 +1,120 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-18",
+  "task_title": "Make Landlock-aware MODIFY expectations location-independent",
+  "task_criteria": [
+    "Update sandbox MODIFY expectations to assert the contract while accepting the optional Landlock loader tail when reachable; preserve degraded behavior; add deterministic loader-reachable coverage; focused interruptor and host-probe tests pass in checkout and world-traversable clone; do not weaken runtime Landlock behavior."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2995b2b7d3cc92ef37a9d021cf75312b2c89f143",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261011T225935.454194Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n7:41PM INF scanned ~6672945 bytes (6.67 MB) in 432ms\n7:41PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 221 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261011T225935.454194Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1949 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 24%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py ......................                        [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 47%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1920 chars omitted \u2014 24 line(s)] \u2026\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...........                             [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1939 passed, 10 skipped in 154.73s (0:02:34) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T004132.011501Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 Update sandbox MODIFY expectations to assert the contract while accepting the optional Landlock loader tail when reachable; preserve degraded behavior; add deterministic loader-reachable coverage; focused interruptor and host-probe tests pass in checkout and world-traversable clone; do not weaken runtime Landlock behavior.: No implementation landed. HEAD 2995b2b is board-only (git show --stat: .coding-hermes/board/{board,events,tasks}.jsonl + .gitreins/tasks.yaml); the board event itself records worker_diff=\"empty\", worker_commit=\"none\", \"No implementation landed and the row remains pending for a future attempt\" (tasks.jsonl worker_status=\"failed\"). (a) Expectations NOT updated: plugin/test_interruptor.py:2494 _assert_sandboxed_modify accepts only _LEGACY_LAUNCH_RE (line 2455) or _MAPPED_LAUNCH_RE (2457-2465) \u2014 both anchored ^...$ and ending at 'bash -c'/'setpriv --pdeathsig=...'; no 'python3 <loader> -- ' tail is accepted. The payload assertion at test_interruptor.py:2521-2525 requires payload == \"'\"+command+\"'\" and SANDBOX_PIPELINE_VECTORS (lines 260-300) pin \"{w}'go test ./...' | tee /tmp/log\" with no tail. grep -i landlock plugin/test_interruptor.py => 0 hits; grep -i landlock plugin/test_host_probes.py => 0 hits. (b) Deterministic loader-reachable coverage NOT added: no fixture forces the tail into a MODIFY expectation; test_landlock.py:2377 test_ok_verdict_reachable_loader_emits_the_tail is a pre-existing landlock-module unit test (monkeypatched loader_path/_world_traversable) last touched by dcd2e7d/b2f5b40/bd39236, not MODIFY-expectation coverage. (c) Focused tests FAIL in the world-traversable clone: /tmp/tjqa18/repo (chmod 755 chain) `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` => '15 failed, 524 passed in 3.44s', including test_interruptor.py:2525 'the rewrite must carry the original command as ONE quoted argument: expected \"'danger-tool --wipe'\", got \"'python3 /tmp/tjqa18/repo/standalone/landlock-loader.py -- danger-tool --wipe'\"', test_interruptor.py:481 'guard rejection did not fall back: \"unshare --user --pid --fork --kill-child=SIGKILL bash -c 'python3 .../landlock-loader.py -- go test ./... | tee /tmp/log'\"', and test_host_probes.py:325 'assert 126 == 0'. Checkout runs are green only by accident of loader placement: test_interruptor.py 517 passed, test_host_probes.py 22 passed, test_landlock.py 127 passed/1 skipped, full suite 1870 passed/9 skipped/70 deselected \u2014 /home/kara is 0750 so the tail is absent. (d) 'do not weaken runtime Landlock behavior' is vacuously satisfied (no production file changed), but the deliverable is absent.\nThe task is unimplemented: HEAD is a board-only commit recording a failed worker, the MODIFY expectations still reject the Landlock loader tail, and the focused interruptor/host-probe tests fail 15-strong in a world-traversable clone while passing in the checkout only because the loader is unreachable there.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 Update sandbox MODIFY expectations to assert the contract while accepting the optional Landlock loader tail when reachable; preserve degraded behavior; add deterministic loader-reachable coverage; focused interruptor and host-probe tests pass in checkout and world-traversable clone; do not weaken runtime Landlock behavior.: No implementation landed. HEAD 2995b2b is board-only (git show --stat: .coding-hermes/board/{board,events,tasks}.jsonl + .gitreins/tasks.yaml); the board event itself records worker_diff=\"empty\", worker_commit=\"none\", \"No implementation landed and the row remains pending for a future attempt\" (tasks.jsonl worker_status=\"failed\"). (a) Expectations NOT updated: plugin/test_interruptor.py:2494 _assert_sandboxed_modify accepts only _LEGACY_LAUNCH_RE (line 2455) or _MAPPED_LAUNCH_RE (2457-2465) \u2014 both anchored ^...$ and ending at 'bash -c'/'setpriv --pdeathsig=...'; no 'python3 <loader> -- ' tail is accepted. The payload assertion at test_interruptor.py:2521-2525 requires payload == \"'\"+command+\"'\" and SANDBOX_PIPELINE_VECTORS (lines 260-300) pin \"{w}'go test ./...' | tee /tmp/log\" with no tail. grep -i landlock plugin/test_interruptor.py => 0 hits; grep -i landlock plugin/test_host_probes.py => 0 hits. (b) Deterministic loader-reachable coverage NOT added: no fixture forces the tail into a MODIFY expectation; test_landlock.py:2377 test_ok_verdict_reachable_loader_emits_the_tail is a pre-existing landlock-module unit test (monkeypatched loader_path/_world_traversable) last touched by dcd2e7d/b2f5b40/bd39236, not MODIFY-expectation coverage. (c) Focused tests FAIL in the world-traversable clone: /tmp/tjqa18/repo (chmod 755 chain) `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` => '15 failed, 524 passed in 3.44s', including test_interruptor.py:2525 'the rewrite must carry the original command as ONE quoted argument: expected \"'danger-tool --wipe'\", got \"'python3 /tmp/tjqa18/repo/standalone/landlock-loader.py -- danger-tool --wipe'\"', test_interruptor.py:481 'guard rejection did not fall back: \"unshare --user --pid --fork --kill-child=SIGKILL bash -c 'python3 .../landlock-loader.py -- go test ./... | tee /tmp/log'\"', and test_host_probes.py:325 'assert 126 == 0'. Checkout runs are green only by accident of loader placement: test_interruptor.py 517 passed, test_host_probes.py 22 passed, test_landlock.py 127 passed/1 skipped, full suite 1870 passed/9 skipped/70 deselected \u2014 /home/kara is 0750 so the tail is absent. (d) 'do not weaken runtime Landlock behavior' is vacuously satisfied (no production file changed), but the deliverable is absent.\nThe task is unimplemented: HEAD is a board-only commit recording a failed worker, the MODIFY expectations still reject the Landlock loader tail, and the focused interruptor/host-probe tests fail 15-strong in a world-traversable clone while passing in the checkout only because the loader is unreachable there.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "Update sandbox MODIFY expectations to assert the contract while accepting the optional Landlock loader tail when reachable; preserve degraded behavior; add deterministic loader-reachable coverage; focused interruptor and host-probe tests pass in checkout and world-traversable clone; do not weaken runtime Landlock behavior.",
+                "status": "FAIL",
+                "detail": "No implementation landed. HEAD 2995b2b is board-only (git show --stat: .coding-hermes/board/{board,events,tasks}.jsonl + .gitreins/tasks.yaml); the board event itself records worker_diff=\"empty\", worker_commit=\"none\", \"No implementation landed and the row remains pending for a future attempt\" (tasks.jsonl worker_status=\"failed\"). (a) Expectations NOT updated: plugin/test_interruptor.py:2494 _assert_sandboxed_modify accepts only _LEGACY_LAUNCH_RE (line 2455) or _MAPPED_LAUNCH_RE (2457-2465) \u2014 both anchored ^...$ and ending at 'bash -c'/'setpriv --pdeathsig=...'; no 'python3 <loader> -- ' tail is accepted. The payload assertion at test_interruptor.py:2521-2525 requires payload == \"'\"+command+\"'\" and SANDBOX_PIPELINE_VECTORS (lines 260-300) pin \"{w}'go test ./...' | tee /tmp/log\" with no tail. grep -i landlock plugin/test_interruptor.py => 0 hits; grep -i landlock plugin/test_host_probes.py => 0 hits. (b) Deterministic loader-reachable coverage NOT added: no fixture forces the tail into a MODIFY expectation; test_landlock.py:2377 test_ok_verdict_reachable_loader_emits_the_tail is a pre-existing landlock-module unit test (monkeypatched loader_path/_world_traversable) last touched by dcd2e7d/b2f5b40/bd39236, not MODIFY-expectation coverage. (c) Focused tests FAIL in the world-traversable clone: /tmp/tjqa18/repo (chmod 755 chain) `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` => '15 failed, 524 passed in 3.44s', including test_interruptor.py:2525 'the rewrite must carry the original command as ONE quoted argument: expected \"'danger-tool --wipe'\", got \"'python3 /tmp/tjqa18/repo/standalone/landlock-loader.py -- danger-tool --wipe'\"', test_interruptor.py:481 'guard rejection did not fall back: \"unshare --user --pid --fork --kill-child=SIGKILL bash -c 'python3 .../landlock-loader.py -- go test ./... | tee /tmp/log'\"', and test_host_probes.py:325 'assert 126 == 0'. Checkout runs are green only by accident of loader placement: test_interruptor.py 517 passed, test_host_probes.py 22 passed, test_landlock.py 127 passed/1 skipped, full suite 1870 passed/9 skipped/70 deselected \u2014 /home/kara is 0750 so the tail is absent. (d) 'do not weaken runtime Landlock behavior' is vacuously satisfied (no production file changed), but the deliverable is absent.",
+                "resolution_probability": 0.29
+              }
+            ],
+            "summary": "The task is unimplemented: HEAD is a board-only commit recording a failed worker, the MODIFY expectations still reject the Landlock loader tail, and the focused interruptor/host-probe tests fail 15-strong in a world-traversable clone while passing in the checkout only because the loader is unreachable there."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-18\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 Update sandbox MODIFY expectations to assert the contract while accepting the optional Landlock loader tail when reachable; preserve degraded behavior; add deterministic loader-reachable coverage; focused interruptor and host-probe tests pass in checkout and world-traversable clone; do not weaken runtime Landlock behavior.: No implementation landed. HEAD 2995b2b is board-only (git show --stat: .coding-hermes/board/{board,events,tasks}.jsonl + .gitreins/tasks.yaml); the board event itself records worker_diff=\"empty\", worker_commit=\"none\", \"No implementation landed and the row remains pending for a future attempt\" (tasks.jsonl worker_status=\"failed\"). (a) Expectations NOT updated: plugin/test_interruptor.py:2494 _assert_sandboxed_modify accepts only _LEGACY_LAUNCH_RE (line 2455) or _MAPPED_LAUNCH_RE (2457-2465) \u2014 both anchored ^...$ and ending at 'bash -c'/'setpriv --pdeathsig=...'; no 'python3 <loader> -- ' tail is accepted. The payload assertion at test_interruptor.py:2521-2525 requires payload == \"'\"+command+\"'\" and SANDBOX_PIPELINE_VECTORS (lines 260-300) pin \"{w}'go test ./...' | tee /tmp/log\" with no tail. grep -i landlock plugin/test_interruptor.py => 0 hits; grep -i landlock plugin/test_host_probes.py => 0 hits. (b) Deterministic loader-reachable coverage NOT added: no fixture forces the tail into a MODIFY expectation; test_landlock.py:2377 test_ok_verdict_reachable_loader_emits_the_tail is a pre-existing landlock-module unit test (monkeypatched loader_path/_world_traversable) last touched by dcd2e7d/b2f5b40/bd39236, not MODIFY-expectation coverage. (c) Focused tests FAIL in the world-traversable clone: /tmp/tjqa18/repo (chmod 755 chain) `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` => '15 failed, 524 passed in 3.44s', including test_interruptor.py:2525 'the rewrite must carry the original command as ONE quoted argument: expected \"'danger-tool --wipe'\", got \"'python3 /tmp/tjqa18/repo/standalone/landlock-loader.py -- danger-tool --wipe'\"', test_interruptor.py:481 'guard rejection did not fall back: \"unshare --user --pid --fork --kill-child=SIGKILL bash -c 'python3 .../landlock-loader.py -- go test ./... | tee /tmp/log'\"', and test_host_probes.py:325 'assert 126 == 0'. Checkout runs are green only by accident of loader placement: test_interruptor.py 517 passed, test_host_probes.py 22 passed, test_landlock.py 127 passed/1 skipped, full suite 1870 passed/9 skipped/70 deselected \u2014 /home/kara is 0750 so the tail is absent. (d) 'do not weaken runtime Landlock behavior' is vacuously satisfied (no production file changed), but the deliverable is absent.\nThe task is unimplemented: HEAD is a board-only commit recording a failed worker, the MODIFY expectations still reject the Landlock loader tail, and the focused interruptor/host-probe tests fail 15-strong in a world-traversable clone while passing in the checkout only because the loader is unreachable there.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-12T00:52:09.887496",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-12T00:52:09.928792+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 23889,
+        "truncated": false,
+        "source": "git show 2995b2b7d3cc"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 647,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-18"
+  }
+}

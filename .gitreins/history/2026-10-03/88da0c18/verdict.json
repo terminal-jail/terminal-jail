@@ -1,0 +1,120 @@
+{
+  "task_id": "DOC-9",
+  "task_title": "Composed deployment docs + shared per-layer guarantee matrix",
+  "task_criteria": [
+    "Repo gains a 'Composed deployment' doc stating the three configurations (tool alone / platform alone / both) with a runnable composed quickstart naming the inner-namespace requirement, the measured per-layer guarantee matrix (layer | enforcer | evidence | what the other layer does not give) appears with identical numbers and cross-links to the bunker counterpart rows, and the matrix numbers are pinned by a check"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "813d5c6f50607a6329ef098aa215a6b7423c8b3f",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_composed_mode.py::test_composed_off_refusal_names_cause_and_options [first failing ",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T203020.134430Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n3:31PM INF scanned ~5984485 bytes (5.98 MB) in 401ms\n3:31PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 194 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T203020.134430Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1618 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 27%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n............................                                             [ 33%]\nplugin/test_interruptor.py ............................................. [ 36%]\n........................................................................ [ 41%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 58%]\n........................................................................ [ 63%]\n........................................                                 [ 65%]\nplugin/test_interruptor_integration.py .................s............... [ 67%]\n\n\u2026 [1200 chars omitted \u2014 15 line(s)] \u2026\nplugin/test_tjdf024_prefilter.py ..................                      [ 91%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 92%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 92%]\nplugin/test_uninstall.py .............                                   [ 93%]\nplugin/test_userns.py .........................s..                       [ 94%]\ntests/test_composed_doc.py .......                                       [ 95%]\ntests/test_composed_mode.py ..F\n\n=================================== FAILURES ===================================\n______________ test_composed_off_refusal_names_cause_and_options _______________\ntests/test_composed_mode.py:150: in test_composed_off_refusal_names_cause_and_options\n    assert lines[0] == _ORIG_REFUSAL\nE   AssertionError: assert 'terminal-jai...arity.md (a))' == 'terminal-jai...ts try --user'\nE     \nE     - terminal-jail: namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user\nE     + terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed \u2014 documented known limit, docs/backend-parity.md (a))\n=========================== short test summary info ============================\nFAILED tests/test_composed_mode.py::test_composed_off_refusal_names_cause_and_options\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============ 1 failed, 1536 passed, 7 skipped in 439.68s (0:07:19) =============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: tests/test_composed_mode.py::test_composed_off_refusal_names_cause_and_options",
+              "first_failing_test": "tests/test_composed_mode.py::test_composed_off_refusal_names_cause_and_options",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T203020.134430Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Repo gains a 'Composed deployment' doc stating the three configurations (tool alone / platform alone / both) with a runnable composed quickstart naming the inner-namespace requirement, the measured per-layer guarantee matrix (layer | enforcer | evidence | what the other layer does not give) appears with identical numbers and cross-links to the bunker counterpart rows, and the matrix numbers are pinned by a check: docs/composed-deployment.md (242 lines, committed 813d5c6) satisfies every element: \u00a71 'The three configurations' table lists Tool alone / Platform alone / BOTH composed (lines 20-26); \u00a72 'Composed quickstart' gives runnable docker commands (lines 73,91,132,146,153) plus the inner-namespace requirement table (lines 41-55); \u00a73 'Shared per-layer guarantee matrix' has the exact header 'Layer | Who enforces | Measured evidence | What the other layer does NOT give you' (line 178) with three LAYER rows carrying the numbers 4/5/1084, /proc/1 identities, CapEff, exit 126, rule_id builtin-rm-rf-root; cross-links to bunker counterpart rows GAP-179 (line 228) and DOC-043 (line 231) with 'identical per-layer guarantee matrix (the same numbers as \u00a73)' and 'one source of truth' (lines 232-233). Pinning check: tests/test_composed_doc.py \u2014 ran `.venv/bin/python -m pytest tests/test_composed_doc.py -v` => '7 passed in 0.01s' (exit 0), asserting the pinned strings, three layer rows, frozen numbers, and README link (README.md:667). Note: 4 failures in tests/test_composed_mode.py stem from uncommitted TJ-GAP-088 WIP (standalone/terminal-jail modified in working tree, task status in_progress), not from DOC-9's committed deliverable.\nThe 'Composed deployment' doc exists with all three configurations, a runnable quickstart naming the inner-namespace requirement, the measured per-layer matrix with identical numbers and bunker cross-links, and its numbers are pinned by tests/test_composed_doc.py (7 passed).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Repo gains a 'Composed deployment' doc stating the three configurations (tool alone / platform alone / both) with a runnable composed quickstart naming the inner-namespace requirement, the measured per-layer guarantee matrix (layer | enforcer | evidence | what the other layer does not give) appears with identical numbers and cross-links to the bunker counterpart rows, and the matrix numbers are pinned by a check: docs/composed-deployment.md (242 lines, committed 813d5c6) satisfies every element: \u00a71 'The three configurations' table lists Tool alone / Platform alone / BOTH composed (lines 20-26); \u00a72 'Composed quickstart' gives runnable docker commands (lines 73,91,132,146,153) plus the inner-namespace requirement table (lines 41-55); \u00a73 'Shared per-layer guarantee matrix' has the exact header 'Layer | Who enforces | Measured evidence | What the other layer does NOT give you' (line 178) with three LAYER rows carrying the numbers 4/5/1084, /proc/1 identities, CapEff, exit 126, rule_id builtin-rm-rf-root; cross-links to bunker counterpart rows GAP-179 (line 228) and DOC-043 (line 231) with 'identical per-layer guarantee matrix (the same numbers as \u00a73)' and 'one source of truth' (lines 232-233). Pinning check: tests/test_composed_doc.py \u2014 ran `.venv/bin/python -m pytest tests/test_composed_doc.py -v` => '7 passed in 0.01s' (exit 0), asserting the pinned strings, three layer rows, frozen numbers, and README link (README.md:667). Note: 4 failures in tests/test_composed_mode.py stem from uncommitted TJ-GAP-088 WIP (standalone/terminal-jail modified in working tree, task status in_progress), not from DOC-9's committed deliverable.\nThe 'Composed deployment' doc exists with all three configurations, a runnable quickstart naming the inner-namespace requirement, the measured per-layer matrix with identical numbers and bunker cross-links, and its numbers are pinned by tests/test_composed_doc.py (7 passed).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Repo gains a 'Composed deployment' doc stating the three configurations (tool alone / platform alone / both) with a runnable composed quickstart naming the inner-namespace requirement, the measured per-layer guarantee matrix (layer | enforcer | evidence | what the other layer does not give) appears with identical numbers and cross-links to the bunker counterpart rows, and the matrix numbers are pinned by a check",
+                "status": "PASS",
+                "detail": "docs/composed-deployment.md (242 lines, committed 813d5c6) satisfies every element: \u00a71 'The three configurations' table lists Tool alone / Platform alone / BOTH composed (lines 20-26); \u00a72 'Composed quickstart' gives runnable docker commands (lines 73,91,132,146,153) plus the inner-namespace requirement table (lines 41-55); \u00a73 'Shared per-layer guarantee matrix' has the exact header 'Layer | Who enforces | Measured evidence | What the other layer does NOT give you' (line 178) with three LAYER rows carrying the numbers 4/5/1084, /proc/1 identities, CapEff, exit 126, rule_id builtin-rm-rf-root; cross-links to bunker counterpart rows GAP-179 (line 228) and DOC-043 (line 231) with 'identical per-layer guarantee matrix (the same numbers as \u00a73)' and 'one source of truth' (lines 232-233). Pinning check: tests/test_composed_doc.py \u2014 ran `.venv/bin/python -m pytest tests/test_composed_doc.py -v` => '7 passed in 0.01s' (exit 0), asserting the pinned strings, three layer rows, frozen numbers, and README link (README.md:667). Note: 4 failures in tests/test_composed_mode.py stem from uncommitted TJ-GAP-088 WIP (standalone/terminal-jail modified in working tree, task status in_progress), not from DOC-9's committed deliverable.",
+                "resolution_probability": 0.23
+              }
+            ],
+            "summary": "The 'Composed deployment' doc exists with all three configurations, a runnable quickstart naming the inner-namespace requirement, the measured per-layer matrix with identical numbers and bunker cross-links, and its numbers are pinned by tests/test_composed_doc.py (7 passed)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-9\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_composed_mode.py::test_composed_off_refusal_names_cause_and_options [first failing \n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Repo gains a 'Composed deployment' doc stating the three configurations (tool alone / platform alone / both) with a runnable composed quickstart naming the inner-namespace requirement, the measured per-layer guarantee matrix (layer | enforcer | evidence | what the other layer does not give) appears with identical numbers and cross-links to the bunker counterpart rows, and the matrix numbers are pinned by a check: docs/composed-deployment.md (242 lines, committed 813d5c6) satisfies every element: \u00a71 'The three configurations' table lists Tool alone / Platform alone / BOTH composed (lines 20-26); \u00a72 'Composed quickstart' gives runnable docker commands (lines 73,91,132,146,153) plus the inner-namespace requirement table (lines 41-55); \u00a73 'Shared per-layer guarantee matrix' has the exact header 'Layer | Who enforces | Measured evidence | What the other layer does NOT give you' (line 178) with three LAYER rows carrying the numbers 4/5/1084, /proc/1 identities, CapEff, exit 126, rule_id builtin-rm-rf-root; cross-links to bunker counterpart rows GAP-179 (line 228) and DOC-043 (line 231) with 'identical per-layer guarantee matrix (the same numbers as \u00a73)' and 'one source of truth' (lines 232-233). Pinning check: tests/test_composed_doc.py \u2014 ran `.venv/bin/python -m pytest tests/test_composed_doc.py -v` => '7 passed in 0.01s' (exit 0), asserting the pinned strings, three layer rows, frozen numbers, and README link (README.md:667). Note: 4 failures in tests/test_composed_mode.py stem from uncommitted TJ-GAP-088 WIP (standalone/terminal-jail modified in working tree, task status in_progress), not from DOC-9's committed deliverable.\nThe 'Composed deployment' doc exists with all three configurations, a runnable quickstart naming the inner-namespace requirement, the measured per-layer matrix with identical numbers and bunker cross-links, and its numbers are pinned by tests/test_composed_doc.py (7 passed).\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-03T20:39:45.856022",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-03T20:39:45.874935+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 22704,
+        "truncated": false,
+        "source": "git show 813d5c6f5060"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 45891,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-9"
+  }
+}

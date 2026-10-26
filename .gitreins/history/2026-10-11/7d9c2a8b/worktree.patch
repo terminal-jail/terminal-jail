@@ -1,0 +1,9 @@
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 0b27202..8fcb4be 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -140,3 +140,4 @@
+ {"ts": 1791422158.4554396, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791426403.4217985, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791427852.2482498, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791722105.821019, "tokens_in": 14925672, "tokens_out": 24630, "cache_read": 0, "cache_write": 0, "step": "tier2"}

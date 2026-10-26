@@ -1,0 +1,107 @@
+{
+  "task_id": "tj-gap-032",
+  "task_title": "Sync shipped 00-builtins.yaml mirror with engine BUILTIN_* constants (TJ-GAP-032)",
+  "task_criteria": [
+    "grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist)",
+    "plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules",
+    "plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin IDs (test_shipped_rules_yaml_mirrors_engine_builtin_ids)",
+    ".venv/bin/python -m pytest -q passes (286 passed, 4 skipped)",
+    "gitreins guard passes 4/4",
+    "Commit addresses TJ-GAP-032 and includes Co-authored-by trailer"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m7:10AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8814227 bytes (8.81 MB) in 739ms\u001b[0m\n\u001b[90m7:10AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m7:10AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8814227 bytes (8.81 MB) in 739ms\u001b[0m\n\u001b[90m7:10AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 290 items\n\nplugin/test_install.py ..................                                [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist): run_command grep -c 'id:' returned 29; header confirms 11 blocklist / 8 sandbox / 10 allow\n  \u2713 plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules: grep '27 rules' returns exit 1 (no match); header now reads 'These reflect the same 29 rules hardcoded in the Python engine'\n  \u2713 plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin IDs (test_shipped_rules_yaml_mirrors_engine_builtin_ids): test_shipped_rules_yaml_mirrors_engine_builtin_ids defined at plugin/test_packaging.py:85, added in commit 9c3a5d1; asserts yaml_ids == engine_ids and per-layer counts vs BUILTIN_BLOCKLIST/SANDBOX/ALLOWLIST\n  \u2713 .venv/bin/python -m pytest -q passes (286 passed, 4 skipped): pytest run from plugin dir output: '286 passed, 4 skipped in 4.82s'\n  \u2713 gitreins guard passes 4/4: gitreins guard output: 'Tier 1 Guards: PASS' with secrets clean, lint ok, tests, static_analysis all green\n  \u2713 Commit addresses TJ-GAP-032 and includes Co-authored-by trailer: Commit 9c3a5d1 'fix: sync shipped 00-builtins.yaml mirror with engine BUILTIN_* constants (TJ-GAP-032)' includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer\nAll 6 criteria verified: YAML mirror synced to 29 rules (11 blocklist), header updated, mirror-sync test added, pytest 286/4 green, gitreins guard 4/4, and commit 9c3a5d1 addresses TJ-GAP-032 with Co-authored-by trailer.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist): run_command grep -c 'id:' returned 29; header confirms 11 blocklist / 8 sandbox / 10 allow\n  \u2713 plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules: grep '27 rules' returns exit 1 (no match); header now reads 'These reflect the same 29 rules hardcoded in the Python engine'\n  \u2713 plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin IDs (test_shipped_r",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist)",
+                "status": "PASS",
+                "detail": "run_command grep -c 'id:' returned 29; header confirms 11 blocklist / 8 sandbox / 10 allow"
+              },
+              {
+                "criterion": "plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules",
+                "status": "PASS",
+                "detail": "grep '27 rules' returns exit 1 (no match); header now reads 'These reflect the same 29 rules hardcoded in the Python engine'"
+              },
+              {
+                "criterion": "plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin IDs (test_shipped_rules_yaml_mirrors_engine_builtin_ids)",
+                "status": "PASS",
+                "detail": "test_shipped_rules_yaml_mirrors_engine_builtin_ids defined at plugin/test_packaging.py:85, added in commit 9c3a5d1; asserts yaml_ids == engine_ids and per-layer counts vs BUILTIN_BLOCKLIST/SANDBOX/ALLOWLIST"
+              },
+              {
+                "criterion": ".venv/bin/python -m pytest -q passes (286 passed, 4 skipped)",
+                "status": "PASS",
+                "detail": "pytest run from plugin dir output: '286 passed, 4 skipped in 4.82s'"
+              },
+              {
+                "criterion": "gitreins guard passes 4/4",
+                "status": "PASS",
+                "detail": "gitreins guard output: 'Tier 1 Guards: PASS' with secrets clean, lint ok, tests, static_analysis all green"
+              },
+              {
+                "criterion": "Commit addresses TJ-GAP-032 and includes Co-authored-by trailer",
+                "status": "PASS",
+                "detail": "Commit 9c3a5d1 'fix: sync shipped 00-builtins.yaml mirror with engine BUILTIN_* constants (TJ-GAP-032)' includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer"
+              }
+            ],
+            "summary": "All 6 criteria verified: YAML mirror synced to 29 rules (11 blocklist), header updated, mirror-sync test added, pytest 286/4 green, gitreins guard 4/4, and commit 9c3a5d1 addresses TJ-GAP-032 with Co-authored-by trailer."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: tj-gap-032\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m7:10AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8814227 bytes (8.81 MB) in 739ms\u001b[0m\n\u001b[90m7:10AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist): run_command grep -c 'id:' returned 29; header confirms 11 blocklist / 8 sandbox / 10 allow\n  \u2713 plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules: grep '27 rules' returns exit 1 (no match); header now reads 'These reflect the same 29 rules hardcoded in the Python engine'\n  \u2713 plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin IDs (test_shipped_rules_yaml_mirrors_engine_builtin_ids): test_shipped_rules_yaml_mirrors_engine_builtin_ids defined at plugin/test_packaging.py:85, added in commit 9c3a5d1; asserts yaml_ids == engine_ids and per-layer counts vs BUILTIN_BLOCKLIST/SANDBOX/ALLOWLIST\n  \u2713 .venv/bin/python -m pytest -q passes (286 passed, 4 skipped): pytest run from plugin dir output: '286 passed, 4 skipped in 4.82s'\n  \u2713 gitreins guard passes 4/4: gitreins guard output: 'Tier 1 Guards: PASS' with secrets clean, lint ok, tests, static_analysis all green\n  \u2713 Commit addresses TJ-GAP-032 and includes Co-authored-by trailer: Commit 9c3a5d1 'fix: sync shipped 00-builtins.yaml mirror with engine BUILTIN_* constants (TJ-GAP-032)' includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer\nAll 6 criteria verified: YAML mirror synced to 29 rules (11 blocklist), header updated, mirror-sync test added, pytest 286/4 green, gitreins guard 4/4, and commit 9c3a5d1 addresses TJ-GAP-032 with Co-authored-by trailer.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-14T12:11:20.368834"
+}

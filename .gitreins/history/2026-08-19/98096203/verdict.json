@@ -1,0 +1,89 @@
+{
+  "task_id": "TJ-DF-012",
+  "task_title": "P1 same-ID warn override silent",
+  "task_criteria": [
+    "CLI with same-ID warn override prints a WARN line on stderr and exits 0",
+    "Action.WARN handled explicitly in decider._rule_result with reason would-have-blocked",
+    "Regression test covers rule-level warn path"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m5:35PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 845ms\u001b[0m\n\u001b[90m5:35PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m5:35PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 845ms\u001b[0m\n\u001b[90m5:35PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 305 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 CLI with same-ID warn override prints a WARN line on stderr and exits 0: standalone/terminal-jail:253-255 case matches *\"would have blocked\"* and echoes \"terminal-jail: WARNING \u2014 $warn_reason\" >&2; wrapper falls through to exec the command (exit 0 on success, no exit 126). Manual CLI run printed the WARN line on stderr. Integration test test_cli_surfaces_user_rule_warn_override (test_interruptor_integration.py:109) passes, asserting WARNING in stderr and rc != 126.\n  \u2713 Action.WARN handled explicitly in decider._rule_result with reason would-have-blocked: plugin/terminal_jail/interruptor/decider.py:238-243: `if rule.action == Action.WARN:` returns InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id, reason=f\"would have blocked: {rule.block_message}\"). evaluate() preserves warn reason + rule_id through the segment loop into the final InterceptResult (lines 164-170).\n  \u2713 Regression test covers rule-level warn path: plugin/test_interruptor.py:617 test_same_id_warn_override_returns_allow_with_warn_reason (asserts ALLOW + rule_id + \"would have blocked\" reason) and :658 test_same_id_warn_override_leaves_other_builtins_blocking; plugin/test_interruptor_integration.py:109 test_cli_surfaces_user_rule_warn_override. All pass. Full suite: `pytest -x --tb=short` \u2192 301 passed, 4 skipped.\nTJ-DF-012 fully implemented: Action.WARN handled explicitly in decider._rule_result with would-have-blocked reason, CLI surfaces WARNING on stderr and lets the command run, and unit + CLI regression tests cover the rule-level warn path (all passing).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 CLI with same-ID warn override prints a WARN line on stderr and exits 0: standalone/terminal-jail:253-255 case matches *\"would have blocked\"* and echoes \"terminal-jail: WARNING \u2014 $warn_reason\" >&2; wrapper falls through to exec the command (exit 0 on success, no exit 126). Manual CLI run printed the WARN line on stderr. Integration test test_cli_surfaces_user_rule_warn_override (test_interruptor_integration.py:109) passes, asserting WARNING in stderr and rc != 126.\n  \u2713 Action.WARN h",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "CLI with same-ID warn override prints a WARN line on stderr and exits 0",
+                "status": "PASS",
+                "detail": "standalone/terminal-jail:253-255 case matches *\"would have blocked\"* and echoes \"terminal-jail: WARNING \u2014 $warn_reason\" >&2; wrapper falls through to exec the command (exit 0 on success, no exit 126). Manual CLI run printed the WARN line on stderr. Integration test test_cli_surfaces_user_rule_warn_override (test_interruptor_integration.py:109) passes, asserting WARNING in stderr and rc != 126."
+              },
+              {
+                "criterion": "Action.WARN handled explicitly in decider._rule_result with reason would-have-blocked",
+                "status": "PASS",
+                "detail": "plugin/terminal_jail/interruptor/decider.py:238-243: `if rule.action == Action.WARN:` returns InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id, reason=f\"would have blocked: {rule.block_message}\"). evaluate() preserves warn reason + rule_id through the segment loop into the final InterceptResult (lines 164-170)."
+              },
+              {
+                "criterion": "Regression test covers rule-level warn path",
+                "status": "PASS",
+                "detail": "plugin/test_interruptor.py:617 test_same_id_warn_override_returns_allow_with_warn_reason (asserts ALLOW + rule_id + \"would have blocked\" reason) and :658 test_same_id_warn_override_leaves_other_builtins_blocking; plugin/test_interruptor_integration.py:109 test_cli_surfaces_user_rule_warn_override. All pass. Full suite: `pytest -x --tb=short` \u2192 301 passed, 4 skipped."
+              }
+            ],
+            "summary": "TJ-DF-012 fully implemented: Action.WARN handled explicitly in decider._rule_result with would-have-blocked reason, CLI surfaces WARNING on stderr and lets the command run, and unit + CLI regression tests cover the rule-level warn path (all passing)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-012\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m5:35PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 845ms\u001b[0m\n\u001b[90m5:35PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 CLI with same-ID warn override prints a WARN line on stderr and exits 0: standalone/terminal-jail:253-255 case matches *\"would have blocked\"* and echoes \"terminal-jail: WARNING \u2014 $warn_reason\" >&2; wrapper falls through to exec the command (exit 0 on success, no exit 126). Manual CLI run printed the WARN line on stderr. Integration test test_cli_surfaces_user_rule_warn_override (test_interruptor_integration.py:109) passes, asserting WARNING in stderr and rc != 126.\n  \u2713 Action.WARN handled explicitly in decider._rule_result with reason would-have-blocked: plugin/terminal_jail/interruptor/decider.py:238-243: `if rule.action == Action.WARN:` returns InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id, reason=f\"would have blocked: {rule.block_message}\"). evaluate() preserves warn reason + rule_id through the segment loop into the final InterceptResult (lines 164-170).\n  \u2713 Regression test covers rule-level warn path: plugin/test_interruptor.py:617 test_same_id_warn_override_returns_allow_with_warn_reason (asserts ALLOW + rule_id + \"would have blocked\" reason) and :658 test_same_id_warn_override_leaves_other_builtins_blocking; plugin/test_interruptor_integration.py:109 test_cli_surfaces_user_rule_warn_override. All pass. Full suite: `pytest -x --tb=short` \u2192 301 passed, 4 skipped.\nTJ-DF-012 fully implemented: Action.WARN handled explicitly in decider._rule_result with would-have-blocked reason, CLI surfaces WARNING on stderr and lets the command run, and unit + CLI regression tests cover the rule-level warn path (all passing).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-19T22:37:38.083010"
+}

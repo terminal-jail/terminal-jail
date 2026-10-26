@@ -1,0 +1,89 @@
+{
+  "task_id": "TJ-GAP-030",
+  "task_title": "docs: quickstart 3a verify step --user fallback for unshare-blocked hosts",
+  "task_criteria": [
+    "docs/quickstart.md has a Host limitation blockquote within 12 lines after the echo in jail verify line",
+    "the fallback note contains the literal string --user",
+    "the fallback note references FAQ section 4"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975151 bytes (7.98 MB) in 701ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975151 bytes (7.98 MB) in 701ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 289 items\n\nplugin/test_install.py ..................                                [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md has a Host limitation blockquote within 12 lines after the echo in jail verify line: docs/quickstart.md line 57 has '> **Host limitation:**' blockquote, 4 lines after line 53 'echo \"in jail\"' verify line (within 12). Confirmed via git show HEAD:docs/quickstart.md.\n  \u2713 the fallback note contains the literal string --user: Fallback note (lines 57-61) contains literal '--user' at lines 59 and 60: 'use the `--user` fallback instead: `~/.local/bin/terminal-jail --user echo \"in jail\"`'.\n  \u2713 the fallback note references FAQ section 4: Fallback note line 61 ends with 'See \u00a73c and FAQ \u00a74.' \u2014 explicitly references FAQ section 4.\nAll three criteria for the quickstart --user fallback documentation are satisfied in docs/quickstart.md (commit 463326d).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md has a Host limitation blockquote within 12 lines after the echo in jail verify line: docs/quickstart.md line 57 has '> **Host limitation:**' blockquote, 4 lines after line 53 'echo \"in jail\"' verify line (within 12). Confirmed via git show HEAD:docs/quickstart.md.\n  \u2713 the fallback note contains the literal string --user: Fallback note (lines 57-61) contains literal '--user' at lines 59 and 60: 'use the `--user` fallback instead: `~/.local/bin/terminal-jail --user ",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md has a Host limitation blockquote within 12 lines after the echo in jail verify line",
+                "status": "PASS",
+                "detail": "docs/quickstart.md line 57 has '> **Host limitation:**' blockquote, 4 lines after line 53 'echo \"in jail\"' verify line (within 12). Confirmed via git show HEAD:docs/quickstart.md."
+              },
+              {
+                "criterion": "the fallback note contains the literal string --user",
+                "status": "PASS",
+                "detail": "Fallback note (lines 57-61) contains literal '--user' at lines 59 and 60: 'use the `--user` fallback instead: `~/.local/bin/terminal-jail --user echo \"in jail\"`'."
+              },
+              {
+                "criterion": "the fallback note references FAQ section 4",
+                "status": "PASS",
+                "detail": "Fallback note line 61 ends with 'See \u00a73c and FAQ \u00a74.' \u2014 explicitly references FAQ section 4."
+              }
+            ],
+            "summary": "All three criteria for the quickstart --user fallback documentation are satisfied in docs/quickstart.md (commit 463326d)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-030\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975151 bytes (7.98 MB) in 701ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md has a Host limitation blockquote within 12 lines after the echo in jail verify line: docs/quickstart.md line 57 has '> **Host limitation:**' blockquote, 4 lines after line 53 'echo \"in jail\"' verify line (within 12). Confirmed via git show HEAD:docs/quickstart.md.\n  \u2713 the fallback note contains the literal string --user: Fallback note (lines 57-61) contains literal '--user' at lines 59 and 60: 'use the `--user` fallback instead: `~/.local/bin/terminal-jail --user echo \"in jail\"`'.\n  \u2713 the fallback note references FAQ section 4: Fallback note line 61 ends with 'See \u00a73c and FAQ \u00a74.' \u2014 explicitly references FAQ section 4.\nAll three criteria for the quickstart --user fallback documentation are satisfied in docs/quickstart.md (commit 463326d).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-12T21:29:42.150732"
+}

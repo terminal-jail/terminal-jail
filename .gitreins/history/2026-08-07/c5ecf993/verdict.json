@@ -1,0 +1,101 @@
+{
+  "task_id": "tj-gap-010",
+  "task_title": "Remove dead transform_command/transform_exec_command (TJ-GAP-010)",
+  "task_criteria": [
+    "grep -rn 'transform_command\\|transform_exec_command' plugin/ --include='*.py' | grep -v test produces ZERO output",
+    "Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped",
+    ".venv/bin/ruff check plugin/ standalone/ is clean",
+    "PATH=\"$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH\" gitreins guard passes 4/4 (secrets, lint, tests, static_analysis)",
+    "Commit 577ca40 removes transform_command/transform_exec_command + their tests + spec references and includes Co-authored-by trailer"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E401 [*] Multiple imports on one line\n --> .coding-hermes/extract_skill.py:3:1\n  |\n1 | #!/usr/bin/en\n  \u2713 secrets: \u001b[90m10:48AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~6693863 bytes (6.69 MB) in 581ms\u001b[0m\n\u001b[90m10:48AM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E401 [*] Multiple imports on one line\n --> .coding-hermes/extract_skill.py:3:1\n  |\n1 | #!/usr/bin/env python3\n2 | \"\"\"Extract markdown content from saved skill JSON dumps for foreman tick.\"\"\"\n3 | import json, sys\n  | ^^^^^^^^^^^^^^^^\n4 |\n5 | path = sys.argv[1]\n  |\nhelp: Split imports\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m10:48AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~6693863 bytes (6.69 MB) in 581ms\u001b[0m\n\u001b[90m10:48AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 239 items\n\nplugin/test_install.py ...........                                       [  4%]\nplugin/test_interruptor.py ............................................. [ 23%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep -rn 'transform_command\\|transform_exec_command' plugin/ --include='*.py' | grep -v test produces ZERO output: grep in /home/kara/terminal-jail returned exit 1 (no matches), zero output\n  \u2713 Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped: pytest output: '233 passed, 6 skipped in 4.04s'\n  \u2713 .venv/bin/ruff check plugin/ standalone/ is clean: ruff output: 'All checks passed!' exit 0\n  \u2713 PATH=\"$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH\" gitreins guard passes 4/4 (secrets, lint, tests, static_analysis): gitreins guard output: 'Tier 1 Guards: PASS' with secrets/lint/tests/static_analysis all \u2713, exit 0\n  \u2713 Commit 577ca40 removes transform_command/transform_exec_command + their tests + spec references and includes Co-authored-by trailer: Commit 577ca40b7d9427d79a5990e52dae941de15f247e removes transform functions from plugin.py, deletes test_plugin.py/test_integration.py tests, updates specs/integration.md + specs/plugin.md, and includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer\nAll 5 criteria verified: dead transform functions removed, tests pass (233/6), ruff clean, gitreins guard 4/4, and commit 577ca40 removes the code/tests/spec references with Co-authored-by trailer.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep -rn 'transform_command\\|transform_exec_command' plugin/ --include='*.py' | grep -v test produces ZERO output: grep in /home/kara/terminal-jail returned exit 1 (no matches), zero output\n  \u2713 Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped: pytest output: '233 passed, 6 skipped in 4.04s'\n  \u2713 .venv/bin/ruff check plugin/ standalone/ is clean: ruff output: 'All checks passed!' exit 0\n  \u2713 PATH=\"$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH\" gitrein",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep -rn 'transform_command\\|transform_exec_command' plugin/ --include='*.py' | grep -v test produces ZERO output",
+                "status": "PASS",
+                "detail": "grep in /home/kara/terminal-jail returned exit 1 (no matches), zero output"
+              },
+              {
+                "criterion": "Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped",
+                "status": "PASS",
+                "detail": "pytest output: '233 passed, 6 skipped in 4.04s'"
+              },
+              {
+                "criterion": ".venv/bin/ruff check plugin/ standalone/ is clean",
+                "status": "PASS",
+                "detail": "ruff output: 'All checks passed!' exit 0"
+              },
+              {
+                "criterion": "PATH=\"$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH\" gitreins guard passes 4/4 (secrets, lint, tests, static_analysis)",
+                "status": "PASS",
+                "detail": "gitreins guard output: 'Tier 1 Guards: PASS' with secrets/lint/tests/static_analysis all \u2713, exit 0"
+              },
+              {
+                "criterion": "Commit 577ca40 removes transform_command/transform_exec_command + their tests + spec references and includes Co-authored-by trailer",
+                "status": "PASS",
+                "detail": "Commit 577ca40b7d9427d79a5990e52dae941de15f247e removes transform functions from plugin.py, deletes test_plugin.py/test_integration.py tests, updates specs/integration.md + specs/plugin.md, and includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer"
+              }
+            ],
+            "summary": "All 5 criteria verified: dead transform functions removed, tests pass (233/6), ruff clean, gitreins guard 4/4, and commit 577ca40 removes the code/tests/spec references with Co-authored-by trailer."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: tj-gap-010\n\nStage tier1: PASS\n    \u2713 lint: E401 [*] Multiple imports on one line\n --> .coding-hermes/extract_skill.py:3:1\n  |\n1 | #!/usr/bin/en\n  \u2713 secrets: \u001b[90m10:48AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~6693863 bytes (6.69 MB) in 581ms\u001b[0m\n\u001b[90m10:48AM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep -rn 'transform_command\\|transform_exec_command' plugin/ --include='*.py' | grep -v test produces ZERO output: grep in /home/kara/terminal-jail returned exit 1 (no matches), zero output\n  \u2713 Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped: pytest output: '233 passed, 6 skipped in 4.04s'\n  \u2713 .venv/bin/ruff check plugin/ standalone/ is clean: ruff output: 'All checks passed!' exit 0\n  \u2713 PATH=\"$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH\" gitreins guard passes 4/4 (secrets, lint, tests, static_analysis): gitreins guard output: 'Tier 1 Guards: PASS' with secrets/lint/tests/static_analysis all \u2713, exit 0\n  \u2713 Commit 577ca40 removes transform_command/transform_exec_command + their tests + spec references and includes Co-authored-by trailer: Commit 577ca40b7d9427d79a5990e52dae941de15f247e removes transform functions from plugin.py, deletes test_plugin.py/test_integration.py tests, updates specs/integration.md + specs/plugin.md, and includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>' trailer\nAll 5 criteria verified: dead transform functions removed, tests pass (233/6), ruff clean, gitreins guard 4/4, and commit 577ca40 removes the code/tests/spec references with Co-authored-by trailer.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-07T15:49:20.060527"
+}

@@ -1,0 +1,77 @@
+{
+  "task_id": "TJ-GAP-040",
+  "task_title": "Refresh skills/terminal-jail-usage/SKILL.md stale OPEN claims (TJ-DF-011/012/014)",
+  "task_criteria": [
+    "SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall claim matches bridge/CLI behavior (verified live)"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m1:08AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9723169 bytes (9.72 MB) in 1.75s\u001b[0m\n\u001b[90m1:08AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m1:08AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9723169 bytes (9.72 MB) in 1.75s\u001b[0m\n\u001b[90m1:08AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 307 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall claim matches bridge/CLI behavior (verified live): SKILL.md has zero 'OPEN' references for TJ-DF-011/012/014 (lines 8-9, 99, 104, 108, 150 all say fixed/closed/complete); board confirms all 3 status:complete. Claims verified live: (1) bridge blocks chmod -R 777 /, --recursive 777 /, a+rwx /, 7777 /, -R 777 /etc with builtin-chmod-777-root and allows chmod 755 /; (2) CLI prints 'terminal-jail: WARNING \u2014 would have blocked: rm -rf root would have been blocked' on stderr for same-ID warn override (standalone/terminal-jail:249-255, decider.py:238-243); (3) CLI --user scrubs USER=nobody LOGNAME=nobody HOME=/nonexistent (standalone/terminal-jail:296); (4) seccomp SECCOMP_RET_ERRNO|EPERM (seccomp.py:311); (5) fail-closed exit 126 (standalone/terminal-jail:198,226); (6) install.sh local-checkout detection (install.sh:27); (7) auto-sandbox (standalone/terminal-jail:234). Tests: 303 passed, 4 skipped (pytest -x --tb=short). LSP clean.\nSKILL.md correctly reflects TJ-DF-011/012/014 as fixed (no OPEN claims remain) and every remaining pitfall claim was verified live against bridge/CLI behavior, with the test suite passing.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall claim matches bridge/CLI behavior (verified live): SKILL.md has zero 'OPEN' references for TJ-DF-011/012/014 (lines 8-9, 99, 104, 108, 150 all say fixed/closed/complete); board confirms all 3 status:complete. Claims verified live: (1) bridge blocks chmod -R 777 /, --recursive 777 /, a+rwx /, 7777 /, -R 777 /etc with builtin-chmod-777-root and allows chmod 755 /; (2) CLI prints 'terminal-jail: WARNING \u2014 wo",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall claim matches bridge/CLI behavior (verified live)",
+                "status": "PASS",
+                "detail": "SKILL.md has zero 'OPEN' references for TJ-DF-011/012/014 (lines 8-9, 99, 104, 108, 150 all say fixed/closed/complete); board confirms all 3 status:complete. Claims verified live: (1) bridge blocks chmod -R 777 /, --recursive 777 /, a+rwx /, 7777 /, -R 777 /etc with builtin-chmod-777-root and allows chmod 755 /; (2) CLI prints 'terminal-jail: WARNING \u2014 would have blocked: rm -rf root would have been blocked' on stderr for same-ID warn override (standalone/terminal-jail:249-255, decider.py:238-243); (3) CLI --user scrubs USER=nobody LOGNAME=nobody HOME=/nonexistent (standalone/terminal-jail:296); (4) seccomp SECCOMP_RET_ERRNO|EPERM (seccomp.py:311); (5) fail-closed exit 126 (standalone/terminal-jail:198,226); (6) install.sh local-checkout detection (install.sh:27); (7) auto-sandbox (standalone/terminal-jail:234). Tests: 303 passed, 4 skipped (pytest -x --tb=short). LSP clean."
+              }
+            ],
+            "summary": "SKILL.md correctly reflects TJ-DF-011/012/014 as fixed (no OPEN claims remain) and every remaining pitfall claim was verified live against bridge/CLI behavior, with the test suite passing."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-040\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m1:08AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9723169 bytes (9.72 MB) in 1.75s\u001b[0m\n\u001b[90m1:08AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall claim matches bridge/CLI behavior (verified live): SKILL.md has zero 'OPEN' references for TJ-DF-011/012/014 (lines 8-9, 99, 104, 108, 150 all say fixed/closed/complete); board confirms all 3 status:complete. Claims verified live: (1) bridge blocks chmod -R 777 /, --recursive 777 /, a+rwx /, 7777 /, -R 777 /etc with builtin-chmod-777-root and allows chmod 755 /; (2) CLI prints 'terminal-jail: WARNING \u2014 would have blocked: rm -rf root would have been blocked' on stderr for same-ID warn override (standalone/terminal-jail:249-255, decider.py:238-243); (3) CLI --user scrubs USER=nobody LOGNAME=nobody HOME=/nonexistent (standalone/terminal-jail:296); (4) seccomp SECCOMP_RET_ERRNO|EPERM (seccomp.py:311); (5) fail-closed exit 126 (standalone/terminal-jail:198,226); (6) install.sh local-checkout detection (install.sh:27); (7) auto-sandbox (standalone/terminal-jail:234). Tests: 303 passed, 4 skipped (pytest -x --tb=short). LSP clean.\nSKILL.md correctly reflects TJ-DF-011/012/014 as fixed (no OPEN claims remain) and every remaining pitfall claim was verified live against bridge/CLI behavior, with the test suite passing.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-22T06:10:46.039218"
+}

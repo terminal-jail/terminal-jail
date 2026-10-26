@@ -1,0 +1,336 @@
+commit 4dfad2f3e0bc55d4cccfe9537bf9e4abc7d1a708
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Oct 16 07:10:49 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Oct 16 07:10:49 2026 -0500
+
+    fix: make install.sh PATH block skippable (--no-path + CI/SUDO_USER//tmp auto-skips). Addresses REVIEW-TJ-014.
+    
+    install.sh unconditionally appended a '# terminal-jail' PATH block to the
+    first existing rc file, so scratch-prefix installs (TERMINAL_JAIL_INSTALL_DIR
+    under /tmp), CI runs, and sudo runs polluted the caller's real login env.
+    
+    - New --no-path flag skips the PATH setup block entirely (install still
+      completes; the manual export line is still printed). Boolean-style: an
+      explicit --no-path=<value> is refused with exit 2, nothing written.
+    - Three auto-skips, each with a one-line notice naming the reason, first hit
+      wins: SUDO_USER set (rc belongs to the invoking user, not root), CI set to
+      a truthy value (0/false/no/off do not count), install prefix under /tmp
+      (ephemeral/scratch).
+    - --uninstall path and the '# terminal-jail' marker format are unchanged.
+    - README Install section documents --no-path and the auto-skip behavior;
+      install.sh usage text lists the flag.
+    
+    Tests: 8 new cases in plugin/test_install.py cover all three skip
+    conditions, the flag (skip + value-refusal + --help), skip precedence,
+    the CI=0 negative control, and an uninstall-removes-marked-block regression
+    guard. RED-proven: reverting only install.sh fails 7 of them against the
+    pre-fix installer. Full plugin suite 1838 passed / 8 skipped; uvx ruff clean.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md              |   8 ++
+ install.sh             |  42 +++++++++++
+ plugin/test_install.py | 196 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 246 insertions(+)
+
+diff --git a/README.md b/README.md
+index 97470ff..8d165c5 100644
+--- a/README.md
++++ b/README.md
+@@ -67,6 +67,14 @@ cd terminal-jail
+ 
+ The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
+ 
++**Skipping the PATH block (REVIEW-TJ-014).** Run `./install.sh --no-path` to leave every shell rc file untouched — the install completes and the installer still prints the `export PATH=…` line for you to add manually (`--no-path` is a flag; `--no-path=1` is refused with exit 2). The block is also skipped automatically, each with a one-line notice naming the reason, when:
++
++- `TERMINAL_JAIL_INSTALL_DIR` points under `/tmp` (ephemeral/scratch install);
++- `CI` is set to a truthy value (`CI=true`, `1`, `yes`, … — `0`/`false`/`no`/`off` do not count);
++- `SUDO_USER` is set (the run is under `sudo`; the rc file belongs to the invoking user, and the installer running as root must not append to it).
++
++The first matching skip wins and only one notice is printed. The `--uninstall` path is unchanged: it removes the marked block wherever an (unskipped) install appended it.
++
+ **Where the rules land.** Rules follow the install scope:
+ 
+ | Scope | Rules directory |
+diff --git a/install.sh b/install.sh
+index 485edd1..66f18e1 100755
+--- a/install.sh
++++ b/install.sh
+@@ -262,6 +262,13 @@ Options:
+                         previous behavior holds: an installed name is skipped
+                         with a hint pointing here.
+   --list-rule-packs     List the rule packs this checkout ships (exit 0).
++  --no-path             Do not touch any shell rc file: skip the PATH setup
++                        block entirely (the installer still prints the export
++                        line to add manually). Auto-skips that need no flag:
++                        ephemeral /tmp install prefixes, CI environments
++                        (CI non-empty and != 0/false/no/off), and runs under
++                        sudo (SUDO_USER set). Each skip prints a one-line
++                        notice naming the reason.
+   --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
+                         __init__.py, terminal_jail/) into dir (default:
+                         $HOME/.hermes/plugins/terminal-jail, override also via
+@@ -371,6 +378,16 @@ while [ $# -gt 0 ]; do
+             LIST_RULE_PACKS=1
+             shift
+             ;;
++        --no-path)
++            NO_PATH=1
++            shift
++            ;;
++        --no-path=*)
++            # Boolean-style flag: only the bare spelling (and its implicit
++            # value) is meaningful — an explicit value is a caller error.
++            echo "terminal-jail installer: --no-path takes no value (it is a flag, not an option)" >&2
++            exit 2
++            ;;
+         --hermes-plugin)
+             HERMES_PLUGIN=1
+             shift
+@@ -1328,6 +1345,30 @@ mv "$tmp_payload" "${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
+ echo "terminal-jail installer: installed to ${TERMINAL_JAIL_INSTALL_DIR}/terminal-jail"
+ 
+ # --- PATH setup --------------------------------------------------------------
++# REVIEW-TJ-014: the PATH block must never pollute an environment that does
++# not own the rc file or that is not a real login shell: --no-path opts out
++# explicitly, and three conditions skip it automatically. Skips are evaluated
++# in order and the first hit wins; each prints a one-line notice naming the
++# reason.
++path_block_skip_reason=""
++if [ "${NO_PATH:-0}" -eq 1 ]; then
++    path_block_skip_reason="--no-path flag"
++elif [ "${SUDO_USER:-}" != "" ]; then
++    path_block_skip_reason="running under sudo (SUDO_USER=${SUDO_USER}): the rc file belongs to the invoking user, not root"
++elif [ "${CI:-}" != "" ] \
++    && [ "${CI}" != "0" ] \
++    && [ "${CI}" != "false" ] \
++    && [ "${CI}" != "no" ] \
++    && [ "${CI}" != "off" ]; then
++    path_block_skip_reason="CI environment detected (CI=${CI})"
++elif case "$TERMINAL_JAIL_INSTALL_DIR" in /tmp/*) true ;; *) false ;; esac; then
++    path_block_skip_reason="ephemeral install prefix (${TERMINAL_JAIL_INSTALL_DIR} under /tmp)"
++fi
++
++if [ -n "$path_block_skip_reason" ]; then
++    echo "terminal-jail installer: skipping PATH setup — $path_block_skip_reason"
++    echo "terminal-jail installer: to use immediately, run: export PATH=\"${TERMINAL_JAIL_INSTALL_DIR}:\$PATH\""
++else
+ case ":${PATH}:" in
+     *:"${TERMINAL_JAIL_INSTALL_DIR}":*)
+         echo "terminal-jail installer: ${TERMINAL_JAIL_INSTALL_DIR} is already on PATH"
+@@ -1387,6 +1428,7 @@ SHELLRC
+         fi
+         ;;
+ esac
++fi
+ 
+ # --- TJ-GAP-087: report the containment tier the host actually enforces ------
+ # The installer is the operator's first contact with the tool; an install that
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index 4115cf9..9a88a8f 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -2715,6 +2715,202 @@ def test_default_install_keeps_classic_path_behavior(tmp_path: Path) -> None:
+     assert "added PATH entry" not in out2, out2
+ 
+ 
++# ── REVIEW-TJ-014: the PATH block must be skippable, auto and manual ────────
++
++
++def _baseline_env_without_ci_sudo(tmp_path: Path) -> dict[str, str]:
++    """A clean baseline env: ambient CI / SUDO_USER from the invoking shell
++    would flip the REVIEW-TJ-014 auto-skips and make every assertion in this
++    section environment-dependent — pin both off (empty == unset)."""
++    env = _install_env(tmp_path)
++    env["CI"] = ""
++    env["SUDO_USER"] = ""
++    return env
++
++
++def _assert_scratch_rc_untouched(rc: Path, baseline: str, out: str) -> None:
++    text = rc.read_text(encoding="utf-8")
++    assert text == baseline, text
++    assert "# terminal-jail" not in text, text
++    assert "added PATH entry" not in out, out
++
++
++@pytest.mark.standalone_cli
++def test_no_path_flag_skips_path_block(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 1: --no-path skips the PATH setup block
++    entirely — the rc file keeps its baseline bytes, the install itself
++    completes, and the manual export line is still printed."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = tmp_path / "home"
++    rc = _scratch_rc(home)
++    baseline = rc.read_text(encoding="utf-8")
++
++    result = _run_repo_install(tmp_path, "--no-path", extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    _assert_base_install_completed(tmp_path, out)
++    _assert_scratch_rc_untouched(rc, baseline, out)
++    assert "skipping PATH setup" in out, out
++    assert "--no-path flag" in out, out
++    # the manual line is still surfaced (helps the operator who used the flag)
++    assert "to use immediately, run: export PATH=" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_no_path_flag_refuses_value(tmp_path: Path) -> None:
++    """--no-path is a flag, not an option: the =value spelling is a caller
++    error, exit 2, nothing written (same contract as --replace-rule-packs)."""
++    result = _run_repo_install(tmp_path, "--no-path=1")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++    assert result.returncode == 2, out
++    assert "--no-path takes no value" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_help_documents_no_path_flag(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 6 (usage half): --help names --no-path."""
++    result = _run_repo_install(tmp_path, "--help")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++    assert result.returncode == 0, out
++    assert "--no-path" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_tmp_prefix_skips_path_block(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 2a: an ephemeral /tmp install prefix auto-skips
++    the PATH block — the scratch review installs that polluted the caller's
++    ~/.profile were exactly this shape (TERMINAL_JAIL_INSTALL_DIR=/tmp/...).
++    This repo's pytest basetemp may not live under /tmp (here it is
++    /var/tmp/hermes-scratch/...), so the test builds its own unique scratch
++    HOME directly under /tmp and points the install prefix inside it: the
++    prefix is a real /tmp path (skip must fire) while every install write —
++    wrapper, lib tree, rules — lands inside that unique throwaway tree."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = Path("/tmp") / f"tj014-home-{os.getpid()}-{time.time_ns()}"
++    home.mkdir(parents=True)
++    rc = home / ".profile"
++    rc.write_text("# scratch rc\n", encoding="utf-8")
++    baseline = rc.read_text(encoding="utf-8")
++    install_dir = home / "ephemeral-bin"
++    install_dir.mkdir(exist_ok=True)
++    env["HOME"] = str(home)
++    env["TERMINAL_JAIL_INSTALL_DIR"] = str(install_dir)
++
++    skipped_text = None
++    try:
++        result = _run_repo_install(tmp_path, extra_env=env)
++        skipped_text = rc.read_text(encoding="utf-8")
++    finally:
++        shutil.rmtree(home, ignore_errors=True)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    # the base install itself completed inside the /tmp scratch tree
++    assert "installed to" in out, out
++    assert skipped_text == baseline, skipped_text
++    assert "# terminal-jail" not in (skipped_text or ""), skipped_text
++    assert "added PATH entry" not in out, out
++    assert out.count("skipping PATH setup") == 1, out
++    assert "ephemeral install prefix" in out, out
++    # the manual line is still surfaced for the ephemeral-prefix operator
++    assert "to use immediately, run: export PATH=" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_ci_env_skips_path_block(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 2b: CI=true auto-skips the PATH block. A CI
++    value of 0/false/no/off counts as NOT-a-CI-environment (bash convention:
++    truthy strings only), and --no-path still wins over a CI=0 baseline."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = tmp_path / "home"
++    rc = _scratch_rc(home)
++    baseline = rc.read_text(encoding="utf-8")
++
++    env["CI"] = "true"
++    result = _run_repo_install(tmp_path, extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    _assert_base_install_completed(tmp_path, out)
++    _assert_scratch_rc_untouched(rc, baseline, out)
++    assert "skipping PATH setup" in out, out
++    assert "CI environment detected" in out, out
++
++    # a falsy CI value is not a CI environment: the block appends
++    env["CI"] = "0"
++    rc.write_text(baseline, encoding="utf-8")
++    result = _run_repo_install(tmp_path, extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++    assert result.returncode == 0, out
++    assert "added PATH entry" in out, out
++    assert "skipping PATH setup" not in out, out
++
++
++@pytest.mark.standalone_cli
++def test_sudo_user_skips_path_block(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 2c: SUDO_USER set (running under sudo) auto-
++    skips the PATH block — the rc file selected belongs to the invoking
++    user, and root appending to it is exactly the REVIEW-TJ-014 pollution."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = tmp_path / "home"
++    rc = _scratch_rc(home)
++    baseline = rc.read_text(encoding="utf-8")
++
++    env["SUDO_USER"] = "kara"
++    result = _run_repo_install(tmp_path, extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    _assert_base_install_completed(tmp_path, out)
++    _assert_scratch_rc_untouched(rc, baseline, out)
++    assert "skipping PATH setup" in out, out
++    assert "running under sudo" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_skip_precedence_no_path_beats_sudo(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 3: when several skip conditions hold the
++    notice names exactly one reason (first hit wins: --no-path > SUDO_USER >
++    CI > /tmp prefix)."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = tmp_path / "home"
++    rc = _scratch_rc(home)
++    baseline = rc.read_text(encoding="utf-8")
++    env["SUDO_USER"] = "kara"
++    env["CI"] = "true"
++
++    result = _run_repo_install(tmp_path, "--no-path", extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    _assert_scratch_rc_untouched(rc, baseline, out)
++    assert "skipping PATH setup — --no-path flag" in out, out
++    assert "running under sudo" not in out, out
++    assert "CI environment detected" not in out, out
++
++
++@pytest.mark.standalone_cli
++def test_uninstall_still_removes_marked_block(tmp_path: Path) -> None:
++    """REVIEW-TJ-014 criterion 4 regression guard: --uninstall removes the
++    marked block from the rc file that a (non-skipped) install appended —
++    the uninstall logic is untouched by the skip machinery."""
++    env = _baseline_env_without_ci_sudo(tmp_path)
++    home = tmp_path / "home"
++    rc = _scratch_rc(home)
++
++    install = _run_repo_install(tmp_path, extra_env=env)
++    out = (install.stdout + install.stderr).decode("utf-8", "replace")
++    assert install.returncode == 0, out
++    assert "# terminal-jail" in rc.read_text(encoding="utf-8")
++
++    uninstall = _run_repo_install(tmp_path, "--uninstall", extra_env=env)
++    uout = (uninstall.stdout + uninstall.stderr).decode("utf-8", "replace")
++    assert uninstall.returncode == 0, uout
++    assert "terminal-jail" not in rc.read_text(encoding="utf-8"), uout
++
++
+ # ── DF-TERMINAL-JAIL-21: pack failure skips instead of aborting the install ──
+ 
+ _PYAML_SHADOW_YAML_BODY = (

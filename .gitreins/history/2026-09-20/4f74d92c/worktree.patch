@@ -1,0 +1,60 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 3773855..61c0fd7 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1059,8 +1059,9 @@ tasks:
+   criteria:
+   - test_builtin_id_collision_is_refused asserts the refusal line and rc without failing
+     when the mapping-less-PID-namespace WARNING precedes it; full suite green
+-  status: in_progress
++  status: complete
+   created_at: '2026-09-20T14:28:08.122566+00:00'
++  completed_at: '2026-09-20T14:59:31.224768+00:00'
+ - id: TJ-GAP-064
+   title: README de-rot test count + reserve phantom env rows
+   criteria:
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 3ece392..835c0f4 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -58,3 +58,4 @@
+ {"ts": 1789905228.8357158, "tokens_in": 365752, "tokens_out": 7303, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789906146.0943227, "tokens_in": 3827330, "tokens_out": 10592, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789910634.697748, "tokens_in": 416156, "tokens_out": 4302, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789916451.0627694, "tokens_in": 77738, "tokens_out": 1849, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..50f58c5 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,31 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:collections.abc","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:types","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:typing","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/gtfobins-sweep.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rules_drift_probe.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}

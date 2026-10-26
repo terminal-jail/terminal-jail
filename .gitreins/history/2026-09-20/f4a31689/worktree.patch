@@ -1,0 +1,150 @@
+diff --git a/.coding-hermes/board/events.jsonl b/.coding-hermes/board/events.jsonl
+index dd3960c..d8d4e3a 100644
+--- a/.coding-hermes/board/events.jsonl
++++ b/.coding-hermes/board/events.jsonl
+@@ -391,3 +391,4 @@
+ {"id":391,"timestamp":"2026-09-20 10:52:38.000000","event_type":"task_completed","task_id":"DF-TERMINAL-JAIL-30","actor":"foreman","detail":"{\"commit\": \"f128551906c6dc1809badbb9940ca63a11d127b4\", \"guard\": \"PASS 4/4 (diff mode, 4 test files)\", \"judge\": \"cb06877e PASS\", \"tick\": 301}","tick_number":301}
+ {"id":392,"timestamp":"2026-09-20 10:52:38.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"tick\": 301, \"summary\": \"glm-5.3-flash @ zai-glm-default, 1 dispatch 0 rework: new BLOCK rule builtin-net-file-exfil-ssh (engine blocklist.py:783 + byte-identical YAML mirror) closes the tar/cat->ssh/scp/sftp egress gap; 11 files, +950/-32; 17 block vectors + 24 allow controls; suite 1196 passed 7 skipped.\"}","tick_number":301}
+ {"id":393,"timestamp":"2026-09-20 10:52:50.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"type\": \"wave\", \"tick\": 301, \"wave_id\": \"terminal-jail-2026-09-20-14-02-08\", \"wave_budget\": 12, \"workers_dispatched\": 6, \"sizing_note\": \"sized 6 not 12: host loadavg 11.86 at dispatch vs the load-gate ceiling 12\", \"worker_model\": \"glm-5.3-flash\", \"worker_provider\": \"zai-glm-default\", \"base_sha\": \"5914dd6\", \"landed\": [{\"id\": \"QA-TERMINAL-JAIL-10\", \"outcome\": \"closed-duplicate\", \"commit\": \"6a76da4009ed1df194fe10d907b178ee4b97c199\", \"judge\": \"4f74d92c PASS\", \"note\": \"premise independently refuted at HEAD: plugin/test_rule_packs.py 35/35 green and test_builtin_id_collision_is_refused passes — duplicate of DF-TERMINAL-JAIL-28 (7eaf8e0)\"}, {\"id\": \"TJ-GAP-064\", \"outcome\": \"landed\", \"commit\": \"71a0c05caaac0ebae06f5a693919a56a792ab299\", \"judge\": \"38a68ec7 PASS\", \"note\": \"README de-rot + reserved env labels; foreman-verified greps\"}, {\"id\": \"TJ-GAP-065\", \"outcome\": \"landed\", \"commit\": \"66a68bc9807ee1b4cfa2660bd389bdc9903a4d9d\", \"judge\": \"PASS\", \"note\": \"foreman re-ran the scratch-HOME custom-prefix proof: appended block names the real dir, idempotent\"}, {\"id\": \"TJ-GAP-069\", \"outcome\": \"landed\", \"commit\": \"540e73e885cfd89bfd3c9544d9d26ffb14e613d7\", \"judge\": \"PASS\", \"note\": \"foreman proved drift detection with an own downgrade fixture (bare rc=0 + DRIFT rows, --fail-on-drift rc=1); live host mirror is at parity since 09-18 23:21 so the probe correctly reports OK\"}, {\"id\": \"DF-TERMINAL-JAIL-30\", \"outcome\": \"landed\", \"commit\": \"f128551906c6dc1809badbb9940ca63a11d127b4\", \"judge\": \"cb06877e PASS\", \"note\": \"new BLOCK rule builtin-net-file-exfil-ssh; foreman verified 5/5 exfil shapes block and 7/7 benign shapes stay allow via intercept(); merge conflict (CHANGELOG) resolved keeping both entries; fixed a cross-task break where TJ-GAP-069's tests pinned the engine rule count at a literal 54\"}], \"not_landed\": [{\"id\": \"DF-TERMINAL-JAIL-23\", \"outcome\": \"failed-dispatch\", \"attempts\": 2, \"worker_status\": \"failed\", \"commit\": null, \"note\": \"worker died twice with 'every provider in the fallback chain kept failing over' (provider/infra failure, not a task defect). ZERO implementation diff, NO acceptance criterion landed, no commit in git log. Row kept pending with worker_status=failed and attempts=2 so the retry condition is preserved. Worktree wt/DF-TERMINAL-JAIL-23 is clean at base 5914dd6 — next tick may re-dispatch with a fresh brief.\"}], \"gates\": {\"suite\": \"1196 passed, 7 skipped (post-merge)\", \"ruff\": \"clean (plugin/ standalone/ scripts/)\", \"mirror_parity\": \"ALL PROBES PASS (55/55: 36 block / 9 sandbox / 10 allow)\", \"rule_catalog\": \"OK — 55 rules, docs/rule-catalog.md up to date\", \"guard\": \"tier-1 PASS on the code merge (4 test files); DEGRADED PASS on JSONL-only board commits (expected)\"}, \"splits_excluded_with_reasons\": [\"QA-TERMINAL-JAIL-9 (harness-owned)\", \"DF-TERMINAL-JAIL-27 (infra/dogfood owner)\", \"TJ-GAP-056 (needs bwrap-capable env)\", \"TJ-GAP-068 (P3, repro first)\", \"DF-TERMINAL-JAIL-25 / -31 (queued)\"], \"pushed\": \"origin/main advanced through 371334a; DF-30 merge + board closeout pushed this tick\"}","tick_number":301}
++{"id": 394, "timestamp": "2026-09-20 17:10:00.000000", "event_type": "dispatch", "task_id": null, "actor": "foreman", "detail": "{\"type\": \"wave\", \"tick\": 302, \"wave_id\": \"terminal-jail-2026-09-20-16-34-14\", \"recovered\": \"terminal-jail-2026-09-20-14-02-08 (5/6 landed+merged+judged in tick #301 per event 393; DF-TERMINAL-JAIL-23 re-dispatched after 2 provider-failover deaths, worktree ff'd to 4063c06)\", \"wave_budget\": 12, \"workers_dispatched\": 2, \"foreman_direct\": 1, \"worker_model\": \"glm-5.3-flash\", \"worker_provider\": \"zai-glm-default\", \"base_sha\": \"4063c06\", \"workers\": [{\"id\": \"DF-TERMINAL-JAIL-23\", \"worktree\": \"/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-23\", \"branch\": \"wt/DF-TERMINAL-JAIL-23\", \"brief\": \"/tmp/tj302a-DF-TERMINAL-JAIL-23.md\", \"log\": \"/tmp/tj302a-DF-TERMINAL-JAIL-23.log\"}, {\"id\": \"DF-TERMINAL-JAIL-31\", \"worktree\": \"/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-31\", \"branch\": \"wt/DF-TERMINAL-JAIL-31\", \"brief\": \"/tmp/tj302a-DF-TERMINAL-JAIL-31.md\", \"log\": \"/tmp/tj302a-DF-TERMINAL-JAIL-31.log\"}], \"foreman_direct_tasks\": [{\"id\": \"TJ-GAP-068\", \"worktree\": \"/home/kara/worktrees/terminal-jail-TJ-GAP-068\", \"branch\": \"wt/TJ-GAP-068\"}], \"excluded_independent_rows\": [\"TJ-GAP-062 (same pack file as DF-23, serial after)\", \"TJ-GAP-056 (battery-class foreman work)\", \"E2E-001 (window not due)\", \"QA-TERMINAL-JAIL-9/DF-19/DF-26 (external-infra owners)\", \"QA-TERMINAL-JAIL-11 (harness-side)\", \"DF-32 (evidence bookkeeping)\"]}", "tick_number": 302}
+diff --git a/.gitreins/config.yaml b/.gitreins/config.yaml
+index 6be3986..8f7d1fe 100644
+--- a/.gitreins/config.yaml
++++ b/.gitreins/config.yaml
+@@ -19,7 +19,13 @@ guards:
+   allow_skips: true
+ evaluator:
+   max_iterations: 200
+-  max_time: 45m
++  max_time: 60m
++  # TIME RUNG (tick #302): the DF-TERMINAL-JAIL-31 tier2 judge hit `Time cap (45m)
++  # exceeded (45m5s elapsed)` -> INCOMPLETE with 4/5 criteria PASS, but that run
++  # was executed CONCURRENTLY with the DF-TERMINAL-JAIL-23 judge on the same box
++  # (two judges, one repo, plus the fleet load) — wall-clock starvation, not a
++  # criteria cost problem. Raise the rung to the fleet-proven 60m AND run judge
++  # jobs SERIALLY in this repo; never parallelize `gitreins judge --async`.
+   # RUNG (tick #289): the DF-TERMINAL-JAIL-16 tier2 judge starved at the OLD 2M
+   # rung — `Cap exceeded: Input token budget (2.0M) exceeded (2.0M used)`, verdict
+   # 933b300c INCOMPLETE, tier1 PASS (usage.jsonl tier2 row: 2,035,763 tokens_in).
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 366bb6e..9c763cd 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1087,12 +1087,28 @@ tasks:
+   created_at: '2026-09-20T14:28:20.085797+00:00'
+   completed_at: '2026-09-20T15:49:20.367770+00:00'
+ - id: DF-TERMINAL-JAIL-23
+-  title: db pack rules match execution context not bare phrase
+-  criteria:
+-  - 'six regression shapes: destructive psql/mysql client statements still block;
+-    sed/git-commit/quoted-SELECT-of-phrase allow; suite green'
+-  status: in_progress
+-  created_at: '2026-09-20T14:28:20.387676+00:00'
++  title: db pack block rules match DROP statements in execution context, not bare
++    statement text
++  criteria:
++  - 'plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database
++    and pack-db-drop-table block rules to a SQL execution context: each is a composite/and
++    rule requiring a SQL client token plus the statement in execution position'
++  - Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP
++    TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-*
++    rule id
++  - Through intercept() with the pack installed, the four documented false-positive
++    shapes (sed -i substitution text, git commit -m message text, a read-only SELECT
++    whose quoted literal merely contains the phrase, and echo redirecting the phrase
++    to a file) return no pack-db-* attribution
++  - plugin/test_rule_packs.py carries a regression class exercising the block and
++    allow shapes with the installed-pack fixture, and the full suite passes with only
++    the new tests added (zero regressions)
++  - 'CHANGELOG.md and the pack header document the accepted residuals: the -f file
++    body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client
++    interpreter is no longer caught'
++  status: complete
++  created_at: '2026-09-20T17:46:45.411159+00:00'
++  completed_at: '2026-09-20T17:46:45.740665+00:00'
+ - id: TJ-GAP-069
+   title: rules-drift-probe reports silent same-id mirror downgrades
+   criteria:
+@@ -1101,3 +1117,35 @@ tasks:
+   status: complete
+   created_at: '2026-09-20T14:28:20.698168+00:00'
+   completed_at: '2026-09-20T15:03:34.939663+00:00'
++- id: TJ-GAP-068
++  title: AGENTS.md guard invocation falsely FAILs the tests lane (gitreins venv pytest
++    shadows the repo interpreter)
++  criteria:
++  - AGENTS.md's GitReins section documents plain gitreins guard via the pipx shim
++    with NO PATH prefix naming the gitreins-poc venv, and explicitly warns that putting
++    that venv on PATH makes the tests lane falsely FAIL (its Python 3.10 pytest shadows
++    the repo interpreter and dies on import tomllib on Python 3.11+)
++  - The section documents that the tests lane is interpreter-pinned via .gitreins/config.yaml
++    test_command (.venv/bin/python -m pytest -x --tb=short), independent of PATH ordering
++  - A bare gitreins guard --full in the repo root runs green (all four lanes) under
++    the fixed invocation
++  status: complete
++  created_at: '2026-09-20T16:59:27.592150+00:00'
++  completed_at: '2026-09-20T17:32:56.871401+00:00'
++- id: DF-TERMINAL-JAIL-31
++  title: Pin scoped-secret-source egress shapes in the regression suite
++  criteria:
++  - plugin/test_egress_no_delivery.py contains regression tests asserting BLOCK with
++    rule id builtin-net-remote-tree-copy for scp -r and rsync -a of a scoped secret
++    source (~/.ssh, ~/.aws, ~/.gnupg) to a remote sink
++  - plugin/test_egress_no_delivery.py contains a regression test asserting BLOCK with
++    rule id builtin-net-file-exfil-ssh for the tar cf - <scoped source> | ssh remote-write
++    shape
++  - A dogfood checklist item exists requiring at least one shape the rule deliberately
++    does not target to be probed before a closure claims a rule class
++  - CHANGELOG.md carries an Unreleased entry naming DF-TERMINAL-JAIL-31
++  - The full suite passes from the repo root (before/after counts reported) and ruff
++    check on the touched test file reports no issues
++  status: complete
++  created_at: '2026-09-20T17:16:27.381949+00:00'
++  completed_at: '2026-09-20T17:16:27.698276+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index eff6d74..4c97188 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -63,3 +63,6 @@
+ {"ts": 1789916614.5056012, "tokens_in": 193826, "tokens_out": 2731, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789916897.0845134, "tokens_in": 341497, "tokens_out": 3264, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789919554.167969, "tokens_in": 513665, "tokens_out": 5133, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789925888.2509854, "tokens_in": 142832, "tokens_out": 2538, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789927367.6627123, "tokens_in": 2313698, "tokens_out": 10915, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789929178.5291915, "tokens_in": 2467937, "tokens_out": 7371, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..102e213 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,31 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:http.server","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:threading","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:uuid","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_egress_no_delivery.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}

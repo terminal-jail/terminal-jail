@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-DF-022",
+  "task_title": "install.sh --hermes-plugin update path for the deployed Hermes plugin",
+  "task_criteria": [
+    "install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir with stale files replaced; exit 0 on success, non-zero with clear error when the repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md; regression tests in plugin/test_install.py cover fresh install, stale-target refresh, and missing-tree failure; tests pass and ruff clean"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "5229c2e3e373b8dcc464b72b50d177003e744a87",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:28PM INF scanned ~5468022 bytes (5.47 MB) in 983ms\n4:28PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 159 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1444 passed, 7 skipped in 58.78s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir with stale files replaced; exit 0 on success, non-zero with clear error when the repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md; regression tests in plugin/test_install.py cover fresh install, stale-target refresh, and missing-tree failure; tests pass and ruff clean: install.sh:427-493 implements the mode: target resolution (positional arg / --hermes-plugin-dir= / TERMINAL_JAIL_HERMES_PLUGIN_DIR / $HOME/.hermes/plugins/terminal-jail), missing-tree guard install.sh:452-456 -> exit 2 with 'needs a repository checkout ... nothing was written', stale removal via `find \"$TARGET\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +` (install.sh:481) then `cp -R \"$plugin_source_dir\"/plugin/. \"$TARGET/\"` (install.sh:487), exit 0 (install.sh:493). LIVE: stale target (spin_policy.py + version 0.2.0) -> exit 0, 'refreshed Hermes plugin tree ... (stale files removed)', 'deployed Hermes plugin v1.2.0', stale file gone, plugin.yaml now 1.2.0. LIVE missing tree (checkout with only install.sh) -> exit 2, '--hermes-plugin needs a repository checkout (no plugin/plugin.yaml + plugin/terminal_jail next to ...); nothing was written', pre-existing keep-me.txt untouched. Docs: README.md:243-248 (install + refresh paragraph 'empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update'); docs/quickstart.md:420-430 and docs/quickstart.md:500 refresh paragraph. Tests: plugin/test_install.py:2228 fresh deploy, :2261 stale refresh, :2287 idempotent/complete, :2308 --hermes-plugin-dir override, :2321 missing-tree failure, :2345 no release opt-in, :2371 flag mixing, :2388 default target under $HOME. Command evidence: `.venv/bin/python -m pytest plugin/test_install.py -x --tb=short -q` -> '66 passed in 14.41s'; `-k hermes_plugin` -> '8 passed, 58 deselected'; full suite `.venv/bin/python -m pytest -q --tb=short` -> '1444 passed, 7 skipped in 53.06s'; `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0). [resolution 0.06; install.sh, README.md, docs/quickstart.md, plugin/test_install.py]\ninstall.sh --hermes-plugin deploys/refreshes the plugin tree with stale-file removal, exits 0 on success and 2 with a clear error on a missing repo tree, is documented in README.md and docs/quickstart.md, and its regression tests pass (66 passed; full suite 1444 passed/7 skipped) with ruff clean.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir with stale files replaced; exit 0 on success, non-zero with clear error when the repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md; regression tests in plugin/test_install.py cover fresh install, stale-target refresh, and missing-tree failure; tests pass and ruff clean: install.sh:427-493 implements the mode: target resolution (positional arg / --hermes-plugin-dir= / TERMINAL_JAIL_HERMES_PLUGIN_DIR / $HOME/.hermes/plugins/terminal-jail), missing-tree guard install.sh:452-456 -> exit 2 with 'needs a repository checkout ... nothing was written', stale removal via `find \"$TARGET\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +` (install.sh:481) then `cp -R \"$plugin_source_dir\"/plugin/. \"$TARGET/\"` (install.sh:487), exit 0 (install.sh:493). LIVE: stale target (spin_policy.py + version 0.2.0) -> exit 0, 'refreshed Hermes plugin tree ... (stale files removed)', 'deployed Hermes plugin v1.2.0', stale file gone, plugin.yaml now 1.2.0. LIVE missing tree (checkout with only install.sh) -> exit 2, '--hermes-plugin needs a repository checkout (no plugin/plugin.yaml + plugin/terminal_jail next to ...); nothing was written', pre-existing keep-me.txt untouched. Docs: README.md:243-248 (install + refresh paragraph 'empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update'); docs/quickstart.md:420-430 and docs/quickstart.md:500 refresh paragraph. Tests: plugin/test_install.py:2228 fresh deploy, :2261 stale refresh, :2287 idempotent/complete, :2308 --hermes-plugin-dir override, :2321 missing-tree failure, :2345 no release opt-in, :2371 flag mixing, :2388 default target under $HOME. Command evidence: `.venv/bin/python -m pytest plugin/test_install.py -x --tb=short -q` -> '66 passed in 14.41s'; `-k hermes_plugin` -> '8 passed, 58 deselected'; full suite `.venv/bin/python -m pytest -q --tb=short` -> '1444 passed, 7 skipped in 53.06s'; `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0). [resolution 0.06; install.sh, README.md, docs/quickstart.md, plugin/test_install.py]\ninstall.sh --hermes-plugin deploys/refreshes the plugin tree with stale-file removal, exits 0 on success and 2 with a clear error on a missing repo tree, is documented in README.md and docs/quickstart.md, and its regression tests pass (66 passed; full suite 1444 passed/7 skipped) with ruff clean.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir with stale files replaced; exit 0 on success, non-zero with clear error when the repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md; regression tests in plugin/test_install.py cover fresh install, stale-target refresh, and missing-tree failure; tests pass and ruff clean",
+                "status": "PASS",
+                "detail": "install.sh:427-493 implements the mode: target resolution (positional arg / --hermes-plugin-dir= / TERMINAL_JAIL_HERMES_PLUGIN_DIR / $HOME/.hermes/plugins/terminal-jail), missing-tree guard install.sh:452-456 -> exit 2 with 'needs a repository checkout ... nothing was written', stale removal via `find \"$TARGET\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +` (install.sh:481) then `cp -R \"$plugin_source_dir\"/plugin/. \"$TARGET/\"` (install.sh:487), exit 0 (install.sh:493). LIVE: stale target (spin_policy.py + version 0.2.0) -> exit 0, 'refreshed Hermes plugin tree ... (stale files removed)', 'deployed Hermes plugin v1.2.0', stale file gone, plugin.yaml now 1.2.0. LIVE missing tree (checkout with only install.sh) -> exit 2, '--hermes-plugin needs a repository checkout (no plugin/plugin.yaml + plugin/terminal_jail next to ...); nothing was written', pre-existing keep-me.txt untouched. Docs: README.md:243-248 (install + refresh paragraph 'empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update'); docs/quickstart.md:420-430 and docs/quickstart.md:500 refresh paragraph. Tests: plugin/test_install.py:2228 fresh deploy, :2261 stale refresh, :2287 idempotent/complete, :2308 --hermes-plugin-dir override, :2321 missing-tree failure, :2345 no release opt-in, :2371 flag mixing, :2388 default target under $HOME. Command evidence: `.venv/bin/python -m pytest plugin/test_install.py -x --tb=short -q` -> '66 passed in 14.41s'; `-k hermes_plugin` -> '8 passed, 58 deselected'; full suite `.venv/bin/python -m pytest -q --tb=short` -> '1444 passed, 7 skipped in 53.06s'; `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0). [resolution 0.06; install.sh, README.md, docs/quickstart.md, plugin/test_install.py]",
+                "resolution_probability": 0.06,
+                "cited_path": "install.sh, README.md, docs/quickstart.md, plugin/test_install.py"
+              }
+            ],
+            "summary": "install.sh --hermes-plugin deploys/refreshes the plugin tree with stale-file removal, exits 0 on success and 2 with a clear error on a missing repo tree, is documented in README.md and docs/quickstart.md, and its regression tests pass (66 passed; full suite 1444 passed/7 skipped) with ruff clean."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-022\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh --hermes-plugin installs/refreshes the plugin tree to a target dir with stale files replaced; exit 0 on success, non-zero with clear error when the repo plugin tree is missing; refresh documented in README.md and docs/quickstart.md; regression tests in plugin/test_install.py cover fresh install, stale-target refresh, and missing-tree failure; tests pass and ruff clean: install.sh:427-493 implements the mode: target resolution (positional arg / --hermes-plugin-dir= / TERMINAL_JAIL_HERMES_PLUGIN_DIR / $HOME/.hermes/plugins/terminal-jail), missing-tree guard install.sh:452-456 -> exit 2 with 'needs a repository checkout ... nothing was written', stale removal via `find \"$TARGET\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +` (install.sh:481) then `cp -R \"$plugin_source_dir\"/plugin/. \"$TARGET/\"` (install.sh:487), exit 0 (install.sh:493). LIVE: stale target (spin_policy.py + version 0.2.0) -> exit 0, 'refreshed Hermes plugin tree ... (stale files removed)', 'deployed Hermes plugin v1.2.0', stale file gone, plugin.yaml now 1.2.0. LIVE missing tree (checkout with only install.sh) -> exit 2, '--hermes-plugin needs a repository checkout (no plugin/plugin.yaml + plugin/terminal_jail next to ...); nothing was written', pre-existing keep-me.txt untouched. Docs: README.md:243-248 (install + refresh paragraph 'empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update'); docs/quickstart.md:420-430 and docs/quickstart.md:500 refresh paragraph. Tests: plugin/test_install.py:2228 fresh deploy, :2261 stale refresh, :2287 idempotent/complete, :2308 --hermes-plugin-dir override, :2321 missing-tree failure, :2345 no release opt-in, :2371 flag mixing, :2388 default target under $HOME. Command evidence: `.venv/bin/python -m pytest plugin/test_install.py -x --tb=short -q` -> '66 passed in 14.41s'; `-k hermes_plugin` -> '8 passed, 58 deselected'; full suite `.venv/bin/python -m pytest -q --tb=short` -> '1444 passed, 7 skipped in 53.06s'; `.venv/bin/python -m ruff check .` -> 'All checks passed!' (exit 0). [resolution 0.06; install.sh, README.md, docs/quickstart.md, plugin/test_install.py]\ninstall.sh --hermes-plugin deploys/refreshes the plugin tree with stale-file removal, exits 0 on success and 2 with a clear error on a missing repo tree, is documented in README.md and docs/quickstart.md, and its regression tests pass (66 passed; full suite 1444 passed/7 skipped) with ruff clean.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T21:37:23.695504",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T21:37:23.719654+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 728,
+        "truncated": false,
+        "source": "git show 5229c2e3e373"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 53085,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-022"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "task_id": "TJ-GAP-031",
+  "task_title": "pyproject dev deps + README bootstrap so fresh clone runs suite with one documented command",
+  "task_criteria": [
+    "pyproject.toml declares a dev dependency group containing pytest",
+    "README.md Development section documents the single bootstrap command 'uv sync --dev && uv run pytest plugin -q'",
+    "fresh clone + the documented command runs the full plugin suite green"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975044 bytes (7.98 MB) in 700ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975044 bytes (7.98 MB) in 700ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 289 items\n\nplugin/test_install.py ..................                                [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 pyproject.toml declares a dev dependency group containing pytest: pyproject.toml:33-34 declares [dependency-groups] dev = [\"pytest>=8\"]\n  \u2713 README.md Development section documents the single bootstrap command 'uv sync --dev && uv run pytest plugin -q': README.md:219 '## Development' section, line 224 documents the exact command 'uv sync --dev && uv run pytest plugin -q'\n  \u2713 fresh clone + the documented command runs the full plugin suite green: uv sync --dev succeeded; uv run pytest plugin -q => 285 passed, 4 skipped (skips are environment-gated and documented in README)\nAll three criteria verified: pyproject.toml declares dev dependency group with pytest, README Development section documents the exact bootstrap command, and the documented command runs the full plugin suite green (285 passed, 4 env-gated skips).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 pyproject.toml declares a dev dependency group containing pytest: pyproject.toml:33-34 declares [dependency-groups] dev = [\"pytest>=8\"]\n  \u2713 README.md Development section documents the single bootstrap command 'uv sync --dev && uv run pytest plugin -q': README.md:219 '## Development' section, line 224 documents the exact command 'uv sync --dev && uv run pytest plugin -q'\n  \u2713 fresh clone + the documented command runs the full plugin suite green: uv sync --dev succeeded; uv run pytest ",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "pyproject.toml declares a dev dependency group containing pytest",
+                "status": "PASS",
+                "detail": "pyproject.toml:33-34 declares [dependency-groups] dev = [\"pytest>=8\"]"
+              },
+              {
+                "criterion": "README.md Development section documents the single bootstrap command 'uv sync --dev && uv run pytest plugin -q'",
+                "status": "PASS",
+                "detail": "README.md:219 '## Development' section, line 224 documents the exact command 'uv sync --dev && uv run pytest plugin -q'"
+              },
+              {
+                "criterion": "fresh clone + the documented command runs the full plugin suite green",
+                "status": "PASS",
+                "detail": "uv sync --dev succeeded; uv run pytest plugin -q => 285 passed, 4 skipped (skips are environment-gated and documented in README)"
+              }
+            ],
+            "summary": "All three criteria verified: pyproject.toml declares dev dependency group with pytest, README Development section documents the exact bootstrap command, and the documented command runs the full plugin suite green (285 passed, 4 env-gated skips)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-031\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m4:29PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7975044 bytes (7.98 MB) in 700ms\u001b[0m\n\u001b[90m4:29PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 pyproject.toml declares a dev dependency group containing pytest: pyproject.toml:33-34 declares [dependency-groups] dev = [\"pytest>=8\"]\n  \u2713 README.md Development section documents the single bootstrap command 'uv sync --dev && uv run pytest plugin -q': README.md:219 '## Development' section, line 224 documents the exact command 'uv sync --dev && uv run pytest plugin -q'\n  \u2713 fresh clone + the documented command runs the full plugin suite green: uv sync --dev succeeded; uv run pytest plugin -q => 285 passed, 4 skipped (skips are environment-gated and documented in README)\nAll three criteria verified: pyproject.toml declares dev dependency group with pytest, README Development section documents the exact bootstrap command, and the documented command runs the full plugin suite green (285 passed, 4 env-gated skips).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-12T21:30:16.359857"
+}

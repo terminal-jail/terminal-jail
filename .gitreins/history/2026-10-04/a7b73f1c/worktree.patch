@@ -1,0 +1,16 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index b67ac57..e861c70 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1572,3 +1572,11 @@ tasks:
+   status: complete
+   created_at: '2026-10-01T07:54:20.392645+00:00'
+   completed_at: '2026-10-01T09:40:55.680364+00:00'
++- id: QA-TERMINAL-JAIL-12
++  title: Fix HOST-DEGRADED-PIDNS skip marker contradiction
++  criteria:
++  - Test skip marker HOST-DEGRADED-PIDNS aligns with pidns-capability-probe.py classification;
++    suite green; skip reason accurately reflects host state
++  status: complete
++  created_at: '2026-10-04T11:01:05.786338+00:00'
++  completed_at: '2026-10-04T11:12:17.379716+00:00'

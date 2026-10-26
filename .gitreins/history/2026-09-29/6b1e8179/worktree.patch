@@ -1,0 +1,92 @@
+diff --git a/.coding-hermes/board/tasks.jsonl b/.coding-hermes/board/tasks.jsonl
+index 944c2b7..9f99842 100644
+--- a/.coding-hermes/board/tasks.jsonl
++++ b/.coding-hermes/board/tasks.jsonl
+@@ -227,3 +227,4 @@
+ {"id": "REVIEW-TJ-006", "type": null, "priority": "P3", "status": "complete", "title": "[P3] FAQ 4 '--user id shows 65534' is backend-dependent \u2014 on a bwrap host (default auto) --user keeps uid 1000", "description": null, "acceptance_criteria": null, "created_at": "2026-09-28T21:58:29+00:00", "created_by": null, "worker_status": "complete", "foreman_note": "Foreman-direct tick 2026-09-29-13-40 (docs one-liner exception). Measured both backends: unshare --user -> uid=65534, bwrap --user -> uid=1000. FAQ 4 now states the backend split. gitreins tier2 PASS verdict 5cec2078; commit 78abf75 pushed (origin/main parity 0).", "reasoning": "Measured 2026-09-28 @ 14a6f46: TERMINAL_JAIL_JAIL_BACKEND=unshare ./terminal-jail --user sh -c id -> uid 65534 (unmapped overflow); default auto (bwrap 0.11.1 installed + probe green) -> uid 1000(kara) WITH private /proc (5 PIDs, /proc/1/comm=bwrap). FAQ 4 states mapping-less --user 'id shows 65534' without naming the backend; misleading on bwrap hosts. README 3a backend table DOES cover the unshare-vs-bwrap /proc split, but the FAQ uid claim conflates them. Suggest one line in FAQ 4: under bwrap backend the uid stays the caller's.", "complexity": 3, "updated_at": "2026-09-29T13:50:00-05:00", "detail": {"fingerprint": "775b7bf297d3bcd8802598e0323a6aaa1daa58413308351f16305beae1ab1355"}, "completed_at": "2026-09-29T13:50:00-05:00", "commit_hash": "78abf75"}
+ {"id": "TJ-DF-039", "type": null, "priority": "P2", "status": "complete", "title": "[P2] PyYAML-less fresh host: user rules mirror fails open silently and rules-drift-probe reports drift=0 exit 0 on an unparseable mirror", "description": null, "acceptance_criteria": null, "created_at": "2026-09-28T23:01:14+00:00", "created_by": null, "worker_status": "pending", "foreman_note": null, "reasoning": "Fresh Debian bunker agent (no python3-yaml, PEP 668 blocks pip), HEAD 14a6f46: the engine reads ~/.config/terminal-jail/rules.d/00-builtins.yaml via PyYAML; without it the mirror is unparseable and fails open - built-ins keep working but any user-authored rule in the mirror never loads, with no verdict-time message. scripts/rules-drift-probe.py prints exactly one line 'WARNING: unparseable rule file (engine fails open)' and then 'RESULT: drift=0', exit 0 - the tool whose job is catching a stale/broken mirror calls the broken mirror clean. The install-time pack skip is honest now (TJ-DF-024/025 fixed, verified live this run); the gap is only the runtime mirror path and the probe exit policy. Fix direction: --fail-on-drift classifies an unparseable mirror as a drift-class condition with a named remediation (install the distro python3-yaml package), or the wrapper warns once at verdict time when the mirror cannot be parsed. Evidence: docs/dogfood/2026-09-28-fresh-install-smoke.md; repro on bunker-las-03 agent 875dedf2 (destroyed).", "complexity": 3, "updated_at": "2026-09-28T23:01:14+00:00", "detail": {"fingerprint": "2746f9ac9983031d7ad56b5c7c7a13b98b2116e3e739165810218f4443404561"}, "commit_hash": "bee7b65", "worker_summary": "rules.py JSON-fallback now emits a loud stderr note naming file+cause on PyYAML-less parse failure (parse_notes, fail-open action unchanged); rules-drift-probe counts corrupt mirror files as first-class (RESULT carries corrupt=N, --fail-on-drift exits 1 on drift or corrupt, bare run still 0). 10 tests added, RED proven on reverted tree. Full suite 1507 passed / 7 skipped."}
+ {"id": "RELEASE-TJ-005", "priority": "P0", "status": "pending", "created_by": "releng-satellite", "created_at": "2026-09-29T12:10:00-05:00", "type": "task", "title": "[P0] Releng 2026-09-29: hold v1.3.0 candidate \u2014 CD31F7B/TJ-DF-038 landed; CI green at 702d791; QA-TERMINAL-JAIL-13 still failed, no artifact channel, no cut authorization", "description": "Re-verified 2026-09-29 ~12:05-05 against terminal-jail/terminal-jail v1.2.0..origin/main (HEAD 702d791; prior sweep 44e21e2). Delta: 2 commits \u2014 cd31f7b fix (preflight uname diagnostic, TJ-DF-038 CLOSED, board close 702d791). Cumulative range now 92 commits: 8 fix, 1 feat, 10 docs, 2 test, 0 BREAKING CHANGE / 0 '!'. Candidate semver proposal remains v1.3.0 minor. CI truth: run 36554304190 on HEAD 702d791 SUCCESS (2026-09-29T10:14Z); 8/8 recent runs success back through 44e21e2. Blocker re-derivation: RELEASE-TJ-002 P0 pending (no published artifact channel: v1.2.0 Release object exists with assets=[], pyproject still 1.2.0, no tag-triggered release workflow, no Makefile/goreleaser/Dockerfile/release script/release docs); QA-TERMINAL-JAIL-13 P1 failed unchanged (fresh Debian 13.7/kernel 6.12.107 unshare --kill-child orphan survives wrapper SIGKILL >15s; bwrap control passes; two worker attempts produced no diff, tick nudge2 withhold); TJ-DF-037 complete with harness committed but external-kernel matrix cells still unverified beyond dev host; TJ-DF-028 companion open. No RELEASE-cut authorization exists on the thread. NO CUT: red P1 QA + no artifact channel + no release-cut authorization. Unblock path unchanged from RELEASE-TJ-004: fix/disposition QA-TERMINAL-JAIL-13, publish-channel decision (Bane), release tooling per Bane doctrine, v1.3.0 version-prep commit, explicit RELEASE-cut row, tag + gh release create.", "acceptance_criteria": "1) QA-TERMINAL-JAIL-13 closed or explicitly dispositioned; 2) TJ-DF-028 closed; 3) package/artifact channel documented and working; 4) v1.3.0 version-prep commit landed if minor proposal accepted; 5) separate RELEASE-cut authorization obtained; 6) exact-SHA CI, local gates, artifact verification on the proposed tag SHA.", "worker_status": "pending"}
++{"id":"RELEASE-TJ-006","priority":"P0","status":"pending","created_by":"releng-satellite","created_at":"2026-09-29T16:30:00-05:00","type":"task","title":"[P0] Releng 2026-09-29 evening: hold v1.3.0 candidate — pack-authoring feat landed (7aadde8), CI green at bd9c068; QA-TERMINAL-JAIL-13 still failed, no artifact channel, no cut authorization","description":"Re-verified 2026-09-29 16:30 against terminal-jail/terminal-jail v1.2.0..origin/main (HEAD bd9c068; prior sweep 702d791). Delta: 4 commits — 7aadde8 feat (rule-pack authoring schema subcommand, TJ-DF-035 closed), 78abf75 docs (FAQ uid note, REVIEW-TJ-006 closed), 2 board closes. Cumulative range now 96 commits: 8 fix, 2 feat, 11 docs, 1 test; 0 BREAKING CHANGE / 0 exclamation markers. Candidate semver proposal remains v1.3.0 minor. CI truth: run 36594961922 on HEAD bd9c068 SUCCESS (2026-09-29T16:03Z), per-job all success (Lint, Drift guards, Py3.11/3.12/3.13, Audit); 8/8 recent runs success. Blocker re-derivation: QA-TERMINAL-JAIL-13 P1 status=failed UNCHANGED (fresh Debian 13.7 unshare orphan teardown); TJ-DF-028 P1 pending; TJ-DF-037 complete but external-kernel matrix cells unverified; RELEASE-TJ-002 P0 pending (v1.2.0 Release object assets=[], pyproject still 1.2.0, no tag-triggered workflow, no release script/docs per Bane doctrine). Note: 7aadde8 is a NEW feat since last sweep — semver minor proposal unchanged. No RELEASE-cut authorization exists. NO CUT.","acceptance_criteria":"1) QA-TERMINAL-JAIL-13 closed or dispositioned; 2) TJ-DF-028 closed; 3) artifact channel documented and working; 4) v1.3.0 version-prep commit; 5) explicit RELEASE-cut authorization; 6) exact-SHA CI + local gates + artifact verification on tag SHA.","worker_status":"pending"}
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ae54b0e..e6052e8 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1498,3 +1498,35 @@ tasks:
+   status: complete
+   created_at: '2026-09-28T23:14:09.953642+00:00'
+   completed_at: '2026-09-28T23:26:09.028435+00:00'
++- id: TJ-DF-038
++  title: Preflight misdiagnoses missing uname as non-Linux
++  criteria:
++  - preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression
++    tests green
++  status: complete
++  created_at: '2026-09-29T10:06:22.709758+00:00'
++  completed_at: '2026-09-29T10:13:12.980928+00:00'
++- id: REVIEW-TJ-006
++  title: FAQ 4 uid 65534 claim is backend-dependent
++  criteria:
++  - docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller
++    uid
++  status: complete
++  created_at: '2026-09-29T13:41:51.222625+00:00'
++  completed_at: '2026-09-29T13:42:29.432018+00:00'
++- id: TJ-DF-035
++  title: Pack-authoring schema discoverable from documented material only
++  criteria:
++  - A pack author following only README + --help produces a valid pack in <=2 attempts;
++    documented example carries action, priority, match.type=pattern, pattern, message
++  status: complete
++  created_at: '2026-09-29T15:51:07.321935+00:00'
++  completed_at: '2026-09-29T16:03:24.057590+00:00'
++- id: REVIEW-TJ-005
++  title: Refresh live Hermes plugin 0.2.0->1.2.0
++  criteria:
++  - plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood
++    record committed and pushed
++  status: complete
++  created_at: '2026-09-29T22:32:34.904408+00:00'
++  completed_at: '2026-09-29T22:35:47.799733+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 6d1748b..1372aef 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -107,3 +107,7 @@
+ {"ts": 1790640549.4721463, "tokens_in": 62504, "tokens_out": 3027, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640665.6416888, "tokens_in": 103346, "tokens_out": 3509, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640843.1897862, "tokens_in": 142904, "tokens_out": 4984, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790676942.0635762, "tokens_in": 181459, "tokens_out": 2146, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790689451.1087914, "tokens_in": 201531, "tokens_out": 2472, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790697912.6260471, "tokens_in": 184573, "tokens_out": 2568, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790721506.8783965, "tokens_in": 64946, "tokens_out": 1861, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..040e872 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,26 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_standalone_cli.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:inspect","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:collections","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:typing","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:importlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}

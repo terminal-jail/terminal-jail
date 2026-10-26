@@ -1,0 +1,68 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ccee515..5bc4e78 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -846,3 +846,23 @@ tasks:
+   status: complete
+   created_at: '2026-09-19T03:25:33.852366+00:00'
+   completed_at: '2026-09-19T03:49:59.897715+00:00'
++- id: DF-TERMINAL-JAIL-7
++  title: State the real scope of the world-writable-path block message + docs (DF-TERMINAL-JAIL-7)
++  criteria:
++  - bridge probe {"command":"chmod 777 /tmp/tjprobe/work"} returns action=block rule_id=builtin-chmod-777-root
++    with a reason that names an absolute /-rooted path and does NOT claim the scope
++    is root (/) only
++  - engine block_message (plugin/terminal_jail/interruptor/blocklist.py) and the YAML
++    mirror (plugin/terminal_jail/rules/00-builtins.yaml) carry byte-identical text
++    stating the refused shape, the absolute-path scope, that relative/~ targets are
++    allowed, and the same-id warn override
++  - 'rule behaviour unchanged: chmod 777 /, chmod -R 777 /, chmod --recursive 777
++    /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc still block under builtin-chmod-777-root
++    while chmod 777 relative, chmod 777 ~/x and chmod 755 / still allow, and the full
++    plugin suite is green'
++  - plugin/test_interruptor.py pins the corrected message with needles a wrong message
++    would fail, and README.md, specs/interruptor.md, specs/integration.md and skills/terminal-jail-usage/SKILL.md
++    no longer present 'chmod 777 /' as the full scope
++  status: complete
++  created_at: '2026-09-19T04:19:51.943524+00:00'
++  completed_at: '2026-09-19T04:27:51.774195+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index babc7bf..babead9 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -38,3 +38,4 @@
+ {"ts": 1789741353.3120563, "tokens_in": 364374, "tokens_out": 5263, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789776223.3044894, "tokens_in": 620295, "tokens_out": 6632, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789789941.8382192, "tokens_in": 535383, "tokens_out": 5819, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789792145.908195, "tokens_in": 166894, "tokens_out": 3997, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..de62b48 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,26 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}

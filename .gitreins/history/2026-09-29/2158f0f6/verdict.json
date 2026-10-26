@@ -1,0 +1,121 @@
+{
+  "task_id": "REVIEW-TJ-006",
+  "task_title": "FAQ 4 uid 65534 claim is backend-dependent",
+  "task_criteria": [
+    "docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller uid"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "78abf75dd24b5da95c7a722c896bb57c6a0d01fe",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T134211.588070Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n8:42AM INF scanned ~5663107 bytes (5.66 MB) in 402ms\n8:42AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 172 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T134211.588070Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1515 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 22%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 27%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 30%]\nplugin/test_install.py ................................................. [ 33%]\n.................                                                        [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 42%]\n........................................................................ [ 47%]\n........................................................................ [ 52%]\n........................................................................ [ 56%]\n........................................................................ [ 61%]\n........................................................................ [ 66%]\n...........................                                              [ 68%]\nplugin/test_interruptor_integration.py .................s............... [ 70%]\n.......                                                                  [ 70%]\nplugin/test_metrics_export.py .....................                      [ 72%]\nplugin/test_modify_preflight.py ......                                   [ 72%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n.........                                                                [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 86%]\nplugin/test_seccomp.py .........................................sss..... [ 89%]\n.                                                                        [ 89%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1508 passed, 7 skipped in 67.56s (0:01:07) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T134211.588070Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller uid: docs/quickstart.md:676-682, FAQ \u00a74 entry 'Does `--user` isolate the filesystem?': 'A mapping-less `--user` namespace is an identity display only: `id` shows 65534 \u2014 but **only under the `unshare` backend** (`TERMINAL_JAIL_JAIL_BACKEND=unshare`, or `auto` on hosts where bwrap is absent/unusable); under the `bubblewrap` backend `--user` keeps the caller's uid (`id` shows 1000, not 65534), since bwrap re-labels rather than maps.' This explicitly names both backends and their uid display. Corroborated by code: standalone/terminal-jail:508-523 (unshare --user without mapping shows 65534), BWRAP_FLAGS at line 620 contains no --map-users/-S/-G so bwrap keeps caller uid, and comment at line 641 ('its --uid only re-labels the sandbox uid'). Tests green: `.venv/bin/python -m pytest plugin/test_backend_selection.py` \u2192 16 passed; `plugin/test_userns.py plugin/test_standalone_cli.py` \u2192 49 passed, 1 skipped. [resolution 0.25; docs/quickstart.md]\nThe FAQ \u00a74 entry in docs/quickstart.md explicitly documents that --user shows uid 65534 only under the unshare backend while the bubblewrap backend keeps the caller's uid (1000), matching the implementation.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller uid: docs/quickstart.md:676-682, FAQ \u00a74 entry 'Does `--user` isolate the filesystem?': 'A mapping-less `--user` namespace is an identity display only: `id` shows 65534 \u2014 but **only under the `unshare` backend** (`TERMINAL_JAIL_JAIL_BACKEND=unshare`, or `auto` on hosts where bwrap is absent/unusable); under the `bubblewrap` backend `--user` keeps the caller's uid (`id` shows 1000, not 65534), since bwrap re-labels rather than maps.' This explicitly names both backends and their uid display. Corroborated by code: standalone/terminal-jail:508-523 (unshare --user without mapping shows 65534), BWRAP_FLAGS at line 620 contains no --map-users/-S/-G so bwrap keeps caller uid, and comment at line 641 ('its --uid only re-labels the sandbox uid'). Tests green: `.venv/bin/python -m pytest plugin/test_backend_selection.py` \u2192 16 passed; `plugin/test_userns.py plugin/test_standalone_cli.py` \u2192 49 passed, 1 skipped. [resolution 0.25; docs/quickstart.md]\nThe FAQ \u00a74 entry in docs/quickstart.md explicitly documents that --user shows uid 65534 only under the unshare backend while the bubblewrap backend keeps the caller's uid (1000), matching the implementation.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller uid",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:676-682, FAQ \u00a74 entry 'Does `--user` isolate the filesystem?': 'A mapping-less `--user` namespace is an identity display only: `id` shows 65534 \u2014 but **only under the `unshare` backend** (`TERMINAL_JAIL_JAIL_BACKEND=unshare`, or `auto` on hosts where bwrap is absent/unusable); under the `bubblewrap` backend `--user` keeps the caller's uid (`id` shows 1000, not 65534), since bwrap re-labels rather than maps.' This explicitly names both backends and their uid display. Corroborated by code: standalone/terminal-jail:508-523 (unshare --user without mapping shows 65534), BWRAP_FLAGS at line 620 contains no --map-users/-S/-G so bwrap keeps caller uid, and comment at line 641 ('its --uid only re-labels the sandbox uid'). Tests green: `.venv/bin/python -m pytest plugin/test_backend_selection.py` \u2192 16 passed; `plugin/test_userns.py plugin/test_standalone_cli.py` \u2192 49 passed, 1 skipped. [resolution 0.25; docs/quickstart.md]",
+                "resolution_probability": 0.25,
+                "cited_path": "docs/quickstart.md"
+              }
+            ],
+            "summary": "The FAQ \u00a74 entry in docs/quickstart.md explicitly documents that --user shows uid 65534 only under the unshare backend while the bubblewrap backend keeps the caller's uid (1000), matching the implementation."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-006\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller uid: docs/quickstart.md:676-682, FAQ \u00a74 entry 'Does `--user` isolate the filesystem?': 'A mapping-less `--user` namespace is an identity display only: `id` shows 65534 \u2014 but **only under the `unshare` backend** (`TERMINAL_JAIL_JAIL_BACKEND=unshare`, or `auto` on hosts where bwrap is absent/unusable); under the `bubblewrap` backend `--user` keeps the caller's uid (`id` shows 1000, not 65534), since bwrap re-labels rather than maps.' This explicitly names both backends and their uid display. Corroborated by code: standalone/terminal-jail:508-523 (unshare --user without mapping shows 65534), BWRAP_FLAGS at line 620 contains no --map-users/-S/-G so bwrap keeps caller uid, and comment at line 641 ('its --uid only re-labels the sandbox uid'). Tests green: `.venv/bin/python -m pytest plugin/test_backend_selection.py` \u2192 16 passed; `plugin/test_userns.py plugin/test_standalone_cli.py` \u2192 49 passed, 1 skipped. [resolution 0.25; docs/quickstart.md]\nThe FAQ \u00a74 entry in docs/quickstart.md explicitly documents that --user shows uid 65534 only under the unshare backend while the bubblewrap backend keeps the caller's uid (1000), matching the implementation.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-29T13:44:11.125567",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-29T13:44:11.143197+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1646,
+        "truncated": false,
+        "source": "git show 78abf75dd24b"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 8730,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-006"
+  }
+}

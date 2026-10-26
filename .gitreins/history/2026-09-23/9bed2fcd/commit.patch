@@ -1,0 +1,14 @@
+commit 2fff412ae597f374beaa3c469776f48a893d2e8b
+Merge: 008cb7c 0fc950a
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Sep 23 09:24:47 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Sep 23 09:24:47 2026 -0500
+
+    merge: TJ-DF-019 probe seccomp-loader readability before promoting the uid-mapped --user launch (standalone/terminal-jail + tests) from wt/TJ-DF-019
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ plugin/test_standalone_cli.py | 97 ++++++++++++++++++++++++++++++++++++++-----
+ standalone/terminal-jail      | 44 +++++++++++++++++++-
+ 2 files changed, 129 insertions(+), 12 deletions(-)

@@ -1,0 +1,101 @@
+{
+  "task_id": "TJ-DF-017",
+  "task_title": "Branch quickstart/skill verify flow on the pidns capability probe (FULL vs DEGRADED)",
+  "task_criteria": [
+    "grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section 3a verify block",
+    "quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid differs from host) and a DEGRADED branch stating what --user does and does not contain",
+    "grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md shows >=1 hit in the Quick start block and the --user echo line no longer implies containment by itself",
+    "every command in the changed doc regions runs verbatim on this host with the documented result",
+    "uvx ruff check . exits 0 and .venv/bin/python -m pytest plugin -q stays at 348 passed/14 skipped"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m1:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3329741 bytes (3.33 MB) in 346ms\u001b[0m\n\u001b[90m1:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m1:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3329741 bytes (3.33 MB) in 346ms\u001b[0m\n\u001b[90m1:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 362 items\n\nplugin/test_board_id_guard.py ........................                   [  6%]\nplu",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section 3a verify block: grep -n pidns-capability-probe docs/quickstart.md \u2192 line 53: `python3 scripts/pidns-capability-probe.py`, inside \u00a73a 'Step 1 \u2014 classify the host' verify block (lines 50-58) which documents FULL/DEGRADED/UNKNOWN and exit 0.\n  \u2713 quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid differs from host) and a DEGRADED branch stating what --user does and does not contain: docs/quickstart.md \u00a73a: `FULL` branch (lines 63-72) runs bare `~/.local/bin/terminal-jail echo \"in jail\"` and `~/.local/bin/terminal-jail sh -c 'readlink /proc/self/ns/pid'` with comment '\u2192 a DIFFERENT inode than the host line above = PID-namespace containment' vs host `readlink /proc/self/ns/pid # host: pid:[4026531836]`. `DEGRADED` branch (lines 74-88) states bare mode exits 2 fail-closed with no fallback, `--user` lands in a new pidns (host 4026531836 \u2192 jail 4026538825), scrubs identity env (nobody/nobody//nonexistent), but 'the host PID view stays exposed (no private /proc mount \u2014 PID 1 is still the host's systemd) and there is no filesystem isolation unless a uid mapping can be created'.\n  \u2713 grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md shows >=1 hit in the Quick start block and the --user echo line no longer implies containment by itself: grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md \u2192 line 44: `python3 scripts/pidns-capability-probe.py        # FULL | DEGRADED | UNKNOWN, exit 0`, inside the '## Quick start' bash block (lines 41-56). Line 48: `$TJ --user echo hi                               # exec + rc=0 only \u2014 NOT containment proof` \u2014 explicitly disclaims containment; containment is attributed to the inode comparison on line 47.\n  \u2713 every command in the changed doc regions runs verbatim on this host with the documented result: After the documented \u00a73a prerequisite `./install.sh` (rc=0, installs ~/.local/bin/terminal-jail): `--version` \u2192 'terminal-jail 1.1.0' rc=0; `python3 scripts/pidns-capability-probe.py` \u2192 'DEGRADED' rc=0; `readlink /proc/self/ns/pid` \u2192 pid:[4026531836] (matches doc host value); DEGRADED bare `terminal-jail echo \"in jail\"` \u2192 rc=2 with 'terminal-jail: namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user' (matches doc); `--user sh -c 'readlink /proc/self/ns/pid'` \u2192 pid:[4026538827] rc=0, different inode from host (doc's literal 4026538825 differs but doc states 'The jailed inode value changes per invocation \u2014 the check is the inequality, not a literal'); `--user sh -c 'echo \"$USER $LOGNAME $HOME\"'` \u2192 'nobody nobody /nonexistent' (matches doc); `terminal-jail rm -rf /` \u2192 COMMAND BLOCKED box rc=126 (matches doc); `python3 scripts/fs-isolation-probe.py` \u2192 'DEGRADED: mapped launch failed...' rc=0 (matches doc). SKILL.md: `$TJ --user echo hi` \u2192 'hi' rc=0; `$TJ --user bash -c 'exit 7'` \u2192 7; `echo hi | $TJ --user cat` \u2192 'hi'; `$TJ --user fdisk /dev/sda` \u2192 rc=126; warn/disabled/--no-interruptor variants \u2192 firewall off (rc=1 from fdisk itself). All consistent with documented results.\n  \u2713 uvx ruff check . exits 0 and .venv/bin/python -m pytest plugin -q stays at 348 passed/14 skipped: `uvx ruff check .` \u2192 'All checks passed!' exit_code=0. `.venv/bin/python -m pytest plugin -q` \u2192 '348 passed, 14 skipped in 10.51s' \u2014 exactly the required 348 passed / 14 skipped.\nAll five criteria pass: the pidns capability probe is wired into both docs' verify blocks with explicit FULL/DEGRADED branches, the --user echo line is relabelled as non-containment, every documented command reproduces its documented result live, and ruff exits 0 with pytest at 348 passed/14 skipped.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section 3a verify block: grep -n pidns-capability-probe docs/quickstart.md \u2192 line 53: `python3 scripts/pidns-capability-probe.py`, inside \u00a73a 'Step 1 \u2014 classify the host' verify block (lines 50-58) which documents FULL/DEGRADED/UNKNOWN and exit 0.\n  \u2713 quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid differs from host) and a DEGRADED branch stating what --user does and does not",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section 3a verify block",
+                "status": "PASS",
+                "detail": "grep -n pidns-capability-probe docs/quickstart.md \u2192 line 53: `python3 scripts/pidns-capability-probe.py`, inside \u00a73a 'Step 1 \u2014 classify the host' verify block (lines 50-58) which documents FULL/DEGRADED/UNKNOWN and exit 0."
+              },
+              {
+                "criterion": "quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid differs from host) and a DEGRADED branch stating what --user does and does not contain",
+                "status": "PASS",
+                "detail": "docs/quickstart.md \u00a73a: `FULL` branch (lines 63-72) runs bare `~/.local/bin/terminal-jail echo \"in jail\"` and `~/.local/bin/terminal-jail sh -c 'readlink /proc/self/ns/pid'` with comment '\u2192 a DIFFERENT inode than the host line above = PID-namespace containment' vs host `readlink /proc/self/ns/pid # host: pid:[4026531836]`. `DEGRADED` branch (lines 74-88) states bare mode exits 2 fail-closed with no fallback, `--user` lands in a new pidns (host 4026531836 \u2192 jail 4026538825), scrubs identity env (nobody/nobody//nonexistent), but 'the host PID view stays exposed (no private /proc mount \u2014 PID 1 is still the host's systemd) and there is no filesystem isolation unless a uid mapping can be created'."
+              },
+              {
+                "criterion": "grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md shows >=1 hit in the Quick start block and the --user echo line no longer implies containment by itself",
+                "status": "PASS",
+                "detail": "grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md \u2192 line 44: `python3 scripts/pidns-capability-probe.py        # FULL | DEGRADED | UNKNOWN, exit 0`, inside the '## Quick start' bash block (lines 41-56). Line 48: `$TJ --user echo hi                               # exec + rc=0 only \u2014 NOT containment proof` \u2014 explicitly disclaims containment; containment is attributed to the inode comparison on line 47."
+              },
+              {
+                "criterion": "every command in the changed doc regions runs verbatim on this host with the documented result",
+                "status": "PASS",
+                "detail": "After the documented \u00a73a prerequisite `./install.sh` (rc=0, installs ~/.local/bin/terminal-jail): `--version` \u2192 'terminal-jail 1.1.0' rc=0; `python3 scripts/pidns-capability-probe.py` \u2192 'DEGRADED' rc=0; `readlink /proc/self/ns/pid` \u2192 pid:[4026531836] (matches doc host value); DEGRADED bare `terminal-jail echo \"in jail\"` \u2192 rc=2 with 'terminal-jail: namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user' (matches doc); `--user sh -c 'readlink /proc/self/ns/pid'` \u2192 pid:[4026538827] rc=0, different inode from host (doc's literal 4026538825 differs but doc states 'The jailed inode value changes per invocation \u2014 the check is the inequality, not a literal'); `--user sh -c 'echo \"$USER $LOGNAME $HOME\"'` \u2192 'nobody nobody /nonexistent' (matches doc); `terminal-jail rm -rf /` \u2192 COMMAND BLOCKED box rc=126 (matches doc); `python3 scripts/fs-isolation-probe.py` \u2192 'DEGRADED: mapped launch failed...' rc=0 (matches doc). SKILL.md: `$TJ --user echo hi` \u2192 'hi' rc=0; `$TJ --user bash -c 'exit 7'` \u2192 7; `echo hi | $TJ --user cat` \u2192 'hi'; `$TJ --user fdisk /dev/sda` \u2192 rc=126; warn/disabled/--no-interruptor variants \u2192 firewall off (rc=1 from fdisk itself). All consistent with documented results."
+              },
+              {
+                "criterion": "uvx ruff check . exits 0 and .venv/bin/python -m pytest plugin -q stays at 348 passed/14 skipped",
+                "status": "PASS",
+                "detail": "`uvx ruff check .` \u2192 'All checks passed!' exit_code=0. `.venv/bin/python -m pytest plugin -q` \u2192 '348 passed, 14 skipped in 10.51s' \u2014 exactly the required 348 passed / 14 skipped."
+              }
+            ],
+            "summary": "All five criteria pass: the pidns capability probe is wired into both docs' verify blocks with explicit FULL/DEGRADED branches, the --user echo line is relabelled as non-containment, every documented command reproduces its documented result live, and ruff exits 0 with pytest at 348 passed/14 skipped."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-017\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m1:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3329741 bytes (3.33 MB) in 346ms\u001b[0m\n\u001b[90m1:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep -n pidns-capability-probe docs/quickstart.md shows >=1 hit inside the section 3a verify block: grep -n pidns-capability-probe docs/quickstart.md \u2192 line 53: `python3 scripts/pidns-capability-probe.py`, inside \u00a73a 'Step 1 \u2014 classify the host' verify block (lines 50-58) which documents FULL/DEGRADED/UNKNOWN and exit 0.\n  \u2713 quickstart 3a has an explicit FULL branch (bare mode + readlink /proc/self/ns/pid differs from host) and a DEGRADED branch stating what --user does and does not contain: docs/quickstart.md \u00a73a: `FULL` branch (lines 63-72) runs bare `~/.local/bin/terminal-jail echo \"in jail\"` and `~/.local/bin/terminal-jail sh -c 'readlink /proc/self/ns/pid'` with comment '\u2192 a DIFFERENT inode than the host line above = PID-namespace containment' vs host `readlink /proc/self/ns/pid # host: pid:[4026531836]`. `DEGRADED` branch (lines 74-88) states bare mode exits 2 fail-closed with no fallback, `--user` lands in a new pidns (host 4026531836 \u2192 jail 4026538825), scrubs identity env (nobody/nobody//nonexistent), but 'the host PID view stays exposed (no private /proc mount \u2014 PID 1 is still the host's systemd) and there is no filesystem isolation unless a uid mapping can be created'.\n  \u2713 grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md shows >=1 hit in the Quick start block and the --user echo line no longer implies containment by itself: grep -n pidns-capability-probe skills/terminal-jail-usage/SKILL.md \u2192 line 44: `python3 scripts/pidns-capability-probe.py        # FULL | DEGRADED | UNKNOWN, exit 0`, inside the '## Quick start' bash block (lines 41-56). Line 48: `$TJ --user echo hi                               # exec + rc=0 only \u2014 NOT containment proof` \u2014 explicitly disclaims containment; containment is attributed to the inode comparison on line 47.\n  \u2713 every command in the changed doc regions runs verbatim on this host with the documented result: After the documented \u00a73a prerequisite `./install.sh` (rc=0, installs ~/.local/bin/terminal-jail): `--version` \u2192 'terminal-jail 1.1.0' rc=0; `python3 scripts/pidns-capability-probe.py` \u2192 'DEGRADED' rc=0; `readlink /proc/self/ns/pid` \u2192 pid:[4026531836] (matches doc host value); DEGRADED bare `terminal-jail echo \"in jail\"` \u2192 rc=2 with 'terminal-jail: namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user' (matches doc); `--user sh -c 'readlink /proc/self/ns/pid'` \u2192 pid:[4026538827] rc=0, different inode from host (doc's literal 4026538825 differs but doc states 'The jailed inode value changes per invocation \u2014 the check is the inequality, not a literal'); `--user sh -c 'echo \"$USER $LOGNAME $HOME\"'` \u2192 'nobody nobody /nonexistent' (matches doc); `terminal-jail rm -rf /` \u2192 COMMAND BLOCKED box rc=126 (matches doc); `python3 scripts/fs-isolation-probe.py` \u2192 'DEGRADED: mapped launch failed...' rc=0 (matches doc). SKILL.md: `$TJ --user echo hi` \u2192 'hi' rc=0; `$TJ --user bash -c 'exit 7'` \u2192 7; `echo hi | $TJ --user cat` \u2192 'hi'; `$TJ --user fdisk /dev/sda` \u2192 rc=126; warn/disabled/--no-interruptor variants \u2192 firewall off (rc=1 from fdisk itself). All consistent with documented results.\n  \u2713 uvx ruff check . exits 0 and .venv/bin/python -m pytest plugin -q stays at 348 passed/14 skipped: `uvx ruff check .` \u2192 'All checks passed!' exit_code=0. `.venv/bin/python -m pytest plugin -q` \u2192 '348 passed, 14 skipped in 10.51s' \u2014 exactly the required 348 passed / 14 skipped.\nAll five criteria pass: the pidns capability probe is wired into both docs' verify blocks with explicit FULL/DEGRADED branches, the --user echo line is relabelled as non-containment, every documented command reproduces its documented result live, and ruff exits 0 with pytest at 348 passed/14 skipped.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-15T18:19:33.898442"
+}

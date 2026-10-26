@@ -1,0 +1,31 @@
+commit b7711835ce9437e6536369413d2d449de7ee02c7
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Tue Sep 22 23:44:26 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Tue Sep 22 23:44:26 2026 -0500
+
+    commit: test(e2e): denominator label matches the live case count (TJ-GAP-074 follow-up)
+    
+    Foreman one-line polish per doctrine: the probe splits the killpg case into
+    two labeled assertions, so the matrix has 14 PASS lines against a docstring
+    that hard-read "13". The printed total already uses len(CASES); this aligns
+    the docstring wording with it (cosmetic only; no behavior change).
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ scripts/e2e-battery-live-probe.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/e2e-battery-live-probe.py b/scripts/e2e-battery-live-probe.py
+index a214624..3897979 100755
+--- a/scripts/e2e-battery-live-probe.py
++++ b/scripts/e2e-battery-live-probe.py
+@@ -26,7 +26,7 @@ least one allow with a null id must be present, or the run fails even if
+ every case matched its expectation.
+ 
+ Output: one `PASS <case> -> action=<...> rule_id=<...>` (or `FAIL ...`) line
+-per check, then `LIVE-PROBE: <n>/<13> PASS`. Exit 0 iff all 13 cases AND the
++per check, then `LIVE-PROBE: <n>/<n> PASS`. Exit 0 iff all cases AND the
+ positive control pass; anything else exits 1 (battery gate). Fail-closed: a
+ non-zero bridge exit, a timeout, or non-JSON output is a FAIL carrying the
+ raw output — never an automatic pass.

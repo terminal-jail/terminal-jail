@@ -1,0 +1,121 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-18",
+  "task_title": "Update test expectations for Landlock tier payload shape",
+  "task_criteria": [
+    "15+ test_interruptor/test_host_probes tests pin pre-tier Landlock payload shape; suite red where standalone/landlock-loader.py is reachable. Fix: update test expectations to match current landlock-loader -- <cmd> payload shape. PASS: pytest plugin/test_interruptor.py plugin/test_host_probes.py all pass where landlock-loader is reachable."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2d151586790dcb8ed1c450376e124f049bbfbc6b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T020916.015984Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:40PM INF scanned ~6179105 bytes (6.18 MB) in 664ms\n9:40PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 221 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T020916.015984Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1955 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py .......................                       [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1920 chars omitted \u2014 24 line(s)] \u2026\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...........                             [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1945 passed, 10 skipped in 176.97s (0:02:56) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T024228.128042Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 15+ test_interruptor/test_host_probes tests pin pre-tier Landlock payload shape; suite red where standalone/landlock-loader.py is reachable. Fix: update test expectations to match current landlock-loader -- <cmd> payload shape. PASS: pytest plugin/test_interruptor.py plugin/test_host_probes.py all pass where landlock-loader is reachable.: Loader IS reachable in this checkout: `landlock.sandbox_prefix()` returns 'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- ' (parent /home/kara is drwxr-x--x = o+x), so tests run in the required condition. RED-BEFORE: running the pre-fix files (git show 208287f^) against the current engine gives 13 failed/504 passed in plugin/test_interruptor.py (TestSandboxPipelineReconstruction x8, TestSandboxReconstructionRefusal x3, TestUserRules::test_user_modify_rule_wraps_in_unshare) and 2 failed/20 passed in plugin/test_host_probes.py (TestJailedProbesThroughCli pidns/fs probes, exit 126 Permission denied) = 15 failures, matching the '15+' claim; failure text shows expected \"'danger-tool --wipe'\" vs got \"'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- danger-tool --wipe'\". GREEN-AFTER (commit 208287f adds mask_landlock_tails() + _PAYLOAD_LANDLOCK_TAIL_RE and applies the mask to every pinned expectation, plus new TestLandlockTierShapes and TestTierComposedProbeThroughCli): `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` -> '545 passed in 4.68s' (exit 0); `-m integration` -> '4 passed, 541 deselected' including TestTierComposedProbeThroughCli::test_probes_survive_the_composed_tier_launch PASSED; `-k LandlockTierShapes` -> 3 passed. Full suite via config test_command -> '1945 passed, 10 skipped in 195.81s', zero failures. LSP diagnostics: 0 findings. Files were restored to HEAD after the red-before experiment (git status plugin/ clean). [resolution 0.23; standalone/landlock-loader.py, plugin/test_interruptor.py, plugin/test_host_probes.py]\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 15+ test_interruptor/test_host_probes tests pin pre-tier Landlock payload shape; suite red where standalone/landlock-loader.py is reachable. Fix: update test expectations to match current landlock-loader -- <cmd> payload shape. PASS: pytest plugin/test_interruptor.py plugin/test_host_probes.py all pass where landlock-loader is reachable.: Loader IS reachable in this checkout: `landlock.sandbox_prefix()` returns 'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- ' (parent /home/kara is drwxr-x--x = o+x), so tests run in the required condition. RED-BEFORE: running the pre-fix files (git show 208287f^) against the current engine gives 13 failed/504 passed in plugin/test_interruptor.py (TestSandboxPipelineReconstruction x8, TestSandboxReconstructionRefusal x3, TestUserRules::test_user_modify_rule_wraps_in_unshare) and 2 failed/20 passed in plugin/test_host_probes.py (TestJailedProbesThroughCli pidns/fs probes, exit 126 Permission denied) = 15 failures, matching the '15+' claim; failure text shows expected \"'danger-tool --wipe'\" vs got \"'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- danger-tool --wipe'\". GREEN-AFTER (commit 208287f adds mask_landlock_tails() + _PAYLOAD_LANDLOCK_TAIL_RE and applies the mask to every pinned expectation, plus new TestLandlockTierShapes and TestTierComposedProbeThroughCli): `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` -> '545 passed in 4.68s' (exit 0); `-m integration` -> '4 passed, 541 deselected' including TestTierComposedProbeThroughCli::test_probes_survive_the_composed_tier_launch PASSED; `-k LandlockTierShapes` -> 3 passed. Full suite via config test_command -> '1945 passed, 10 skipped in 195.81s', zero failures. LSP diagnostics: 0 findings. Files were restored to HEAD after the red-before experiment (git status plugin/ clean). [resolution 0.23; standalone/landlock-loader.py, plugin/test_interruptor.py, plugin/test_host_probes.py]\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "15+ test_interruptor/test_host_probes tests pin pre-tier Landlock payload shape; suite red where standalone/landlock-loader.py is reachable. Fix: update test expectations to match current landlock-loader -- <cmd> payload shape. PASS: pytest plugin/test_interruptor.py plugin/test_host_probes.py all pass where landlock-loader is reachable.",
+                "status": "PASS",
+                "detail": "Loader IS reachable in this checkout: `landlock.sandbox_prefix()` returns 'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- ' (parent /home/kara is drwxr-x--x = o+x), so tests run in the required condition. RED-BEFORE: running the pre-fix files (git show 208287f^) against the current engine gives 13 failed/504 passed in plugin/test_interruptor.py (TestSandboxPipelineReconstruction x8, TestSandboxReconstructionRefusal x3, TestUserRules::test_user_modify_rule_wraps_in_unshare) and 2 failed/20 passed in plugin/test_host_probes.py (TestJailedProbesThroughCli pidns/fs probes, exit 126 Permission denied) = 15 failures, matching the '15+' claim; failure text shows expected \"'danger-tool --wipe'\" vs got \"'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- danger-tool --wipe'\". GREEN-AFTER (commit 208287f adds mask_landlock_tails() + _PAYLOAD_LANDLOCK_TAIL_RE and applies the mask to every pinned expectation, plus new TestLandlockTierShapes and TestTierComposedProbeThroughCli): `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` -> '545 passed in 4.68s' (exit 0); `-m integration` -> '4 passed, 541 deselected' including TestTierComposedProbeThroughCli::test_probes_survive_the_composed_tier_launch PASSED; `-k LandlockTierShapes` -> 3 passed. Full suite via config test_command -> '1945 passed, 10 skipped in 195.81s', zero failures. LSP diagnostics: 0 findings. Files were restored to HEAD after the red-before experiment (git status plugin/ clean). [resolution 0.23; standalone/landlock-loader.py, plugin/test_interruptor.py, plugin/test_host_probes.py]",
+                "resolution_probability": 0.23,
+                "cited_path": "standalone/landlock-loader.py, plugin/test_interruptor.py, plugin/test_host_probes.py"
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-18\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 15+ test_interruptor/test_host_probes tests pin pre-tier Landlock payload shape; suite red where standalone/landlock-loader.py is reachable. Fix: update test expectations to match current landlock-loader -- <cmd> payload shape. PASS: pytest plugin/test_interruptor.py plugin/test_host_probes.py all pass where landlock-loader is reachable.: Loader IS reachable in this checkout: `landlock.sandbox_prefix()` returns 'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- ' (parent /home/kara is drwxr-x--x = o+x), so tests run in the required condition. RED-BEFORE: running the pre-fix files (git show 208287f^) against the current engine gives 13 failed/504 passed in plugin/test_interruptor.py (TestSandboxPipelineReconstruction x8, TestSandboxReconstructionRefusal x3, TestUserRules::test_user_modify_rule_wraps_in_unshare) and 2 failed/20 passed in plugin/test_host_probes.py (TestJailedProbesThroughCli pidns/fs probes, exit 126 Permission denied) = 15 failures, matching the '15+' claim; failure text shows expected \"'danger-tool --wipe'\" vs got \"'python3 /home/kara/terminal-jail/standalone/landlock-loader.py -- danger-tool --wipe'\". GREEN-AFTER (commit 208287f adds mask_landlock_tails() + _PAYLOAD_LANDLOCK_TAIL_RE and applies the mask to every pinned expectation, plus new TestLandlockTierShapes and TestTierComposedProbeThroughCli): `.venv/bin/python -m pytest plugin/test_interruptor.py plugin/test_host_probes.py -q` -> '545 passed in 4.68s' (exit 0); `-m integration` -> '4 passed, 541 deselected' including TestTierComposedProbeThroughCli::test_probes_survive_the_composed_tier_launch PASSED; `-k LandlockTierShapes` -> 3 passed. Full suite via config test_command -> '1945 passed, 10 skipped in 195.81s', zero failures. LSP diagnostics: 0 findings. Files were restored to HEAD after the red-before experiment (git status plugin/ clean). [resolution 0.23; standalone/landlock-loader.py, plugin/test_interruptor.py, plugin/test_host_probes.py]\n\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-12T02:48:48.973643",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-12T02:48:49.023393+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 22905,
+        "truncated": false,
+        "source": "git show 2d151586790d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 7642,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-18"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "task_id": "TJ-GAP-035",
+  "task_title": "Wrapper guard-token indirecting",
+  "task_criteria": [
+    "grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail == 0; suite passes"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m12:27PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9660976 bytes (9.66 MB) in 807ms\u001b[0m\n\u001b[90m12:27PM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m12:27PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9660976 bytes (9.66 MB) in 807ms\u001b[0m\n\u001b[90m12:27PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 292 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 22%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail == 0; suite passes: grep -c 'kill-child' standalone/terminal-jail returned 0 (no matches) and grep -c 'SIGKILL' returned 0, satisfying the OR condition. Suite verified: `pytest -x --tb=short` exit_code=0, output '288 passed, 4 skipped in 4.70s'.\nBoth grep counts are 0 (kill-child and SIGKILL absent from standalone/terminal-jail) and the full test suite passes (288 passed, 4 skipped), so the criterion is met.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail == 0; suite passes: grep -c 'kill-child' standalone/terminal-jail returned 0 (no matches) and grep -c 'SIGKILL' returned 0, satisfying the OR condition. Suite verified: `pytest -x --tb=short` exit_code=0, output '288 passed, 4 skipped in 4.70s'.\nBoth grep counts are 0 (kill-child and SIGKILL absent from standalone/terminal-jail) and the full test suite passes (288 passed, 4 skipped), so ",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail == 0; suite passes",
+                "status": "PASS",
+                "detail": "grep -c 'kill-child' standalone/terminal-jail returned 0 (no matches) and grep -c 'SIGKILL' returned 0, satisfying the OR condition. Suite verified: `pytest -x --tb=short` exit_code=0, output '288 passed, 4 skipped in 4.70s'."
+              }
+            ],
+            "summary": "Both grep counts are 0 (kill-child and SIGKILL absent from standalone/terminal-jail) and the full test suite passes (288 passed, 4 skipped), so the criterion is met."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-035\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m12:27PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9660976 bytes (9.66 MB) in 807ms\u001b[0m\n\u001b[90m12:27PM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail == 0; suite passes: grep -c 'kill-child' standalone/terminal-jail returned 0 (no matches) and grep -c 'SIGKILL' returned 0, satisfying the OR condition. Suite verified: `pytest -x --tb=short` exit_code=0, output '288 passed, 4 skipped in 4.70s'.\nBoth grep counts are 0 (kill-child and SIGKILL absent from standalone/terminal-jail) and the full test suite passes (288 passed, 4 skipped), so the criterion is met.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-18T17:27:59.777480"
+}

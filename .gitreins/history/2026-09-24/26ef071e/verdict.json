@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-GAP-075",
+  "task_title": "whole-tree ruff format clean + CI format gate",
+  "task_criteria": [
+    "uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited to the 31 format files + ci.yml"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b9b9ba8279014ca391317dad5646f950638d98e8",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n6:04PM INF scanned ~5021140 bytes (5.02 MB) in 1.58s\n6:04PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 160 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1444 passed, 7 skipped in 96.02s (0:01:36) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T230327.792577Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited to the 31 format files + ci.yml: (A) `uvx ruff@0.16.8 format --check .` -> '250 files already formatted', exit_code=0. (B) .github/workflows/ci.yml lint job pins `pip install 'ruff==0.16.8'` and commit ec5d945 added `- name: Run ruff format check` / `run: ruff format --check .` (+3 lines). (C) `.venv/bin/python -m pytest -x --tb=short -q` -> '1444 passed, 7 skipped in 131.65s (0:02:11)'. (D) `git show --name-only ec5d945` = 32 paths: .github/workflows/ci.yml + 31 others (28 .py + 3 .md whose fenced ```python blocks ruff also formats: docs/dogfood/2026-09-24-firewall-library-integration.md, skills/terminal-jail-usage/SKILL.md, specs/interruptor.md). All 31 are format-only; the apparent string-literal rewrites in plugin/test_interruptor.py and plugin/test_escape_waves.py were proven semantically identical in Python (e.g. old \"python3 -c 'import subprocess; subprocess.run([\\\"rm\\\", \\\"-rf\\\", \\\"/\\\"])'\" == new 'python3 -c \\'import subprocess; subprocess.run([\"rm\", \"-rf\", \"/\"])\\'' -> True; same for node-rmsync and python-getattr), i.e. pure quote-style normalization. No non-format files in the diff. [resolution 0.29; ci.yml]\nAll four sub-claims verified with live command output: ruff 0.16.8 format --check is clean tree-wide (250 files), CI Lint pins 0.16.8 and runs the format gate, pytest is green (1444 passed / 7 skipped), and the diff is exactly the 31 format files plus ci.yml.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited to the 31 format files + ci.yml: (A) `uvx ruff@0.16.8 format --check .` -> '250 files already formatted', exit_code=0. (B) .github/workflows/ci.yml lint job pins `pip install 'ruff==0.16.8'` and commit ec5d945 added `- name: Run ruff format check` / `run: ruff format --check .` (+3 lines). (C) `.venv/bin/python -m pytest -x --tb=short -q` -> '1444 passed, 7 skipped in 131.65s (0:02:11)'. (D) `git show --name-only ec5d945` = 32 paths: .github/workflows/ci.yml + 31 others (28 .py + 3 .md whose fenced ```python blocks ruff also formats: docs/dogfood/2026-09-24-firewall-library-integration.md, skills/terminal-jail-usage/SKILL.md, specs/interruptor.md). All 31 are format-only; the apparent string-literal rewrites in plugin/test_interruptor.py and plugin/test_escape_waves.py were proven semantically identical in Python (e.g. old \"python3 -c 'import subprocess; subprocess.run([\\\"rm\\\", \\\"-rf\\\", \\\"/\\\"])'\" == new 'python3 -c \\'import subprocess; subprocess.run([\"rm\", \"-rf\", \"/\"])\\'' -> True; same for node-rmsync and python-getattr), i.e. pure quote-style normalization. No non-format files in the diff. [resolution 0.29; ci.yml]\nAll four sub-claims verified with live command output: ruff 0.16.8 format --check is clean tree-wide (250 files), CI Lint pins 0.16.8 and runs the format gate, pytest is green (1444 passed / 7 skipped), and the diff is exactly the 31 format files plus ci.yml.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited to the 31 format files + ci.yml",
+                "status": "PASS",
+                "detail": "(A) `uvx ruff@0.16.8 format --check .` -> '250 files already formatted', exit_code=0. (B) .github/workflows/ci.yml lint job pins `pip install 'ruff==0.16.8'` and commit ec5d945 added `- name: Run ruff format check` / `run: ruff format --check .` (+3 lines). (C) `.venv/bin/python -m pytest -x --tb=short -q` -> '1444 passed, 7 skipped in 131.65s (0:02:11)'. (D) `git show --name-only ec5d945` = 32 paths: .github/workflows/ci.yml + 31 others (28 .py + 3 .md whose fenced ```python blocks ruff also formats: docs/dogfood/2026-09-24-firewall-library-integration.md, skills/terminal-jail-usage/SKILL.md, specs/interruptor.md). All 31 are format-only; the apparent string-literal rewrites in plugin/test_interruptor.py and plugin/test_escape_waves.py were proven semantically identical in Python (e.g. old \"python3 -c 'import subprocess; subprocess.run([\\\"rm\\\", \\\"-rf\\\", \\\"/\\\"])'\" == new 'python3 -c \\'import subprocess; subprocess.run([\"rm\", \"-rf\", \"/\"])\\'' -> True; same for node-rmsync and python-getattr), i.e. pure quote-style normalization. No non-format files in the diff. [resolution 0.29; ci.yml]",
+                "resolution_probability": 0.29,
+                "cited_path": "ci.yml"
+              }
+            ],
+            "summary": "All four sub-claims verified with live command output: ruff 0.16.8 format --check is clean tree-wide (250 files), CI Lint pins 0.16.8 and runs the format gate, pytest is green (1444 passed / 7 skipped), and the diff is exactly the 31 format files plus ci.yml."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-075\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 uvx ruff@0.16.8 format --check . clean tree-wide; CI Lint job runs ruff format --check with the pinned 0.16.8; full pytest suite unchanged green; diff limited to the 31 format files + ci.yml: (A) `uvx ruff@0.16.8 format --check .` -> '250 files already formatted', exit_code=0. (B) .github/workflows/ci.yml lint job pins `pip install 'ruff==0.16.8'` and commit ec5d945 added `- name: Run ruff format check` / `run: ruff format --check .` (+3 lines). (C) `.venv/bin/python -m pytest -x --tb=short -q` -> '1444 passed, 7 skipped in 131.65s (0:02:11)'. (D) `git show --name-only ec5d945` = 32 paths: .github/workflows/ci.yml + 31 others (28 .py + 3 .md whose fenced ```python blocks ruff also formats: docs/dogfood/2026-09-24-firewall-library-integration.md, skills/terminal-jail-usage/SKILL.md, specs/interruptor.md). All 31 are format-only; the apparent string-literal rewrites in plugin/test_interruptor.py and plugin/test_escape_waves.py were proven semantically identical in Python (e.g. old \"python3 -c 'import subprocess; subprocess.run([\\\"rm\\\", \\\"-rf\\\", \\\"/\\\"])'\" == new 'python3 -c \\'import subprocess; subprocess.run([\"rm\", \"-rf\", \"/\"])\\'' -> True; same for node-rmsync and python-getattr), i.e. pure quote-style normalization. No non-format files in the diff. [resolution 0.29; ci.yml]\nAll four sub-claims verified with live command output: ruff 0.16.8 format --check is clean tree-wide (250 files), CI Lint pins 0.16.8 and runs the format gate, pytest is green (1444 passed / 7 skipped), and the diff is exactly the 31 format files plus ci.yml.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T23:15:56.364342",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T23:15:56.418768+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show b9b9ba827901"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 35858,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-075"
+  }
+}

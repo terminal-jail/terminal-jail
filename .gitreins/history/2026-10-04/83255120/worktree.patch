@@ -1,0 +1,69 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index b67ac57..bd46132 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1461,19 +1461,15 @@ tasks:
+   created_at: '2026-09-28T02:55:02.183822+00:00'
+   completed_at: '2026-09-28T03:19:02.238910+00:00'
+ - id: TJ-DF-029
+-  title: systemd-directive-probe RestrictNamespaces missing host-baseline negative
+-    control
+-  criteria:
+-  - 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe
+-    once OUTSIDE the transient unit and stores the host rc. 2) Verdict = ENFORCED
+-    only when host rc==0 AND unit rc!=0. 3) When host rc!=0 the verdict is UNKNOWN
+-    with a message naming the host denial. 4) CloseOnExec=true control remains UNSUPPORTED
+-    (classifier sanity). 5) plugin/test_packaging.py or a new test asserts the UNKNOWN
+-    branch on a simulated host-deny scenario. 6) Full pytest suite passes, gitreins
+-    guard --full 4/4.
+-  status: complete
+-  created_at: '2026-10-01T06:24:17.123090+00:00'
+-  completed_at: '2026-10-01T06:36:17.395780+00:00'
++  title: Add host-baseline negative control to systemd-directive-probe RestrictNamespaces
++    judge
++  criteria:
++  - Host control runs unshare outside transient unit; verdict ENFORCED only when host
++    rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover
++    both branches; no regression to other directives
++  status: complete
++  created_at: '2026-10-04T11:17:08.829142+00:00'
++  completed_at: '2026-10-04T12:16:18.450768+00:00'
+ - id: TJ-DF-039
+   title: 'PyYAML-less host: rule mirror fails open silently + drift probe blind'
+   criteria:
+@@ -1572,3 +1568,11 @@ tasks:
+   status: complete
+   created_at: '2026-10-01T07:54:20.392645+00:00'
+   completed_at: '2026-10-01T09:40:55.680364+00:00'
++- id: QA-TERMINAL-JAIL-12
++  title: Fix HOST-DEGRADED-PIDNS skip marker contradiction
++  criteria:
++  - Test skip marker HOST-DEGRADED-PIDNS aligns with pidns-capability-probe.py classification;
++    suite green; skip reason accurately reflects host state
++  status: complete
++  created_at: '2026-10-04T11:01:05.786338+00:00'
++  completed_at: '2026-10-04T11:12:17.379716+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 8ba0ac9..41b7373 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -119,3 +119,4 @@
+ {"ts": 1790836894.2606728, "tokens_in": 1544998, "tokens_out": 6631, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790847259.9714558, "tokens_in": 3203618, "tokens_out": 9704, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790851392.3058026, "tokens_in": 3340717, "tokens_out": 10990, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791119896.5116475, "tokens_in": 4566273, "tokens_out": 9272, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..fcee032 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,10 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}

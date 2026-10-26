@@ -1,0 +1,121 @@
+{
+  "task_id": "DOC-2",
+  "task_title": "Fix CONTRIBUTING documentation drift",
+  "task_criteria": [
+    "CONTRIBUTING setup uses a runnable dependency workflow; test counts match pytest --collect-only; the project tree has no phantom plugin/test_integration.py; and line-length guidance matches pyproject.toml."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b4bf09c259fe5c1efdff96fe950782775069bd14",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260927T131921.833164Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n8:22AM INF scanned ~5072164 bytes (5.07 MB) in 379ms\n8:22AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 168 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260927T131921.833164Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1444 passed, 7 skipped in 51.24s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260927T131921.833164Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 CONTRIBUTING setup uses a runnable dependency workflow; test counts match pytest --collect-only; the project tree has no phantom plugin/test_integration.py; and line-length guidance matches pyproject.toml.: All four sub-claims verified. (1) Runnable workflow: CONTRIBUTING.md:8-11 documents `uv sync --dev`; `uv sync --dev --dry-run` exit=0 ('Resolved 9 packages', 'Found up-to-date lockfile at: uv.lock', 'Would make no changes'); uv.lock exists. pyproject.toml:31 has `[dependency-groups] dev=[\"pytest>=8\",\"ruff==0.16.8\"]` with optional-dependencies=None, so the old `pip install -e \".[dev]\"` genuinely fails and CONTRIBUTING.md:15 now says so; pip fallback `python3 -m pip install -e . pytest \"ruff==0.16.8\"` verified via `pip install --dry-run` exit=0 ('Would install ruff-0.16.8 terminal-jail-1.2.0'); dead `--cov` example removed (grep pytest-cov/--cov in CONTRIBUTING.md = no match); `.venv/bin/ruff check plugin/` => 'All checks passed!'. (2) Test counts: `python3 -m pytest plugin/ --collect-only -q` => '1444 tests collected'; per-file test_plugin 16, test_install 66, test_standalone_cli 21, test_metrics_export 21 all match CONTRIBUTING.md:59-64; running those 4 modules => '124 passed' (=16+66+21+21); '21 further test modules' is correct (25 plugin/test_*.py minus the 4 named). (3) No phantom file: `ls plugin/test_integration.py` => 'No such file or directory', `find . -name test_integration.py` => none, and `grep test_integration CONTRIBUTING.md` => no match (entry replaced with real layout). (4) Line length: pyproject.toml:53 `line-length = 88` matches CONTRIBUTING.md:46 'Line length: 88 characters (set as `line-length` in `pyproject.toml`)'. Integration marker list in CONTRIBUTING.md matches `grep -l pytest.mark.integration` exactly (test_env_scrub, test_userns, test_backend_parity, test_backend_selection, test_host_probes). [resolution 0.09; plugin/test_integration.py]\nCONTRIBUTING.md now documents a verified-runnable uv/pip dependency workflow, per-file test counts matching pytest --collect-only (16/66/21/21, 1444 total), no phantom plugin/test_integration.py, and line-length 88 matching pyproject.toml.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 CONTRIBUTING setup uses a runnable dependency workflow; test counts match pytest --collect-only; the project tree has no phantom plugin/test_integration.py; and line-length guidance matches pyproject.toml.: All four sub-claims verified. (1) Runnable workflow: CONTRIBUTING.md:8-11 documents `uv sync --dev`; `uv sync --dev --dry-run` exit=0 ('Resolved 9 packages', 'Found up-to-date lockfile at: uv.lock', 'Would make no changes'); uv.lock exists. pyproject.toml:31 has `[dependency-groups] dev=[\"pytest>=8\",\"ruff==0.16.8\"]` with optional-dependencies=None, so the old `pip install -e \".[dev]\"` genuinely fails and CONTRIBUTING.md:15 now says so; pip fallback `python3 -m pip install -e . pytest \"ruff==0.16.8\"` verified via `pip install --dry-run` exit=0 ('Would install ruff-0.16.8 terminal-jail-1.2.0'); dead `--cov` example removed (grep pytest-cov/--cov in CONTRIBUTING.md = no match); `.venv/bin/ruff check plugin/` => 'All checks passed!'. (2) Test counts: `python3 -m pytest plugin/ --collect-only -q` => '1444 tests collected'; per-file test_plugin 16, test_install 66, test_standalone_cli 21, test_metrics_export 21 all match CONTRIBUTING.md:59-64; running those 4 modules => '124 passed' (=16+66+21+21); '21 further test modules' is correct (25 plugin/test_*.py minus the 4 named). (3) No phantom file: `ls plugin/test_integration.py` => 'No such file or directory', `find . -name test_integration.py` => none, and `grep test_integration CONTRIBUTING.md` => no match (entry replaced with real layout). (4) Line length: pyproject.toml:53 `line-length = 88` matches CONTRIBUTING.md:46 'Line length: 88 characters (set as `line-length` in `pyproject.toml`)'. Integration marker list in CONTRIBUTING.md matches `grep -l pytest.mark.integration` exactly (test_env_scrub, test_userns, test_backend_parity, test_backend_selection, test_host_probes). [resolution 0.09; plugin/test_integration.py]\nCONTRIBUTING.md now documents a verified-runnable uv/pip dependency workflow, per-file test counts matching pytest --collect-only (16/66/21/21, 1444 total), no phantom plugin/test_integration.py, and line-length 88 matching pyproject.toml.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "CONTRIBUTING setup uses a runnable dependency workflow; test counts match pytest --collect-only; the project tree has no phantom plugin/test_integration.py; and line-length guidance matches pyproject.toml.",
+                "status": "PASS",
+                "detail": "All four sub-claims verified. (1) Runnable workflow: CONTRIBUTING.md:8-11 documents `uv sync --dev`; `uv sync --dev --dry-run` exit=0 ('Resolved 9 packages', 'Found up-to-date lockfile at: uv.lock', 'Would make no changes'); uv.lock exists. pyproject.toml:31 has `[dependency-groups] dev=[\"pytest>=8\",\"ruff==0.16.8\"]` with optional-dependencies=None, so the old `pip install -e \".[dev]\"` genuinely fails and CONTRIBUTING.md:15 now says so; pip fallback `python3 -m pip install -e . pytest \"ruff==0.16.8\"` verified via `pip install --dry-run` exit=0 ('Would install ruff-0.16.8 terminal-jail-1.2.0'); dead `--cov` example removed (grep pytest-cov/--cov in CONTRIBUTING.md = no match); `.venv/bin/ruff check plugin/` => 'All checks passed!'. (2) Test counts: `python3 -m pytest plugin/ --collect-only -q` => '1444 tests collected'; per-file test_plugin 16, test_install 66, test_standalone_cli 21, test_metrics_export 21 all match CONTRIBUTING.md:59-64; running those 4 modules => '124 passed' (=16+66+21+21); '21 further test modules' is correct (25 plugin/test_*.py minus the 4 named). (3) No phantom file: `ls plugin/test_integration.py` => 'No such file or directory', `find . -name test_integration.py` => none, and `grep test_integration CONTRIBUTING.md` => no match (entry replaced with real layout). (4) Line length: pyproject.toml:53 `line-length = 88` matches CONTRIBUTING.md:46 'Line length: 88 characters (set as `line-length` in `pyproject.toml`)'. Integration marker list in CONTRIBUTING.md matches `grep -l pytest.mark.integration` exactly (test_env_scrub, test_userns, test_backend_parity, test_backend_selection, test_host_probes). [resolution 0.09; plugin/test_integration.py]",
+                "resolution_probability": 0.09,
+                "cited_path": "plugin/test_integration.py"
+              }
+            ],
+            "summary": "CONTRIBUTING.md now documents a verified-runnable uv/pip dependency workflow, per-file test counts matching pytest --collect-only (16/66/21/21, 1444 total), no phantom plugin/test_integration.py, and line-length 88 matching pyproject.toml."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-2\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 CONTRIBUTING setup uses a runnable dependency workflow; test counts match pytest --collect-only; the project tree has no phantom plugin/test_integration.py; and line-length guidance matches pyproject.toml.: All four sub-claims verified. (1) Runnable workflow: CONTRIBUTING.md:8-11 documents `uv sync --dev`; `uv sync --dev --dry-run` exit=0 ('Resolved 9 packages', 'Found up-to-date lockfile at: uv.lock', 'Would make no changes'); uv.lock exists. pyproject.toml:31 has `[dependency-groups] dev=[\"pytest>=8\",\"ruff==0.16.8\"]` with optional-dependencies=None, so the old `pip install -e \".[dev]\"` genuinely fails and CONTRIBUTING.md:15 now says so; pip fallback `python3 -m pip install -e . pytest \"ruff==0.16.8\"` verified via `pip install --dry-run` exit=0 ('Would install ruff-0.16.8 terminal-jail-1.2.0'); dead `--cov` example removed (grep pytest-cov/--cov in CONTRIBUTING.md = no match); `.venv/bin/ruff check plugin/` => 'All checks passed!'. (2) Test counts: `python3 -m pytest plugin/ --collect-only -q` => '1444 tests collected'; per-file test_plugin 16, test_install 66, test_standalone_cli 21, test_metrics_export 21 all match CONTRIBUTING.md:59-64; running those 4 modules => '124 passed' (=16+66+21+21); '21 further test modules' is correct (25 plugin/test_*.py minus the 4 named). (3) No phantom file: `ls plugin/test_integration.py` => 'No such file or directory', `find . -name test_integration.py` => none, and `grep test_integration CONTRIBUTING.md` => no match (entry replaced with real layout). (4) Line length: pyproject.toml:53 `line-length = 88` matches CONTRIBUTING.md:46 'Line length: 88 characters (set as `line-length` in `pyproject.toml`)'. Integration marker list in CONTRIBUTING.md matches `grep -l pytest.mark.integration` exactly (test_env_scrub, test_userns, test_backend_parity, test_backend_selection, test_host_probes). [resolution 0.09; plugin/test_integration.py]\nCONTRIBUTING.md now documents a verified-runnable uv/pip dependency workflow, per-file test counts matching pytest --collect-only (16/66/21/21, 1444 total), no phantom plugin/test_integration.py, and line-length 88 matching pyproject.toml.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-27T13:25:02.684049",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-27T13:25:02.744086+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 4773,
+        "truncated": false,
+        "source": "git show b4bf09c259fe"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 42787,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-2"
+  }
+}

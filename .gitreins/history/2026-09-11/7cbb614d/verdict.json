@@ -1,0 +1,95 @@
+{
+  "task_id": "CLN-1",
+  "task_title": "Repo hygiene: clean up project folder structure",
+  "task_criteria": [
+    "A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs",
+    "Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move",
+    "Full test suite shows zero failures CAUSED by the change: the 12 failures in the bare .venv/bin/python -m pytest -q run on this host are pre-existing user-rules contamination (host ~/.config/terminal-jail/rules.d/00-builtins.yaml overrides hardcoded builtins; documented QA finding 2026-09-03), proven by an identical 12-failure set at pristine pre-change HEAD; with the user-rules dir neutralized (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent or clean HOME) the suite exits 0 with 0 failed (307 passed / 13 skipped on this PID-NS-degraded host)",
+    "Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision)"
+  ],
+  "passed": false,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m8:42PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.07s\u001b[0m\n\u001b[90m8:42PM\u001b[0m \u001b[32m\n  \u2717 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m8:42PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.07s\u001b[0m\n\u001b[90m8:42PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: mock-3.15.1, anyio-4.14.2\ncollected 320 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 20%]\n........................F\n\n=================================== F",
+          "error": "",
+          "data": {
+            "exit_code": 1
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 message states the inventory ('every tracked top-level entry compared against AGENTS.md, README.md and docs/'). Verified: `git ls-files` yields 15 root files + 12 root dirs, exactly matching the README.md 'Repository layout' tree (lines 250-266). e2e-output/ was removed: `git show --name-status 13a14a4` shows 'D e2e-output/report.md' and 'D e2e-output/tasks.md'; `git ls-files | grep e2e-output` returns nothing and `ls -d e2e-output` => No such file or directory. Pre-change tree (git ls-tree 13a14a4^) contained both files, confirming they were the stray artifacts.\n  \u2713 Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move: Commit 13a14a4 message records the pre-removal grep evidence, and README.md lines 281-288 repeat it. Independently reproduced: `grep -rn \"e2e-output\" plugin/ .github/workflows/ci.yml install.sh docs/ scripts/ systemd/ specs/ standalone/` => ZERO matches (rc=1 for each); `grep -n \"e2e-output\" plugin/test_*.py` => zero. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and .gitreins/tasks.yaml (the CLN-1 criteria text itself), exactly as the commit message claims.\n  \u2713 Full test suite shows zero failures CAUSED by the change: the 12 failures in the bare .venv/bin/python -m pytest -q run on this host are pre-existing user-rules contamination (host ~/.config/terminal-jail/rules.d/00-builtins.yaml overrides hardcoded builtins; documented QA finding 2026-09-03), proven by an identical 12-failure set at pristine pre-change HEAD; with the user-rules dir neutralized (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent or clean HOME) the suite exits 0 with 0 failed (307 passed / 13 skipped on this PID-NS-degraded host): Independently reproduced all three claims. (a) BARE `.venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped' (12 FAILED lines). (b) CLEAN `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent .venv/bin/python -m pytest -q` => EXIT CODE 0, '307 passed, 13 skipped' \u2014 exactly the claimed 307/13. (c) PRISTINE pre-change HEAD via `git worktree add /tmp/pristine 13a14a4^` (70befdb) bare run => '12 failed, 295 passed, 13 skipped'; `diff` of the sorted FAILED lists is EMPTY => IDENTICAL 12-failure set, proving the failures are pre-existing and not caused by the change. Root cause confirmed: host ~/.config/terminal-jail/rules.d/00-builtins.yaml defines builtin-fork-bomb (L41), builtin-mkfs (L76) and auto-script (L217) \u2014 precisely the rules whose tests fail.\n  \u2713 Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision): README.md 'Repository layout' section (lines 250-292, added by 13a14a4) contains the canonical tracked tree plus an 'Intentional exceptions' table listing `.vfs/` (L275), `.gitreins/` (L276), `.coding-hermes/` (L277), `.memory-bank/` (L278) and `skills/terminal-jail-usage/` (L279), followed by the 'Retired: e2e-output/' decision paragraph (L281-288) with its grep evidence. The .vfs/ tracking claim is accurate: `git ls-files .vfs/` => .vfs/graph/edges.jsonl and .vfs/manifest.yaml, while .gitignore excludes .vfs/graph/graph.db.\nAll four criteria pass: the e2e-output/ stray artifacts were removed with git rm after documented zero-reference grep evidence, README documents the canonical layout with all intentional exceptions and the retirement decision, and the test suite's 12 bare-run failures are proven pre-existing (byte-identical failure set at pristine pre-change HEAD) with the neutralized run exiting 0 at 307 passed / 13 skipped.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 message states the inventory ('every tracked top-level entry compared against AGENTS.md, README.md and docs/'). Verified: `git ls-files` yields 15 root files + 12 root dirs, exactly matchi",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs",
+                "status": "PASS",
+                "detail": "Commit 13a14a4 message states the inventory ('every tracked top-level entry compared against AGENTS.md, README.md and docs/'). Verified: `git ls-files` yields 15 root files + 12 root dirs, exactly matching the README.md 'Repository layout' tree (lines 250-266). e2e-output/ was removed: `git show --name-status 13a14a4` shows 'D e2e-output/report.md' and 'D e2e-output/tasks.md'; `git ls-files | grep e2e-output` returns nothing and `ls -d e2e-output` => No such file or directory. Pre-change tree (git ls-tree 13a14a4^) contained both files, confirming they were the stray artifacts."
+              },
+              {
+                "criterion": "Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move",
+                "status": "PASS",
+                "detail": "Commit 13a14a4 message records the pre-removal grep evidence, and README.md lines 281-288 repeat it. Independently reproduced: `grep -rn \"e2e-output\" plugin/ .github/workflows/ci.yml install.sh docs/ scripts/ systemd/ specs/ standalone/` => ZERO matches (rc=1 for each); `grep -n \"e2e-output\" plugin/test_*.py` => zero. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and .gitreins/tasks.yaml (the CLN-1 criteria text itself), exactly as the commit message claims."
+              },
+              {
+                "criterion": "Full test suite shows zero failures CAUSED by the change: the 12 failures in the bare .venv/bin/python -m pytest -q run on this host are pre-existing user-rules contamination (host ~/.config/terminal-jail/rules.d/00-builtins.yaml overrides hardcoded builtins; documented QA finding 2026-09-03), proven by an identical 12-failure set at pristine pre-change HEAD; with the user-rules dir neutralized (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent or clean HOME) the suite exits 0 with 0 failed (307 passed / 13 skipped on this PID-NS-degraded host)",
+                "status": "PASS",
+                "detail": "Independently reproduced all three claims. (a) BARE `.venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped' (12 FAILED lines). (b) CLEAN `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent .venv/bin/python -m pytest -q` => EXIT CODE 0, '307 passed, 13 skipped' \u2014 exactly the claimed 307/13. (c) PRISTINE pre-change HEAD via `git worktree add /tmp/pristine 13a14a4^` (70befdb) bare run => '12 failed, 295 passed, 13 skipped'; `diff` of the sorted FAILED lists is EMPTY => IDENTICAL 12-failure set, proving the failures are pre-existing and not caused by the change. Root cause confirmed: host ~/.config/terminal-jail/rules.d/00-builtins.yaml defines builtin-fork-bomb (L41), builtin-mkfs (L76) and auto-script (L217) \u2014 precisely the rules whose tests fail."
+              },
+              {
+                "criterion": "Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision)",
+                "status": "PASS",
+                "detail": "README.md 'Repository layout' section (lines 250-292, added by 13a14a4) contains the canonical tracked tree plus an 'Intentional exceptions' table listing `.vfs/` (L275), `.gitreins/` (L276), `.coding-hermes/` (L277), `.memory-bank/` (L278) and `skills/terminal-jail-usage/` (L279), followed by the 'Retired: e2e-output/' decision paragraph (L281-288) with its grep evidence. The .vfs/ tracking claim is accurate: `git ls-files .vfs/` => .vfs/graph/edges.jsonl and .vfs/manifest.yaml, while .gitignore excludes .vfs/graph/graph.db."
+              }
+            ],
+            "summary": "All four criteria pass: the e2e-output/ stray artifacts were removed with git rm after documented zero-reference grep evidence, README documents the canonical layout with all intentional exceptions and the retirement decision, and the test suite's 12 bare-run failures are proven pre-existing (byte-identical failure set at pristine pre-change HEAD) with the neutralized run exiting 0 at 307 passed / 13 skipped."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: CLN-1\n\nStage tier1: FAIL\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m8:42PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.07s\u001b[0m\n\u001b[90m8:42PM\u001b[0m \u001b[32m\n  \u2717 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 message states the inventory ('every tracked top-level entry compared against AGENTS.md, README.md and docs/'). Verified: `git ls-files` yields 15 root files + 12 root dirs, exactly matching the README.md 'Repository layout' tree (lines 250-266). e2e-output/ was removed: `git show --name-status 13a14a4` shows 'D e2e-output/report.md' and 'D e2e-output/tasks.md'; `git ls-files | grep e2e-output` returns nothing and `ls -d e2e-output` => No such file or directory. Pre-change tree (git ls-tree 13a14a4^) contained both files, confirming they were the stray artifacts.\n  \u2713 Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move: Commit 13a14a4 message records the pre-removal grep evidence, and README.md lines 281-288 repeat it. Independently reproduced: `grep -rn \"e2e-output\" plugin/ .github/workflows/ci.yml install.sh docs/ scripts/ systemd/ specs/ standalone/` => ZERO matches (rc=1 for each); `grep -n \"e2e-output\" plugin/test_*.py` => zero. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and .gitreins/tasks.yaml (the CLN-1 criteria text itself), exactly as the commit message claims.\n  \u2713 Full test suite shows zero failures CAUSED by the change: the 12 failures in the bare .venv/bin/python -m pytest -q run on this host are pre-existing user-rules contamination (host ~/.config/terminal-jail/rules.d/00-builtins.yaml overrides hardcoded builtins; documented QA finding 2026-09-03), proven by an identical 12-failure set at pristine pre-change HEAD; with the user-rules dir neutralized (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent or clean HOME) the suite exits 0 with 0 failed (307 passed / 13 skipped on this PID-NS-degraded host): Independently reproduced all three claims. (a) BARE `.venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped' (12 FAILED lines). (b) CLEAN `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent .venv/bin/python -m pytest -q` => EXIT CODE 0, '307 passed, 13 skipped' \u2014 exactly the claimed 307/13. (c) PRISTINE pre-change HEAD via `git worktree add /tmp/pristine 13a14a4^` (70befdb) bare run => '12 failed, 295 passed, 13 skipped'; `diff` of the sorted FAILED lists is EMPTY => IDENTICAL 12-failure set, proving the failures are pre-existing and not caused by the change. Root cause confirmed: host ~/.config/terminal-jail/rules.d/00-builtins.yaml defines builtin-fork-bomb (L41), builtin-mkfs (L76) and auto-script (L217) \u2014 precisely the rules whose tests fail.\n  \u2713 Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision): README.md 'Repository layout' section (lines 250-292, added by 13a14a4) contains the canonical tracked tree plus an 'Intentional exceptions' table listing `.vfs/` (L275), `.gitreins/` (L276), `.coding-hermes/` (L277), `.memory-bank/` (L278) and `skills/terminal-jail-usage/` (L279), followed by the 'Retired: e2e-output/' decision paragraph (L281-288) with its grep evidence. The .vfs/ tracking claim is accurate: `git ls-files .vfs/` => .vfs/graph/edges.jsonl and .vfs/manifest.yaml, while .gitignore excludes .vfs/graph/graph.db.\nAll four criteria pass: the e2e-output/ stray artifacts were removed with git rm after documented zero-reference grep evidence, README documents the canonical layout with all intentional exceptions and the retirement decision, and the test suite's 12 bare-run failures are proven pre-existing (byte-identical failure set at pristine pre-change HEAD) with the neutralized run exiting 0 at 307 passed / 13 skipped.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-11T01:45:23.832874"
+}

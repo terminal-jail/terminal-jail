@@ -1,0 +1,27 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 9d0d1c7..52ff4b6 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1700,3 +1700,13 @@ tasks:
+   status: complete
+   created_at: '2026-10-11T21:45:59.659677+00:00'
+   completed_at: '2026-10-11T22:45:08.903849+00:00'
++- id: TJ-GAP-023
++  title: Stage tier-2 systemd hardening directives (zero-risk set) in shipped drop-in
++    + sync specs
++  criteria:
++  - grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true'
++    systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive
++    count updated in sync AND pytest suite green
++  status: complete
++  created_at: '2026-10-12T02:55:43.586338+00:00'
++  completed_at: '2026-10-12T03:27:22.026705+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 5840b9c..3ba814d 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -144,3 +144,4 @@
+ {"ts": 1791759094.5996144, "tokens_in": 1095870, "tokens_out": 8425, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791766329.8609452, "tokens_in": 11668231, "tokens_out": 15445, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791769452.8294144, "tokens_in": 15205129, "tokens_out": 24328, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791776842.2206507, "tokens_in": 455573, "tokens_out": 4706, "cache_read": 0, "cache_write": 0, "step": "tier2"}

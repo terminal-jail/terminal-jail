@@ -1,0 +1,103 @@
+commit 3a59bfe28427253208bd62327850756942181c47
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Oct 24 03:18:52 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Oct 24 03:23:55 2026 -0500
+
+    docs(releasing): drop unsupported --dry-run claim from release runbook (REVIEW-TJ-016)
+    
+    Document the versioned release-cut check as the read-only pre-cut validation,
+    and pin rejection of the unsupported flag plus tree immutability in tests.
+    
+    ch:trace row=REVIEW-TJ-016 spec=docs/releasing.md test=tests/test_release_workflow.py evidence=/tmp/review-tj-016/targeted.txt witness=live:pytest
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ CHANGELOG.md                   |  3 +++
+ docs/releasing.md              |  7 ++++---
+ tests/test_release_workflow.py | 24 ++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index e392bf3..9cc6369 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -20,6 +20,9 @@
+ 
+ ### Fixed
+ 
++- **Release runbook (`REVIEW-TJ-016`):** removed the unsupported `--dry-run`
++  claim for `release-cut-check.sh` and pinned the versioned read-only pre-cut
++  check and rejection behavior in the release workflow tests.
+ - **Tests (QA-TERMINAL-JAIL-20):** the two environment-dependent failures
+   that kept CI red across 6 consecutive runs (the `Python 3.11/3.12/3.13`
+   jobs) are fixed by correcting the TESTS' environment assumptions — the
+diff --git a/docs/releasing.md b/docs/releasing.md
+index 3562e67..64b98bb 100644
+--- a/docs/releasing.md
++++ b/docs/releasing.md
+@@ -97,10 +97,11 @@ publish step cannot run outside GitHub without a real token by design):
+    (`contents: write`), build step (`python -m build`), checksum step
+    (`sha256sum -c`) and publish step (`gh release create`) are present —
+    this is the act-style structural dry-run and it runs in CI on every PR.
+-2. Live script dry-run: `scripts/release-cut-check.sh v1.3.0` on a clean
++2. Versioned pre-cut check: `scripts/release-cut-check.sh vX.Y.Z` on a clean
+    tree exercises every pre-cut gate (tag absence, version match, CI
+-   green) end to end without touching anything — its `--dry-run` behaviour
+-   is the whole script: it is read-only by construction.
++   green) end to end without touching anything. The script accepts only a
++   positional tag (no flags) and is read-only by construction, so running
++   this versioned invocation is the dry run.
+ 3. The publish step itself is proven only by a real tag push (see steps
+    above: `gh release view vX.Y.Z` then `sha256sum -c` on the downloaded
+    assets). Nothing else counts — the workflow fails loudly rather than
+diff --git a/tests/test_release_workflow.py b/tests/test_release_workflow.py
+index 825a833..af2a70d 100644
+--- a/tests/test_release_workflow.py
++++ b/tests/test_release_workflow.py
+@@ -140,6 +140,13 @@ def test_check_script_rejects_malformed_tag() -> None:
+     assert "not vX.Y.Z" in proc.stderr
+ 
+ 
++def test_check_script_rejects_unsupported_dry_run_flag() -> None:
++    proc = _run_script(PROJECT_ROOT, "--dry-run")
++    assert proc.returncode == 2
++    assert "tag '--dry-run' is not vX.Y.Z" in proc.stderr
++    assert "vX.Y.Z" in proc.stderr
++
++
+ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
+     """GREEN path: new tag, clean tree, matching version, green CI -> exit 0.
+ 
+@@ -222,6 +229,14 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
+         timeout=60,
+     )
+ 
++    before_status = subprocess.run(
++        ["git", "status", "--porcelain"],
++        cwd=clone,
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=30,
++    ).stdout
+     proc = _run_script(
+         clone,
+         tag,
+@@ -229,7 +244,16 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
+             "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
+         },
+     )
++    after_status = subprocess.run(
++        ["git", "status", "--porcelain"],
++        cwd=clone,
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=30,
++    ).stdout
+     assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
++    assert after_status == before_status, "versioned pre-cut check mutated the tree"
+     assert f"OK: tag '{tag}' does not exist yet" in proc.stdout
+     assert "OK: working tree clean" in proc.stdout
+     assert f"OK: pyproject.toml version {tag[1:]} == tag {tag}" in proc.stdout

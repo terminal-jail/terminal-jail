@@ -1,0 +1,35 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 9d0d1c7..6e793bf 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1700,3 +1700,20 @@ tasks:
+   status: complete
+   created_at: '2026-10-11T21:45:59.659677+00:00'
+   completed_at: '2026-10-11T22:45:08.903849+00:00'
++- id: JSONL-NORM-003
++  title: Board lint rejects pending P0/P1 rows without evidence body or creator
++  criteria:
++  - board_id_guard.py exits 1 on a pending P0/P1 row with empty description+detail
++    or null created_by, naming id/line/fields; P2/P3 warn-only; tests added; live
++    board run shows expected rejections
++  status: complete
++  created_at: '2026-10-12T05:29:23.177761+00:00'
++  completed_at: '2026-10-12T06:17:54.467694+00:00'
++- id: PARITY-TJ-001
++  title: First incumbent-parity sweep artifact (docs/incumbent-parity-2026-10-12.md)
++  criteria:
++  - docs/incumbent-parity-2026-10-12.md exists with dated delta table >=8 capability
++    rows, primary-source URLs or unverified labels, proposed/closed gap sections,
++    one implemented improvement, cadence statement naming PARITY-TJ-001
++  status: in_progress
++  created_at: '2026-10-12T05:29:23.614265+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 5840b9c..cc8dabf 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -144,3 +144,5 @@
+ {"ts": 1791759094.5996144, "tokens_in": 1095870, "tokens_out": 8425, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791766329.8609452, "tokens_in": 11668231, "tokens_out": 15445, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791769452.8294144, "tokens_in": 15205129, "tokens_out": 24328, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791776842.2206507, "tokens_in": 455573, "tokens_out": 4706, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791786216.285913, "tokens_in": 127698, "tokens_out": 2098, "cache_read": 0, "cache_write": 0, "step": "tier2"}

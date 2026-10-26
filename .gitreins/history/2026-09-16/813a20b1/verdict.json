@@ -1,0 +1,119 @@
+{
+  "task_id": "TJ-GAP-052",
+  "task_title": "Per-host systemd directive verification harness",
+  "task_criteria": [
+    "python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged directive and exits 0",
+    "On this host the probe classifies the invalid CloseOnExec=true control as unsupported and reports at least 4 staged directives as ENFORCED with non-empty evidence",
+    "Plain-text mode python3 scripts/systemd-directive-probe.py exits 0 and prints a per-directive verdict line plus a summary line",
+    "The script never references hermes-gateway.service nor systemctl restart or stop, and writes nothing under /etc",
+    "plugin/test_systemd_directive_probe.py passes offline with an injected fake systemd-run shim",
+    "Full suite has 0 failures: .venv/bin/python -m pytest -q",
+    "specs/systemd.md and docs/deploy-to-karahermes.md both reference scripts/systemd-directive-probe.py",
+    "uvx ruff check plugin/ scripts/systemd-directive-probe.py reports no errors"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m8:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4161718 bytes (4.16 MB) in 454ms\u001b[0m\n\u001b[90m8:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m8:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4161718 bytes (4.16 MB) in 454ms\u001b[0m\n\u001b[90m8:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 373 items\n\nplugin/test_board_id_guard.py ........................                   [  6%]\nplu",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged directive and exits 0: Ran `python3 scripts/systemd-directive-probe.py --json` -> exit=0, stderr empty, valid JSON with 13 records (one per staged directive: ProtectProc, NoNewPrivileges, ProtectControlGroups, TasksMax, PrivateUsers, RestrictNamespaces, CapabilityBoundingSet, RestrictAddressFamilies, ProtectSystem, ProtectHome, MemoryMax, ReadWritePaths, CloseOnExec).\n  \u2713 On this host the probe classifies the invalid CloseOnExec=true control as unsupported and reports at least 4 staged directives as ENFORCED with non-empty evidence: JSON output: CloseOnExec verdict=UNSUPPORTED with evidence \"'Unknown assignment: CloseOnExec=true' \u2014 rejected at load\"; ENFORCED count=7 (>=4) all with non-empty evidence (NoNewPrivs: 1; pids.max = 256; uid_map '1000 1000 1'; unshare --user --pid denied rc=1; AF_INET socket denied rc=1; memory.max = 1073741824; ReadWritePaths carve-out writable).\n  \u2713 Plain-text mode python3 scripts/systemd-directive-probe.py exits 0 and prints a per-directive verdict line plus a summary line: Ran plain mode -> exit=0, 13 per-directive verdict lines (e.g. 'ENFORCED      NoNewPrivileges=true (user): NoNewPrivs: 1') plus final 'SUMMARY: scope=user enforced=7 not_enforced=5 unsupported=1 unknown=0 of=13'.\n  \u2713 The script never references hermes-gateway.service nor systemctl restart or stop, and writes nothing under /etc: grep of scripts/systemd-directive-probe.py: no 'hermes', no '/etc', no 'restart'/'stop'; only match for 'systemctl' is line 54 docstring 'systemctl verb of any kind is used.' No open()/write()/tee/shutil.copy/os.mkdir write paths found. Test test_source_has_no_etc_write_path_no_gateway_unit_no_daemon_reload also asserts this and passes.\n  \u2713 plugin/test_systemd_directive_probe.py passes offline with an injected fake systemd-run shim: .venv/bin/python -m pytest plugin/test_systemd_directive_probe.py -q -> 11 passed in 0.73s. Offline tests inject a fake systemd-run shell script via write_fake_systemd_run(tmp_path) (line 67) passed as --systemd-run (lines 130-241); only test_live_host_close_on_exec_control_and_enforcement touches real systemd.\n  \u2713 Full suite has 0 failures: .venv/bin/python -m pytest -q: Ran `.venv/bin/python -m pytest -q` -> '359 passed, 14 skipped in 8.89s', 0 failures.\n  \u2713 specs/systemd.md and docs/deploy-to-karahermes.md both reference scripts/systemd-directive-probe.py: specs/systemd.md:203,208-210 reference scripts/systemd-directive-probe.py (with usage examples); docs/deploy-to-karahermes.md:53 references /home/kara/terminal-jail/scripts/systemd-directive-probe.py --json.\n  \u2713 uvx ruff check plugin/ scripts/systemd-directive-probe.py reports no errors: Ran `uvx ruff check plugin/ scripts/systemd-directive-probe.py` -> 'All checks passed!' exit=0.\nAll 8 criteria verified: probe exits 0 in both modes with 13 records, CloseOnExec=UNSUPPORTED and 7 ENFORCED, no forbidden references, offline+full suites green (359 passed/0 failures), docs reference the script, and ruff is clean.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged directive and exits 0: Ran `python3 scripts/systemd-directive-probe.py --json` -> exit=0, stderr empty, valid JSON with 13 records (one per staged directive: ProtectProc, NoNewPrivileges, ProtectControlGroups, TasksMax, PrivateUsers, RestrictNamespaces, CapabilityBoundingSet, RestrictAddressFamilies, ProtectSystem, ProtectHome, MemoryMax, ReadWritePaths, CloseOnExec).\n  \u2713 On this host the probe class",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged directive and exits 0",
+                "status": "PASS",
+                "detail": "Ran `python3 scripts/systemd-directive-probe.py --json` -> exit=0, stderr empty, valid JSON with 13 records (one per staged directive: ProtectProc, NoNewPrivileges, ProtectControlGroups, TasksMax, PrivateUsers, RestrictNamespaces, CapabilityBoundingSet, RestrictAddressFamilies, ProtectSystem, ProtectHome, MemoryMax, ReadWritePaths, CloseOnExec)."
+              },
+              {
+                "criterion": "On this host the probe classifies the invalid CloseOnExec=true control as unsupported and reports at least 4 staged directives as ENFORCED with non-empty evidence",
+                "status": "PASS",
+                "detail": "JSON output: CloseOnExec verdict=UNSUPPORTED with evidence \"'Unknown assignment: CloseOnExec=true' \u2014 rejected at load\"; ENFORCED count=7 (>=4) all with non-empty evidence (NoNewPrivs: 1; pids.max = 256; uid_map '1000 1000 1'; unshare --user --pid denied rc=1; AF_INET socket denied rc=1; memory.max = 1073741824; ReadWritePaths carve-out writable)."
+              },
+              {
+                "criterion": "Plain-text mode python3 scripts/systemd-directive-probe.py exits 0 and prints a per-directive verdict line plus a summary line",
+                "status": "PASS",
+                "detail": "Ran plain mode -> exit=0, 13 per-directive verdict lines (e.g. 'ENFORCED      NoNewPrivileges=true (user): NoNewPrivs: 1') plus final 'SUMMARY: scope=user enforced=7 not_enforced=5 unsupported=1 unknown=0 of=13'."
+              },
+              {
+                "criterion": "The script never references hermes-gateway.service nor systemctl restart or stop, and writes nothing under /etc",
+                "status": "PASS",
+                "detail": "grep of scripts/systemd-directive-probe.py: no 'hermes', no '/etc', no 'restart'/'stop'; only match for 'systemctl' is line 54 docstring 'systemctl verb of any kind is used.' No open()/write()/tee/shutil.copy/os.mkdir write paths found. Test test_source_has_no_etc_write_path_no_gateway_unit_no_daemon_reload also asserts this and passes."
+              },
+              {
+                "criterion": "plugin/test_systemd_directive_probe.py passes offline with an injected fake systemd-run shim",
+                "status": "PASS",
+                "detail": ".venv/bin/python -m pytest plugin/test_systemd_directive_probe.py -q -> 11 passed in 0.73s. Offline tests inject a fake systemd-run shell script via write_fake_systemd_run(tmp_path) (line 67) passed as --systemd-run (lines 130-241); only test_live_host_close_on_exec_control_and_enforcement touches real systemd."
+              },
+              {
+                "criterion": "Full suite has 0 failures: .venv/bin/python -m pytest -q",
+                "status": "PASS",
+                "detail": "Ran `.venv/bin/python -m pytest -q` -> '359 passed, 14 skipped in 8.89s', 0 failures."
+              },
+              {
+                "criterion": "specs/systemd.md and docs/deploy-to-karahermes.md both reference scripts/systemd-directive-probe.py",
+                "status": "PASS",
+                "detail": "specs/systemd.md:203,208-210 reference scripts/systemd-directive-probe.py (with usage examples); docs/deploy-to-karahermes.md:53 references /home/kara/terminal-jail/scripts/systemd-directive-probe.py --json."
+              },
+              {
+                "criterion": "uvx ruff check plugin/ scripts/systemd-directive-probe.py reports no errors",
+                "status": "PASS",
+                "detail": "Ran `uvx ruff check plugin/ scripts/systemd-directive-probe.py` -> 'All checks passed!' exit=0."
+              }
+            ],
+            "summary": "All 8 criteria verified: probe exits 0 in both modes with 13 records, CloseOnExec=UNSUPPORTED and 7 ENFORCED, no forbidden references, offline+full suites green (359 passed/0 failures), docs reference the script, and ruff is clean."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-052\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m8:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4161718 bytes (4.16 MB) in 454ms\u001b[0m\n\u001b[90m8:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 python3 scripts/systemd-directive-probe.py --json prints one JSON record per staged directive and exits 0: Ran `python3 scripts/systemd-directive-probe.py --json` -> exit=0, stderr empty, valid JSON with 13 records (one per staged directive: ProtectProc, NoNewPrivileges, ProtectControlGroups, TasksMax, PrivateUsers, RestrictNamespaces, CapabilityBoundingSet, RestrictAddressFamilies, ProtectSystem, ProtectHome, MemoryMax, ReadWritePaths, CloseOnExec).\n  \u2713 On this host the probe classifies the invalid CloseOnExec=true control as unsupported and reports at least 4 staged directives as ENFORCED with non-empty evidence: JSON output: CloseOnExec verdict=UNSUPPORTED with evidence \"'Unknown assignment: CloseOnExec=true' \u2014 rejected at load\"; ENFORCED count=7 (>=4) all with non-empty evidence (NoNewPrivs: 1; pids.max = 256; uid_map '1000 1000 1'; unshare --user --pid denied rc=1; AF_INET socket denied rc=1; memory.max = 1073741824; ReadWritePaths carve-out writable).\n  \u2713 Plain-text mode python3 scripts/systemd-directive-probe.py exits 0 and prints a per-directive verdict line plus a summary line: Ran plain mode -> exit=0, 13 per-directive verdict lines (e.g. 'ENFORCED      NoNewPrivileges=true (user): NoNewPrivs: 1') plus final 'SUMMARY: scope=user enforced=7 not_enforced=5 unsupported=1 unknown=0 of=13'.\n  \u2713 The script never references hermes-gateway.service nor systemctl restart or stop, and writes nothing under /etc: grep of scripts/systemd-directive-probe.py: no 'hermes', no '/etc', no 'restart'/'stop'; only match for 'systemctl' is line 54 docstring 'systemctl verb of any kind is used.' No open()/write()/tee/shutil.copy/os.mkdir write paths found. Test test_source_has_no_etc_write_path_no_gateway_unit_no_daemon_reload also asserts this and passes.\n  \u2713 plugin/test_systemd_directive_probe.py passes offline with an injected fake systemd-run shim: .venv/bin/python -m pytest plugin/test_systemd_directive_probe.py -q -> 11 passed in 0.73s. Offline tests inject a fake systemd-run shell script via write_fake_systemd_run(tmp_path) (line 67) passed as --systemd-run (lines 130-241); only test_live_host_close_on_exec_control_and_enforcement touches real systemd.\n  \u2713 Full suite has 0 failures: .venv/bin/python -m pytest -q: Ran `.venv/bin/python -m pytest -q` -> '359 passed, 14 skipped in 8.89s', 0 failures.\n  \u2713 specs/systemd.md and docs/deploy-to-karahermes.md both reference scripts/systemd-directive-probe.py: specs/systemd.md:203,208-210 reference scripts/systemd-directive-probe.py (with usage examples); docs/deploy-to-karahermes.md:53 references /home/kara/terminal-jail/scripts/systemd-directive-probe.py --json.\n  \u2713 uvx ruff check plugin/ scripts/systemd-directive-probe.py reports no errors: Ran `uvx ruff check plugin/ scripts/systemd-directive-probe.py` -> 'All checks passed!' exit=0.\nAll 8 criteria verified: probe exits 0 in both modes with 13 records, CloseOnExec=UNSUPPORTED and 7 ENFORCED, no forbidden references, offline+full suites green (359 passed/0 failures), docs reference the script, and ruff is clean.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-16T01:19:51.217201"
+}

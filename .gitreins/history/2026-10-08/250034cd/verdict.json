@@ -1,0 +1,113 @@
+{
+  "task_id": "TJ-GAP-090",
+  "task_title": "Onboarding: zero-to-contained in five minutes on a FRESH machine",
+  "task_criteria": [
+    "1) docs/quickstart.md exists and is executable verbatim by a stranger on a fresh Ubuntu 22.04+ host; 2) every command in the quickstart is copy-pasteable with no placeholders; 3) the quickstart states the host capability requirements (PID-NS FULL, FS-isolation DEGRADED on AppArmor hosts) and what happens when they are not met; 4) tests/test_quickstart_doc.py exists and passes; 5) commit carries ch:trace row=TJ-GAP-090"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b98bc8fd6dce6b3743d230883892036d7c956553",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_tjdf042_warn_docs_pin.py::test_docs_pin_warn_mode_downgrade_provenance [first fail",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261008T022122.051723Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:25PM INF scanned ~5965985 bytes (5.97 MB) in 379ms\n9:25PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 223 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261008T022122.051723Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1938 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 22%]\nplugin/test_gtfobins_sweep.py .......................................... [ 24%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py ......................                        [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 48%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1520 chars omitted \u2014 19 line(s)] \u2026\nplugin/test_seccomp.py .........................................sss..... [ 86%]\n.                                                                        [ 86%]\nplugin/test_standalone_cli.py ......................                     [ 87%]\nplugin/test_systemd_directive_probe.py .................                 [ 88%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .....F\n\n=================================== FAILURES ===================================\n_________________ test_docs_pin_warn_mode_downgrade_provenance _________________\nplugin/test_tjdf042_warn_docs_pin.py:90: in test_docs_pin_warn_mode_downgrade_provenance\n    assert \"would have blocked: <the rule's block_message>\" in section\nE   assert \"would have blocked: <the rule's block_message>\" in '### 3b2. The warn action (runtime contract)\\n\\naction: warn is a rule-level action \u2014 distinct from the TERMINAL_JAIL_...ode\\nstderr notices (bridge unavailable / unusable verdict \u2192 command runs UNGUARDED) are\\ncovered in FAQ \u00a74 below.\\n\\n'\n=========================== short test summary info ============================\nFAILED plugin/test_tjdf042_warn_docs_pin.py::test_docs_pin_warn_mode_downgrade_provenance\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============= 1 failed, 1742 passed, 6 skipped in 93.66s (0:01:33) =============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: plugin/test_tjdf042_warn_docs_pin.py::test_docs_pin_warn_mode_downgrade_provenance",
+              "first_failing_test": "plugin/test_tjdf042_warn_docs_pin.py::test_docs_pin_warn_mode_downgrade_provenance",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261008T022613.677411Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Evaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-090\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_tjdf042_warn_docs_pin.py::test_docs_pin_warn_mode_downgrade_provenance [first fail\n\nStage tier2: FAIL\n  INCOMPLETE\n\nEvaluator error: LLM call failed: 402 Client Error: Payment Required for url: https://api.deepseek.com/v1/chat/completions (provider=openai model=deepseek-v4-flash url=https://api.deepseek.com/v1/chat/completions key=<GITREINS_LLM_API_KEY>)\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-08T02:26:43.445712",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-08T02:26:43.486717+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 262176,
+        "truncated": true,
+        "source": "git show b98bc8fd6dce"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 3321,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-090"
+  }
+}

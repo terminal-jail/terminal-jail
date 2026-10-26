@@ -1,0 +1,63 @@
+{
+  "task_id": "TJ-GAP-043",
+  "task_title": "systemd drop-in inert on host but docs verify-path silently passes",
+  "task_criteria": [
+    "docs/quickstart.md \u00a73e install/verify flow begins with a unit-existence check (systemctl is-enabled hermes-gateway.service) before any drop-in commands",
+    "On a host without hermes-gateway.service, the documented verify step errors loudly (unit not found \u2014 drop-in not applied) and never silently prints ProtectProc=default as if hardening were active",
+    "The loud failure message points the reader at docs/deploy-to-karahermes.md",
+    "grep -c 'systemctl is-enabled hermes-gateway.service' docs/quickstart.md >= 1",
+    "Existing 4-directive note and 3f section preserved",
+    "gitreins guard 4/4 PASS; full suite green (.venv/bin/python -m pytest -q)",
+    "Commit includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-GAP-043"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m7:08PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9243127 b\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": ""
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m7:08PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9243127 bytes (9.24 MB) in 854ms\u001b[0m\n\u001b[90m7:08PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": ""
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 320 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 20%]\n................................................",
+          "error": ""
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md \u00a73e install/verify flow begins with a unit-existence check (systemctl is-enabled hermes-gateway.service) before any drop-in commands: docs/quickstart.md:109 \u2014 \u00a73e begins with 'Host check first.' block running `systemctl is-enabled hermes-gateway.service` before the sudo cp drop-in commands at line 117.\n  \u2713 On a host without hermes-gateway.service, the documented verify step errors loudly (unit not found \u2014 drop-in not applied) and never silently prints ProtectProc=default as if hardening were active: docs/quickstart.md:137-143 \u2014 verify block runs `systemctl is-enabled hermes-gateway.service >/dev/null 2>&1 || { echo \"ERROR: hermes-gateway.service not found \u2014 drop-in not applied.\"; ... exit 1; }` before `systemctl show`, so it fails loudly and never reaches the misleading ProtectProc=default output.\n  \u2713 The loud failure message points the reader at docs/deploy-to-karahermes.md: docs/quickstart.md:139 \u2014 `echo \"See docs/deploy-to-karahermes.md to deploy the gateway unit first.\"`\n  \u2713 grep -c 'systemctl is-enabled hermes-gateway.service' docs/quickstart.md >= 1: grep -c returned 2 (lines 109 and 137), >= 1.\n  \u2713 Existing 4-directive note and 3f section preserved: docs/quickstart.md:124 \u2014 'the shipped drop-in activates only 4 directives' note preserved; line 146 \u2014 '### 3f. Full gateway containment (advanced)' section preserved.\n  \u2713 gitreins guard 4/4 PASS; full suite green (.venv/bin/python -m pytest -q): gitreins guard: Tier 1 Guards PASS (secrets, lint, tests, static_analysis) 4/4; .venv/bin/python -m pytest -q = 307 passed, 13 skipped.\n  \u2713 Commit includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-GAP-043: Commit 3d25058 message contains `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>` and 'Addresses TJ-GAP-043.'\nAll 7 criteria verified: quickstart \u00a73e now checks for the gateway unit before drop-in commands, fails loudly with a pointer to deploy-to-karahermes.md, preserves the 4-directive note and 3f section, guard 4/4 PASS, suite green (307 passed), and commit 3d25058 carries the Co-authored-by trailer and addresses TJ-GAP-043.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md \u00a73e install/verify flow begins with a unit-existence check (systemctl is-enabled hermes-gateway.service) before any drop-in commands: docs/quickstart.md:109 \u2014 \u00a73e begins with 'Host check first.' block running `systemctl is-enabled hermes-gateway.service` before the sudo cp drop-in commands at line 117.\n  \u2713 On a host without hermes-gateway.service, the documented verify step errors loudly (unit not found \u2014 drop-in not applied) and never silently prints ProtectProc=",
+          "error": ""
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-043\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m7:08PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9243127 b\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md \u00a73e install/verify flow begins with a unit-existence check (systemctl is-enabled hermes-gateway.service) before any drop-in commands: docs/quickstart.md:109 \u2014 \u00a73e begins with 'Host check first.' block running `systemctl is-enabled hermes-gateway.service` before the sudo cp drop-in commands at line 117.\n  \u2713 On a host without hermes-gateway.service, the documented verify step errors loudly (unit not found \u2014 drop-in not applied) and never silently prints ProtectProc=default as if hardening were active: docs/quickstart.md:137-143 \u2014 verify block runs `systemctl is-enabled hermes-gateway.service >/dev/null 2>&1 || { echo \"ERROR: hermes-gateway.service not found \u2014 drop-in not applied.\"; ... exit 1; }` before `systemctl show`, so it fails loudly and never reaches the misleading ProtectProc=default output.\n  \u2713 The loud failure message points the reader at docs/deploy-to-karahermes.md: docs/quickstart.md:139 \u2014 `echo \"See docs/deploy-to-karahermes.md to deploy the gateway unit first.\"`\n  \u2713 grep -c 'systemctl is-enabled hermes-gateway.service' docs/quickstart.md >= 1: grep -c returned 2 (lines 109 and 137), >= 1.\n  \u2713 Existing 4-directive note and 3f section preserved: docs/quickstart.md:124 \u2014 'the shipped drop-in activates only 4 directives' note preserved; line 146 \u2014 '### 3f. Full gateway containment (advanced)' section preserved.\n  \u2713 gitreins guard 4/4 PASS; full suite green (.venv/bin/python -m pytest -q): gitreins guard: Tier 1 Guards PASS (secrets, lint, tests, static_analysis) 4/4; .venv/bin/python -m pytest -q = 307 passed, 13 skipped.\n  \u2713 Commit includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-GAP-043: Commit 3d25058 message contains `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>` and 'Addresses TJ-GAP-043.'\nAll 7 criteria verified: quickstart \u00a73e now checks for the gateway unit before drop-in commands, fails loudly with a pointer to deploy-to-karahermes.md, preserves the 4-directive note and 3f section, guard 4/4 PASS, suite green (307 passed), and commit 3d25058 carries the Co-authored-by trailer and addresses TJ-GAP-043.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-27T00:09:44.496304"
+}

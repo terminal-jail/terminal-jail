@@ -1,0 +1,16 @@
+commit 1b70a2415899f443937c871d3710a343c12e0367
+Merge: 978bf86 93ecf3b
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Sep 30 01:05:56 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Sep 30 01:05:56 2026 -0500
+
+    Merge branch 'wt/TJ-GAP-085'
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ plugin/terminal_jail/interruptor/decider.py | 172 +++++++++++++++++++--
+ plugin/terminal_jail/interruptor/types.py   |  40 ++++-
+ plugin/terminal_jail/interruptor_bridge.py  |  11 +-
+ plugin/test_interruptor.py                  | 225 ++++++++++++++++++++++++++++
+ 4 files changed, 435 insertions(+), 13 deletions(-)

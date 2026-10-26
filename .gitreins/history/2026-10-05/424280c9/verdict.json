@@ -1,0 +1,120 @@
+{
+  "task_id": "RELTOOL-1791152794779715762",
+  "task_title": "Release tooling: tag-triggered release workflow (artifact channel gate 1/RELEASE-TJ-008)",
+  "task_criteria": [
+    "On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "4f43984894f57be4152a24bd418bfe61690bcd4b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261005T004143.736730Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:24PM INF scanned ~6069714 bytes (6.07 MB) in 349ms\n9:24PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 200 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261005T004143.736730Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1675 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 25%]\n.....................                                                    [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n.....................................                                    [ 33%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 48%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................................................ [ 61%]\n........................................                                 [ 64%]\nplugin/test_interruptor_integration.py .................s............... [ 66%]\n\n\u2026 [800 chars omitted \u2014 10 line(s)] \u2026\n..............                                                           [ 82%]\nplugin/test_rules_drift_probe.py .......................                 [ 83%]\nplugin/test_seccomp.py .........................................sss..... [ 86%]\n.                                                                        [ 86%]\nplugin/test_standalone_cli.py ......................                     [ 88%]\nplugin/test_systemd_directive_probe.py .................                 [ 89%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 90%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py .........................s..                       [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1665 passed, 10 skipped in 104.66s (0:01:44) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261005T004143.736730Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: All legs verified. (a) tag trigger: .github/workflows/release.yml:20-21 `on: push: tags: [\"v*\"]`. (b) build: release.yml:110-111 `run: python -m build` (sdist+wheel) on Python 3.11. (c) checksums: release.yml:113-118 `sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`. (d) gh Release: release.yml:124-131 `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes --notes-start-tag ...`, followed by a post-create asset-list verification step (release.yml:133-148) that exits 1 on mismatch. (e) categorized notes: .github/release.yml (commit 4f43984) defines changelog.categories (Features/Bug fixes/Security/Documentation/Tests and CI/Other changes), which GitHub auto-consumes for --generate-notes. (f) no auto-bump: release.yml:88-106 is a read-only version==tag check; no write to pyproject.toml anywhere in the workflow; pyproject.toml:7 still `version = \"1.2.0\"`; test_release_workflow_never_bumps_version_or_creates_tags asserts absence of `git tag`/`git push`/`sed -i`/`> pyproject.toml`. (g) validation/dry-run proof: tests/test_release_workflow.py (15 PyYAML structural tests over release.yml+ci.yml) plus docs/releasing.md:88-107 'Documented dry-run proof' section and read-only scripts/release-cut-check.sh. (h) CI green on pushed SHA: `gh run list --commit 4f43984894f57be4152a24bd418bfe61690bcd4b --json name,status,conclusion,headSha,event` -> {\"conclusion\":\"success\",\"event\":\"push\",\"headSha\":\"4f43984...\",\"name\":\"CI\",\"status\":\"completed\"}. FRESH TEST EVIDENCE: `.venv/bin/python -m pytest tests/test_release_workflow.py -v` -> '15 passed in 6.14s' (exit 0); `.venv/bin/python -m pytest tests/ -q` -> '108 passed, 3 skipped in 22.84s' (exit 0); `./scripts/release-cut-check.sh v1.3.0` -> exit 1 with named failures (dirty tree, version mismatch) and 'OK: CI green on HEAD 4f43984'.\nThe tag-triggered release workflow builds sdist+wheel with python -m build, emits SHA256SUMS, publishes a categorized-notes GitHub Release via gh, never bumps pyproject, ships structural/dry-run validation, and CI is green on the pushed SHA 4f43984.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: All legs verified. (a) tag trigger: .github/workflows/release.yml:20-21 `on: push: tags: [\"v*\"]`. (b) build: release.yml:110-111 `run: python -m build` (sdist+wheel) on Python 3.11. (c) checksums: release.yml:113-118 `sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`. (d) gh Release: release.yml:124-131 `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes --notes-start-tag ...`, followed by a post-create asset-list verification step (release.yml:133-148) that exits 1 on mismatch. (e) categorized notes: .github/release.yml (commit 4f43984) defines changelog.categories (Features/Bug fixes/Security/Documentation/Tests and CI/Other changes), which GitHub auto-consumes for --generate-notes. (f) no auto-bump: release.yml:88-106 is a read-only version==tag check; no write to pyproject.toml anywhere in the workflow; pyproject.toml:7 still `version = \"1.2.0\"`; test_release_workflow_never_bumps_version_or_creates_tags asserts absence of `git tag`/`git push`/`sed -i`/`> pyproject.toml`. (g) validation/dry-run proof: tests/test_release_workflow.py (15 PyYAML structural tests over release.yml+ci.yml) plus docs/releasing.md:88-107 'Documented dry-run proof' section and read-only scripts/release-cut-check.sh. (h) CI green on pushed SHA: `gh run list --commit 4f43984894f57be4152a24bd418bfe61690bcd4b --json name,status,conclusion,headSha,event` -> {\"conclusion\":\"success\",\"event\":\"push\",\"headSha\":\"4f43984...\",\"name\":\"CI\",\"status\":\"completed\"}. FRESH TEST EVIDENCE: `.venv/bin/python -m pytest tests/test_release_workflow.py -v` -> '15 passed in 6.14s' (exit 0); `.venv/bin/python -m pytest tests/ -q` -> '108 passed, 3 skipped in 22.84s' (exit 0); `./scripts/release-cut-check.sh v1.3.0` -> exit 1 with named failures (dirty tree, version mismatch) and 'OK: CI green on HEAD 4f43984'.\nThe tag-triggered release workflow builds sdist+wheel with python -m build, emits SHA256SUMS, publishes a categorized-notes GitHub Release via gh, never bumps pyproject, ships structural/dry-run validation, and CI is green on the pushed SHA 4f43984.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.",
+                "status": "PASS",
+                "detail": "All legs verified. (a) tag trigger: .github/workflows/release.yml:20-21 `on: push: tags: [\"v*\"]`. (b) build: release.yml:110-111 `run: python -m build` (sdist+wheel) on Python 3.11. (c) checksums: release.yml:113-118 `sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`. (d) gh Release: release.yml:124-131 `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes --notes-start-tag ...`, followed by a post-create asset-list verification step (release.yml:133-148) that exits 1 on mismatch. (e) categorized notes: .github/release.yml (commit 4f43984) defines changelog.categories (Features/Bug fixes/Security/Documentation/Tests and CI/Other changes), which GitHub auto-consumes for --generate-notes. (f) no auto-bump: release.yml:88-106 is a read-only version==tag check; no write to pyproject.toml anywhere in the workflow; pyproject.toml:7 still `version = \"1.2.0\"`; test_release_workflow_never_bumps_version_or_creates_tags asserts absence of `git tag`/`git push`/`sed -i`/`> pyproject.toml`. (g) validation/dry-run proof: tests/test_release_workflow.py (15 PyYAML structural tests over release.yml+ci.yml) plus docs/releasing.md:88-107 'Documented dry-run proof' section and read-only scripts/release-cut-check.sh. (h) CI green on pushed SHA: `gh run list --commit 4f43984894f57be4152a24bd418bfe61690bcd4b --json name,status,conclusion,headSha,event` -> {\"conclusion\":\"success\",\"event\":\"push\",\"headSha\":\"4f43984...\",\"name\":\"CI\",\"status\":\"completed\"}. FRESH TEST EVIDENCE: `.venv/bin/python -m pytest tests/test_release_workflow.py -v` -> '15 passed in 6.14s' (exit 0); `.venv/bin/python -m pytest tests/ -q` -> '108 passed, 3 skipped in 22.84s' (exit 0); `./scripts/release-cut-check.sh v1.3.0` -> exit 1 with named failures (dirty tree, version mismatch) and 'OK: CI green on HEAD 4f43984'.",
+                "resolution_probability": 0.34
+              }
+            ],
+            "summary": "The tag-triggered release workflow builds sdist+wheel with python -m build, emits SHA256SUMS, publishes a categorized-notes GitHub Release via gh, never bumps pyproject, ships structural/dry-run validation, and CI is green on the pushed SHA 4f43984."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: RELTOOL-1791152794779715762\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: All legs verified. (a) tag trigger: .github/workflows/release.yml:20-21 `on: push: tags: [\"v*\"]`. (b) build: release.yml:110-111 `run: python -m build` (sdist+wheel) on Python 3.11. (c) checksums: release.yml:113-118 `sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`. (d) gh Release: release.yml:124-131 `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes --notes-start-tag ...`, followed by a post-create asset-list verification step (release.yml:133-148) that exits 1 on mismatch. (e) categorized notes: .github/release.yml (commit 4f43984) defines changelog.categories (Features/Bug fixes/Security/Documentation/Tests and CI/Other changes), which GitHub auto-consumes for --generate-notes. (f) no auto-bump: release.yml:88-106 is a read-only version==tag check; no write to pyproject.toml anywhere in the workflow; pyproject.toml:7 still `version = \"1.2.0\"`; test_release_workflow_never_bumps_version_or_creates_tags asserts absence of `git tag`/`git push`/`sed -i`/`> pyproject.toml`. (g) validation/dry-run proof: tests/test_release_workflow.py (15 PyYAML structural tests over release.yml+ci.yml) plus docs/releasing.md:88-107 'Documented dry-run proof' section and read-only scripts/release-cut-check.sh. (h) CI green on pushed SHA: `gh run list --commit 4f43984894f57be4152a24bd418bfe61690bcd4b --json name,status,conclusion,headSha,event` -> {\"conclusion\":\"success\",\"event\":\"push\",\"headSha\":\"4f43984...\",\"name\":\"CI\",\"status\":\"completed\"}. FRESH TEST EVIDENCE: `.venv/bin/python -m pytest tests/test_release_workflow.py -v` -> '15 passed in 6.14s' (exit 0); `.venv/bin/python -m pytest tests/ -q` -> '108 passed, 3 skipped in 22.84s' (exit 0); `./scripts/release-cut-check.sh v1.3.0` -> exit 1 with named failures (dirty tree, version mismatch) and 'OK: CI green on HEAD 4f43984'.\nThe tag-triggered release workflow builds sdist+wheel with python -m build, emits SHA256SUMS, publishes a categorized-notes GitHub Release via gh, never bumps pyproject, ships structural/dry-run validation, and CI is green on the pushed SHA 4f43984.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-05T02:36:42.667557",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-05T02:36:42.683598+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1401,
+        "truncated": false,
+        "source": "git show 4f43984894f5"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6941,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "RELTOOL-1791152794779715762"
+  }
+}

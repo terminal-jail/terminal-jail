@@ -1,0 +1,77 @@
+{
+  "task_id": "TJ-GAP-041",
+  "task_title": "README Development test count stale (288 -> actual)",
+  "task_criteria": [
+    "README.md line ~231 states '288 passed, 4 skipped' but a fresh 'uv run pytest plugin -q' / '.venv/bin/python -m pytest -q' run collects 307 tests and finishes '303 passed, 4 skipped'. FIX: update the count to the current figure (303) or reword to drop the hard count. PASS: the number in README Development matches a fresh pytest run tail line."
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m7:24AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9719875 bytes (9.72 MB) in 968ms\u001b[0m\n\u001b[90m7:24AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m7:24AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9719875 bytes (9.72 MB) in 968ms\u001b[0m\n\u001b[90m7:24AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 307 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 README.md line ~231 states '288 passed, 4 skipped' but a fresh 'uv run pytest plugin -q' / '.venv/bin/python -m pytest -q' run collects 307 tests and finishes '303 passed, 4 skipped'. FIX: update the count to the current figure (303) or reword to drop the hard count. PASS: the number in README Development matches a fresh pytest run tail line.: README.md line 231 now reads 'the suite (303 passed, 4 skipped on this host \u2014 the 4 skips are...'. Fresh run `.venv/bin/python -m pytest plugin -q` (exit 0) output tail: '303 passed, 4 skipped in 6.46s'. Count matches exactly. Commit 6047db5 'docs: README Development test count 288 -> 303 (TJ-GAP-041)' changed README.md 288->303.\nREADME.md Development test count updated from 288 to 303, matching the fresh pytest run output (303 passed, 4 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 README.md line ~231 states '288 passed, 4 skipped' but a fresh 'uv run pytest plugin -q' / '.venv/bin/python -m pytest -q' run collects 307 tests and finishes '303 passed, 4 skipped'. FIX: update the count to the current figure (303) or reword to drop the hard count. PASS: the number in README Development matches a fresh pytest run tail line.: README.md line 231 now reads 'the suite (303 passed, 4 skipped on this host \u2014 the 4 skips are...'. Fresh run `.venv/bin/python -m pytest plug",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "README.md line ~231 states '288 passed, 4 skipped' but a fresh 'uv run pytest plugin -q' / '.venv/bin/python -m pytest -q' run collects 307 tests and finishes '303 passed, 4 skipped'. FIX: update the count to the current figure (303) or reword to drop the hard count. PASS: the number in README Development matches a fresh pytest run tail line.",
+                "status": "PASS",
+                "detail": "README.md line 231 now reads 'the suite (303 passed, 4 skipped on this host \u2014 the 4 skips are...'. Fresh run `.venv/bin/python -m pytest plugin -q` (exit 0) output tail: '303 passed, 4 skipped in 6.46s'. Count matches exactly. Commit 6047db5 'docs: README Development test count 288 -> 303 (TJ-GAP-041)' changed README.md 288->303."
+              }
+            ],
+            "summary": "README.md Development test count updated from 288 to 303, matching the fresh pytest run output (303 passed, 4 skipped)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-041\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m7:24AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9719875 bytes (9.72 MB) in 968ms\u001b[0m\n\u001b[90m7:24AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 README.md line ~231 states '288 passed, 4 skipped' but a fresh 'uv run pytest plugin -q' / '.venv/bin/python -m pytest -q' run collects 307 tests and finishes '303 passed, 4 skipped'. FIX: update the count to the current figure (303) or reword to drop the hard count. PASS: the number in README Development matches a fresh pytest run tail line.: README.md line 231 now reads 'the suite (303 passed, 4 skipped on this host \u2014 the 4 skips are...'. Fresh run `.venv/bin/python -m pytest plugin -q` (exit 0) output tail: '303 passed, 4 skipped in 6.46s'. Count matches exactly. Commit 6047db5 'docs: README Development test count 288 -> 303 (TJ-GAP-041)' changed README.md 288->303.\nREADME.md Development test count updated from 288 to 303, matching the fresh pytest run output (303 passed, 4 skipped).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-22T12:25:09.514146"
+}

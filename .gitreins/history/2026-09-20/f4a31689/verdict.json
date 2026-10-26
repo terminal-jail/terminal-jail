@@ -1,0 +1,141 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-23",
+  "task_title": "db pack block rules match DROP statements in execution context, not bare statement text",
+  "task_criteria": [
+    "plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database and pack-db-drop-table block rules to a SQL execution context: each is a composite/and rule requiring a SQL client token plus the statement in execution position",
+    "Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-* rule id",
+    "Through intercept() with the pack installed, the four documented false-positive shapes (sed -i substitution text, git commit -m message text, a read-only SELECT whose quoted literal merely contains the phrase, and echo redirecting the phrase to a file) return no pack-db-* attribution",
+    "plugin/test_rule_packs.py carries a regression class exercising the block and allow shapes with the installed-pack fixture, and the full suite passes with only the new tests added (zero regressions)",
+    "CHANGELOG.md and the pack header document the accepted residuals: the -f file body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client interpreter is no longer caught"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "7573df5d4a0b7a8f261f7508bc3cdecc9f6ee544",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T174623.590023Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n12:47PM INF scanned ~5078360 bytes (5.08 MB) in 378ms\n12:47PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 140 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T174623.590023Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1233 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 27%]\nplugin/test_gtfobins_sweep.py .......................................... [ 31%]\n.....................                                                    [ 32%]\nplugin/test_host_probes.py ......................                        [ 34%]\nplugin/test_install.py ................................................. [ 38%]\n.....                                                                    [ 38%]\nplugin/test_interruptor.py ............................................. [ 42%]\n........................................................................ [ 48%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 77%]\n...................                                                      [ 79%]\nplugin/test_interruptor_integration.py ...............s................. [ 81%]\n.....                                                                    [ 82%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.                                                                        [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1226 passed, 7 skipped in 37.80s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T174623.590023Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database and pack-db-drop-table block rules to a SQL execution context: each is a composite/and rule requiring a SQL client token plus the statement in execution position: PASS: db.yaml pack-db-drop-database (line ~85) and pack-db-drop-table (~110) both use match.type=composite, operator=and, with condition 1 = SQL client token regex (psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus) and condition 2 = execution-position regex (-c/-e/--command/--execute arms A/B1/B2/C).\n  \u2713 Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-* rule id: PASS: live intercept() with pack installed: psql -c \"DROP DATABASE prod\" -> block/pack-db-drop-database; psql -c \"DROP TABLE users\" -> block/pack-db-drop-table; mysql -e \"DROP TABLE users;\" -> block/pack-db-drop-table.\n  \u2713 Through intercept() with the pack installed, the four documented false-positive shapes (sed -i substitution text, git commit -m message text, a read-only SELECT whose quoted literal merely contains the phrase, and echo redirecting the phrase to a file) return no pack-db-* attribution: PASS: live intercept() with pack installed: sed -i substitution -> allow/None; git commit -am -> allow/None; psql -c SELECT with quoted literal 'drop database retry' -> allow/None; echo \"DROP TABLE users\" > file -> allow/allow-echo. No pack-db-* attribution on any.\n  \u2717 plugin/test_rule_packs.py carries a regression class exercising the block and allow shapes with the installed-pack fixture, and the full suite passes with only the new tests added (zero regressions): Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 CHANGELOG.md and the pack header document the accepted residuals: the -f file body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client interpreter is no longer caught: Not verified \u2014 evaluation terminated before this criterion was checked\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database and pack-db-drop-table block rules to a SQL execution context: each is a composite/and rule requiring a SQL client token plus the statement in execution position: PASS: db.yaml pack-db-drop-database (line ~85) and pack-db-drop-table (~110) both use match.type=composite, operator=and, with condition 1 = SQL client token regex (psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus) and condition 2 = execution-position regex (-c/-e/--command/--execute arms A/B1/B2/C).\n  \u2713 Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-* rule id: PASS: live intercept() with pack installed: psql -c \"DROP DATABASE prod\" -> block/pack-db-drop-database; psql -c \"DROP TABLE users\" -> block/pack-db-drop-table; mysql -e \"DROP TABLE users;\" -> block/pack-db-drop-table.\n  \u2713 Through intercept() with the pack installed, the four documented false-positive shapes (sed -i substitution text, git commit -m message text, a read-only SELECT whose quoted literal merely contains the phrase, and echo redirecting the phrase to a file) return no pack-db-* attribution: PASS: live intercept() with pack installed: sed -i substitution -> allow/None; git commit -am -> allow/None; psql -c SELECT with quoted literal 'drop database retry' -> allow/None; echo \"DROP TABLE users\" > file -> allow/allow-echo. No pack-db-* attribution on any.\n  \u2717 plugin/test_rule_packs.py carries a regression class exercising the block and allow shapes with the installed-pack fixture, and the full suite passes with only the new tests added (zero regressions): Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 CHANGELOG.md and the pack header document the accepted residuals: the -f file body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client interpreter is no longer caught: Not verified \u2014 evaluation terminated before this criterion was checked\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database and pack-db-drop-table block rules to a SQL execution context: each is a composite/and rule requiring a SQL client token plus the statement in execution position",
+                "status": "PASS",
+                "detail": "PASS: db.yaml pack-db-drop-database (line ~85) and pack-db-drop-table (~110) both use match.type=composite, operator=and, with condition 1 = SQL client token regex (psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus) and condition 2 = execution-position regex (-c/-e/--command/--execute arms A/B1/B2/C)."
+              },
+              {
+                "criterion": "Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-* rule id",
+                "status": "PASS",
+                "detail": "PASS: live intercept() with pack installed: psql -c \"DROP DATABASE prod\" -> block/pack-db-drop-database; psql -c \"DROP TABLE users\" -> block/pack-db-drop-table; mysql -e \"DROP TABLE users;\" -> block/pack-db-drop-table."
+              },
+              {
+                "criterion": "Through intercept() with the pack installed, the four documented false-positive shapes (sed -i substitution text, git commit -m message text, a read-only SELECT whose quoted literal merely contains the phrase, and echo redirecting the phrase to a file) return no pack-db-* attribution",
+                "status": "PASS",
+                "detail": "PASS: live intercept() with pack installed: sed -i substitution -> allow/None; git commit -am -> allow/None; psql -c SELECT with quoted literal 'drop database retry' -> allow/None; echo \"DROP TABLE users\" > file -> allow/allow-echo. No pack-db-* attribution on any."
+              },
+              {
+                "criterion": "plugin/test_rule_packs.py carries a regression class exercising the block and allow shapes with the installed-pack fixture, and the full suite passes with only the new tests added (zero regressions)",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              },
+              {
+                "criterion": "CHANGELOG.md and the pack header document the accepted residuals: the -f file body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client interpreter is no longer caught",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-23\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 plugin/terminal_jail/rules/packs/db.yaml constrains the pack-db-drop-database and pack-db-drop-table block rules to a SQL execution context: each is a composite/and rule requiring a SQL client token plus the statement in execution position: PASS: db.yaml pack-db-drop-database (line ~85) and pack-db-drop-table (~110) both use match.type=composite, operator=and, with condition 1 = SQL client token regex (psql|mysql|mariadb|sqlite3|mysqladmin|sqlplus) and condition 2 = execution-position regex (-c/-e/--command/--execute arms A/B1/B2/C).\n  \u2713 Through intercept() with the pack installed, psql -c DROP DATABASE, psql -c DROP TABLE and mysql -e DROP TABLE each return action block with the matching pack-db-drop-* rule id: PASS: live intercept() with pack installed: psql -c \"DROP DATABASE prod\" -> block/pack-db-drop-database; psql -c \"DROP TABLE users\" -> block/pack-db-drop-table; mysql -e \"DROP TABLE users;\" -> block/pack-db-drop-table.\n  \u2713 Through intercept() with the pack installed, the four documented false-positive shapes (sed -i substitution text, git commit -m message text, a read-only SELECT whose quoted literal merely contains the phrase, and echo redirecting the phrase to a file) return no pack-db-* attribution: PASS: live intercept() with pack installed: sed -i substitution -> allow/None; git commit -am -> allow/None; psql -c SELECT with quoted literal 'drop database retry' -> allow/None; echo \"DROP TABLE users\" > file -> allow/allow-echo. No pack-db-* attribution on any.\n  \u2717 plugin/test_rule_packs.py carries a regression class exercising the block and allow shapes with the installed-pack fixture, and the full suite passes with only the new tests added (zero regressions): Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 CHANGELOG.md and the pack header document the accepted residuals: the -f file body remains DF-TERMINAL-JAIL-10, and destructive SQL pasted into a non-SQL-client interpreter is no longer caught: Not verified \u2014 evaluation terminated before this criterion was checked\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-20T18:32:58.570055",
+  "evidence": {
+    "collected_at": "2026-09-20T18:32:58.622948+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 4768,
+        "truncated": false,
+        "source": "git show 7573df5d4a0b"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 16123,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-23"
+  }
+}

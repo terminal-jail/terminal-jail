@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-035",
+  "task_title": "Pack-authoring schema discoverable from documented material only",
+  "task_criteria": [
+    "A pack author following only README + --help produces a valid pack in <=2 attempts; documented example carries action, priority, match.type=pattern, pattern, message"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "bd9c06853377ebfed6b6453fa2e93e338821375b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T160318.887943Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n11:03AM INF scanned ~5155005 bytes (5.16 MB) in 677ms\n11:03AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 173 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T160318.887943Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1520 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 27%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 30%]\nplugin/test_install.py ................................................. [ 33%]\n.................                                                        [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 42%]\n........................................................................ [ 47%]\n........................................................................ [ 52%]\n........................................................................ [ 56%]\n........................................................................ [ 61%]\n........................................................................ [ 66%]\n...........................                                              [ 68%]\nplugin/test_interruptor_integration.py .................s............... [ 70%]\n.......                                                                  [ 70%]\nplugin/test_metrics_export.py .....................                      [ 72%]\nplugin/test_modify_preflight.py ......                                   [ 72%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 86%]\nplugin/test_seccomp.py .........................................sss..... [ 89%]\n.                                                                        [ 90%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1513 passed, 7 skipped in 74.45s (0:01:14) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T160355.623007Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 A pack author following only README + --help produces a valid pack in <=2 attempts; documented example carries action, priority, match.type=pattern, pattern, message: README.md \u00a7'Authoring a pack' (~lines 118-146) documents `scripts/rule-pack-tool.py schema`, the shipped example `plugin/terminal_jail/rules/packs/example-pack.yaml`, the minimal YAML shape (id/action/priority/block_message/match.type=pattern/pattern), and explicitly warns `match.type: regex` is invalid \u2014 the one mistake that would cost an attempt. `python3 scripts/rule-pack-tool.py --help` (exit 0) lists the `schema` subcommand; `python3 scripts/rule-pack-tool.py schema` (exit 0) prints all rule fields, all 9 valid match.type values with per-type fields (derived at runtime from matcher.py:143-158 dispatch table), a minimal valid pack example carrying action: block, priority: 950, block_message, match.type: pattern, pattern: \"^rm -rf /\", and a pointer to specs/interruptor.md \u00a73.4. The shipped example-pack.yaml carries id, description, priority: 950, action: block, block_message, match.type: pattern, pattern: \"^rm -rf /\". `python3 scripts/rule-pack-tool.py validate plugin/terminal_jail/rules/packs/example-pack.yaml --pack-name example` => exit 0, 'rule-pack-tool: pack 'example' valid \u2014 1 rule(s) (1 block)'. Tests: `.venv/bin/python -m pytest plugin/test_rule_packs.py -x --tb=short -q` => '60 passed in 2.40s', exit 0, including TestValidatorSchema (schema lists every valid match type, prints minimal example + pointer, takes no arguments, --help mentions schema, shipped example pack validates first try). Note: the message field is named `block_message` in the engine (rules.py:24,72,146) and in all docs/schema/example output \u2014 the documented example does carry a message field.\nREADME authoring section + `rule-pack-tool.py schema`/`--help` fully document the pack schema (including the regex-vs-pattern trap), the shipped example pack validates first try, and all 60 rule-pack tests pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 A pack author following only README + --help produces a valid pack in <=2 attempts; documented example carries action, priority, match.type=pattern, pattern, message: README.md \u00a7'Authoring a pack' (~lines 118-146) documents `scripts/rule-pack-tool.py schema`, the shipped example `plugin/terminal_jail/rules/packs/example-pack.yaml`, the minimal YAML shape (id/action/priority/block_message/match.type=pattern/pattern), and explicitly warns `match.type: regex` is invalid \u2014 the one mistake that would cost an attempt. `python3 scripts/rule-pack-tool.py --help` (exit 0) lists the `schema` subcommand; `python3 scripts/rule-pack-tool.py schema` (exit 0) prints all rule fields, all 9 valid match.type values with per-type fields (derived at runtime from matcher.py:143-158 dispatch table), a minimal valid pack example carrying action: block, priority: 950, block_message, match.type: pattern, pattern: \"^rm -rf /\", and a pointer to specs/interruptor.md \u00a73.4. The shipped example-pack.yaml carries id, description, priority: 950, action: block, block_message, match.type: pattern, pattern: \"^rm -rf /\". `python3 scripts/rule-pack-tool.py validate plugin/terminal_jail/rules/packs/example-pack.yaml --pack-name example` => exit 0, 'rule-pack-tool: pack 'example' valid \u2014 1 rule(s) (1 block)'. Tests: `.venv/bin/python -m pytest plugin/test_rule_packs.py -x --tb=short -q` => '60 passed in 2.40s', exit 0, including TestValidatorSchema (schema lists every valid match type, prints minimal example + pointer, takes no arguments, --help mentions schema, shipped example pack validates first try). Note: the message field is named `block_message` in the engine (rules.py:24,72,146) and in all docs/schema/example output \u2014 the documented example does carry a message field.\nREADME authoring section + `rule-pack-tool.py schema`/`--help` fully document the pack schema (including the regex-vs-pattern trap), the shipped example pack validates first try, and all 60 rule-pack tests pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "A pack author following only README + --help produces a valid pack in <=2 attempts; documented example carries action, priority, match.type=pattern, pattern, message",
+                "status": "PASS",
+                "detail": "README.md \u00a7'Authoring a pack' (~lines 118-146) documents `scripts/rule-pack-tool.py schema`, the shipped example `plugin/terminal_jail/rules/packs/example-pack.yaml`, the minimal YAML shape (id/action/priority/block_message/match.type=pattern/pattern), and explicitly warns `match.type: regex` is invalid \u2014 the one mistake that would cost an attempt. `python3 scripts/rule-pack-tool.py --help` (exit 0) lists the `schema` subcommand; `python3 scripts/rule-pack-tool.py schema` (exit 0) prints all rule fields, all 9 valid match.type values with per-type fields (derived at runtime from matcher.py:143-158 dispatch table), a minimal valid pack example carrying action: block, priority: 950, block_message, match.type: pattern, pattern: \"^rm -rf /\", and a pointer to specs/interruptor.md \u00a73.4. The shipped example-pack.yaml carries id, description, priority: 950, action: block, block_message, match.type: pattern, pattern: \"^rm -rf /\". `python3 scripts/rule-pack-tool.py validate plugin/terminal_jail/rules/packs/example-pack.yaml --pack-name example` => exit 0, 'rule-pack-tool: pack 'example' valid \u2014 1 rule(s) (1 block)'. Tests: `.venv/bin/python -m pytest plugin/test_rule_packs.py -x --tb=short -q` => '60 passed in 2.40s', exit 0, including TestValidatorSchema (schema lists every valid match type, prints minimal example + pointer, takes no arguments, --help mentions schema, shipped example pack validates first try). Note: the message field is named `block_message` in the engine (rules.py:24,72,146) and in all docs/schema/example output \u2014 the documented example does carry a message field.",
+                "resolution_probability": 0.27
+              }
+            ],
+            "summary": "README authoring section + `rule-pack-tool.py schema`/`--help` fully document the pack schema (including the regex-vs-pattern trap), the shipped example pack validates first try, and all 60 rule-pack tests pass."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-035\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 A pack author following only README + --help produces a valid pack in <=2 attempts; documented example carries action, priority, match.type=pattern, pattern, message: README.md \u00a7'Authoring a pack' (~lines 118-146) documents `scripts/rule-pack-tool.py schema`, the shipped example `plugin/terminal_jail/rules/packs/example-pack.yaml`, the minimal YAML shape (id/action/priority/block_message/match.type=pattern/pattern), and explicitly warns `match.type: regex` is invalid \u2014 the one mistake that would cost an attempt. `python3 scripts/rule-pack-tool.py --help` (exit 0) lists the `schema` subcommand; `python3 scripts/rule-pack-tool.py schema` (exit 0) prints all rule fields, all 9 valid match.type values with per-type fields (derived at runtime from matcher.py:143-158 dispatch table), a minimal valid pack example carrying action: block, priority: 950, block_message, match.type: pattern, pattern: \"^rm -rf /\", and a pointer to specs/interruptor.md \u00a73.4. The shipped example-pack.yaml carries id, description, priority: 950, action: block, block_message, match.type: pattern, pattern: \"^rm -rf /\". `python3 scripts/rule-pack-tool.py validate plugin/terminal_jail/rules/packs/example-pack.yaml --pack-name example` => exit 0, 'rule-pack-tool: pack 'example' valid \u2014 1 rule(s) (1 block)'. Tests: `.venv/bin/python -m pytest plugin/test_rule_packs.py -x --tb=short -q` => '60 passed in 2.40s', exit 0, including TestValidatorSchema (schema lists every valid match type, prints minimal example + pointer, takes no arguments, --help mentions schema, shipped example pack validates first try). Note: the message field is named `block_message` in the engine (rules.py:24,72,146) and in all docs/schema/example output \u2014 the documented example does carry a message field.\nREADME authoring section + `rule-pack-tool.py schema`/`--help` fully document the pack schema (including the regex-vs-pattern trap), the shipped example pack validates first try, and all 60 rule-pack tests pass.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-29T16:05:12.667609",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-29T16:05:12.736145+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 21387,
+        "truncated": false,
+        "source": "git show bd9c06853377"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5459,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-035"
+  }
+}

@@ -1,0 +1,14 @@
+commit 153af1f65575f299577966b9e06e2fd73318a822
+Merge: da2ce82 3c06ec2
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Sep 24 05:04:39 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Sep 24 05:04:39 2026 -0500
+
+    merge: TJ-GAP-078 annotate unshipped helper scripts from wt/TJ-GAP-078
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ docs/lkml-monitoring.md |  7 +++++--
+ docs/pentest-plan.md    | 19 +++++++++++++------
+ 2 files changed, 18 insertions(+), 8 deletions(-)

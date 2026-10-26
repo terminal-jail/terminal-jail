@@ -1,0 +1,72 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 6c5e345..62ab28a 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1566,3 +1566,23 @@ tasks:
+   status: complete
+   created_at: '2026-10-04T11:01:05.786338+00:00'
+   completed_at: '2026-10-04T11:12:17.379716+00:00'
++- id: RELTOOL-1791152794779715762
++  title: 'Release tooling: tag-triggered release workflow (artifact channel gate 1/RELEASE-TJ-008)'
++  criteria:
++  - 'On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts
++    with sha256sums, creates a GitHub Release with categorized notes via gh; does
++    NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented
++    dry-run proof; CI remains green on the pushed SHA.'
++  status: complete
++  created_at: '2026-10-04T22:26:34.983510+00:00'
++  completed_at: '2026-10-04T23:27:39.143685+00:00'
++- id: TJ-DOC-1004
++  title: 'Doc-lane batch: README/quickstart gaps DOC-10/11/12/13'
++  criteria:
++  - grep -n TERMINAL_JAIL_REQUIRE_TIER README.md docs/quickstart.md has hits; grep
++    -rn TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL README.md docs/ has hits; README:19 no
++    stale ~1,400 count and matches 1660 collected; README:68 describes rc-file PATH
++    block appending; pytest doc-pin tests green
++  status: complete
++  created_at: '2026-10-04T22:39:53.071399+00:00'
++  completed_at: '2026-10-04T22:52:40.031322+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 8ba0ac9..402e9f9 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -119,3 +119,9 @@
+ {"ts": 1790836894.2606728, "tokens_in": 1544998, "tokens_out": 6631, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790847259.9714558, "tokens_in": 3203618, "tokens_out": 9704, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790851392.3058026, "tokens_in": 3340717, "tokens_out": 10990, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791119896.5116475, "tokens_in": 4566273, "tokens_out": 9272, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791124043.2855914, "tokens_in": 5106933, "tokens_out": 10999, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791154749.9677331, "tokens_in": 208342, "tokens_out": 3289, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791157301.8954313, "tokens_in": 49219, "tokens_out": 2147, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791157659.7707143, "tokens_in": 227952, "tokens_out": 2936, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791159254.82553, "tokens_in": 1790064, "tokens_out": 8072, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..019de47 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,25 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_env_scrub.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:os","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:pathlib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:re","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:shutil","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:subprocess","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:yaml","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:tomllib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_release_workflow.py","to":"pkg:tomllib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}

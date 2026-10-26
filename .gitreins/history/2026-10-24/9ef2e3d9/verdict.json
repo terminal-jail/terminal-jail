@@ -1,0 +1,149 @@
+{
+  "task_id": "REVIEW-TJ-013",
+  "task_title": "Single-line default for fs-isolation degraded warning",
+  "task_criteria": [
+    "1. ./standalone/terminal-jail true 2>&1 | wc -l < 10. 2. TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l >= 10. 3. grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail >= 1. 4. pytest plugin/test_standalone_cli.py passes. 5. ruff check exits 0."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "13eda40c0c598a61192cc0636233273e620dcb76",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable [firs",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T005009.098851Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n8:35PM INF scanned ~5203980 bytes (5.20 MB) in 2.57s\n8:35PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 238 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T005009.098851Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2067 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ............F\n\n=================================== FAILURES ===================================\n____________ test_auto_uses_bwrap_for_user_when_mapping_unavailable ____________\nplugin/test_backend_selection.py:367: in test_auto_uses_bwrap_for_user_when_mapping_unavailable\n    assert \"no filesystem isolation\" in result.stderr  # unchanged warning\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: assert 'no filesystem isolation' in 'terminal-jail: filesystem isolation degraded (AppArmor); set TERMINAL_JAIL_VERBOSE_WARN=1 for details\\nterminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)\\n'\nE    +  where 'terminal-jail: filesystem isolation degraded (AppArmor); set TERMINAL_JAIL_VERBOSE_WARN=1 for details\\nterminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)\\n' = CompletedProcess(args=['/home/kara/terminal-jail/standalone/terminal-jail', '--no-interruptor', '--user', 'cmd'], retu...AL_JAIL_VERBOSE_WARN=1 for details\\nterminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)\\n').stderr\n=========================== short test summary info ============================\nFAILED plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n======================== 1 failed, 46 passed in 35.14s =========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable",
+              "first_failing_test": "plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261024T005009.098851Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 1. ./standalone/terminal-jail true 2>&1 | wc -l < 10.: Ran `./standalone/terminal-jail true 2>&1 | wc -l` in /home/kara/terminal-jail => output `2`, which is < 10. The two lines are the verdict JSON line and `terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)`. [resolution 0.17; plugin/test_standalone_cli.py]\n  \u2717 2. TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l >= 10.: Ran `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l` => output `2`, NOT >= 10. The verbose branch at standalone/terminal-jail:658-672 is never reached in bare mode on this host because the fs-isolation warning is not emitted at all (bwrap backend is used, so `_tj_fs_isolation_warning` at line 790 is not called). Only when `--user` is passed does the degraded path fire: `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail --user true 2>&1 | wc -l` => 13. The criterion's literal command therefore fails.\n  \u2713 3. grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail >= 1.: `grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail` => `4` (>= 1). Occurrences at lines 340 (default assignment), 341 (export), 658 (verbose branch test), 673 (default one-line message).\n  \u2713 4. pytest plugin/test_standalone_cli.py passes.: Ran `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` from repo root /home/kara/terminal-jail => `23 passed in 9.82s`, exit_code 0. The relevant test `test_fs_isolation_warning_verbosity` (plugin/test_standalone_cli.py:217-234) passes, but only because it invokes the CLI with `--user` (which does trigger the degraded path) and it contains a `pytest.skip(\"HOST-NOT-DEGRADED-FSISO...\")` guard at line 229.\n  \u2713 5. ruff check exits 0.: Ran `.venv/bin/python -m ruff check` => `All checks passed!`, exit_code 0.\nThe verbose-warning code and tests exist and pass, but criterion 2 fails: the criterion's literal command without `--user` emits only 2 lines in verbose mode (needs >= 10), since the degraded fs-isolation warning never fires in bare mode on this host.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 1. ./standalone/terminal-jail true 2>&1 | wc -l < 10.: Ran `./standalone/terminal-jail true 2>&1 | wc -l` in /home/kara/terminal-jail => output `2`, which is < 10. The two lines are the verdict JSON line and `terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)`. [resolution 0.17; plugin/test_standalone_cli.py]\n  \u2717 2. TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l >= 10.: Ran `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l` => output `2`, NOT >= 10. The verbose branch at standalone/terminal-jail:658-672 is never reached in bare mode on this host because the fs-isolation warning is not emitted at all (bwrap backend is used, so `_tj_fs_isolation_warning` at line 790 is not called). Only when `--user` is passed does the degraded path fire: `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail --user true 2>&1 | wc -l` => 13. The criterion's literal command therefore fails.\n  \u2713 3. grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail >= 1.: `grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail` => `4` (>= 1). Occurrences at lines 340 (default assignment), 341 (export), 658 (verbose branch test), 673 (default one-line message).\n  \u2713 4. pytest plugin/test_standalone_cli.py passes.: Ran `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` from repo root /home/kara/terminal-jail => `23 passed in 9.82s`, exit_code 0. The relevant test `test_fs_isolation_warning_verbosity` (plugin/test_standalone_cli.py:217-234) passes, but only because it invokes the CLI with `--user` (which does trigger the degraded path) and it contains a `pytest.skip(\"HOST-NOT-DEGRADED-FSISO...\")` guard at line 229.\n  \u2713 5. ruff check exits 0.: Ran `.venv/bin/python -m ruff check` => `All checks passed!`, exit_code 0.\nThe verbose-warning code and tests exist and pass, but criterion 2 fails: the criterion's literal command without `--user` emits only 2 lines in verbose mode (needs >= 10), since the degraded fs-isolation warning never fires in bare mode on this host.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "1. ./standalone/terminal-jail true 2>&1 | wc -l < 10.",
+                "status": "PASS",
+                "detail": "Ran `./standalone/terminal-jail true 2>&1 | wc -l` in /home/kara/terminal-jail => output `2`, which is < 10. The two lines are the verdict JSON line and `terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)`. [resolution 0.17; plugin/test_standalone_cli.py]",
+                "resolution_probability": 0.17,
+                "cited_path": "plugin/test_standalone_cli.py"
+              },
+              {
+                "criterion": "2. TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l >= 10.",
+                "status": "FAIL",
+                "detail": "Ran `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l` => output `2`, NOT >= 10. The verbose branch at standalone/terminal-jail:658-672 is never reached in bare mode on this host because the fs-isolation warning is not emitted at all (bwrap backend is used, so `_tj_fs_isolation_warning` at line 790 is not called). Only when `--user` is passed does the degraded path fire: `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail --user true 2>&1 | wc -l` => 13. The criterion's literal command therefore fails."
+              },
+              {
+                "criterion": "3. grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail >= 1.",
+                "status": "PASS",
+                "detail": "`grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail` => `4` (>= 1). Occurrences at lines 340 (default assignment), 341 (export), 658 (verbose branch test), 673 (default one-line message)."
+              },
+              {
+                "criterion": "4. pytest plugin/test_standalone_cli.py passes.",
+                "status": "PASS",
+                "detail": "Ran `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` from repo root /home/kara/terminal-jail => `23 passed in 9.82s`, exit_code 0. The relevant test `test_fs_isolation_warning_verbosity` (plugin/test_standalone_cli.py:217-234) passes, but only because it invokes the CLI with `--user` (which does trigger the degraded path) and it contains a `pytest.skip(\"HOST-NOT-DEGRADED-FSISO...\")` guard at line 229."
+              },
+              {
+                "criterion": "5. ruff check exits 0.",
+                "status": "PASS",
+                "detail": "Ran `.venv/bin/python -m ruff check` => `All checks passed!`, exit_code 0."
+              }
+            ],
+            "summary": "The verbose-warning code and tests exist and pass, but criterion 2 fails: the criterion's literal command without `--user` emits only 2 lines in verbose mode (needs >= 10), since the degraded fs-isolation warning never fires in bare mode on this host.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-013\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable [firs\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 1. ./standalone/terminal-jail true 2>&1 | wc -l < 10.: Ran `./standalone/terminal-jail true 2>&1 | wc -l` in /home/kara/terminal-jail => output `2`, which is < 10. The two lines are the verdict JSON line and `terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)`. [resolution 0.17; plugin/test_standalone_cli.py]\n  \u2717 2. TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l >= 10.: Ran `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail true 2>&1 | wc -l` => output `2`, NOT >= 10. The verbose branch at standalone/terminal-jail:658-672 is never reached in bare mode on this host because the fs-isolation warning is not emitted at all (bwrap backend is used, so `_tj_fs_isolation_warning` at line 790 is not called). Only when `--user` is passed does the degraded path fire: `TERMINAL_JAIL_VERBOSE_WARN=1 ./standalone/terminal-jail --user true 2>&1 | wc -l` => 13. The criterion's literal command therefore fails.\n  \u2713 3. grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail >= 1.: `grep -c TERMINAL_JAIL_VERBOSE_WARN standalone/terminal-jail` => `4` (>= 1). Occurrences at lines 340 (default assignment), 341 (export), 658 (verbose branch test), 673 (default one-line message).\n  \u2713 4. pytest plugin/test_standalone_cli.py passes.: Ran `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` from repo root /home/kara/terminal-jail => `23 passed in 9.82s`, exit_code 0. The relevant test `test_fs_isolation_warning_verbosity` (plugin/test_standalone_cli.py:217-234) passes, but only because it invokes the CLI with `--user` (which does trigger the degraded path) and it contains a `pytest.skip(\"HOST-NOT-DEGRADED-FSISO...\")` guard at line 229.\n  \u2713 5. ruff check exits 0.: Ran `.venv/bin/python -m ruff check` => `All checks passed!`, exit_code 0.\nThe verbose-warning code and tests exist and pass, but criterion 2 fails: the criterion's literal command without `--user` emits only 2 lines in verbose mode (needs >= 10), since the degraded fs-isolation warning never fires in bare mode on this host.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-24T01:37:17.386604",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-24T01:37:17.411398+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 5636,
+        "truncated": false,
+        "source": "git show 13eda40c0c59"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2982,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-013"
+  }
+}

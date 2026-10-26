@@ -1,0 +1,41 @@
+commit b92a3e7b6f05c185edd5c5b73172245ebd0c9da9
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 21 03:27:38 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 21 03:27:38 2026 -0500
+
+    fix(test_landlock): add delenv to test_open_chain_under_tmp_is_traversable for TMPDIR isolation
+    
+    INT-CI-008: the test inherited the harness's TMPDIR override (0750-ancestor),
+    causing _world_traversable to return False on the positive case. Added
+    monkeypatch.delenv for TMPDIR/TEMP/TMP, matching sibling test patterns.
+    
+    Acceptance:
+    - test passes locally with TMPDIR set
+    - full suite still passes
+    - ruff clean
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ plugin/test_landlock.py | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/plugin/test_landlock.py b/plugin/test_landlock.py
+index 51c58ba..9650bdc 100644
+--- a/plugin/test_landlock.py
++++ b/plugin/test_landlock.py
+@@ -2283,10 +2283,13 @@ class TestLoaderPath:
+ 
+ 
+ class TestWorldTraversable:
+-    def test_open_chain_under_tmp_is_traversable(self) -> None:
++    def test_open_chain_under_tmp_is_traversable(self, monkeypatch) -> None:
+         """The positive case anchored at /tmp (1777) so every ancestor's
+         mode is known: mkdtemp dir chmod 0755, then /tmp, then /."""
+         host = tempfile.mkdtemp(prefix="tj-ll-wt-")
++        monkeypatch.delenv("TMPDIR", raising=False)
++        monkeypatch.delenv("TEMP", raising=False)
++        monkeypatch.delenv("TMP", raising=False)
+         try:
+             os.chmod(host, 0o755)
+             assert ll._world_traversable(os.path.join(host, "loader.py")) is True

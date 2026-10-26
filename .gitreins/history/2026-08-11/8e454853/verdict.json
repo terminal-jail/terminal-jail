@@ -1,0 +1,83 @@
+{
+  "task_id": "tj-gap-026",
+  "task_title": "quickstart seccomp example needs --user fallback (TJ-GAP-026)",
+  "task_criteria": [
+    "docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns at least 1 hit)",
+    "no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail --seccomp line within section 3c either has --user or an EPERM note)"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m11:07AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7409729 bytes (7.41 MB) in 750ms\u001b[0m\n\u001b[90m11:07AM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m11:07AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7409729 bytes (7.41 MB) in 750ms\u001b[0m\n\u001b[90m11:07AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 278 items\n\nplugin/test_install.py ..................                                [  6%]\nplugin/test_interruptor.py ............................................. [ 22%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns at least 1 hit): docs/quickstart.md:72 uses `terminal-jail --user --seccomp echo \"seccomp BPF active\"`; grep -n --user --seccomp returns hits at lines 22, 72, 125\n  \u2713 no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail --seccomp line within section 3c either has --user or an EPERM note): All --seccomp occurrences in section 3c: line 72 has --user; line 74 bare --seccomp is inside the EPERM note ('the bare `--seccomp` form fails \u2014 use the --user variant above'). No un-annotated bare --seccomp example remains.\nBoth criteria satisfied: section 3c uses --user --seccomp and the only bare --seccomp mention is annotated with the EPERM host-limitation note.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns at least 1 hit): docs/quickstart.md:72 uses `terminal-jail --user --seccomp echo \"seccomp BPF active\"`; grep -n --user --seccomp returns hits at lines 22, 72, 125\n  \u2713 no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail --seccomp line within section 3c either has --user or an EPERM note",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns at least 1 hit)",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:72 uses `terminal-jail --user --seccomp echo \"seccomp BPF active\"`; grep -n --user --seccomp returns hits at lines 22, 72, 125"
+              },
+              {
+                "criterion": "no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail --seccomp line within section 3c either has --user or an EPERM note)",
+                "status": "PASS",
+                "detail": "All --seccomp occurrences in section 3c: line 72 has --user; line 74 bare --seccomp is inside the EPERM note ('the bare `--seccomp` form fails \u2014 use the --user variant above'). No un-annotated bare --seccomp example remains."
+              }
+            ],
+            "summary": "Both criteria satisfied: section 3c uses --user --seccomp and the only bare --seccomp mention is annotated with the EPERM host-limitation note."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: tj-gap-026\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m11:07AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7409729 bytes (7.41 MB) in 750ms\u001b[0m\n\u001b[90m11:07AM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns at least 1 hit): docs/quickstart.md:72 uses `terminal-jail --user --seccomp echo \"seccomp BPF active\"`; grep -n --user --seccomp returns hits at lines 22, 72, 125\n  \u2713 no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail --seccomp line within section 3c either has --user or an EPERM note): All --seccomp occurrences in section 3c: line 72 has --user; line 74 bare --seccomp is inside the EPERM note ('the bare `--seccomp` form fails \u2014 use the --user variant above'). No un-annotated bare --seccomp example remains.\nBoth criteria satisfied: section 3c uses --user --seccomp and the only bare --seccomp mention is annotated with the EPERM host-limitation note.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-11T16:07:25.494287"
+}

@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-DF-021",
+  "task_title": "docs-reality quickstart 3d plugin loading",
+  "task_criteria": [
+    "Section 3d of docs/quickstart.md documents directory + plugins.enabled plugin discovery (no HERMES_PLUGINS as the loading mechanism), with commands and version numbers matching plugin/plugin.yaml"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-021",
+  "branch": "wt/TJ-DF-021",
+  "commit": "d49d92face27c51bd492d0f5c9fcee29dfcbbdfc",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2717 tests: /bin/sh: 1: .venv/bin/python: not found\n  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)",
+      "steps": [
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "/bin/sh: 1: .venv/bin/python: not found\n",
+          "error": "",
+          "data": {
+            "exit_code": 127,
+            "pytest_outcome": {
+              "kind": "unknown",
+              "detail": "pytest exited with unexpected code 127",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-021/.gitreins/logs/guard-20260923T120724.852342Z.log"
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-021/.gitreins/logs/guard-20260923T120724.852342Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n7:11AM INF scanned ~3567877 bytes (3.57 MB) in 298ms\n7:11AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 138 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-021/.gitreins/logs/guard-20260923T120724.852342Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Section 3d of docs/quickstart.md documents directory + plugins.enabled plugin discovery (no HERMES_PLUGINS as the loading mechanism), with commands and version numbers matching plugin/plugin.yaml: docs/quickstart.md \u00a73d (lines 235-300) documents directory discovery (~/.hermes/plugins/<name>/ with plugin.yaml manifest) and the plugins.enabled allow-list in ~/.hermes/config.yaml (YAML example at line 256, CLI `hermes plugins enable terminal-jail` at line 264). HERMES_PLUGINS appears only at line 239 as an explicitly non-working older mechanism ('was never part of Hermes core plugin discovery and does not work'). Version 1.2.0 matches plugin/plugin.yaml:2 (`version: \"1.2.0\"`) and the documented log line `terminal-jail v1.2.0 loaded` matches plugin/__init__.py:84. Documented test command verified: `uv sync --dev` exit 0 (installed pytest 9.1.1 + pyyaml 6.0.3), `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.03s', exit 0. Hook names pre_tool_call/transform_terminal_output match plugin/__init__.py:80-81. [resolution 0.24; docs/quickstart.md, plugin/plugin.yaml]\nSection 3d accurately documents directory + plugins.enabled discovery with no HERMES_PLUGINS loading path, and its commands and v1.2.0 version numbers match plugin/plugin.yaml and the plugin code.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Section 3d of docs/quickstart.md documents directory + plugins.enabled plugin discovery (no HERMES_PLUGINS as the loading mechanism), with commands and version numbers matching plugin/plugin.yaml: docs/quickstart.md \u00a73d (lines 235-300) documents directory discovery (~/.hermes/plugins/<name>/ with plugin.yaml manifest) and the plugins.enabled allow-list in ~/.hermes/config.yaml (YAML example at line 256, CLI `hermes plugins enable terminal-jail` at line 264). HERMES_PLUGINS appears only at line 239 as an explicitly non-working older mechanism ('was never part of Hermes core plugin discovery and does not work'). Version 1.2.0 matches plugin/plugin.yaml:2 (`version: \"1.2.0\"`) and the documented log line `terminal-jail v1.2.0 loaded` matches plugin/__init__.py:84. Documented test command verified: `uv sync --dev` exit 0 (installed pytest 9.1.1 + pyyaml 6.0.3), `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.03s', exit 0. Hook names pre_tool_call/transform_terminal_output match plugin/__init__.py:80-81. [resolution 0.24; docs/quickstart.md, plugin/plugin.yaml]\nSection 3d accurately documents directory + plugins.enabled discovery with no HERMES_PLUGINS loading path, and its commands and v1.2.0 version numbers match plugin/plugin.yaml and the plugin code.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Section 3d of docs/quickstart.md documents directory + plugins.enabled plugin discovery (no HERMES_PLUGINS as the loading mechanism), with commands and version numbers matching plugin/plugin.yaml",
+                "status": "PASS",
+                "detail": "docs/quickstart.md \u00a73d (lines 235-300) documents directory discovery (~/.hermes/plugins/<name>/ with plugin.yaml manifest) and the plugins.enabled allow-list in ~/.hermes/config.yaml (YAML example at line 256, CLI `hermes plugins enable terminal-jail` at line 264). HERMES_PLUGINS appears only at line 239 as an explicitly non-working older mechanism ('was never part of Hermes core plugin discovery and does not work'). Version 1.2.0 matches plugin/plugin.yaml:2 (`version: \"1.2.0\"`) and the documented log line `terminal-jail v1.2.0 loaded` matches plugin/__init__.py:84. Documented test command verified: `uv sync --dev` exit 0 (installed pytest 9.1.1 + pyyaml 6.0.3), `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.03s', exit 0. Hook names pre_tool_call/transform_terminal_output match plugin/__init__.py:80-81. [resolution 0.24; docs/quickstart.md, plugin/plugin.yaml]",
+                "resolution_probability": 0.24,
+                "cited_path": "docs/quickstart.md, plugin/plugin.yaml"
+              }
+            ],
+            "summary": "Section 3d accurately documents directory + plugins.enabled discovery with no HERMES_PLUGINS loading path, and its commands and v1.2.0 version numbers match plugin/plugin.yaml and the plugin code."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-021\n\nStage tier1: FAIL\n    \u2717 tests: /bin/sh: 1: .venv/bin/python: not found\n  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Section 3d of docs/quickstart.md documents directory + plugins.enabled plugin discovery (no HERMES_PLUGINS as the loading mechanism), with commands and version numbers matching plugin/plugin.yaml: docs/quickstart.md \u00a73d (lines 235-300) documents directory discovery (~/.hermes/plugins/<name>/ with plugin.yaml manifest) and the plugins.enabled allow-list in ~/.hermes/config.yaml (YAML example at line 256, CLI `hermes plugins enable terminal-jail` at line 264). HERMES_PLUGINS appears only at line 239 as an explicitly non-working older mechanism ('was never part of Hermes core plugin discovery and does not work'). Version 1.2.0 matches plugin/plugin.yaml:2 (`version: \"1.2.0\"`) and the documented log line `terminal-jail v1.2.0 loaded` matches plugin/__init__.py:84. Documented test command verified: `uv sync --dev` exit 0 (installed pytest 9.1.1 + pyyaml 6.0.3), `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.03s', exit 0. Hook names pre_tool_call/transform_terminal_output match plugin/__init__.py:80-81. [resolution 0.24; docs/quickstart.md, plugin/plugin.yaml]\nSection 3d accurately documents directory + plugins.enabled discovery with no HERMES_PLUGINS loading path, and its commands and v1.2.0 version numbers match plugin/plugin.yaml and the plugin code.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-23T12:11:56.144195",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T12:11:56.159756+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 6294,
+        "truncated": false,
+        "source": "git show d49d92face27"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 41219,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-021"
+  }
+}

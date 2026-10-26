@@ -1,0 +1,21 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 5a93f0f..fbdf1eb 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -975,5 +975,6 @@ tasks:
+     vars; gaps fixed; each var pinned by a regression test proving an attacker-set
+     value does not survive into the jailed process env; threat boundary documented
+     in specs/threat-model.md
+-  status: in_progress
++  status: complete
+   created_at: '2026-09-19T19:50:35.539221+00:00'
++  completed_at: '2026-09-19T21:20:59.846215+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 97367b0..d3b54e2 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -50,3 +50,4 @@
+ {"ts": 1789851083.9452302, "tokens_in": 118400, "tokens_out": 1923, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789851232.402383, "tokens_in": 424373, "tokens_out": 4127, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789851920.3391752, "tokens_in": 681351, "tokens_out": 5544, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789853265.0303164, "tokens_in": 714875, "tokens_out": 5830, "cache_read": 0, "cache_write": 0, "step": "tier2"}

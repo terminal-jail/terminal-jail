@@ -1,0 +1,732 @@
+commit b6c12c77bd87e108536bf28b1556089be9f46272
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 4 18:13:55 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 4 18:13:55 2026 -0500
+
+    feat(release): tag-triggered release workflow + pre-cut check + release docs
+    
+    RELEASE-TJ-008 gate 1 of 3 (gitreins task RELTOOL-1791152794779715762):
+    give the repo a tag-triggered publish path so a future v1.3.0 cut can
+    attach artifacts to the GitHub Release (v1.2.0 shipped with zero assets).
+    
+    - .github/workflows/release.yml: on push of v* tags (and
+      workflow_dispatch with an explicit tag input, routed through env so a
+      hand-typed input cannot inject shell). Resolves the tag, checks out
+      the tag's tree, preflights the token (named ::error:: + exit 1 when
+      GITHUB_TOKEN is empty or lacks push permission - no silent no-op),
+      re-verifies pyproject version == tag, builds sdist+wheel with
+      python -m build on Python 3.11, writes and verifies SHA256SUMS,
+      creates the Release with gh release create --verify-tag, then re-views
+      the Release and diffs its asset list against dist/ before reporting
+      success. Never bumps pyproject and never creates tags.
+    - scripts/release-cut-check.sh: read-only pre-cut validation - tag
+      shape (vX.Y.Z), tag-not-already-exists, clean tree, pyproject version
+      == tag, CI green on HEAD (gh run list; the TJ_RELEASE_CI_JSON env
+      seam is documented for scratch verification; malformed CI data fails
+      closed). Exits 2 on usage errors, 1 with named failures otherwise.
+    - docs/releasing.md: the ordered runbook (version-prep commit -> CI
+      green on that SHA -> release-cut-check -> tag -> workflow publishes
+      -> verify assets on the Release object), noting that a v1.3.0 cut
+      still requires explicit owner authorization (RELEASE-TJ-008).
+    - tests/test_release_workflow.py: 15 cheap pins - the workflow YAML
+      parses and carries the required structure; the check script's green
+      path (scratch git clone --shared with the version bumped the way the
+      real version-prep commit will) and its failure paths (existing tag,
+      wrong version, red CI, malformed CI data) are all pinned.
+    - .gitignore: dagger.db* (the harness dagger engine holds this
+      rebuildable store open with this checkout as cwd; same class as the
+      ignored board/Hilo caches) so a worker worktree reads clean.
+    
+    pyproject version untouched (1.2.0); no tags created. The publish path
+    itself fires only on a real tag push.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+    ch:trace row=RELEASE-TJ-008 spec=docs/releasing.md evidence=commit witness=none:workflow-publishes-only-on-real-tag
+---
+ .github/workflows/release.yml  | 147 ++++++++++++++++++++++
+ .gitignore                     |   7 ++
+ docs/releasing.md              |  88 +++++++++++++
+ scripts/release-cut-check.sh   | 128 +++++++++++++++++++
+ tests/test_release_workflow.py | 274 +++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 644 insertions(+)
+
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+new file mode 100644
+index 0000000..10a9595
+--- /dev/null
++++ b/.github/workflows/release.yml
+@@ -0,0 +1,147 @@
++# Release publishing for terminal-jail.
++#
++# The ONLY publish path is a pushed v* tag (see docs/releasing.md for the
++# full operator runbook). workflow_dispatch exists for re-running a cut:
++# supply the `tag` input — the checkout and the release both target that
++# tag's tree, never the branch the workflow was dispatched from.
++#
++# This workflow fails LOUDLY (a named ::error:: and a non-zero exit) when:
++#   - GITHUB_TOKEN is empty or lacks push (contents: write) permission,
++#   - the ref is not a vX.Y.Z tag,
++#   - pyproject.toml's version does not match the tag,
++#   - the created Release is missing any expected artifact.
++#
++# It never bumps pyproject.toml and never creates tags — both stay manual,
++# owner-authorized steps (RELEASE-TJ-008; docs/releasing.md).
++
++name: Release
++
++on:
++  push:
++    tags: ["v*"]
++  workflow_dispatch:
++    inputs:
++      tag:
++        description: "Tag to release (v*); defaults to the ref this was dispatched on"
++        required: false
++        type: string
++
++permissions:
++  contents: write
++
++jobs:
++  release:
++    name: Build sdist + wheel and publish the GitHub Release
++    runs-on: ubuntu-latest
++    steps:
++      - name: Resolve release tag
++        # DISPATCH_TAG rides through env (never interpolated into the script
++        # text) so a hand-typed workflow_dispatch input cannot inject shell.
++        env:
++          DISPATCH_TAG: ${{ inputs.tag }}
++        run: |
++          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
++            TAG="${DISPATCH_TAG}"
++            if [ -z "${TAG}" ]; then
++              echo "::error::workflow_dispatch requires the 'tag' input (an existing v* tag)" >&2
++              exit 1
++            fi
++          else
++            TAG="${GITHUB_REF_NAME}"
++          fi
++          case "${TAG}" in
++            v[0-9]*.[0-9]*.[0-9]*) ;;
++            *)
++              echo "::error::refusing to release '${TAG}': not a vX.Y.Z tag" >&2
++              exit 1
++              ;;
++          esac
++          echo "Releasing tag: ${TAG}"
++          echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
++
++      - name: Check out the tag being released
++        uses: actions/checkout@v4
++        with:
++          ref: ${{ inputs.tag || github.ref }}
++
++      - name: Set up Python 3.11
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.11"
++
++      - name: Preflight — verify the token may create releases
++        # Fail here, before spending minutes building, if publishing cannot
++        # work. No silent no-ops: a release either publishes or the run is red.
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: |
++          if [ -z "${GITHUB_TOKEN}" ]; then
++            echo "::error::GITHUB_TOKEN is empty — release publishing is not configured. Keep 'permissions: contents: write' on this workflow and allow Actions to create releases (repo Settings → Actions → General → Workflow permissions)." >&2
++            exit 1
++          fi
++          if ! gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions.push' 2>/dev/null | grep -qi true; then
++            echo "::error::GITHUB_TOKEN for ${GITHUB_REPOSITORY} lacks push (contents:write) permission — 'gh release create' would be refused. Fix repo Settings → Actions → General → Workflow permissions." >&2
++            exit 1
++          fi
++          echo "OK: token can push to ${GITHUB_REPOSITORY} — release creation permitted"
++
++      - name: Verify pyproject version matches the tag
++        # Read-only check: this workflow NEVER bumps the version (the bump is
++        # the manual version-prep commit in docs/releasing.md step 1).
++        run: |
++          WANT="${RELEASE_TAG#v}"
++          HAVE="$(python3 - <<'PY'
++          import sys, tomllib
++          try:
++              with open("pyproject.toml", "rb") as fh:
++                  print(tomllib.load(fh)["project"]["version"])
++          except Exception as exc:
++              sys.exit(f"could not read pyproject.toml [project].version: {exc}")
++          PY
++          )"
++          if [ "${HAVE}" != "${WANT}" ]; then
++            echo "::error::pyproject.toml version (${HAVE}) does not match tag ${RELEASE_TAG} (expected ${WANT}). Land the version-prep commit first — this workflow never bumps it." >&2
++            exit 1
++          fi
++          echo "OK: pyproject version ${HAVE} == tag ${RELEASE_TAG}"
++
++      - name: Install build tooling
++        run: |
++          python -m pip install --upgrade pip
++          python -m pip install build
++
++      - name: Build sdist and wheel
++        run: python -m build
++
++      - name: Checksum the artifacts
++        run: |
++          cd dist
++          sha256sum -- *.tar.gz *.whl > SHA256SUMS
++          sha256sum -c SHA256SUMS
++          cat SHA256SUMS
++
++      - name: Create the GitHub Release and upload artifacts
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: |
++          gh release create "${RELEASE_TAG}" dist/* \
++            --verify-tag \
++            --title "terminal-jail ${RELEASE_TAG}" \
++            --generate-notes
++
++      - name: Verify the Release carries every artifact
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: |
++          EXPECTED="$(cd dist && ls | sort)"
++          ACTUAL="$(gh release view "${RELEASE_TAG}" --json assets --jq '[.assets[].name] | sort | join("\n")')"
++          if [ "${EXPECTED}" != "${ACTUAL}" ]; then
++            echo "::error::Release ${RELEASE_TAG} asset list mismatch — refusing to report success." >&2
++            echo "--- expected ---" >&2
++            echo "${EXPECTED}" >&2
++            echo "--- actual ---" >&2
++            echo "${ACTUAL}" >&2
++            exit 1
++          fi
++          echo "OK: Release ${RELEASE_TAG} carries:"
++          echo "${ACTUAL}"
+diff --git a/.gitignore b/.gitignore
+index 099518c..9706dd6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,6 +27,13 @@ logs/
+ .coding-hermes/board/*.parquet
+ .coding-hermes/board/*.duckdb
+ 
++# DAGger engine — rebuildable local run store (held open by the harness's
++# dagger process when it runs with this checkout as cwd; nothing tracked
++# reads it). Same class as the board/Hilo caches above.
++dagger.db
++dagger.db-shm
++dagger.db-wal
++
+ # GitReins judge verdict/summary artifacts — local run history, carries internal
+ # identifiers (host paths, hostnames, worktree names). config.yaml and tasks.yaml
+ # stay tracked; this directory does not (REVIEW-TJ-007).
+diff --git a/docs/releasing.md b/docs/releasing.md
+new file mode 100644
+index 0000000..0fe032c
+--- /dev/null
++++ b/docs/releasing.md
+@@ -0,0 +1,88 @@
++# Cutting a terminal-jail release
++
++This is the operator runbook for publishing a terminal-jail release (sdist +
++wheel + checksums as GitHub Release assets). The only publish path is a
++pushed `v*` tag: `.github/workflows/release.yml` builds the artifacts and
++creates the Release. Nothing publishes without a tag, and nothing here is
++automatic — every step below is a deliberate, ordered action.
++
++**Authorization gate:** a **v1.3.0 cut still requires explicit owner
++authorization** (board row **RELEASE-TJ-008**, gate 1 of 3). Do not tag
++v1.3.0 — or bump the version — without it. This repo's release history:
++v1.0.0, v1.2.0 (whose Release object currently carries **zero assets**; the
++tag-triggered workflow exists so the next cut does not repeat that).
++
++## The exact ordered steps
++
++1. **Version-prep commit.** Land a single commit that changes exactly the
++   `version = "X.Y.Z"` line in `pyproject.toml` (plus its CHANGELOG entry,
++   if any). The workflow never bumps versions; if you push a tag whose
++   version does not match `pyproject.toml`, the workflow fails loudly at its
++   `Verify pyproject version matches the tag` step.
++
++2. **CI green on that SHA.** Push to `main` and wait for the `CI` workflow
++   to go green on the version-prep SHA (`gh run list --commit <sha>`).
++   Never cut from a red or running tree.
++
++3. **Run the pre-cut check.** From a clean checkout of that SHA:
++
++   ```bash
++   ./scripts/release-cut-check.sh vX.Y.Z
++   ```
++
++   It verifies, naming any failure: the tag is well-formed (`vX.Y.Z`) and
++   does not already exist, the working tree is clean, `pyproject.toml`'s
++   version equals the tag, and CI is green on HEAD. Exit 0 = safe to cut;
++   exit 1 = fix the named failures; exit 2 = usage/argument error.
++
++4. **Tag.** Create an **annotated** tag and push it. The push is what
++   triggers the workflow — this is the point of no return:
++
++   ```bash
++   git tag -a vX.Y.Z -m "terminal-jail vX.Y.Z"
++   git push origin vX.Y.Z
++   ```
++
++5. **The workflow publishes.** On the tag push, `Release` runs: it checks
++   out the tag's tree, verifies the GITHUB_TOKEN can create releases (a
++   missing token or missing `contents: write` permission fails the run with
++   a named `::error::` — never a silent no-op), re-verifies the version/tag
++   match, builds the sdist + wheel with `python -m build` on Python 3.11,
++   writes `SHA256SUMS` over the artifacts, creates the Release with
++   `gh release create --verify-tag`, and then **verifies the Release object
++   carries every artifact** before reporting success.
++
++6. **Verify assets on the Release object.** Confirm independently:
++
++   ```bash
++   gh release view vX.Y.Z --json assets --jq '.assets[].name'
++   ```
++
++   Expect exactly: the `.tar.gz` sdist, the `.whl`, and `SHA256SUMS`.
++
++## Manual verification of the artifacts (optional but recommended)
++
++```bash
++gh release download vX.Y.Z --dir /tmp/tj-release-check
++cd /tmp/tj-release-check
++sha256sum -c SHA256SUMS
++python3 -m venv /tmp/tj-release-venv && /tmp/tj-release-venv/bin/pip install ./terminal_jail-*.whl
++/tmp/tj-release-venv/bin/python -c 'import terminal_jail; print(terminal_jail.__version__)'
++```
++
++## Re-running a failed cut
++
++If a workflow run failed after the tag exists (for example the version
++mismatch fired), fix the cause on `main`, re-tag a **new** version — never
++reuse or move a published tag — and follow the steps again. To retry the
++publish itself for an existing tag (e.g. a transient asset-upload failure),
++use **Run workflow** on the `Release` workflow (`workflow_dispatch`) with
++the `tag` input set to the existing tag: the workflow re-checks out that
++tag's tree and republishes.
++
++## Self-checks
++
++`tests/test_release_workflow.py` pins the release tooling cheaply: it
++parses `.github/workflows/release.yml` (and `ci.yml`) with PyYAML and runs
++`scripts/release-cut-check.sh` against the tree, including its wrong-tag
++failure paths.
+diff --git a/scripts/release-cut-check.sh b/scripts/release-cut-check.sh
+new file mode 100755
+index 0000000..60e05dd
+--- /dev/null
++++ b/scripts/release-cut-check.sh
+@@ -0,0 +1,128 @@
++#!/usr/bin/env bash
++# release-cut-check.sh — pre-flight validation for cutting a terminal-jail release.
++#
++# Usage: ./scripts/release-cut-check.sh v1.3.0
++#
++# Verifies, in order, that the tree is ready for the release tag:
++#   1. the tag argument is well-formed (vX.Y.Z) and does not already exist,
++#   2. the working tree is clean (nothing staged, nothing modified),
++#   3. pyproject.toml [project].version equals the tag being cut,
++#   4. CI is green on HEAD (gh run list for the HEAD sha).
++#
++# Every failure is named and the script exits non-zero. It NEVER creates the
++# tag, bumps the version, or touches the tree — read-only by design. The tag
++# itself is cut manually after this passes (owner-authorized: RELEASE-TJ-008,
++# see docs/releasing.md).
++set -u
++
++TAG="${1:-}"
++failures=0
++
++fail() {
++  echo "FAIL: $*" >&2
++  failures=$((failures + 1))
++}
++
++echo "== release-cut-check =="
++
++# --- 0. argument ---------------------------------------------------------
++if [ -z "${TAG}" ]; then
++  echo "usage: $0 vX.Y.Z   (e.g. $0 v1.3.0)" >&2
++  exit 2
++fi
++
++case "${TAG}" in
++  v[0-9]*.[0-9]*.[0-9]*) ;;
++  *)
++    echo "FAIL: tag '${TAG}' is not vX.Y.Z — refusing to validate." >&2
++    exit 2
++    ;;
++esac
++
++# --- 1. tag must not already exist ---------------------------------------
++if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
++  fail "tag '${TAG}' already exists — a release tag is never reused. Pick the next version."
++else
++  echo "OK: tag '${TAG}' does not exist yet"
++fi
++
++# --- 2. clean tree --------------------------------------------------------
++DIRTY="$(git status --porcelain)"
++if [ -n "${DIRTY}" ]; then
++  echo "${DIRTY}" >&2
++  fail "working tree is dirty (listing above) — commit or stash before cutting a release"
++else
++  echo "OK: working tree clean"
++fi
++
++# --- 3. pyproject version == tag ------------------------------------------
++PYPROJECT="$(git rev-parse --show-toplevel)/pyproject.toml"
++if [ ! -f "${PYPROJECT}" ]; then
++  fail "pyproject.toml not found at repo root"
++else
++  VERSION="$(python3 - "${PYPROJECT}" <<'PY'
++import sys, tomllib
++with open(sys.argv[1], "rb") as fh:
++    print(tomllib.load(fh)["project"]["version"])
++PY
++)"
++  WANT="${TAG#v}"
++  if [ -z "${VERSION}" ]; then
++    fail "could not read [project].version from pyproject.toml"
++  elif [ "${VERSION}" != "${WANT}" ]; then
++    fail "pyproject.toml version is ${VERSION} but tag is ${TAG} (expected ${WANT}) — land the version-prep commit first"
++  else
++    echo "OK: pyproject.toml version ${VERSION} == tag ${TAG}"
++  fi
++fi
++
++# --- 4. CI green on HEAD ---------------------------------------------------
++# Seam: TJ_RELEASE_CI_JSON (env, test/CI use only) supplies the `gh run list
++# --json status,conclusion` payload directly, so the green path is verifiable
++# in a scratch checkout that has no CI runs of its own. Unset (production) it
++# is inert and gh is queried live; malformed seam data fails the check loudly.
++RUNS="${TJ_RELEASE_CI_JSON:-}"
++if [ -n "${RUNS}" ]; then
++  echo "(seam) TJ_RELEASE_CI_JSON set — using supplied CI run data instead of gh"
++elif ! command -v gh >/dev/null 2>&1; then
++  fail "gh CLI not found on PATH — cannot verify CI status on HEAD (or supply TJ_RELEASE_CI_JSON)"
++else
++  HEAD_SHA="$(git rev-parse HEAD)"
++  # Prefer a run for exactly this sha; fall back to branch-scoped runs when
++  # the API returns no per-sha rows (e.g. brand-new pushes still queued).
++  RUNS="$(gh run list --commit "${HEAD_SHA}" --limit 10 --json status,conclusion 2>/dev/null)"
++  if [ -z "${RUNS}" ] || [ "${RUNS}" = "[]" ]; then
++    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
++    RUNS="$(gh run list --branch "${BRANCH}" --limit 10 --json status,conclusion,headSha 2>/dev/null |
++      python3 -c 'import json,sys; runs=json.load(sys.stdin); print(json.dumps([r for r in runs if r.get("headSha","").startswith(sys.argv[1])]))' "${HEAD_SHA}")"
++  fi
++fi
++if [ -z "${RUNS}" ] || [ "${RUNS}" = "[]" ]; then
++  fail "no CI runs found for HEAD $(git rev-parse --short HEAD 2>/dev/null || echo '?') — push the version-prep commit and wait for CI before cutting"
++else
++  PENDING="$(printf '%s' "${RUNS}" | python3 -c 'import json,sys; runs=json.load(sys.stdin); print(sum(1 for r in runs if r.get("status")!="completed"))')" || true
++  FAILED="$(printf '%s' "${RUNS}" | python3 -c 'import json,sys; runs=json.load(sys.stdin); print(sum(1 for r in runs if r.get("status")=="completed" and r.get("conclusion") not in ("success","skipped","neutral")))')" || true
++  case "${PENDING}${FAILED}" in
++    *[!0-9]*|"")
++      fail "could not parse CI run data — refusing to guess (data was: $(printf '%s' "${RUNS}" | cut -c1-120)...)"
++      ;;
++    *)
++      if [ "${PENDING}" != "0" ]; then
++        fail "CI still running on HEAD (${PENDING} run(s) in progress) — wait for green"
++      fi
++      if [ "${FAILED}" != "0" ]; then
++        fail "CI is red on HEAD (${FAILED} failed run(s)) — fix before cutting"
++      fi
++      if [ "${PENDING}" = "0" ] && [ "${FAILED}" = "0" ]; then
++        echo "OK: CI green on HEAD $(git rev-parse --short HEAD 2>/dev/null || echo '?')"
++      fi
++      ;;
++  esac
++fi
++
++echo "== release-cut-check: ${failures} failure(s) =="
++if [ "${failures}" -ne 0 ]; then
++  exit 1
++fi
++echo "READY: tree validated for cutting ${TAG} — cut it manually: git tag -a ${TAG} && git push origin ${TAG}"
++exit 0
+diff --git a/tests/test_release_workflow.py b/tests/test_release_workflow.py
+new file mode 100644
+index 0000000..fdfb260
+--- /dev/null
++++ b/tests/test_release_workflow.py
+@@ -0,0 +1,274 @@
++"""Pins for the tag-triggered release tooling (RELEASE-TJ-008).
++
++Cheap structural checks, no network:
++
++- ``.github/workflows/release.yml`` exists and parses as YAML; the
++  tag/workflow_dispatch triggers, the ``contents: write`` permission, the
++  ``python -m build`` + ``gh release create`` steps, the sha256 checksum
++  step, and the loud-failure postures are all pinned.
++- ``scripts/release-cut-check.sh`` passes on a prepared clean tree (a
++  scratch ``git clone --shared`` with the version bumped the way the real
++  version-prep commit will, CI results supplied through the documented
++  ``TJ_RELEASE_CI_JSON`` seam) and fails, naming the failure, on an
++  existing tag, a wrong-version tag, red CI, and malformed CI data.
++- The workflow never touches the ``pyproject.toml`` version and never
++  creates a tag.
++
++The live publish path itself (real tag push -> real Release with assets)
++is intentionally NOT exercised here: it only ever fires on a real,
++owner-authorized tag cut (witness=none:workflow-publishes-only-on-real-tag).
++"""
++
++from __future__ import annotations
++
++import os
++import pathlib
++import re
++import shutil
++import subprocess
++
++PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
++WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
++CHECK_SCRIPT = PROJECT_ROOT / "scripts" / "release-cut-check.sh"
++
++
++def _yaml_load(path: pathlib.Path) -> dict:
++    import yaml
++
++    return yaml.safe_load(path.read_text(encoding="utf-8"))
++
++
++def _run_script(cwd: pathlib.Path, *args: str, env_extra: dict | None = None):
++    env = {**os.environ, **(env_extra or {})}
++    return subprocess.run(
++        [str(cwd / "scripts" / "release-cut-check.sh"), *args],
++        cwd=cwd,
++        capture_output=True,
++        text=True,
++        timeout=120,
++        env=env,
++    )
++
++
++# --------------------------------------------------------------------------
++# workflow structure
++# --------------------------------------------------------------------------
++
++
++def test_release_workflow_parses_as_yaml() -> None:
++    _yaml_load(WORKFLOW)  # raises on malformed YAML
++
++
++def test_release_workflow_triggers_on_v_tags_and_dispatch() -> None:
++    doc = _yaml_load(WORKFLOW)
++    triggers = doc[True] if True in doc else doc[False]  # YAML 1.1 'on' bool
++    assert "push" in triggers, f"missing push trigger: {list(triggers)}"
++    assert triggers["push"] == {"tags": ["v*"]}, triggers["push"]
++    assert "workflow_dispatch" in triggers
++    assert "tag" in triggers["workflow_dispatch"]["inputs"]
++
++
++def test_release_workflow_declares_contents_write() -> None:
++    doc = _yaml_load(WORKFLOW)
++    assert doc["permissions"] == {"contents": "write"}
++
++
++def test_release_workflow_builds_with_python_m_build_on_311() -> None:
++    doc = _yaml_load(WORKFLOW)
++    steps = doc["jobs"]["release"]["steps"]
++    py_versions = [
++        s.get("with", {}).get("python-version")
++        for s in steps
++        if (s.get("uses") or "").startswith("actions/setup-python")
++    ]
++    assert "3.11" in py_versions, py_versions
++    scripts = [s.get("run", "") for s in steps]
++    assert any("python -m build" in s for s in scripts)
++
++
++def test_release_workflow_checksums_and_creates_release() -> None:
++    doc = _yaml_load(WORKFLOW)
++    scripts = "\n".join(s.get("run", "") for s in doc["jobs"]["release"]["steps"])
++    assert "sha256sum" in scripts
++    assert "gh release create" in scripts
++    # publish targets the resolved tag, not whatever ref the run started on
++    assert "--verify-tag" in scripts
++
++
++def test_release_workflow_fails_loudly_without_secrets_or_permissions() -> None:
++    doc = _yaml_load(WORKFLOW)
++    scripts = "\n".join(s.get("run", "") for s in doc["jobs"]["release"]["steps"])
++    assert "::error::" in scripts, "workflow must emit named errors, not no-op"
++    assert "exit 1" in scripts
++    # the token preflight must consult the actual permission state
++    assert "repos/${GITHUB_REPOSITORY}" in scripts
++    assert ".permissions.push" in scripts
++
++
++def test_release_workflow_never_bumps_version_or_creates_tags() -> None:
++    doc = _yaml_load(WORKFLOW)
++    scripts = "\n".join(s.get("run", "") for s in doc["jobs"]["release"]["steps"])
++    # never creates or moves a tag, never pushes, never edits pyproject.toml
++    assert "git tag" not in scripts
++    assert "git push" not in scripts
++    assert "sed -i" not in scripts
++    assert not re.search(r">\s*pyproject\.toml", scripts), scripts
++
++
++# --------------------------------------------------------------------------
++# release-cut-check.sh
++# --------------------------------------------------------------------------
++
++
++def test_check_script_exists_and_is_executable() -> None:
++    assert CHECK_SCRIPT.is_file()
++    import os
++
++    assert os.access(CHECK_SCRIPT, os.X_OK), "script must carry the exec bit"
++
++
++def test_check_script_requires_a_tag_argument() -> None:
++    proc = _run_script(PROJECT_ROOT)
++    assert proc.returncode == 2
++    assert "usage:" in proc.stderr
++
++
++def test_check_script_rejects_malformed_tag() -> None:
++    proc = _run_script(PROJECT_ROOT, "not-a-tag")
++    assert proc.returncode == 2
++    assert "not vX.Y.Z" in proc.stderr
++
++
++def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
++    """GREEN path: new tag, clean tree, matching version, green CI -> exit 0.
++
++    Runs against a scratch ``git clone --shared`` whose pyproject version is
++    bumped exactly the way the future version-prep commit will, with CI
++    results fed through the documented TJ_RELEASE_CI_JSON seam (a fresh
++    clone has no CI runs of its own, and the suite must not depend on gh).
++    The repo tree is never touched: the clone commits to its own git dir.
++    """
++    import tomllib
++
++    with open(PROJECT_ROOT / "pyproject.toml", "rb") as fh:
++        version = tomllib.load(fh)["project"]["version"]
++    major, minor, _ = (int(p) for p in version.split("."))
++    tag = f"v{major}.{minor + 1}.0"
++
++    clone = tmp_path / "scratch"
++    subprocess.run(
++        ["git", "clone", "--shared", "--quiet", str(PROJECT_ROOT), str(clone)],
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=120,
++    )
++    # the script under test is always the LIVE working-tree copy, so this
++    # test is independent of what the clone's base commit captured; on a
++    # base commit that predates the script this stages it as a new file
++    shutil.copy2(CHECK_SCRIPT, clone / "scripts" / "release-cut-check.sh")
++    subprocess.run(
++        ["git", "add", "scripts/release-cut-check.sh"],
++        cwd=clone,
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=60,
++    )
++
++    pp = clone / "pyproject.toml"
++    new_text, n = re.subn(
++        r'(?m)^version = ".*"$', f'version = "{tag[1:]}"', pp.read_text(), count=1
++    )
++    assert n == 1, "expected exactly one top-level version line in pyproject.toml"
++    pp.write_text(new_text)
++    subprocess.run(
++        [
++            "git",
++            "-c",
++            "user.email=tj-release-test@example.invalid",
++            "-c",
++            "user.name=tj-release-test",
++            "commit",
++            "-q",
++            "-am",
++            f"version-prep for {tag} (scratch clone only)",
++        ],
++        cwd=clone,
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=60,
++    )
++
++    proc = _run_script(
++        clone,
++        tag,
++        env_extra={
++            "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
++        },
++    )
++    assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
++    assert f"OK: tag '{tag}' does not exist yet" in proc.stdout
++    assert "OK: working tree clean" in proc.stdout
++    assert f"OK: pyproject.toml version {tag[1:]} == tag {tag}" in proc.stdout
++    assert "OK: CI green on HEAD" in proc.stdout
++    assert "READY:" in proc.stdout
++
++
++def test_check_script_fails_clearly_on_nonexistent_tag() -> None:
++    """FAILURE path: an already-existing tag must fail with the reason named.
++
++    v1.2.0 is in the repo's tag history (pre-existing); if a future cleanup
++    drops it, fall back to v1.0.0 — either way, some historical tag exists.
++    """
++    assert (
++        subprocess.run(
++            ["git", "rev-parse", "-q", "--verify", "refs/tags/v1.2.0"],
++            cwd=PROJECT_ROOT,
++        ).returncode
++        == 0
++    ), "v1.2.0 expected to exist for this test"
++    proc = _run_script(PROJECT_ROOT, "v1.2.0")
++    assert proc.returncode == 1
++    assert "already exists" in proc.stderr
++
++
++def test_check_script_fails_clearly_on_wrong_version_tag() -> None:
++    """FAILURE path: a well-formed tag that mismatches pyproject's version.
++
++    v9.9.9 does not exist and never matches the live version, so the
++    version leg is deterministic; the output must name the mismatch.
++    """
++    proc = _run_script(PROJECT_ROOT, "v9.9.9")
++    assert proc.returncode == 1
++    assert "version is" in proc.stderr
++    assert "v9.9.9" in proc.stderr
++
++
++def test_check_script_fails_clearly_on_red_ci_via_seam() -> None:
++    """FAILURE path: a completed-but-failed run must be named.
++
++    Also proves the seam actually feeds the parser (mutation control for the
++    green-path test, which uses the same seam with conclusion=success).
++    """
++    proc = _run_script(
++        PROJECT_ROOT,
++        "v9.9.9",
++        env_extra={
++            "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "failure"}]'
++        },
++    )
++    assert proc.returncode == 1
++    assert "CI is red" in proc.stderr
++
++
++def test_check_script_fails_closed_on_malformed_ci_data() -> None:
++    """FAILURE path: unparseable CI data must refuse to guess, never pass."""
++    proc = _run_script(
++        PROJECT_ROOT,
++        "v9.9.9",
++        env_extra={"TJ_RELEASE_CI_JSON": "not-json-at-all"},
++    )
++    assert proc.returncode == 1
++    assert "could not parse CI run data" in proc.stderr

@@ -1,0 +1,1353 @@
+commit cbbab1c182151825f68b89d6e3e293bdbac47fb2
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Oct 3 16:27:17 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Oct 3 16:27:17 2026 -0500
+
+    feat(proc): enforceable private-/proc demand + per-run proc_view attribution (TJ-GAP-088)
+    
+    The unshare --user jail silently exposes the HOST /proc (~1084 entries,
+    /proc/1 = systemd, host cmdlines readable); nothing stopped a deployment
+    that assumes containment from getting that view. DECIDED by experiment
+    (board row): private procfs is bwrap-only on Ubuntu/AppArmor hosts (the
+    mapped-root unshare route is closed: uid_map EPERM), so this tool owns
+    the honest boundary, not the primitive.
+    
+    - New demand, fail closed: --private-proc / TERMINAL_JAIL_PRIVATE_PROC=required
+      makes backend selection REFUSE (exit 2, command not run) unless the
+      resolved backend can deliver a private procfs — bwrap absent, a failing
+      bwrap probe, any unshare launch (pinned/auto/bare), and the composed
+      launch (both the ns-failure path and the modify-rewrite path) all refuse
+      before running anything. Unknown values are rejected like the other
+      control variables. Default (unset) keeps the historical behavior: the
+      command runs, nothing refuses.
+    - Per-run attribution (criterion 2): every LAUNCH states the delivered
+      /proc view on stderr at exec time — proc_view=private (bwrap's fresh
+      procfs) / proc_view=host (unshare; the documented known limit) /
+      proc_view=platform-owned + proc_view=none (composed launchers). A
+      refused run states nothing (nothing was delivered).
+    - Standing probe (criterion 3): parity battery cells 1+2 now record
+      /proc/1 identity (compared against the host's own init comm) next to
+      the entry count; new host-independent cells — 8: the demand enforced
+      (FAIL-CLOSED-PROVEN, stub PATH: bwrap absent + unshare probe-failing,
+      marker absent) and 9: per-launch attribution (private under bwrap,
+      host under unshare, same payload). pytest: plugin/test_private_proc_demand.py
+      (20 tests: refusal arms, flag/env equivalence, unknown-value rejection,
+      attribution, composed precedence, default-unchanged guard, live
+      entry-count + /proc/1 identity cells with HOST-DEGRADED-* skips,
+      battery import-and-pin). RED proven two ways: 12/20 fail against the
+      pre-change wrapper; the HEAD baseline suite fails exactly those 14
+      non-integration tests and nothing else (1548 passed on both sides).
+    - Docs (criterion 4): README + docs/backend-parity.md document the
+      flag/env, the proc_view vocabulary, and the method note — an
+      auto-backend run is NOT evidence about the unshare path (claims about
+      unshare require TERMINAL_JAIL_JAIL_BACKEND=unshare); specs/cli.md §4/§6/§7
+      updated (demand contract, exit-code table, degradation table).
+    
+    No regression: full suite plugin/ tests/ -m "not integration" = 1562
+    passed, 7 skipped, exit 0 (with the change) vs 1548 passed, 14 failed
+    (all fourteen are this task's own new tests against the old wrapper),
+    exit 1 on the HEAD baseline; firewall verified live (block verdict still
+    exit 126 builtin-rm-rf-root under the demand; the bridge verdict path is
+    untouched).
+    
+    Addresses TJ-GAP-088.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+    ch:trace row=TJ-GAP-088 spec=specs/cli.md#backends test=tests/test_private_proc_demand.py::test_demand_over_unshare_refuses_fail_closed evidence=commit
+---
+ README.md                          |   5 +
+ docs/backend-parity.md             |  31 +-
+ plugin/test_private_proc_demand.py | 679 +++++++++++++++++++++++++++++++++++++
+ scripts/backend-parity-battery.py  | 209 +++++++++++-
+ specs/cli.md                       |  10 +-
+ standalone/terminal-jail           |  93 ++++-
+ 6 files changed, 1014 insertions(+), 13 deletions(-)
+
+diff --git a/README.md b/README.md
+index 161b901..c997e9a 100644
+--- a/README.md
++++ b/README.md
+@@ -240,6 +240,8 @@ Without the flag, an existing drop-in is reported with a NOTE instead of being r
+ 
+ > **Private `/proc` — bubblewrap only.** `bwrap` mounts a fresh procfs, so the jailed process cannot enumerate host PIDs (measured: 5 entries vs 1,682 host PIDs; `/proc/1` is bubblewrap's reaper, not the host init) and `--die-with-parent` tears the sandbox down even when the wrapper is SIGKILLed. The `unshare` backend — including `--user` — still exposes the **host** `/proc`; that limitation is documented, not papered over.
+ >
++> **Demanding a private `/proc` (TJ-GAP-088).** Pass `--private-proc` (or export `TERMINAL_JAIL_PRIVATE_PROC=required`) and backend selection **fails closed** — exit 2, command not run — whenever the resolved backend cannot deliver a private procfs (bwrap absent or unusable, the `unshare` backend in any mode, or the composed launch). Without the demand the behavior above is unchanged. Every launch also states the view it actually delivered on stderr: `proc_view=private` (bwrap's fresh procfs), `proc_view=host` (the host `/proc` is exposed — the documented known limit), `proc_view=platform-owned` (composed mode; the outer layer's `/proc`), or `proc_view=none` (composed forced with no outer layer).
++>
+ > **Explicit demand fails closed.** `TERMINAL_JAIL_JAIL_BACKEND=bwrap` on a host where bubblewrap is missing or unusable exits 2 **without running the command** — isolation is never silently downgraded. Optional dependency: the distro `bubblewrap` package.
+ 
+ `--kill-child=SIGKILL` ensures that when the namespace init exits, every descendant is killed immediately — even processes that double-fork or change session leaders.
+@@ -306,6 +308,7 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
+ | `USE_INTERRUPTOR` | `1` | Standalone wrapper. Default `1`: every command is evaluated against the interruptor firewall before execution. `USE_INTERRUPTOR=0` disables the firewall entirely — the bridge is never invoked and no rule evaluation happens (no verdict, no fail-closed exit; seccomp/namespace flags still apply). The `--interruptor` / `--no-interruptor` CLI flags override this variable (read at `standalone/terminal-jail:112`, flags parsed at `standalone/terminal-jail:250`/`:254`, guard at `standalone/terminal-jail:325`) |
+ | `TERMINAL_JAIL_SECCOMP_LOADER` | unset (auto-discover) | Standalone wrapper. Explicit path to the seccomp loader (`seccomp-loader.py`), used verbatim when `--seccomp` is active — also the file the uid-mapped launch readability probe tests and the script the jail exec trampoline runs. Unset, the wrapper probes `standalone/seccomp-loader.py` then the installed lib layout. An explicit value that is missing or not a regular file fails closed with exit 2, "seccomp loader not found" (read at `standalone/terminal-jail:99-109`, fail-closed at `standalone/terminal-jail:1005`) |
+ | `TERMINAL_JAIL_SECCOMP_READ_PROBE` | unset (real probes) | Internal/test-only seam — not a supported operator knob. Standalone wrapper, consulted only under `--user --seccomp` (default uid mapping on, loader resolved). When set, its value is run via `bash -c` **instead of both mapped-launch promotion probes** (mapped-launch creation + loader readability); exit 0 promotes the launch to the uid-mapped form, any other exit degrades to the mapping-less `--user` launch with the "seccomp loader not readable" warning. A seam-forced promotion still performs the real mapped launch, so tests drive the failure outcome through the seam or exercise the real path (`standalone/terminal-jail:596-620`) |
++| `TERMINAL_JAIL_PRIVATE_PROC` | unset | Standalone wrapper (TJ-GAP-088). `required` (or the `--private-proc` CLI flag) demands a private `/proc`: backend selection refuses — exit 2, command not run — unless the resolved backend can deliver one (private procfs is bwrap-only on this host class; the `unshare` `--user` path exposes the host `/proc`). Any other value is rejected with exit 2 before any namespace work. Unset, the historical behavior is unchanged. Every launch states the delivered view on stderr as `proc_view=private\|host\|platform-owned\|none` |
+ 
+ ### systemd hardening (lightweight — 4 active directives)
+ 
+@@ -640,6 +643,8 @@ Every layer degrades independently.
+ | `unshare` | Pins the pre-v1.2 behavior byte-for-byte |
+ | *(anything else)* | Exits 2 |
+ 
++**Private-`/proc` demand (TJ-GAP-088).** `TERMINAL_JAIL_PRIVATE_PROC=required` — or the CLI flag `--private-proc` — makes backend selection **refuse** (exit 2, command not run) when the resolved backend cannot deliver a private procfs: bubblewrap absent or unusable, the `unshare` backend in any mode, or the composed launch. Unset (the default), the historical behavior is unchanged. A run that does launch always prints `proc_view=private|host|platform-owned|none` on stderr, naming the `/proc` view the caller actually got. An **auto-backend run is NOT evidence about the `unshare` path**: on a host with working bubblewrap, `auto` exercises bwrap — claims about `unshare` require `TERMINAL_JAIL_JAIL_BACKEND=unshare` (method note in `docs/backend-parity.md`; standing probe: parity battery cells 8–9).
++
+ **`--user` has two tiers**, chosen by an exact-flags preflight:
+ 
+ | Tier | Launch | `TERMINAL_JAIL_FS_ISOLATION` |
+diff --git a/docs/backend-parity.md b/docs/backend-parity.md
+index 628cc67..e94bdff 100644
+--- a/docs/backend-parity.md
++++ b/docs/backend-parity.md
+@@ -5,6 +5,17 @@ actually **measured** on the host below. It is evidence, not a plan. The battery
+ a classifier in the house style of `scripts/pidns-capability-probe.py` and
+ `scripts/fs-isolation-probe.py`: it always exits 0 and never gates anything.
+ 
++**Method note (TJ-GAP-088): an auto-backend run is NOT evidence about the
++unshare path.** `TERMINAL_JAIL_JAIL_BACKEND=auto` (the default) prefers bwrap
++whenever it is installed and its probe passes, so on this host an unqualified
++`./standalone/terminal-jail …` run exercises **bwrap** — a pass proves nothing
++about what the `unshare` backend would have done. Claims about the unshare
++path require a **forced** run (`TERMINAL_JAIL_JAIL_BACKEND=unshare`); the
++earlier "bare mode" probe that motivated this note was in fact the auto
++backend. Every launch now names the view it delivered on stderr
++(`proc_view=private|host|platform-owned|none`), so a run's /proc evidence is
++read off its own output instead of inferred from the absence of a flag.
++
+ ## Measured on
+ 
+ | | |
+@@ -103,7 +114,25 @@ bwrap (host ≈ 1340). A user namespace cannot mount `/proc` unprivileged, so th
+ `--user` launch leaves the host procfs visible; bwrap's `--proc /proc` mounts a
+ fresh procfs and the jail sees only its own PIDs. This is the one containment
+ property where the backends genuinely differ; specs/cli.md documents it and
+-`test_live_unshare_user_exposes_host_proc` pins it.
++`test_live_unshare_user_exposes_host_proc` pins it. **Nothing stops a
++deployment that assumes containment from silently getting the host view by
++default** — which is exactly why the demand exists (below) and every launch
++now attributes its view (`proc_view=host` on this path, read off stderr).
++
++**The enforceable demand and per-run attribution (TJ-GAP-088).** A deployment
++that NEEDS private procfs says so explicitly: `--private-proc` (CLI flag) or
++`TERMINAL_JAIL_PRIVATE_PROC=required` (env, same effect). With the demand set,
++backend selection **fails closed** — exit 2, command not run — unless the
++resolved backend can deliver a private procfs: bwrap absent, a failing bwrap
++probe, any `unshare` launch, and the composed launch (no inner procfs) all
++refuse. Without the demand, behavior is unchanged (the limit above stays
++prose-only). Independently of the demand, **every launch states the delivered
++view on stderr**: `proc_view=private` (bwrap), `proc_view=host` (unshare),
++`proc_view=platform-owned` (composed; the outer layer's procfs), or
++`proc_view=none` (composed forced with no outer layer). Standing probe:
++battery cells 1–2 (entry count + `/proc/1` identity per backend), cell 8
++(the demand enforced, fail-closed, host-independent), cell 9 (the
++attribution, host-independent).
+ 
+ **(b) The payload is namespace PID 2 under bwrap, not PID 1.**
+ bubblewrap's reaper occupies PID 1 of the jail; the payload runs as PID 2
+diff --git a/plugin/test_private_proc_demand.py b/plugin/test_private_proc_demand.py
+new file mode 100644
+index 0000000..1e651d0
+--- /dev/null
++++ b/plugin/test_private_proc_demand.py
+@@ -0,0 +1,679 @@
++"""TJ-GAP-088 — the enforceable private-/proc demand + per-run attribution.
++
++Contract under test (specs/cli.md section 4 "Jail backends"):
++
++- ``--private-proc`` / ``TERMINAL_JAIL_PRIVATE_PROC=required`` makes backend
++  selection REFUSE (exit 2, command not run, marker absent) whenever the
++  resolved backend cannot deliver a private procfs: the unshare backend in
++  any mode (host /proc view), auto resolving to unshare, bwrap absent or
++  probe-failing, and the composed launch;
++- an unknown TERMINAL_JAIL_PRIVATE_PROC value is rejected before any
++  namespace work (same contract class as the other control variables);
++- per-run attribution: every launch states the delivered /proc view on
++  stderr — ``proc_view=private`` (bwrap), ``proc_view=host`` (unshare);
++  the composed launchers attribute platform-owned/none inside their
++  COMPOSED MODE report;
++- the DEFAULT (variable unset, flag absent) keeps the historical behavior:
++  the command runs and nothing refuses — the known limit stops being
++  prose-only (the run now SAYS it got the host view) but no new gate
++  appears (this is the no-regression guard).
++
++Host-independent arms use PATH-stub recorders (plugin/test_backend_parity.py
++pattern); the live cells assert the MEASURED property — /proc entry count +
++/proc/1 identity + the proc_view line — and skip with HOST-DEGRADED-*
++markers on degraded hosts exactly like the TJ-GAP-056 lanes.
++"""
++
++from __future__ import annotations
++
++import functools
++import importlib.util
++import json
++import os
++import pathlib
++import shutil
++import subprocess
++
++import pytest
++
++PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
++CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
++
++# Recorders log argv as NUL-terminated tokens + "EOR" record end (the
++# TJ-GAP-054 pattern). The probe (`true`) exits via the *_PROBE_EXIT knobs;
++# a launch EXECs the payload (`--` is bubblewrap's separator) so payload
++# side effects (marker files) and inner exit codes are real.
++_BWRAP_STUB = """#!/usr/bin/env bash
++for a in "$@"; do printf '%s\\0' "$a" >> "$TJ_STUB_LOG"; done
++printf 'EOR\\0' >> "$TJ_STUB_LOG"
++last="${!#}"
++if [ "$last" = "true" ]; then
++    exit "${TJ_BWRAP_PROBE_EXIT:-0}"
++fi
++# Launch shape: `bwrap <flags> -- bash -c 'exec "$@"' terminal-jail
++# <payload...>`; exec from the bash trampoline (the `--` separator sits
++# mid-argv and must never be parsed as the command).
++args=("$@")
++for i in "${!args[@]}"; do
++    if [ "${args[$i]}" = "bash" ]; then
++        exec "${args[@]:$i}"
++    fi
++done
++exec "$@"
++"""
++
++_UNSHARE_STUB = """#!/usr/bin/env bash
++for a in "$@"; do printf '%s\\0' "$a" >> "$TJ_UNSHARE_STUB_LOG"; done
++printf 'EOR\\0' >> "$TJ_UNSHARE_STUB_LOG"
++last="${!#}"
++if [ "$last" = "true" ]; then
++    exit "${TJ_UNSHARE_PROBE_EXIT:-0}"
++fi
++# The wrapper's launch shape is `unshare <flags> bash -c 'exec "$@"'
++# terminal-jail <payload...>`; exec from the bash trampoline so the flag
++# tokens are never parsed as the command (real unshare consumes them).
++args=("$@")
++for i in "${!args[@]}"; do
++    if [ "${args[$i]}" = "bash" ]; then
++        exec "${args[@]:$i}"
++    fi
++done
++exec "$@"
++"""
++
++_TOOLS = ("bash", "uname", "id", "grep", "cut", "head", "env", "sh", "cat", "touch")
++
++# The canned-modify bridge stand-in, verbatim from plugin/test_modify_preflight.py
++# (TJ_BRIDGE_LOG records the command; TJ_BRIDGE_PREFIX supplies the rewrite
++# prefix; TJ_BRIDGE_MODE selects modify/allow).
++_BRIDGE_STUB = """#!/usr/bin/env python3
++import json
++import os
++import shlex
++import sys
++
++raw = sys.stdin.readline()
++command = ""
++try:
++    command = json.loads(raw).get("command", "")
++except Exception:  # noqa: BLE001 - the stand-in still answers
++    pass
++with open(os.environ["TJ_BRIDGE_LOG"], "a", encoding="utf-8") as handle:
++    handle.write(command + "\\n")
++mode = os.environ.get("TJ_BRIDGE_MODE", "modify")
++if mode == "modify":
++    prefix = os.environ["TJ_BRIDGE_PREFIX"]
++    response = {
++        "action": "modify",
++        "command": command,
++        "modified": prefix + "bash -c " + shlex.quote(command),
++        "rule_id": "stub-auto",
++        "reason": "stub auto-sandbox",
++    }
++else:
++    response = {
++        "action": "allow",
++        "command": command,
++        "modified": None,
++        "rule_id": None,
++        "reason": "",
++    }
++json.dump(response, sys.stdout)
++sys.stdout.write("\\n")
++"""
++
++
++def _stub_path(tmp_path: pathlib.Path, *, bwrap: str, unshare: str) -> str:
++    """Curated PATH: real tools plus per-backend stub bodies ("rec" = argv
++    recorder, "fail" = always-failing stub, "absent" = not on PATH).
++    Real `unshare` is always linked: it is an unconditional preflight
++    requirement (specs/cli.md preflight 3) — stubbing it away models
++    "util-linux missing", not "bwrap absent"."""
++    bindir = tmp_path / "bin"
++    bindir.mkdir(exist_ok=True)
++    for name in _TOOLS:
++        real = shutil.which(name)
++        if real:
++            (bindir / name).symlink_to(real)
++    for name, body in (("bwrap", bwrap), ("unshare", unshare)):
++        stub = bindir / name
++        if body == "absent":
++            continue  # handled below (real unshare symlink) or stays absent
++        if body == "rec":
++            stub.write_text(
++                _BWRAP_STUB if name == "bwrap" else _UNSHARE_STUB,
++                encoding="utf-8",
++            )
++        else:
++            stub.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
++        stub.chmod(0o755)
++    if unshare == "absent" and shutil.which("unshare"):
++        # "bwrap absent" must not mean "util-linux absent": the real
++        # unshare satisfies the unconditional preflight, and auto without
++        # bwrap then resolves to it (proc_view=host).
++        (bindir / "unshare").symlink_to(shutil.which("unshare"))
++    return str(bindir)
++
++
++def _env(tmp_path: pathlib.Path, path: str, **overrides: str) -> dict[str, str]:
++    env = {
++        "PATH": path,
++        "HOME": str(tmp_path / "home"),
++        "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
++        "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
++        "TJ_STUB_LOG": str(tmp_path / "bwrap.log"),
++        "TJ_UNSHARE_STUB_LOG": str(tmp_path / "unshare.log"),
++    }
++    pathlib.Path(env["HOME"]).mkdir(exist_ok=True)
++    env.update(overrides)
++    return env
++
++
++def _run_cli(
++    *args: str, env: dict[str, str], timeout: int = 30
++) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [str(CLI_SCRIPT), *args],
++        cwd=str(PROJECT_ROOT),
++        env=env,
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=timeout,
++    )
++
++
++def _launch_ran(log: pathlib.Path) -> bool:
++    """The stub logs one record per invocation (probe, then launch): more
++    than one record means the launch arm ran."""
++    if not log.exists():
++        return False
++    return log.read_bytes().count(b"EOR") > 1
++
++
++def _stub_log(tmp_path: pathlib.Path, backend: str) -> pathlib.Path:
++    return tmp_path / ("bwrap.log" if backend == "bwrap" else "unshare.log")
++
++
++# ── the demand enforced, fail closed (host-independent) ────────────────────
++
++
++def _demand_refusal_arm(tmp_path, backend: str, **overrides):
++    """Run with the demand set over a backend that cannot deliver a private
++    procfs; return (result, marker, env)."""
++    marker = tmp_path / f"marker-{backend or 'auto'}"
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="rec"),
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++        **overrides,
++    )
++    result = _run_cli(
++        "--no-interruptor",
++        *(["--user"] if backend != "bare" else []),
++        "touch",
++        str(marker),
++        env=env,
++    )
++    return result, marker, env
++
++
++@pytest.mark.standalone_cli
++@pytest.mark.parametrize("backend", ["unshare", "auto", "bare"])
++def test_demand_over_unshare_refuses_fail_closed(tmp_path, backend) -> None:
++    """required + a backend that resolves to unshare (pinned, auto without
++    bwrap, or bare) must REFUSE: exit 2, no launch, marker absent, and NO
++    proc_view line (nothing was delivered)."""
++    overrides = {}
++    if backend in ("unshare", "auto"):
++        overrides["TERMINAL_JAIL_JAIL_BACKEND"] = backend
++    result, marker, env = _demand_refusal_arm(tmp_path, backend, **overrides)
++    assert result.returncode == 2, result.stderr
++    assert "TERMINAL_JAIL_PRIVATE_PROC=required" in result.stderr
++    assert "command not run" in result.stderr
++    assert "proc_view=" not in result.stderr
++    assert result.stdout == ""
++    assert not marker.exists(), "the payload RAN despite the demand"
++    assert not _launch_ran(_stub_log(tmp_path, "unshare")), (
++        "the unshare launch arm ran despite the demand"
++    )
++
++
++@pytest.mark.standalone_cli
++def test_flag_private_proc_refuses(tmp_path) -> None:
++    """The --private-proc CLI flag is the same demand as the env var."""
++    marker = tmp_path / "marker-flag"
++    env = _env(tmp_path, _stub_path(tmp_path, bwrap="absent", unshare="rec"))
++    result = _run_cli(
++        "--no-interruptor",
++        "--private-proc",
++        "--user",
++        "touch",
++        str(marker),
++        env=env,
++    )
++    assert result.returncode == 2, result.stderr
++    assert "private /proc" in result.stderr
++    assert "command not run" in result.stderr
++    assert not marker.exists()
++
++
++@pytest.mark.standalone_cli
++def test_demand_over_probe_failing_bwrap_refuses(tmp_path) -> None:
++    """required + a bwrap stub whose PROBE fails: the demand must refuse —
++    a bwrap that cannot create namespaces delivers no private procfs."""
++    marker = tmp_path / "marker-bwrap-fail"
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="rec", unshare="rec"),
++        TERMINAL_JAIL_JAIL_BACKEND="bwrap",
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++        TJ_BWRAP_PROBE_EXIT="1",
++    )
++    result = _run_cli("--no-interruptor", "touch", str(marker), env=env)
++    assert result.returncode == 2, result.stderr
++    assert "bwrap namespace creation failed" in result.stderr
++    assert not marker.exists()
++    # bwrap probe only — never launched
++    assert not _launch_ran(pathlib.Path(env["TJ_STUB_LOG"]))
++
++
++@pytest.mark.standalone_cli
++def test_demand_with_working_bwrap_launches_private(tmp_path) -> None:
++    """The demand over a WORKING bwrap resolves: the launch runs and
++    attributes proc_view=private."""
++    marker = tmp_path / "marker-ok"
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="rec", unshare="absent"),
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++    )
++    result = _run_cli("--no-interruptor", "touch", str(marker), env=env)
++    assert result.returncode == 0, result.stderr
++    assert marker.exists()
++    assert "proc_view=private" in result.stderr
++
++
++# ── the demand validated like the other control variables ─────────────────
++
++
++@pytest.mark.standalone_cli
++def test_unknown_private_proc_value_rejected(tmp_path) -> None:
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="rec"),
++        TERMINAL_JAIL_PRIVATE_PROC="please",
++    )
++    result = _run_cli("echo", "x", env=env)
++    assert result.returncode == 2
++    assert (
++        "unknown TERMINAL_JAIL_PRIVATE_PROC='please' (expected required, "
++        "or unset for the default behavior)" in result.stderr
++    )
++
++
++@pytest.mark.standalone_cli
++def test_env_and_flag_together_still_enforced(tmp_path) -> None:
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="rec"),
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++    )
++    result = _run_cli("--no-interruptor", "--private-proc", "echo", "x", env=env)
++    assert result.returncode == 2
++    assert "command not run" in result.stderr
++
++
++# ── the default is unchanged (the no-regression guard) ─────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_default_unset_runs_and_attributes_host(tmp_path) -> None:
++    """Without the demand the historical behavior holds: the --user launch
++    runs, no refusal, marker present — and criterion 2's per-run
++    attribution names the host view (prose-only no longer: the run SAYS
++    it got the host /proc, it just does not refuse)."""
++    marker = tmp_path / "marker-default"
++    env = _env(tmp_path, _stub_path(tmp_path, bwrap="absent", unshare="rec"))
++    result = _run_cli("--no-interruptor", "--user", "touch", str(marker), env=env)
++    assert result.returncode == 0, result.stderr
++    assert marker.exists()
++    assert "command not run" not in result.stderr
++    assert _launch_ran(_stub_log(tmp_path, "unshare"))
++    view = next(ln for ln in result.stderr.splitlines() if "proc_view=" in ln)
++    assert "proc_view=host" in view
++
++
++@pytest.mark.standalone_cli
++def test_empty_value_is_the_default(tmp_path) -> None:
++    marker = tmp_path / "marker-empty"
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="rec"),
++        TERMINAL_JAIL_PRIVATE_PROC="",
++    )
++    result = _run_cli("--no-interruptor", "--user", "touch", str(marker), env=env)
++    assert result.returncode == 0, result.stderr
++    assert marker.exists()
++    assert "command not run" not in result.stderr
++
++
++# ── per-run proc_view attribution (host-independent) ───────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_proc_view_private_attributed_under_bwrap(tmp_path) -> None:
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="rec", unshare="absent"),
++        TERMINAL_JAIL_JAIL_BACKEND="auto",
++    )
++    result = _run_cli("--no-interruptor", "true", env=env)
++    assert result.returncode == 0, result.stderr
++    view = next(ln for ln in result.stderr.splitlines() if "proc_view=" in ln)
++    assert "proc_view=private" in view
++    assert "bwrap" in view
++
++
++@pytest.mark.standalone_cli
++def test_proc_view_host_attributed_under_unshare_user(tmp_path) -> None:
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="rec"),
++        TERMINAL_JAIL_JAIL_BACKEND="unshare",
++    )
++    result = _run_cli("--no-interruptor", "--user", "true", env=env)
++    assert result.returncode == 0, result.stderr
++    view = next(ln for ln in result.stderr.splitlines() if "proc_view=" in ln)
++    assert "proc_view=host" in view
++    assert "unshare" in view
++
++
++@pytest.mark.standalone_cli
++def test_composed_demand_refuses_before_the_composed_launch(tmp_path) -> None:
++    """required + namespace creation failing on a plain host: the demand
++    refuses BEFORE the composed decision — no COMPOSED MODE banner, the
++    command is not run even with TERMINAL_JAIL_COMPOSED=on."""
++    env = _env(
++        tmp_path,
++        _stub_path(tmp_path, bwrap="absent", unshare="fail"),
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++        TERMINAL_JAIL_COMPOSED="on",
++    )
++    result = _run_cli("--no-interruptor", "echo", "x", env=env)
++    assert result.returncode == 2, result.stderr
++    assert "TERMINAL_JAIL_PRIVATE_PROC=required" in result.stderr
++    assert "COMPOSED MODE" not in result.stderr
++
++
++@pytest.mark.standalone_cli
++def test_composed_demand_over_modify_rewrite_refuses(tmp_path) -> None:
++    """required + a firewall rewrite whose own prefix cannot be created:
++    the demand refuses (exit 2) instead of composing the rewrite's
++    payload. Bridge stand-in: the recorded canned-modify stub from
++    plugin/test_modify_preflight.py (env-configured prefix)."""
++    bindir = tmp_path / "bin-mod"
++    bindir.mkdir(exist_ok=True)
++    for name in _TOOLS + ("python3", "echo", "true"):
++        real = shutil.which(name)
++        if real:
++            (bindir / name).symlink_to(real)
++    stub = bindir / "unshare"
++    stub.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
++    stub.chmod(0o755)
++    bridge = tmp_path / "bridge.py"
++    bridge.write_text(_BRIDGE_STUB, encoding="utf-8")
++    bridge.chmod(0o755)
++    env = _env(
++        tmp_path,
++        str(bindir),
++        TERMINAL_JAIL_PRIVATE_PROC="required",
++        TERMINAL_JAIL_BRIDGE=str(bridge),
++        TJ_BRIDGE_LOG=str(tmp_path / "bridge.log"),
++        TJ_BRIDGE_PREFIX="unshare --user --pid --fork --kill-child=SIGKILL ",
++    )
++    env.pop("TERMINAL_JAIL_INTERRUPTOR_MODE", None)
++    result = _run_cli("echo", "rewrite-me", env=env)
++    assert result.returncode == 2, result.stderr
++    assert "TERMINAL_JAIL_PRIVATE_PROC=required" in result.stderr
++    assert "rewritten" not in result.stdout
++
++
++# ── live cells: the MEASURED property (entry count + /proc/1 identity) ─────
++
++
++@functools.lru_cache(maxsize=1)
++def _bwrap_usable() -> bool:
++    bwrap = shutil.which("bwrap")
++    if not bwrap:
++        return False
++    probe = subprocess.run(
++        [
++            bwrap,
++            "--unshare-user",
++            "--unshare-pid",
++            "--die-with-parent",
++            "--bind",
++            "/",
++            "/",
++            "--dev-bind",
++            "/dev",
++            "/dev",
++            "--proc",
++            "/proc",
++            "true",
++        ],
++        capture_output=True,
++        check=False,
++        timeout=30,
++    )
++    return probe.returncode == 0
++
++
++@functools.lru_cache(maxsize=1)
++def _pidns_full() -> bool:
++    try:
++        result = subprocess.run(
++            ["python3", str(PROJECT_ROOT / "scripts" / "pidns-capability-probe.py")],
++            cwd=str(PROJECT_ROOT),
++            capture_output=True,
++            text=True,
++            timeout=60,
++        )
++    except (subprocess.TimeoutExpired, OSError):
++        return False
++    return result.stdout.strip().startswith("FULL")
++
++
++def _host_proc_count() -> int:
++    return len([p for p in pathlib.Path("/proc").iterdir() if p.name.isdigit()])
++
++
++def _read_proc1_comm() -> str:
++    try:
++        return pathlib.Path("/proc/1/comm").read_text(encoding="utf-8").strip()
++    except OSError:
++        return ""
++
++
++def _jail_proc_observation(backend: str, **extra: str) -> tuple[int, str, str]:
++    """Run the real wrapper under `backend`; return (count, /proc/1 comm,
++    stderr) from inside the jail."""
++    env = dict(os.environ)
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
++    env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    env.update(extra)
++    result = subprocess.run(
++        [
++            str(CLI_SCRIPT),
++            "--no-interruptor",
++            "--user",
++            "sh",
++            "-c",
++            'echo "COUNT=$(ls /proc | grep -c "^[0-9]\\+$")"; '
++            'echo "P1=$(cat /proc/1/comm 2>/dev/null || echo unreadable)"',
++        ],
++        cwd=str(PROJECT_ROOT),
++        env=env,
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=30,
++    )
++    assert result.returncode == 0, result.stderr
++    count, proc1 = -1, ""
++    for line in result.stdout.splitlines():
++        if line.startswith("COUNT="):
++            count = int(line[len("COUNT=") :])
++        elif line.startswith("P1="):
++            proc1 = line[len("P1=") :]
++    return count, proc1, result.stderr
++
++
++@pytest.mark.integration
++def test_live_bwrap_demand_delivers_private_proc() -> None:
++    if not _bwrap_usable() or not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-BWRAP: bubblewrap absent/unusable — the live "
++            "private-proc demand cell not verified here"
++        )
++    host = _host_proc_count()
++    host_proc1 = _read_proc1_comm()
++    count, proc1, stderr = _jail_proc_observation(
++        "bwrap", TERMINAL_JAIL_PRIVATE_PROC="required"
++    )
++    assert count < 100 and count < host, (
++        f"bwrap jail sees {count} entries vs {host} host — not private"
++    )
++    assert proc1 and proc1 != host_proc1, (
++        f"/proc/1 = {proc1!r} inside a private procfs jail (host init = {host_proc1!r})"
++    )
++    assert "proc_view=private" in stderr
++
++
++@pytest.mark.integration
++def test_live_unshare_user_demand_refuses() -> None:
++    """The demand over the unshare backend refuses live: exit 2, marker
++    absent — the host-view launch never happens."""
++    if not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-PIDNS: no unprivileged namespaces — live "
++            "refusal cell not verified here"
++        )
++    marker = pathlib.Path("/tmp") / f"tj-gap088-marker-{os.getpid()}"
++    env = dict(os.environ)
++    env["TERMINAL_JAIL_JAIL_BACKEND"] = "unshare"
++    env["TERMINAL_JAIL_PRIVATE_PROC"] = "required"
++    env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
++    try:
++        result = subprocess.run(
++            [str(CLI_SCRIPT), "--no-interruptor", "--user", "touch", str(marker)],
++            cwd=str(PROJECT_ROOT),
++            env=env,
++            capture_output=True,
++            text=True,
++            check=False,
++            timeout=30,
++        )
++        assert result.returncode == 2, result.stderr
++        assert "TERMINAL_JAIL_PRIVATE_PROC=required" in result.stderr
++        assert not marker.exists()
++        assert "proc_view=" not in result.stderr
++    finally:
++        marker.unlink(missing_ok=True)
++
++
++@pytest.mark.integration
++def test_live_unshare_user_default_exposes_host_proc_and_attributes() -> None:
++    """Default (no demand): the documented known limit, pinned live with
++    the /proc/1 identity AND the proc_view=host attribution."""
++    if not _pidns_full():
++        pytest.skip(
++            "HOST-DEGRADED-PIDNS: no unprivileged namespaces — the live "
++            "host-view cell not verified here"
++        )
++    host = _host_proc_count()
++    host_proc1 = _read_proc1_comm()
++    count, proc1, stderr = _jail_proc_observation("unshare")
++    assert count >= host * 0.5, (
++        f"unshare --user jail sees {count} entries vs {host} host — "
++        "unexpectedly private; re-document the limit"
++    )
++    assert proc1 == host_proc1, (
++        f"/proc/1 = {proc1!r} — the host init ({host_proc1!r}) should be "
++        "visible through the host /proc view"
++    )
++    assert "proc_view=host" in stderr
++
++
++# ── the standing probe in the parity battery (import-and-pin) ──────────────
++
++
++def _load_battery():
++    spec = importlib.util.spec_from_file_location(
++        "tj_parity_battery",
++        PROJECT_ROOT / "scripts" / "backend-parity-battery.py",
++    )
++    module = importlib.util.module_from_spec(spec)
++    assert spec.loader is not None
++    spec.loader.exec_module(module)
++    return module
++
++
++@pytest.fixture(scope="module")
++def battery():
++    return _load_battery()
++
++
++def test_battery_demand_cell_is_host_independent_fail_closed(battery) -> None:
++    """Cell 8 (the demand enforced) runs on stubs only: it must prove the
++    refusal — exit 2, marker ABSENT — regardless of the host's namespace
++    or bubblewrap situation."""
++    cell = battery._private_proc_demand_cell()
++    assert cell["verdict"] == "FAIL-CLOSED-PROVEN", cell
++    assert "rc=2" in cell["measured"] and "marker=ABSENT" in cell["measured"]
++
++
++def test_battery_attribution_cell_names_both_views(battery) -> None:
++    """Cell 9 (per-run attribution): on a host where auto resolves to
++    bwrap the pair is private/host; where bwrap cannot run it degrades to
++    UNMEASURED notes — never a DIFFERS from a mis-set stub. The cell must
++    always carry at least one proc_view observation (the attribution is
++    the contract, whichever backend resolved)."""
++    cell = battery._proc_view_attribution_cell()
++    assert cell["verdict"] in ("SAME", "DIFFERS"), cell
++    if cell["verdict"] == "SAME":
++        assert "proc_view=private" in cell["measured"]
++        assert "proc_view=host" in cell["measured"]
++
++
++@pytest.mark.integration
++def test_battery_full_run_has_no_unexplained_divergence() -> None:
++    """The whole battery (classifier): exits 0 and never reports DIFFERS
++    on a healthy host — the demand cell is FAIL-CLOSED-PROVEN, the
++    attribution cell SAME, and the /proc cells keep their verdicts."""
++    result = subprocess.run(
++        [
++            "python3",
++            str(PROJECT_ROOT / "scripts" / "backend-parity-battery.py"),
++            "--json",
++        ],
++        cwd=str(PROJECT_ROOT),
++        capture_output=True,
++        text=True,
++        check=False,
++        timeout=600,
++    )
++    assert result.returncode == 0, result.stderr
++    payload = json.loads(result.stdout)
++    by_cell = {c["cell"]: c for c in payload["cells"]}
++    assert "8 private-proc demand enforced (fail closed)" in by_cell
++    assert "9 proc_view attribution per launch" in by_cell
++    divergences = [c for c in payload["cells"] if c["verdict"] == "DIFFERS"]
++    assert not divergences, divergences
++    # cells 1+2 carry the /proc/1 identity the row asked for
++    for name in (
++        "1 private /proc — bwrap backend",
++        "2 private /proc — unshare backend",
++    ):
++        assert "/proc/1 = " in by_cell[name]["measured"], by_cell[name]
+diff --git a/scripts/backend-parity-battery.py b/scripts/backend-parity-battery.py
+index d8843c7..63d3625 100755
+--- a/scripts/backend-parity-battery.py
++++ b/scripts/backend-parity-battery.py
+@@ -22,6 +22,13 @@ Cells:
+      fails must exit 2 with the command not run and a marker file the
+      payload would have created left ABSENT (host-independent)
+   7  host classification summary via the two shipped probes
++  8  the private-/proc demand (TERMINAL_JAIL_PRIVATE_PROC=required /
++     --private-proc) enforced: backend selection refuses (exit 2, command
++     not run) when the resolved backend cannot deliver a private procfs
++     (TJ-GAP-088, host-independent)
++  9  per-launch proc_view attribution: the same host resolves to
++     proc_view=private under bwrap and proc_view=host under unshare
++     (TJ-GAP-088, host-independent)
+ 
+ Verdict vocabulary: SAME | DIFFERS | KNOWN-LIMIT | FAIL-CLOSED-PROVEN.
+ A cell that cannot be measured on this host is labelled KNOWN-LIMIT with an
+@@ -55,6 +62,9 @@ FSISO_PROBE = PROJECT_ROOT / "scripts" / "fs-isolation-probe.py"
+ ESCAPE_WAVES = PROJECT_ROOT / "plugin" / "test_escape_waves.py"
+ 
+ PROC_COUNT_SNIPPET = 'ls /proc | grep -c "^[0-9]\\+$"'
++# /proc/1 identity (TJ-GAP-088): a private procfs shows the jail's own init
++# (the payload `sh`); a host view shows the host init (e.g. `systemd`).
++PROC1_IDENT_SNIPPET = "cat /proc/1/comm 2>/dev/null || echo unreadable"
+ ORPHAN_WAIT_LAUNCH = 10.0
+ ORPHAN_WAIT_TEARDOWN = 15.0
+ 
+@@ -127,7 +137,14 @@ def _last_int(stdout: str) -> int | None:
+ # ── cells 1+2: private /proc ───────────────────────────────────────────────
+ 
+ 
+-def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
++def _host_proc1_comm() -> str:
++    try:
++        return pathlib.Path("/proc/1/comm").read_text(encoding="utf-8").strip()
++    except OSError:
++        return ""
++
++
++def _proc_cell(backend: str, host_count: int, host_proc1: str) -> dict[str, str]:
+     if backend == "bwrap":
+         name = "1 private /proc — bwrap backend"
+     else:
+@@ -160,6 +177,19 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
+             "a handful of entries, far below the host count",
+             "no numeric count",
+         )
++    # TJ-GAP-088: /proc/1 identity + the wrapper's own proc_view attribution.
++    ident = _run(
++        [str(CLI), "--no-interruptor", "--user", "sh", "-c", PROC1_IDENT_SNIPPET],
++        env=_cli_env(backend),
++        timeout=30,
++    )
++    proc1_comm = ident.stdout.strip().splitlines()[-1] if ident.stdout.strip() else ""
++    if proc1_comm and proc1_comm != host_proc1:
++        proc1 = f"{proc1_comm} (the jail's own init — private procfs)"
++    elif proc1_comm:
++        proc1 = f"{proc1_comm} (HOST init visible — /proc is not private)"
++    else:
++        proc1 = "unreadable"
+     if backend == "bwrap":
+         # private /proc: the jail sees only its own processes — a handful of
+         # entries (reaper + trampoline + payload), never a fraction of the host.
+@@ -167,7 +197,7 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
+         verdict = "SAME" if ok else "DIFFERS"
+         note = (
+             f"jail sees {count} numeric /proc entries vs {host_count} on the host; "
+-            "--proc /proc mounts a fresh procfs"
++            f"/proc/1 = {proc1}; --proc /proc mounts a fresh procfs"
+             if ok
+             else (
+                 f"bwrap jail sees {count} numeric /proc entries vs {host_count} on "
+@@ -178,7 +208,7 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
+         return _cell(
+             name,
+             backend,
+-            f"{count} entries (host: {host_count})",
++            f"{count} entries (host: {host_count}); /proc/1 = {proc1}",
+             "a handful of entries, far below the host count",
+             verdict,
+             note,
+@@ -190,13 +220,13 @@ def _proc_cell(backend: str, host_count: int) -> dict[str, str]:
+     return _cell(
+         name,
+         backend,
+-        f"{count} entries (host: {host_count})",
++        f"{count} entries (host: {host_count}); /proc/1 = {proc1}",
+         "≈ host count (documented known limit)",
+         verdict,
+         (
+             f"unshare --user exposes the host /proc ({count} vs {host_count} "
+-            "entries) — specs/cli.md documents this, docs/backend-parity.md "
+-            "known limit (a)"
++            f"entries; /proc/1 = {proc1}) — specs/cli.md documents this, "
++            "docs/backend-parity.md known limit (a)"
+             if exposed
+             else f"jail sees {count} vs {host_count} host entries"
+         ),
+@@ -417,6 +447,166 @@ def _fail_closed_cell(backend: str) -> dict[str, str]:
+         )
+ 
+ 
++# ── cells 8+9: the private-/proc demand and per-run attribution (TJ-GAP-088) ──
++
++
++def _private_proc_demand_cell() -> dict[str, str]:
++    """TERMINAL_JAIL_PRIVATE_PROC=required must make backend selection
++    REFUSE whenever the resolved backend cannot deliver a private procfs.
++    Measured shape: PATH stubs (bwrap absent, unshare's probe failing) so
++    auto resolves to unshare; the demand must turn the launch into an
++    exit-2 refusal with the command not run and no marker side effect."""
++    name = "8 private-proc demand enforced (fail closed)"
++    expected = "exit 2, command not run, marker file ABSENT"
++    with tempfile.TemporaryDirectory(prefix="tj-parity-pproc-") as tmp:
++        root = pathlib.Path(tmp)
++        bindir = root / "bin"
++        bindir.mkdir()
++        for tool in (
++            "bash",
++            "uname",
++            "id",
++            "grep",
++            "cut",
++            "head",
++            "env",
++            "sh",
++            "cat",
++            "touch",
++        ):
++            real = shutil.which(tool)
++            if real:
++                (bindir / tool).symlink_to(real)
++        # bwrap ABSENT from PATH (curated, system dirs excluded so the real
++        # bubblewrap cannot leak in); unshare present but its probe fails:
++        # the wrapper's auto backend resolves to unshare — the shape that
++        # used to silently expose the host /proc.
++        stub = bindir / "unshare"
++        stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
++        stub.chmod(0o755)
++        marker = root / "marker-required"
++        env = dict(os.environ)
++        env.update(
++            {
++                "PATH": str(bindir),
++                "TERMINAL_JAIL_JAIL_BACKEND": "auto",
++                "TERMINAL_JAIL_PRIVATE_PROC": "required",
++                "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
++            }
++        )
++        try:
++            result = _run(
++                [str(CLI), "--no-interruptor", "touch", str(marker)],
++                env=env,
++                timeout=30,
++            )
++        except (subprocess.TimeoutExpired, OSError) as exc:
++            return _unmeasured(name, "both", expected, f"run failed: {exc}")
++        absent = not marker.exists()
++        proven = (
++            result.returncode == 2
++            and absent
++            and result.stdout == ""
++            and "PRIVATE_PROC=required" in result.stderr
++            and "command not run" in result.stderr
++        )
++        return _cell(
++            name,
++            "both",
++            f"rc={result.returncode}, stdout={result.stdout!r}, "
++            f"marker={'ABSENT' if absent else 'PRESENT'}",
++            expected,
++            "FAIL-CLOSED-PROVEN" if proven else "DIFFERS",
++            (
++                "TERMINAL_JAIL_PRIVATE_PROC=required over a backend that "
++                "cannot deliver a private procfs (bwrap absent; unshare "
++                "probe-failing) — selection refuses, the payload never ran"
++                if proven
++                else f"stderr: {result.stderr.strip()[:200]}"
++            ),
++        )
++
++
++def _proc_view_attribution_cell() -> dict[str, str]:
++    """Every launch states which /proc view the caller actually got
++    (proc_view=private|host|platform-owned|none) on stderr."""
++    name = "9 proc_view attribution per launch"
++    expected = "stderr names the delivered view: proc_view=..."
++    with tempfile.TemporaryDirectory(prefix="tj-parity-pv-") as tmp:
++        root = pathlib.Path(tmp)
++        bindir = root / "bin"
++        bindir.mkdir()
++        nobwrap = root / "bin-nobwrap"
++        nobwrap.mkdir()
++        for tool in (
++            "bash",
++            "uname",
++            "id",
++            "grep",
++            "cut",
++            "head",
++            "env",
++            "sh",
++            "cat",
++            "true",
++            "unshare",
++        ):
++            real = shutil.which(tool)
++            if real:
++                (bindir / tool).symlink_to(real)
++                (nobwrap / tool).symlink_to(real)
++        # bwrap recorder stub whose probe succeeds -> auto resolves to bwrap
++        # (proc_view=private). A curated PATH WITHOUT bwrap (and WITHOUT the
++        # system dirs that hold the real one) makes auto resolve to unshare
++        # (proc_view=host). Same payload, same host, two views.
++        stub = bindir / "bwrap"
++        stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
++        stub.chmod(0o755)
++        views: dict[str, str] = {}
++        for label, path in (
++            ("bwrap", str(bindir)),
++            ("unshare (bwrap absent)", str(nobwrap)),
++        ):
++            env = dict(os.environ)
++            env.update(
++                {
++                    "PATH": path,
++                    "TERMINAL_JAIL_JAIL_BACKEND": "auto",
++                    "TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled",
++                }
++            )
++            try:
++                result = _run(
++                    [str(CLI), "--no-interruptor", "--user", "true"],
++                    env=env,
++                    timeout=30,
++                )
++            except (subprocess.TimeoutExpired, OSError) as exc:
++                views[label] = f"run failed: {exc}"
++                continue
++            found = [
++                line for line in result.stderr.splitlines() if "proc_view=" in line
++            ]
++            views[label] = found[0].strip() if found else "(no proc_view line)"
++        bwrap_view = views["bwrap"]
++        unshare_view = views["unshare (bwrap absent)"]
++        ok = (
++            result.returncode == 0
++            and "proc_view=private" in bwrap_view
++            and "proc_view=host" in unshare_view
++        )
++        return _cell(
++            name,
++            "both",
++            f"bwrap: {bwrap_view}; unshare: {unshare_view}",
++            expected,
++            "SAME" if ok else "DIFFERS",
++            "same host, same payload: the auto backend resolves to bwrap "
++            "when present (proc_view=private) and to unshare otherwise "
++            "(proc_view=host) — the run states which /proc view it delivered",
++        )
++
++
+ # ── cell 7: host classification ────────────────────────────────────────────
+ 
+ 
+@@ -485,15 +675,18 @@ def _environment() -> dict[str, str]:
+ 
+ def collect_cells() -> list[dict[str, str]]:
+     host_count = _host_proc_count()
++    host_proc1 = _host_proc1_comm()
+     cells = [
+-        _proc_cell("bwrap", host_count),
+-        _proc_cell("unshare", host_count),
++        _proc_cell("bwrap", host_count, host_proc1),
++        _proc_cell("unshare", host_count, host_proc1),
+         _orphan_cell("bwrap"),
+         _orphan_cell("unshare"),
+         _escape_cell(),
+         _escape_live_slice_cell(),
+         _fail_closed_cell("bwrap"),
+         _fail_closed_cell("unshare"),
++        _private_proc_demand_cell(),
++        _proc_view_attribution_cell(),
+     ]
+     cells.extend(_classification_cells())
+     return cells
+diff --git a/specs/cli.md b/specs/cli.md
+index a97a89c..c5bc4cf 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -221,7 +221,7 @@ The four extended options change the launch shape as follows:
+ 
+ ### Jail backends (v1.2)
+ 
+-The wrapper has two jail backends. Selection is **runtime-detected** from the environment variable `TERMINAL_JAIL_JAIL_BACKEND`; there are no new CLI flags (the flag contract in section 3 is unchanged, and a bare `--bwrap` is still just a payload command name).
++The wrapper has two jail backends. Selection is **runtime-detected** from the environment variable `TERMINAL_JAIL_JAIL_BACKEND`; the flag contract of section 3 is otherwise unchanged (a bare `--bwrap` is still just a payload command name). TJ-GAP-088 adds one opt-in flag, `--private-proc`, paired with `TERMINAL_JAIL_PRIVATE_PROC=required` — both documented after the table below.
+ 
+ | Value | Behavior | Exit status when the backend cannot run |
+ |---|---|---|
+@@ -230,6 +230,10 @@ The wrapper has two jail backends. Selection is **runtime-detected** from the en
+ | `unshare` | Pin the v1.1 backend byte-for-byte; bwrap is not probed or invoked. | `2` on namespace-creation failure (unchanged v1.1 message) |
+ | anything else | Rejected before any namespace work. | `2` — message names the value and the accepted set |
+ 
++**Private-`/proc` demand (TJ-GAP-088).** Private procfs is a **bwrap-only** property on this host class (`--proc /proc` mounts a fresh procfs; measured experiment closed the unshare mapped-root route on Ubuntu/AppArmor — uid_map EPERM). Two equivalent ways to make the demand enforceable, both validated before any namespace work: the CLI flag `--private-proc` or `TERMINAL_JAIL_PRIVATE_PROC=required`. When set, backend selection **refuses** — exit `2`, command not run — unless the resolved backend can deliver a private procfs: bwrap absent, a failing bwrap probe, the `unshare` backend in any mode, and the composed launch (no inner procfs) all refuse. Any other value is rejected like the other control variables. **Default (unset): the pre-TJ-GAP-088 behavior is unchanged** — the known limit stays prose-only, nothing refuses.
++
++**Per-run `/proc`-view attribution.** Every launch (with or without the demand) states which `/proc` view the caller actually got, on stderr: `proc_view=private` (bwrap's fresh procfs), `proc_view=host` (any `unshare` launch — the documented known limit), `proc_view=platform-owned` (composed launch; the outer layer's procfs), `proc_view=none` (composed forced with no outer layer detected). Attribution is observation, not a new guarantee: it names the view that was delivered. Standing probe: parity battery cells 8–9 (`scripts/backend-parity-battery.py`), with the live `/proc` entry count + `/proc/1` identity assertions in cells 1–2 and `plugin/test_backend_parity.py` pinning the contracts host-independently.
++
+ Selection rules and the reasons they exist:
+ 
+ 1. **bwrap is never assumed.** Presence is resolved with `command -v bwrap` at runtime; a host without bubblewrap behaves exactly as v1.1 (silently, no warning — that is the documented normal path).
+@@ -360,7 +364,7 @@ For a signal-terminated payload, the invoking shell reports the platform's norma
+ |---:|---|---|
+ | `0` | Successful wrapper action or payload success. | Help/version, or payload. |
+ | `1` | Conventional payload command failure. | Payload/unshare execution path; passed through unchanged. |
+-| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, missing seccomp loader, unknown `TERMINAL_JAIL_JAIL_BACKEND` value, or a requested backend that cannot run (bwrap missing / bwrap probe failed). | Wrapper only. |
++| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, missing seccomp loader, unknown `TERMINAL_JAIL_JAIL_BACKEND` value, unknown `TERMINAL_JAIL_PRIVATE_PROC` value, a requested backend that cannot run (bwrap missing / bwrap probe failed), or the private-`/proc` demand (`--private-proc` / `TERMINAL_JAIL_PRIVATE_PROC=required`) over a backend that cannot deliver one. | Wrapper only. |
+ | `126` | Command blocked by the interruptor (enforce mode) — either a rule `block` verdict or an unavailable bridge (fail-closed; see section 7). | Interruptor block box on stderr; also the payload's own `126` (permission denied) passes through unchanged. |
+ | `3` | Reserved for a future explicit jail setup/configuration error. v1 does not intentionally emit it. | Wrapper only. |
+ | `4` | Reserved for a future explicit resource/quota setup error. v1 does not intentionally emit it. | Wrapper only. |
+@@ -379,6 +383,8 @@ Important compatibility rule: Unix exit statuses are only 8 bits, and arbitrary
+ | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but bubblewrap is not installed | Wrapper preflight | Say bubblewrap is not installed, name the system package, and state that the command was not run — never fall back silently. | 2 |
+ | `TERMINAL_JAIL_JAIL_BACKEND=bwrap` but the bwrap probe fails | Wrapper preflight | Say bwrap namespace creation failed and that the requested backend is never silently downgraded; the command is not run. | 2 |
+ | `TERMINAL_JAIL_JAIL_BACKEND=auto`, bubblewrap present but its probe fails | Wrapper preflight | Warn on stderr that the fallback does **not** provide a private `/proc`, then continue with the `unshare` backend. | Payload (or `2` if `unshare` also fails) |
++| `TERMINAL_JAIL_PRIVATE_PROC` set to an unknown value | Wrapper preflight (before any namespace work) | Name the value and the accepted set (`required`, or unset for the default); the command is not run. | 2 |
++| `TERMINAL_JAIL_PRIVATE_PROC=required` (or `--private-proc`) and the resolved backend cannot deliver a private procfs (bwrap absent, bwrap probe failed, any `unshare` launch, or the composed launch) | Wrapper backend resolution, after the backend probes | Name the resolved backend and state that it cannot provide a private `/proc`; the command is not run (TJ-GAP-088). | 2 |
+ | Bridge-supplied `modify` rewrite whose own `unshare` prefix cannot be created | Wrapper preflight, probe of the rewrite's own flags | Say the auto-sandbox rewrite is unavailable, name the flags probed and their status, and state that the command was not run. Never the generic bare-mode namespace-creation message — a rewrite is executed by its own prefix, not by the wrapper's launch (DF-TERMINAL-JAIL-11). | 2 |
+ | Kernel denies namespace creation (`EPERM`, disabled user namespaces, missing capabilities, container policy) | Selected backend's probe | Preserve the backend's stderr and returned status exactly. Do not hide it or retry with weaker flags. | Pass-through (probe failure on an explicitly requested backend: `2`) |
+ | Interruptor bridge unavailable (bridge not found via the module path or `TERMINAL_JAIL_BRIDGE`, or the bridge exits nonzero) — `enforce` mode | Interruptor evaluation, before preflight/launch | Print the `COMMAND BLOCKED — interruptor-bridge-unavailable` block box on stderr naming the fix paths (reinstall via `install.sh` / set `TERMINAL_JAIL_BRIDGE` / opt out via `TERMINAL_JAIL_INTERRUPTOR_MODE=warn`); the payload is never executed. | 126 |
+diff --git a/standalone/terminal-jail b/standalone/terminal-jail
+index 14c4cb4..e814419 100755
+--- a/standalone/terminal-jail
++++ b/standalone/terminal-jail
+@@ -119,6 +119,7 @@ Usage: terminal-jail <command> [args...]
+        terminal-jail --user --seccomp <command> [args...]
+        terminal-jail --interruptor <command> [args...]
+        terminal-jail --no-interruptor <command> [args...]
++       terminal-jail --private-proc <command> [args...]
+        terminal-jail --help
+        terminal-jail --version
+ 
+@@ -141,6 +142,10 @@ Options:
+   --interruptor  Enable the Bash command firewall (default). Evaluates
+                  commands against a rule engine before execution.
+   --no-interruptor  Disable the Bash command firewall.
++  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
++                 backend cannot deliver one, the command does not run
++                 (exit 2) — isolation is never silently downgraded. Same
++                 as TERMINAL_JAIL_PRIVATE_PROC=required.
+ 
+ Environment:
+   TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
+@@ -174,6 +179,17 @@ Environment:
+                  silently downgraded, in composed mode or out of it. See
+                  README "Composed deployment (inside a container/bunker)"
+                  and bunker GAP-179.
++  TERMINAL_JAIL_PRIVATE_PROC=required
++                 Demand a private /proc (TJ-GAP-088): backend selection
++                 refuses (exit 2, command not run) when the resolved
++                 backend cannot deliver one — bwrap absent or its probe
++                 failing, the unshare backend (all modes; --user exposes
++                 the host /proc, bare mode is fail-closed first), or the
++                 composed launch (proc owned by the outer layer). A run
++                 that launches always states the delivered view on stderr
++                 as proc_view=private|host|platform-owned|none. Default
++                 (unset) keeps the fail-open prose behavior. See
++                 specs/cli.md section 4 "Jail backends".
+ EOF
+ }
+ 
+@@ -243,8 +259,8 @@ if [ $# -eq 1 ]; then
+     esac
+ fi
+ 
+-# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor
+-# (any order, all before command).
++# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor,
++# --private-proc (any order, all before command).
+ while [ $# -gt 0 ]; do
+     case "$1" in
+         --user)
+@@ -264,6 +280,10 @@ while [ $# -gt 0 ]; do
+             USE_INTERRUPTOR=0
+             shift
+             ;;
++        --private-proc)
++            TJ_PRIVATE_PROC_REQUIRED=1
++            shift
++            ;;
+         *)
+             break
+             ;;
+@@ -309,6 +329,27 @@ case "$TJ_COMPOSED_MODE_REQUEST" in
+         ;;
+ esac
+ 
++# Private-/proc demand (TJ-GAP-088). Default: unset/empty — the historical
++# fail-open prose behavior, byte-for-byte (no proc_view line, no refusal).
++# required (via env or --private-proc): backend selection must REFUSE —
++# exit 2, command not run — whenever the resolved backend cannot deliver a
++# private procfs; a launch that does happen carries a proc_view=<view>
++# attribution line on stderr. anything else: rejected before any namespace
++# work, exactly like the other control variables.
++TJ_PRIVATE_PROC_REQUIRED="${TJ_PRIVATE_PROC_REQUIRED:-0}"
++TJ_PRIVATE_PROC_REQUEST="${TERMINAL_JAIL_PRIVATE_PROC:-}"
++if [ -n "$TJ_PRIVATE_PROC_REQUEST" ]; then
++    case "$TJ_PRIVATE_PROC_REQUEST" in
++        required)
++            TJ_PRIVATE_PROC_REQUIRED=1
++            ;;
++        *)
++            echo "terminal-jail: unknown TERMINAL_JAIL_PRIVATE_PROC='${TJ_PRIVATE_PROC_REQUEST}' (expected required, or unset for the default behavior); command not run" >&2
++            exit 2
++            ;;
++    esac
++fi
++
+ # Rebuild the command string from remaining arguments (preserving argv boundaries)
+ CMD_STR=""
+ for arg in "$@"; do
+@@ -735,6 +776,33 @@ case "$TJ_BACKEND_REQUEST" in
+         ;;
+ esac
+ 
++# --- private-/proc demand: enforcement + per-run attribution (TJ-GAP-088) -------
++# A private procfs is deliverable ONLY by the bwrap backend (--proc /proc
++# mounts a fresh procfs). The unshare backend cannot, in any mode: bare mode
++# needs CAP_SYS_ADMIN for --mount-proc and fails closed before reaching here,
++# and --user deliberately omits --mount-proc (it is incompatible with
++# unprivileged user namespaces) so the HOST /proc view is exposed — measured:
++# ~1084 entries with /proc/1 = systemd (docs/backend-parity.md known limit a).
++# With the demand set (TERMINAL_JAIL_PRIVATE_PROC=required or --private-proc),
++# backend selection REFUSES (exit 2, command not run) unless bwrap was
++# resolved and its probe passed; otherwise the run states the delivered view:
++#   proc_view=private         bwrap's fresh procfs
++#   proc_view=host            any unshare launch (documented known limit)
++#   proc_view=platform-owned  composed launch (the outer layer's procfs)
++#   proc_view=none            composed forced with NO outer layer detected
++# Without the demand, the proc_view line still prints on every LAUNCH (attribution
++# is free) and the historical behavior is otherwise byte-for-byte unchanged.
++if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ] && [ "$TJ_BACKEND" != "bwrap" ]; then
++    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend '${TJ_BACKEND}' cannot provide a private /proc; command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a)); the unshare --user path exposes the HOST /proc view" >&2
++    exit 2
++fi
++# TJ-GAP-088 attribution: the delivered /proc view is stated at LAUNCH time
++# (after the namespace probes — a run that is refused states nothing,
++# because nothing was delivered), in the exec dispatch at the bottom of this
++# file: proc_view=private (bwrap's fresh procfs) / proc_view=host (the
++# unshare backend). The composed launchers state their own view
++# (platform-owned / none) inside their COMPOSED MODE report.
++
+ # --- composed mode (TJ-GAP-089) -------------------------------------------------
+ # Some deployments run this tool INSIDE an outer containment layer that already
+ # provides the namespace properties this wrapper creates for a payload — a
+@@ -870,6 +938,12 @@ _tj_launch_composed() {
+     #                       platform applies its own profile, that profile is
+     #                       the active seccomp state, not this tool's.
+     echo "terminal-jail: COMPOSED MODE — running without an inner namespace" >&2
++    # TJ-GAP-088 attribution: the composed launch creates no inner procfs.
++    if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
++        echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
++    else
++        echo "terminal-jail: proc_view=none (composed mode forced without a detected outer layer: no procfs of any kind is provided by this launch)" >&2
++    fi
+     if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
+         echo "terminal-jail: composed layers — jail_layer=platform (outer containment: PID namespace/proc provided by the platform/container, NOT by this tool); firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool (the outer layer's own profile, if any, is the active seccomp state); filesystem: NOT isolated by this tool" >&2
+     else
+@@ -925,6 +999,11 @@ if [ "$MODIFIED" -eq 1 ]; then
+                     echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                     exit 2
+                 fi
++                if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
++                    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the firewall's rewrite namespace cannot be created and the composed launch provides no procfs of its own (the outer layer's view, when present, is platform-owned); command not run" >&2
++                    exit 2
++                fi
++                _TJ_COMPOSED_DECIDED=1
+                 _tj_composed_decision
+                 if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+                     # Composed: run the rewrite as-is below (its prefix is
+@@ -955,6 +1034,11 @@ elif [ "$TJ_BACKEND" = "unshare" ]; then
+         # Composed mode: the one shared decision (auto detects, on forces,
+         # off refuses). Detection runs HERE and only here (lazily — never on
+         # the happy path), bounded (<2s) and cached for this invocation.
++        if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
++            echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend 'unshare' cannot provide a private /proc (and its launch just failed: unshare exit ${probe_rc}); command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a))" >&2
++            exit 2
++        fi
++        _TJ_COMPOSED_DECIDED=1
+         _tj_composed_decision
+         if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+             # Composed: run with the layers that exist. The seccomp warning
+@@ -986,6 +1070,7 @@ fi
+ # below makes the bottom-of-file `exec bash -c "$CMD_STR"` run it.
+ if [ "${_TJ_COMPOSED_NS_FAILED:-0}" -eq 1 ]; then
+     echo "terminal-jail: COMPOSED MODE — the firewall's rewrite namespace cannot be created on this layer; running its payload (pid-namespace/proc: enforced by the OUTER LAYER when present; firewall: enforced by terminal-jail)" >&2
++    echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
+     case "$CMD_STR" in
+         unshare\ -*" bash -c "*)
+             _tj_payload="${CMD_STR#* bash -c }"
+@@ -1010,9 +1095,11 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+     # backends use the identical argv-preserving trampoline; the `--` below is
+     # bubblewrap's option/payload separator.
+     if [ "$TJ_BACKEND" = "bwrap" ]; then
++        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+             bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+     fi
++    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+     exec unshare \
+         $UNSHARE_FLAGS \
+         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+@@ -1022,9 +1109,11 @@ elif [ "$MODIFIED" -eq 1 ]; then
+     exec bash -c "$CMD_STR"
+ else
+     if [ "$TJ_BACKEND" = "bwrap" ]; then
++        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+             bash -c 'exec "$@"' terminal-jail "$@"
+     fi
++    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+     exec unshare \
+         $UNSHARE_FLAGS \
+         bash -c 'exec "$@"' terminal-jail "$@"

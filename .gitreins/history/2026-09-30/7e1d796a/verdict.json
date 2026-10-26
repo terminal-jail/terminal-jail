@@ -1,0 +1,121 @@
+{
+  "task_id": "DOC-7",
+  "task_title": "audit tooling doc pointer",
+  "task_criteria": [
+    "gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2fb932fd356646f14a330fcb89b2808aa77a56d2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133827.261247Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n8:38AM INF scanned ~5760074 bytes (5.76 MB) in 326ms\n8:38AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 176 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133827.261247Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1565 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  4%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 64%]\n......................................                                   [ 67%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [240 chars omitted \u2014 3 line(s)] \u2026\nplugin/test_modify_preflight.py ......                                   [ 73%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 87%]\nplugin/test_seccomp.py .........................................sss..... [ 90%]\n.                                                                        [ 90%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1558 passed, 7 skipped in 63.97s (0:01:03) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133827.261247Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:265 adds a '### Audit tooling' section containing a markdown table that directly references both scripts: README.md:269 `| scripts/gtfobins-sweep.py | ... | python3 scripts/gtfobins-sweep.py |` and README.md:270 `| scripts/e2e-battery-live-probe.py | ... | python3 scripts/e2e-battery-live-probe.py |`. Both files exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py). The section sits outside any code fence (fences at README.md:239,251,263,289) so the table renders, and it is linked from the README Contents TOC at README.md:25 (`[Audit tooling](#audit-tooling)`). Direct one-hop reachability confirmed; no intermediate doc required. Docs-only criterion \u2014 no test asserts README reachability (grep of tests/ found none); full pytest suite times out at 30s and is not the decisive evidence for a documentation-reachability criterion. [resolution 0.21; gtfobins-sweep.py, e2e-battery-live-probe.py]\nREADME.md's new 'Audit tooling' section (lines 265-270) directly references both scripts in a rendered table linked from the README TOC, satisfying one-hop reachability.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:265 adds a '### Audit tooling' section containing a markdown table that directly references both scripts: README.md:269 `| scripts/gtfobins-sweep.py | ... | python3 scripts/gtfobins-sweep.py |` and README.md:270 `| scripts/e2e-battery-live-probe.py | ... | python3 scripts/e2e-battery-live-probe.py |`. Both files exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py). The section sits outside any code fence (fences at README.md:239,251,263,289) so the table renders, and it is linked from the README Contents TOC at README.md:25 (`[Audit tooling](#audit-tooling)`). Direct one-hop reachability confirmed; no intermediate doc required. Docs-only criterion \u2014 no test asserts README reachability (grep of tests/ found none); full pytest suite times out at 30s and is not the decisive evidence for a documentation-reachability criterion. [resolution 0.21; gtfobins-sweep.py, e2e-battery-live-probe.py]\nREADME.md's new 'Audit tooling' section (lines 265-270) directly references both scripts in a rendered table linked from the README TOC, satisfying one-hop reachability.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop",
+                "status": "PASS",
+                "detail": "README.md:265 adds a '### Audit tooling' section containing a markdown table that directly references both scripts: README.md:269 `| scripts/gtfobins-sweep.py | ... | python3 scripts/gtfobins-sweep.py |` and README.md:270 `| scripts/e2e-battery-live-probe.py | ... | python3 scripts/e2e-battery-live-probe.py |`. Both files exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py). The section sits outside any code fence (fences at README.md:239,251,263,289) so the table renders, and it is linked from the README Contents TOC at README.md:25 (`[Audit tooling](#audit-tooling)`). Direct one-hop reachability confirmed; no intermediate doc required. Docs-only criterion \u2014 no test asserts README reachability (grep of tests/ found none); full pytest suite times out at 30s and is not the decisive evidence for a documentation-reachability criterion. [resolution 0.21; gtfobins-sweep.py, e2e-battery-live-probe.py]",
+                "resolution_probability": 0.21,
+                "cited_path": "gtfobins-sweep.py, e2e-battery-live-probe.py"
+              }
+            ],
+            "summary": "README.md's new 'Audit tooling' section (lines 265-270) directly references both scripts in a rendered table linked from the README TOC, satisfying one-hop reachability."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-7\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:265 adds a '### Audit tooling' section containing a markdown table that directly references both scripts: README.md:269 `| scripts/gtfobins-sweep.py | ... | python3 scripts/gtfobins-sweep.py |` and README.md:270 `| scripts/e2e-battery-live-probe.py | ... | python3 scripts/e2e-battery-live-probe.py |`. Both files exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py). The section sits outside any code fence (fences at README.md:239,251,263,289) so the table renders, and it is linked from the README Contents TOC at README.md:25 (`[Audit tooling](#audit-tooling)`). Direct one-hop reachability confirmed; no intermediate doc required. Docs-only criterion \u2014 no test asserts README reachability (grep of tests/ found none); full pytest suite times out at 30s and is not the decisive evidence for a documentation-reachability criterion. [resolution 0.21; gtfobins-sweep.py, e2e-battery-live-probe.py]\nREADME.md's new 'Audit tooling' section (lines 265-270) directly references both scripts in a rendered table linked from the README TOC, satisfying one-hop reachability.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-30T13:40:49.588683",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-30T13:40:49.603539+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3813,
+        "truncated": false,
+        "source": "git show 2fb932fd3566"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 12101,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-7"
+  }
+}

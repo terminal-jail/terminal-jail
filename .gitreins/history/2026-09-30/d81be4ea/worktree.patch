@@ -1,0 +1,31 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index e6052e8..a2dbd5a 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1530,3 +1530,17 @@ tasks:
+   status: complete
+   created_at: '2026-09-29T22:32:34.904408+00:00'
+   completed_at: '2026-09-29T22:35:47.799733+00:00'
++- id: DOC-4
++  title: DOC-4 wave docs task
++  criteria:
++  - docs-only change per board row acceptance criteria
++  status: complete
++  created_at: '2026-09-30T07:06:12.498740+00:00'
++  completed_at: '2026-09-30T07:06:18.618833+00:00'
++- id: DOC-5
++  title: DOC-5 wave docs task
++  criteria:
++  - docs-only change per board row acceptance criteria
++  status: complete
++  created_at: '2026-09-30T07:06:13.430122+00:00'
++  completed_at: '2026-09-30T07:09:08.660928+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 1372aef..e13155d 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -111,3 +111,4 @@
+ {"ts": 1790689451.1087914, "tokens_in": 201531, "tokens_out": 2472, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790697912.6260471, "tokens_in": 184573, "tokens_out": 2568, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790721506.8783965, "tokens_in": 64946, "tokens_out": 1861, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790752507.929366, "tokens_in": 202008, "tokens_out": 2964, "cache_read": 0, "cache_write": 0, "step": "tier2"}

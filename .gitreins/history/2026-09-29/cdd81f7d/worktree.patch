@@ -1,0 +1,74 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ae54b0e..8f46c13 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1498,3 +1498,27 @@ tasks:
+   status: complete
+   created_at: '2026-09-28T23:14:09.953642+00:00'
+   completed_at: '2026-09-28T23:26:09.028435+00:00'
++- id: TJ-DF-038
++  title: Preflight misdiagnoses missing uname as non-Linux
++  criteria:
++  - preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression
++    tests green
++  status: complete
++  created_at: '2026-09-29T10:06:22.709758+00:00'
++  completed_at: '2026-09-29T10:13:12.980928+00:00'
++- id: REVIEW-TJ-006
++  title: FAQ 4 uid 65534 claim is backend-dependent
++  criteria:
++  - docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller
++    uid
++  status: complete
++  created_at: '2026-09-29T13:41:51.222625+00:00'
++  completed_at: '2026-09-29T13:42:29.432018+00:00'
++- id: TJ-DF-035
++  title: Pack-authoring schema discoverable from documented material only
++  criteria:
++  - A pack author following only README + --help produces a valid pack in <=2 attempts;
++    documented example carries action, priority, match.type=pattern, pattern, message
++  status: complete
++  created_at: '2026-09-29T15:51:07.321935+00:00'
++  completed_at: '2026-09-29T16:03:24.057590+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 6d1748b..cbc1fca 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -107,3 +107,6 @@
+ {"ts": 1790640549.4721463, "tokens_in": 62504, "tokens_out": 3027, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640665.6416888, "tokens_in": 103346, "tokens_out": 3509, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640843.1897862, "tokens_in": 142904, "tokens_out": 4984, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790676942.0635762, "tokens_in": 181459, "tokens_out": 2146, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790689451.1087914, "tokens_in": 201531, "tokens_out": 2472, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790697912.6260471, "tokens_in": 184573, "tokens_out": 2568, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..040e872 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,26 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_standalone_cli.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:inspect","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:collections","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:typing","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:importlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/rule-pack-tool.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}

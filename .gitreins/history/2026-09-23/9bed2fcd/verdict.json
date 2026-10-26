@@ -1,0 +1,137 @@
+{
+  "task_id": "TJ-DF-023",
+  "task_title": "TJ-DF-023 fix: quickstart \u00a73c must prove the seccomp filter is applied",
+  "task_criteria": [
+    "docs/quickstart.md section 3c no longer uses echo as the seccomp verification payload and instead names a command whose captured output distinguishes filter-applied from filter-skipped",
+    "section 3c states the fail-open behaviour of the seccomp loader with a pointer to the loader code path and gives a mount-attempt EPERM check expecting errno 32",
+    "section 3c documents the 0700-home failure mode of --user --seccomp and cross-references the wrapper degradation warning",
+    "the change is confined to docs/quickstart.md and every command in the rewritten block that can run on this host was executed verbatim, with non-runnable branches explicitly marked instead of fabricated"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "2fff412ae597f374beaa3c469776f48a893d2e8b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n9:26AM INF scanned ~5376888 bytes (5.38 MB) in 405ms\n9:26AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 155 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1412 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 76%]\nplugin/test_packaging.py ..........                                      [ 77%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_rule_pack_db.py ............................................ [ 81%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 89%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss..... [ 94%]\n.                                                                        [ 94%]\nplugin/test_standalone_cli.py .....................                      [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n================== 1405 passed, 7 skipped in 75.17s (0:01:15) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260923T142121.844460Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md section 3c no longer uses echo as the seccomp verification payload and instead names a command whose captured output distinguishes filter-applied from filter-skipped: docs/quickstart.md:222 now reads `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'`; captured block at lines 240-244 shows `Seccomp:\t2` / `Seccomp_filters:\t1`. Ran verbatim on host: output exactly `Seccomp:\t2` / `Seccomp_filters:\t1` (exit 0). Doc explicitly states 'An `echo`-style payload proves nothing: it runs identically whether or not a filter was installed.'\n  \u2713 section 3c states the fail-open behaviour of the seccomp loader with a pointer to the loader code path and gives a mount-attempt EPERM check expecting errno 32: docs/quickstart.md:246-252 states 'The filter also **fails open** by design \u2014 `standalone/seccomp-loader.py` prints `terminal-jail: seccomp not applied (<reason>); running without seccomp` on stderr and `exec`s the command anyway'. Loader path verified: standalone/seccomp-loader.py:67-68 contains that exact message. Mount EPERM check at lines 258-262: `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` expecting `mount rc=32 \u2014 EPERM`; ran verbatim -> `mount: /mnt: must be superuser to use mount.` + `mount rc=32` (exit 0).\n  \u2713 section 3c documents the 0700-home failure mode of --user --seccomp and cross-references the wrapper degradation warning: docs/quickstart.md:267-274 documents 'On a mapping-capable host whose `$HOME` is `0700` ... `--user --seccomp` cannot read the loader at all and the launch dies with `python3: can't open file '~/.local/lib/terminal-jail/seccomp-loader.py': [Errno 13] Permission denied`; the wrapper prints a loud warning naming that unreadable loader path and keeps the command alive by falling back to the mapping-less launch.' Cross-reference verified against standalone/terminal-jail:560 which emits 'terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' ... a home/permission path such as a 0700 or 750 home is not traversable by it ...)'.\n  \u2713 the change is confined to docs/quickstart.md and every command in the rewritten block that can run on this host was executed verbatim, with non-runnable branches explicitly marked instead of fabricated: `git show 9652663 --name-only` and `git show 008cb7c --name-only` both return only `docs/quickstart.md`. Commands executed verbatim on this host: (1) `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` -> Seccomp:2/Seccomp_filters:1; (2) `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` -> mount rc=32; (3) `python3 scripts/fs-isolation-probe.py` -> DEGRADED (exit 0); (4) `swapon --show` -> prints host swap list. The non-runnable 0700-home branch is framed conditionally ('On a mapping-capable host whose $HOME is 0700...') rather than presented as captured output; this host is DEGRADED (denies uid mapping), and the captured-verbatim block is explicitly labeled 'this project's host, captured verbatim'. Tests: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` => '21 passed in 4.11s'; `plugin/test_seccomp.py plugin/test_userns.py -q` => '74 passed, 4 skipped in 3.95s'; LSP diagnostics 0 findings.\nAll four criteria pass: \u00a73c now proves the seccomp filter via /proc/self/status (verified verbatim), documents fail-open with the loader path and the errno-32 mount probe, documents the 0700-home degradation with the wrapper warning cross-reference, and the change is confined to docs/quickstart.md with runnable commands executed verbatim.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md section 3c no longer uses echo as the seccomp verification payload and instead names a command whose captured output distinguishes filter-applied from filter-skipped: docs/quickstart.md:222 now reads `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'`; captured block at lines 240-244 shows `Seccomp:\t2` / `Seccomp_filters:\t1`. Ran verbatim on host: output exactly `Seccomp:\t2` / `Seccomp_filters:\t1` (exit 0). Doc explicitly states 'An `echo`-style payload proves nothing: it runs identically whether or not a filter was installed.'\n  \u2713 section 3c states the fail-open behaviour of the seccomp loader with a pointer to the loader code path and gives a mount-attempt EPERM check expecting errno 32: docs/quickstart.md:246-252 states 'The filter also **fails open** by design \u2014 `standalone/seccomp-loader.py` prints `terminal-jail: seccomp not applied (<reason>); running without seccomp` on stderr and `exec`s the command anyway'. Loader path verified: standalone/seccomp-loader.py:67-68 contains that exact message. Mount EPERM check at lines 258-262: `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` expecting `mount rc=32 \u2014 EPERM`; ran verbatim -> `mount: /mnt: must be superuser to use mount.` + `mount rc=32` (exit 0).\n  \u2713 section 3c documents the 0700-home failure mode of --user --seccomp and cross-references the wrapper degradation warning: docs/quickstart.md:267-274 documents 'On a mapping-capable host whose `$HOME` is `0700` ... `--user --seccomp` cannot read the loader at all and the launch dies with `python3: can't open file '~/.local/lib/terminal-jail/seccomp-loader.py': [Errno 13] Permission denied`; the wrapper prints a loud warning naming that unreadable loader path and keeps the command alive by falling back to the mapping-less launch.' Cross-reference verified against standalone/terminal-jail:560 which emits 'terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' ... a home/permission path such as a 0700 or 750 home is not traversable by it ...)'.\n  \u2713 the change is confined to docs/quickstart.md and every command in the rewritten block that can run on this host was executed verbatim, with non-runnable branches explicitly marked instead of fabricated: `git show 9652663 --name-only` and `git show 008cb7c --name-only` both return only `docs/quickstart.md`. Commands executed verbatim on this host: (1) `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` -> Seccomp:2/Seccomp_filters:1; (2) `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` -> mount rc=32; (3) `python3 scripts/fs-isolation-probe.py` -> DEGRADED (exit 0); (4) `swapon --show` -> prints host swap list. The non-runnable 0700-home branch is framed conditionally ('On a mapping-capable host whose $HOME is 0700...') rather than presented as captured output; this host is DEGRADED (denies uid mapping), and the captured-verbatim block is explicitly labeled 'this project's host, captured verbatim'. Tests: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` => '21 passed in 4.11s'; `plugin/test_seccomp.py plugin/test_userns.py -q` => '74 passed, 4 skipped in 3.95s'; LSP diagnostics 0 findings.\nAll four criteria pass: \u00a73c now proves the seccomp filter via /proc/self/status (verified verbatim), documents fail-open with the loader path and the errno-32 mount probe, documents the 0700-home degradation with the wrapper warning cross-reference, and the change is confined to docs/quickstart.md with runnable commands executed verbatim.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md section 3c no longer uses echo as the seccomp verification payload and instead names a command whose captured output distinguishes filter-applied from filter-skipped",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:222 now reads `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'`; captured block at lines 240-244 shows `Seccomp:\t2` / `Seccomp_filters:\t1`. Ran verbatim on host: output exactly `Seccomp:\t2` / `Seccomp_filters:\t1` (exit 0). Doc explicitly states 'An `echo`-style payload proves nothing: it runs identically whether or not a filter was installed.'"
+              },
+              {
+                "criterion": "section 3c states the fail-open behaviour of the seccomp loader with a pointer to the loader code path and gives a mount-attempt EPERM check expecting errno 32",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:246-252 states 'The filter also **fails open** by design \u2014 `standalone/seccomp-loader.py` prints `terminal-jail: seccomp not applied (<reason>); running without seccomp` on stderr and `exec`s the command anyway'. Loader path verified: standalone/seccomp-loader.py:67-68 contains that exact message. Mount EPERM check at lines 258-262: `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` expecting `mount rc=32 \u2014 EPERM`; ran verbatim -> `mount: /mnt: must be superuser to use mount.` + `mount rc=32` (exit 0)."
+              },
+              {
+                "criterion": "section 3c documents the 0700-home failure mode of --user --seccomp and cross-references the wrapper degradation warning",
+                "status": "PASS",
+                "detail": "docs/quickstart.md:267-274 documents 'On a mapping-capable host whose `$HOME` is `0700` ... `--user --seccomp` cannot read the loader at all and the launch dies with `python3: can't open file '~/.local/lib/terminal-jail/seccomp-loader.py': [Errno 13] Permission denied`; the wrapper prints a loud warning naming that unreadable loader path and keeps the command alive by falling back to the mapping-less launch.' Cross-reference verified against standalone/terminal-jail:560 which emits 'terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' ... a home/permission path such as a 0700 or 750 home is not traversable by it ...)'."
+              },
+              {
+                "criterion": "the change is confined to docs/quickstart.md and every command in the rewritten block that can run on this host was executed verbatim, with non-runnable branches explicitly marked instead of fabricated",
+                "status": "PASS",
+                "detail": "`git show 9652663 --name-only` and `git show 008cb7c --name-only` both return only `docs/quickstart.md`. Commands executed verbatim on this host: (1) `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` -> Seccomp:2/Seccomp_filters:1; (2) `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` -> mount rc=32; (3) `python3 scripts/fs-isolation-probe.py` -> DEGRADED (exit 0); (4) `swapon --show` -> prints host swap list. The non-runnable 0700-home branch is framed conditionally ('On a mapping-capable host whose $HOME is 0700...') rather than presented as captured output; this host is DEGRADED (denies uid mapping), and the captured-verbatim block is explicitly labeled 'this project's host, captured verbatim'. Tests: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` => '21 passed in 4.11s'; `plugin/test_seccomp.py plugin/test_userns.py -q` => '74 passed, 4 skipped in 3.95s'; LSP diagnostics 0 findings."
+              }
+            ],
+            "summary": "All four criteria pass: \u00a73c now proves the seccomp filter via /proc/self/status (verified verbatim), documents fail-open with the loader path and the errno-32 mount probe, documents the 0700-home degradation with the wrapper warning cross-reference, and the change is confined to docs/quickstart.md with runnable commands executed verbatim."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-023\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md section 3c no longer uses echo as the seccomp verification payload and instead names a command whose captured output distinguishes filter-applied from filter-skipped: docs/quickstart.md:222 now reads `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'`; captured block at lines 240-244 shows `Seccomp:\t2` / `Seccomp_filters:\t1`. Ran verbatim on host: output exactly `Seccomp:\t2` / `Seccomp_filters:\t1` (exit 0). Doc explicitly states 'An `echo`-style payload proves nothing: it runs identically whether or not a filter was installed.'\n  \u2713 section 3c states the fail-open behaviour of the seccomp loader with a pointer to the loader code path and gives a mount-attempt EPERM check expecting errno 32: docs/quickstart.md:246-252 states 'The filter also **fails open** by design \u2014 `standalone/seccomp-loader.py` prints `terminal-jail: seccomp not applied (<reason>); running without seccomp` on stderr and `exec`s the command anyway'. Loader path verified: standalone/seccomp-loader.py:67-68 contains that exact message. Mount EPERM check at lines 258-262: `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` expecting `mount rc=32 \u2014 EPERM`; ran verbatim -> `mount: /mnt: must be superuser to use mount.` + `mount rc=32` (exit 0).\n  \u2713 section 3c documents the 0700-home failure mode of --user --seccomp and cross-references the wrapper degradation warning: docs/quickstart.md:267-274 documents 'On a mapping-capable host whose `$HOME` is `0700` ... `--user --seccomp` cannot read the loader at all and the launch dies with `python3: can't open file '~/.local/lib/terminal-jail/seccomp-loader.py': [Errno 13] Permission denied`; the wrapper prints a loud warning naming that unreadable loader path and keeps the command alive by falling back to the mapping-less launch.' Cross-reference verified against standalone/terminal-jail:560 which emits 'terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch \u2014 falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' ... a home/permission path such as a 0700 or 750 home is not traversable by it ...)'.\n  \u2713 the change is confined to docs/quickstart.md and every command in the rewritten block that can run on this host was executed verbatim, with non-runnable branches explicitly marked instead of fabricated: `git show 9652663 --name-only` and `git show 008cb7c --name-only` both return only `docs/quickstart.md`. Commands executed verbatim on this host: (1) `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` -> Seccomp:2/Seccomp_filters:1; (2) `terminal-jail --user --seccomp sh -c 'mount -t tmpfs none /mnt; echo \"mount rc=$?\"'` -> mount rc=32; (3) `python3 scripts/fs-isolation-probe.py` -> DEGRADED (exit 0); (4) `swapon --show` -> prints host swap list. The non-runnable 0700-home branch is framed conditionally ('On a mapping-capable host whose $HOME is 0700...') rather than presented as captured output; this host is DEGRADED (denies uid mapping), and the captured-verbatim block is explicitly labeled 'this project's host, captured verbatim'. Tests: `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q` => '21 passed in 4.11s'; `plugin/test_seccomp.py plugin/test_userns.py -q` => '74 passed, 4 skipped in 3.95s'; LSP diagnostics 0 findings.\nAll four criteria pass: \u00a73c now proves the seccomp filter via /proc/self/status (verified verbatim), documents fail-open with the loader path and the errno-32 mount probe, documents the 0700-home degradation with the wrapper warning cross-reference, and the change is confined to docs/quickstart.md with runnable commands executed verbatim.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-23T14:34:42.937638",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T14:34:42.961313+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 711,
+        "truncated": false,
+        "source": "git show 2fff412ae597"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 29404,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-023"
+  }
+}

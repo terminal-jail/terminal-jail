@@ -1,0 +1,63 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 47f01f3..7979a66 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1791,3 +1791,12 @@ tasks:
+   status: complete
+   created_at: '2026-10-15T21:01:59.859442+00:00'
+   completed_at: '2026-10-15T21:02:49.581747+00:00'
++- id: REVIEW-TJ-014
++  title: install.sh PATH append pollution
++  criteria:
++  - install.sh gains --no-path flag AND skips the PATH block when install dir is under
++    /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked
++    block; test covers all three skip conditions; README documents the flag
++  status: complete
++  created_at: '2026-10-16T11:36:06.289497+00:00'
++  completed_at: '2026-10-16T12:16:25.557546+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index b3e2b97..6a57613 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -150,3 +150,4 @@
+ {"ts": 1792067919.5832262, "tokens_in": 1816681, "tokens_out": 12682, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792076112.55684, "tokens_in": 12233169, "tokens_out": 25232, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792098482.4608371, "tokens_in": 179400, "tokens_out": 2988, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792153193.2670262, "tokens_in": 188523, "tokens_out": 2317, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index 30bc551..cc3ab18 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -146,3 +146,32 @@
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:re","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:argparse","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/composed-mode-battery.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:importlib.util","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:os","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:pathlib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:subprocess","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:sys","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:time","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:pytest","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_composed_mode.py","to":"pkg:shutil","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}

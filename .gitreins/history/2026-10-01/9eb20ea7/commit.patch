@@ -1,0 +1,71 @@
+commit b558240c9c1bf02c57c31423b160e3c8cc72a91f
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Sep 30 23:35:35 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Sep 30 23:35:35 2026 -0500
+
+    chore(gitreins): fold TJ-GAP-085 reconciliation task + usage state
+    
+    Task created/completed for the verification-only close at HEAD (tier2 COMPLETE 95aca1e1); note: tier1 tests lane timed out again under host load — full-suite independent rerun 1558/7 green is the evidence of record. .gitreins/history/ untracked by convention.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .gitreins/tasks.yaml  | 34 ++++++++++++++++++++++++++++++++++
+ .gitreins/usage.jsonl |  5 +++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index e6052e8..f7f6a6a 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1530,3 +1530,37 @@ tasks:
+   status: complete
+   created_at: '2026-09-29T22:32:34.904408+00:00'
+   completed_at: '2026-09-29T22:35:47.799733+00:00'
++- id: DOC-4
++  title: DOC-4 wave docs task
++  criteria:
++  - docs-only change per board row acceptance criteria
++  status: complete
++  created_at: '2026-09-30T07:06:12.498740+00:00'
++  completed_at: '2026-09-30T07:06:18.618833+00:00'
++- id: DOC-5
++  title: DOC-5 wave docs task
++  criteria:
++  - docs-only change per board row acceptance criteria
++  status: complete
++  created_at: '2026-09-30T07:06:13.430122+00:00'
++  completed_at: '2026-09-30T07:09:08.660928+00:00'
++- id: DOC-7
++  title: audit tooling doc pointer
++  criteria:
++  - gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one
++    hop
++  status: complete
++  created_at: '2026-09-30T13:35:06.402264+00:00'
++  completed_at: '2026-09-30T13:38:48.748078+00:00'
++- id: TJ-GAP-085
++  title: Expose rule resolution provenance in verdict
++  criteria:
++  - A 'layer' field exists on InterceptResult (engine/yaml/user/pack) populated in
++    Decider based on which rule source matched; shipped-mirror-as-user-dir shadowing
++    and same-id downgrade are visible at decision time; JSON bridge serializes layer
++    on engine verdicts and null on error envelopes; tests pin builtin/yaml/user/pack
++    layers including the downgraded-builtin case; .venv/bin/python -m pytest plugin/test_interruptor.py
++    passes with the new assertions.
++  status: complete
++  created_at: '2026-10-01T04:22:01.280173+00:00'
++  completed_at: '2026-10-01T04:26:02.750401+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 1372aef..10d1dad 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -111,3 +111,8 @@
+ {"ts": 1790689451.1087914, "tokens_in": 201531, "tokens_out": 2472, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790697912.6260471, "tokens_in": 184573, "tokens_out": 2568, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790721506.8783965, "tokens_in": 64946, "tokens_out": 1861, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790752507.929366, "tokens_in": 202008, "tokens_out": 2964, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790752594.7774527, "tokens_in": 170764, "tokens_out": 2623, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790775444.5334177, "tokens_in": 281390, "tokens_out": 6257, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790775649.5720503, "tokens_in": 87259, "tokens_out": 1881, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790828961.4639595, "tokens_in": 421360, "tokens_out": 4203, "cache_read": 0, "cache_write": 0, "step": "tier2"}

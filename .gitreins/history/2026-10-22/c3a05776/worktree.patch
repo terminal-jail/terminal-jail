@@ -1,0 +1,43 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index d63b729..c29e4b1 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1865,3 +1865,11 @@ tasks:
+   status: complete
+   created_at: '2026-10-22T06:40:01.586720+00:00'
+   completed_at: '2026-10-22T07:56:52.879501+00:00'
++- id: TJ-DF-048
++  title: Add Landlock tier-ON overhead row to README performance table
++  criteria:
++  - Verify that README.md performance table includes a row for tier-ON wrapper overhead
++    measurement; grep -c 'tier-ON' README.md exits 0 with count >= 1
++  status: complete
++  created_at: '2026-10-22T10:12:52.216713+00:00'
++  completed_at: '2026-10-22T10:13:45.277204+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index f5c072e..6e0c262 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -158,3 +158,4 @@
+ {"ts": 1792654382.069088, "tokens_in": 86152, "tokens_out": 3333, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792655989.3766282, "tokens_in": 123215, "tokens_out": 2870, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792656546.3029006, "tokens_in": 227100, "tokens_out": 3335, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792664218.4645944, "tokens_in": 38786, "tokens_out": 1235, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index 856da36..d3e669c 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -190,3 +190,13 @@
+ {"from":"plugin/test_landlock.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/pidns-capability-probe.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/pidns-capability-probe.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"scripts/pidns-capability-probe.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_host_probes.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}

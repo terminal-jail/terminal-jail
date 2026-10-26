@@ -1,0 +1,125 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index b67ac57..6dbde57 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1572,3 +1572,89 @@ tasks:
+   status: complete
+   created_at: '2026-10-01T07:54:20.392645+00:00'
+   completed_at: '2026-10-01T09:40:55.680364+00:00'
++- id: TJ-DF-041
++  title: Pack replacement path for --rule-pack-file
++  criteria:
++  - 'One-command edit-iterate: --replace-rule-packs replaces an installed pack after
++    validation, backup kept; behavior unchanged without the flag; tested'
++  status: complete
++  created_at: '2026-10-03T12:16:29.892761+00:00'
++  completed_at: '2026-10-03T13:20:22.561903+00:00'
++- id: TJ-DF-042
++  title: Document the warn action runtime contract
++  criteria:
++  - 'Docs state: warn prints stderr, command still runs, no pause/prompt, exit code
++    is the command''s; doc-pinned'
++  status: complete
++  created_at: '2026-10-03T12:16:30.096572+00:00'
++  completed_at: '2026-10-03T13:12:03.129518+00:00'
++- id: TJ-GAP-089
++  title: 'Composed mode: run inside outer containment (container/bunker) with firewall
++    + remaining inner layers instead of refusing'
++  criteria:
++  - '1) Composed mode exists+documented: when outer containment is detected (own PID
++    ns / env marker), run firewall + available inner layers (seccomp, identity scrub,
++    Landlock) instead of refusing. 2) Verdict/report states per-layer what is enforced.
++    3) Failure message names cause + options when ns creation unavailable; probes
++    fail fast. 4) Platform side cross-linked (bunker GAP-179). 5) Composition test
++    battery: tool alone / platform alone / both, recording PID-ns inode, /proc count,
++    /proc/1 identity, seccomp, provenance. 6) No regression: demand-unavailable still
++    refuses by default.'
++  status: complete
++  created_at: '2026-10-03T17:18:07.101170+00:00'
++  completed_at: '2026-10-03T19:14:54.758480+00:00'
++- id: DOC-9
++  title: Composed deployment docs + shared per-layer guarantee matrix
++  criteria:
++  - Repo gains a 'Composed deployment' doc stating the three configurations (tool
++    alone / platform alone / both) with a runnable composed quickstart naming the
++    inner-namespace requirement, the measured per-layer guarantee matrix (layer |
++    enforcer | evidence | what the other layer does not give) appears with identical
++    numbers and cross-links to the bunker counterpart rows, and the matrix numbers
++    are pinned by a check
++  status: complete
++  created_at: '2026-10-03T19:41:38.780514+00:00'
++  completed_at: '2026-10-03T20:31:39.039037+00:00'
++- id: TJ-GAP-088
++  title: Enforceable private-/proc demand + proc_view attribution
++  criteria:
++  - Flag/env fails closed when backend cannot deliver private procfs; verdict states
++    proc_view; parity probe added; docs corrected; full suite green
++  status: complete
++  created_at: '2026-10-03T19:44:44.097386+00:00'
++  completed_at: '2026-10-03T21:45:02.980166+00:00'
++- id: INT-CI-2
++  title: 'Coverage tooling: pytest-cov in dev group, CI coverage job with measured
++    floor'
++  criteria:
++  - pytest-cov present in dev dependency group; documented command produces a coverage
++    number recorded in README with measured baseline; CI runs --cov with --cov-fail-under
++    floor at or below measured baseline; honest caveats published
++  status: complete
++  created_at: '2026-10-04T04:15:36.719507+00:00'
++  completed_at: '2026-10-04T04:19:00.724860+00:00'
++- id: DOC-8
++  title: Per-host capability matrix with measurable probes
++  criteria:
++  - docs/capability-matrix.md exists, linked from README, probes named, numbers agree
++    with composed-deployment doc, pinned by doc tests
++  status: complete
++  created_at: '2026-10-04T05:07:24.046495+00:00'
++  completed_at: '2026-10-04T05:46:48.379893+00:00'
++- id: TJ-GAP-087
++  title: install.sh BASH_SOURCE checkout resolution + containment tier report
++  criteria:
++  - Absolute-path install.sh invocation from a foreign cwd installs from the checkout;
++    installer reports the enforced containment tier via fs-isolation-probe; suite
++    green
++  status: complete
++  created_at: '2026-10-04T05:07:23.591503+00:00'
++  completed_at: '2026-10-04T05:07:29.510958+00:00'
++- id: REVIEW-TJ-007
++  title: Stop tracking .gitreins/history in public repo
++  criteria:
++  - .gitreins/history untracked, .gitignore entry present, files preserved on disk,
++    guard green
++  status: complete
++  created_at: '2026-10-04T10:47:37.182961+00:00'
++  completed_at: '2026-10-04T10:50:25.387886+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 8ba0ac9..ac92397 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -119,3 +119,10 @@
+ {"ts": 1790836894.2606728, "tokens_in": 1544998, "tokens_out": 6631, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790847259.9714558, "tokens_in": 3203618, "tokens_out": 9704, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790851392.3058026, "tokens_in": 3340717, "tokens_out": 10990, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791059985.8399556, "tokens_in": 273856, "tokens_out": 2999, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791064764.2975316, "tokens_in": 1274863, "tokens_out": 6216, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791089017.2737417, "tokens_in": 257020, "tokens_out": 2198, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791091256.3078666, "tokens_in": 3063294, "tokens_out": 9523, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791092807.7434201, "tokens_in": 8917, "tokens_out": 274, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791092934.1090622, "tokens_in": 100651, "tokens_out": 1501, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791111466.497778, "tokens_in": 270656, "tokens_out": 3986, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..781a72c 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,11 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_capability_matrix_doc.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_capability_matrix_doc.py","to":"pkg:pathlib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_capability_matrix_doc.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_capability_matrix_doc.py","to":"pkg:re","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}

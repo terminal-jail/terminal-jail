@@ -1,0 +1,117 @@
+{
+  "task_id": "TJ-GAP-056",
+  "task_title": "Backend parity battery: bwrap vs unshare containment evidence (private /proc, orphan teardown, escape replay, DEGRADED fail-closed)",
+  "task_criteria": [
+    "scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier, and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap, and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the measured table with this host's real numbers plus an explicit known-limits section; both backends fail closed with exit 2 and the command not run when the namespace probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green with no new failures beyond the pre-change baseline and uvx ruff check clean"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "6528b26c1851b33cfc8333fed80e45dcda2010c0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T054811.029802Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n1:58AM INF scanned ~5731957 bytes (5.73 MB) in 451ms\n1:58AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 150 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T054811.029802Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1364 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.....                                                                    [ 35%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 77%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 87%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 91%]\nplugin/test_rules_drift_probe.py .................                       [ 92%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 97%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1357 passed, 7 skipped in 38.40s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T054811.029802Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier, and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap, and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the measured table with this host's real numbers plus an explicit known-limits section; both backends fail closed with exit 2 and the command not run when the namespace probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green with no new failures beyond the pre-change baseline and uvx ruff check clean: Battery: `.venv/bin/python scripts/backend-parity-battery.py` on karaHermes-mde-7840hs exited 0 and printed the per-cell table \u2014 cell 1 private /proc bwrap SAME (4 vs host 1378), cell 2 private /proc unshare KNOWN-LIMIT (1382 vs 1378), cell 3 orphan teardown bwrap SAME (payload gone in 20 ms), cell 4 orphan unshare SAME, cell 5 escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap SAME (rc=0, tail '221 passed in 1.21s'), cell 5b live argv/exit slice, cell 6 fail-closed bwrap+unshare FAIL-CLOSED-PROVEN, cell 7 host classification. docs/backend-parity.md:1-152 carries the verbatim measured table with this host's real numbers (kernel 7.0.0-30-generic, bwrap 0.11.1, 4 vs ~1340) plus an explicit '## Known limits' section (a)-(d). plugin/test_backend_parity.py: 9 passed in 5.32s \u2014 test_fail_closed_bwrap_probe_fails_leaves_marker_absent and test_fail_closed_unshare_probe_fails_leaves_marker_absent assert returncode==2, 'command not run' in stderr, stdout=='', and marker absent; HOST-DEGRADED-BWRAP/HOST-DEGRADED-PIDNS skip markers at lines 274,291,365,376. Manual reproduction: bwrap stub -> EXIT=2, marker NO; unshare stub -> EXIT=2, marker NO. specs/cli.md:256 diff shows the placeholder 'a bwrap-specific containment battery is TJ-GAP-056' replaced with a pointer to scripts/backend-parity-battery.py + docs/backend-parity.md. Full suite: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 37.49s' (green, no failures). `uvx ruff check` -> 'All checks passed!' EXIT=0 (also clean on the two changed files).\nAll required artifacts ship and verify: the battery runs and exits 0 with the full parity table, docs carry the measured numbers plus known limits, both backends fail closed (exit 2, command not run) under test, specs/cli.md points at the battery, and the suite (1357 passed, 7 skipped) plus ruff are green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier, and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap, and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the measured table with this host's real numbers plus an explicit known-limits section; both backends fail closed with exit 2 and the command not run when the namespace probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green with no new failures beyond the pre-change baseline and uvx ruff check clean: Battery: `.venv/bin/python scripts/backend-parity-battery.py` on karaHermes-mde-7840hs exited 0 and printed the per-cell table \u2014 cell 1 private /proc bwrap SAME (4 vs host 1378), cell 2 private /proc unshare KNOWN-LIMIT (1382 vs 1378), cell 3 orphan teardown bwrap SAME (payload gone in 20 ms), cell 4 orphan unshare SAME, cell 5 escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap SAME (rc=0, tail '221 passed in 1.21s'), cell 5b live argv/exit slice, cell 6 fail-closed bwrap+unshare FAIL-CLOSED-PROVEN, cell 7 host classification. docs/backend-parity.md:1-152 carries the verbatim measured table with this host's real numbers (kernel 7.0.0-30-generic, bwrap 0.11.1, 4 vs ~1340) plus an explicit '## Known limits' section (a)-(d). plugin/test_backend_parity.py: 9 passed in 5.32s \u2014 test_fail_closed_bwrap_probe_fails_leaves_marker_absent and test_fail_closed_unshare_probe_fails_leaves_marker_absent assert returncode==2, 'command not run' in stderr, stdout=='', and marker absent; HOST-DEGRADED-BWRAP/HOST-DEGRADED-PIDNS skip markers at lines 274,291,365,376. Manual reproduction: bwrap stub -> EXIT=2, marker NO; unshare stub -> EXIT=2, marker NO. specs/cli.md:256 diff shows the placeholder 'a bwrap-specific containment battery is TJ-GAP-056' replaced with a pointer to scripts/backend-parity-battery.py + docs/backend-parity.md. Full suite: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 37.49s' (green, no failures). `uvx ruff check` -> 'All checks passed!' EXIT=0 (also clean on the two changed files).\nAll required artifacts ship and verify: the battery runs and exits 0 with the full parity table, docs carry the measured numbers plus known limits, both backends fail closed (exit 2, command not run) under test, specs/cli.md points at the battery, and the suite (1357 passed, 7 skipped) plus ruff are green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier, and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap, and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the measured table with this host's real numbers plus an explicit known-limits section; both backends fail closed with exit 2 and the command not run when the namespace probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green with no new failures beyond the pre-change baseline and uvx ruff check clean",
+                "status": "PASS",
+                "detail": "Battery: `.venv/bin/python scripts/backend-parity-battery.py` on karaHermes-mde-7840hs exited 0 and printed the per-cell table \u2014 cell 1 private /proc bwrap SAME (4 vs host 1378), cell 2 private /proc unshare KNOWN-LIMIT (1382 vs 1378), cell 3 orphan teardown bwrap SAME (payload gone in 20 ms), cell 4 orphan unshare SAME, cell 5 escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap SAME (rc=0, tail '221 passed in 1.21s'), cell 5b live argv/exit slice, cell 6 fail-closed bwrap+unshare FAIL-CLOSED-PROVEN, cell 7 host classification. docs/backend-parity.md:1-152 carries the verbatim measured table with this host's real numbers (kernel 7.0.0-30-generic, bwrap 0.11.1, 4 vs ~1340) plus an explicit '## Known limits' section (a)-(d). plugin/test_backend_parity.py: 9 passed in 5.32s \u2014 test_fail_closed_bwrap_probe_fails_leaves_marker_absent and test_fail_closed_unshare_probe_fails_leaves_marker_absent assert returncode==2, 'command not run' in stderr, stdout=='', and marker absent; HOST-DEGRADED-BWRAP/HOST-DEGRADED-PIDNS skip markers at lines 274,291,365,376. Manual reproduction: bwrap stub -> EXIT=2, marker NO; unshare stub -> EXIT=2, marker NO. specs/cli.md:256 diff shows the placeholder 'a bwrap-specific containment battery is TJ-GAP-056' replaced with a pointer to scripts/backend-parity-battery.py + docs/backend-parity.md. Full suite: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 37.49s' (green, no failures). `uvx ruff check` -> 'All checks passed!' EXIT=0 (also clean on the two changed files)."
+              }
+            ],
+            "summary": "All required artifacts ship and verify: the battery runs and exits 0 with the full parity table, docs carry the measured numbers plus known limits, both backends fail closed (exit 2, command not run) under test, specs/cli.md points at the battery, and the suite (1357 passed, 7 skipped) plus ruff are green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-056\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 scripts/backend-parity-battery.py exists, runs on kara-lair, exits 0 as a classifier, and emits a per-cell parity table covering private-/proc PID visibility, --die-with-parent orphan teardown, the escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap, and the DEGRADED-host fail-closed contract; docs/backend-parity.md carries the measured table with this host's real numbers plus an explicit known-limits section; both backends fail closed with exit 2 and the command not run when the namespace probe fails, asserted by a test in plugin/test_backend_parity.py (host-conditional cells skip with a grep-able HOST-DEGRADED marker); specs/cli.md backend section points at the shipped battery instead of the TJ-GAP-056 placeholder; suite green with no new failures beyond the pre-change baseline and uvx ruff check clean: Battery: `.venv/bin/python scripts/backend-parity-battery.py` on karaHermes-mde-7840hs exited 0 and printed the per-cell table \u2014 cell 1 private /proc bwrap SAME (4 vs host 1378), cell 2 private /proc unshare KNOWN-LIMIT (1382 vs 1378), cell 3 orphan teardown bwrap SAME (payload gone in 20 ms), cell 4 orphan unshare SAME, cell 5 escape-wave replay under TERMINAL_JAIL_JAIL_BACKEND=bwrap SAME (rc=0, tail '221 passed in 1.21s'), cell 5b live argv/exit slice, cell 6 fail-closed bwrap+unshare FAIL-CLOSED-PROVEN, cell 7 host classification. docs/backend-parity.md:1-152 carries the verbatim measured table with this host's real numbers (kernel 7.0.0-30-generic, bwrap 0.11.1, 4 vs ~1340) plus an explicit '## Known limits' section (a)-(d). plugin/test_backend_parity.py: 9 passed in 5.32s \u2014 test_fail_closed_bwrap_probe_fails_leaves_marker_absent and test_fail_closed_unshare_probe_fails_leaves_marker_absent assert returncode==2, 'command not run' in stderr, stdout=='', and marker absent; HOST-DEGRADED-BWRAP/HOST-DEGRADED-PIDNS skip markers at lines 274,291,365,376. Manual reproduction: bwrap stub -> EXIT=2, marker NO; unshare stub -> EXIT=2, marker NO. specs/cli.md:256 diff shows the placeholder 'a bwrap-specific containment battery is TJ-GAP-056' replaced with a pointer to scripts/backend-parity-battery.py + docs/backend-parity.md. Full suite: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 37.49s' (green, no failures). `uvx ruff check` -> 'All checks passed!' EXIT=0 (also clean on the two changed files).\nAll required artifacts ship and verify: the battery runs and exits 0 with the full parity table, docs carry the measured numbers plus known limits, both backends fail closed (exit 2, command not run) under test, specs/cli.md points at the battery, and the suite (1357 passed, 7 skipped) plus ruff are green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-21T07:05:19.642834",
+  "evidence": {
+    "collected_at": "2026-09-21T07:05:19.655848+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 53434,
+        "truncated": false,
+        "source": "git show 6528b26c1851"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 15886,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-056"
+  }
+}

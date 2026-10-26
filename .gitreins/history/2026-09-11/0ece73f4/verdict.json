@@ -1,0 +1,95 @@
+{
+  "task_id": "CLN-1",
+  "task_title": "Repo hygiene: clean up project folder structure",
+  "task_criteria": [
+    "A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs",
+    "Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move",
+    "Full test suite green after the change: .venv/bin/python -m pytest -q exits 0 with 0 failed (baseline 314 passed / 4 skipped)",
+    "Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision)"
+  ],
+  "passed": false,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m8:37PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.26s\u001b[0m\n\u001b[90m8:37PM\u001b[0m \u001b[32m\n  \u2717 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m8:37PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.26s\u001b[0m\n\u001b[90m8:37PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: mock-3.15.1, anyio-4.14.2\ncollected 320 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 20%]\n........................F\n\n=================================== F",
+          "error": "",
+          "data": {
+            "exit_code": 1
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 body states the inventory explicitly: 'every tracked top-level entry compared against AGENTS.md, README.md and docs/. All 15 root files plus plugin/, standalone/, systemd/, specs/, docs/, scripts/, .github/ and skills/ are documented components.' git show --name-status 13a14a4 => M README.md, D e2e-output/report.md, D e2e-output/tasks.md. e2e-output/ removed via git rm: `git ls-files e2e-output` returns empty and the directory is absent from the working tree. README.md:281-291 documents the e2e-output retirement decision. Root listing (15 files + documented dirs) is fully accounted for in the README 'Repository layout' block at README.md:251-268.\n  \u2713 Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move: Commit 13a14a4 body contains a 'Grep evidence, captured BEFORE any removal' section listing three commands and their results. Independently re-verified at HEAD: `grep -rn \"e2e-output\" plugin/` => no output; `grep -n \"e2e-output\" .github/workflows/ci.yml` => no output; `grep -n \"e2e-output\" install.sh` => no output; `grep -rn \"e2e-output\" docs/` => no output; `grep -n \"e2e-output\" plugin/test_*.py` => no output. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and README.md:281-286 (the new documentation text itself). README.md:281-291 also records the same grep evidence inline.\n  \u2717 Full test suite green after the change: .venv/bin/python -m pytest -q exits 0 with 0 failed (baseline 314 passed / 4 skipped): Ran the exact criterion command: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped in 14.81s', EXIT=1. Criterion requires exit 0 with 0 failed; it exits 1 with 12 failed. The commit's 'pre-existing host-rule drift' claim is factually verified (pristine worktree at 13a14a4~1/70befdb yields an identical 12-failure set; diff of FAILED lines pristine vs HEAD => IDENTICAL FAILURE SETS), and with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent the suite is green (307 passed, 13 skipped, EXIT=0) \u2014 but the criterion names the bare command with no env vars, and that command is red. The stated baseline is also not reproduced: baseline 314 passed / 4 skipped (confirmed in .coding-hermes/board/events.jsonl:240, tick 249 'suite': '314 passed, 4 skipped') vs best achievable 307 passed / 13 skipped. CI (.github/workflows/ci.yml) runs a different command (`pytest plugin/ -v -m \"not integration\"`) on ubuntu-latest, so CI greenness does not evidence this criterion.\n  \u2713 Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision): Committed at HEAD (verified via `git show HEAD:README.md`, not just working tree): README.md:250 '## Repository layout' with the canonical tracked tree at lines 251-268 covering plugin/, standalone/, systemd/, scripts/, specs/, docs/, skills/, .github/, .vfs/, .gitreins/, .coding-hermes/, .memory-bank/ and the 15 root files. README.md:270-279 '**Intentional exceptions**' table contains all five required entries: .vfs/ (line 275), .gitreins/ (276), .coding-hermes/ (277), .memory-bank/ (278), skills/terminal-jail-usage/ (279). README.md:281-291 '**Retired: `e2e-output/`**' records the e2e-output decision with dates, rationale, and grep evidence. AGENTS.md additionally documents repo shape (plugin/, standalone/, systemd/, specs/, .memory-bank/, .coding-hermes/board/tasks.jsonl).\nCriteria 1, 2, and 4 pass with concrete evidence (inventory + git rm of e2e-output, recorded and independently re-verified grep evidence, and a committed README layout section covering all five exceptions plus the e2e-output decision), but criterion 3 fails because the exact required command `.venv/bin/python -m pytest -q` exits 1 with 12 failed / 295 passed / 13 skipped rather than exit 0 with 0 failed, and the stated 314 passed / 4 skipped baseline is not reproduced.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 body states the inventory explicitly: 'every tracked top-level entry compared against AGENTS.md, README.md and docs/. All 15 root files plus plugin/, standalone/, systemd/, specs/, docs/",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs",
+                "status": "PASS",
+                "detail": "Commit 13a14a4 body states the inventory explicitly: 'every tracked top-level entry compared against AGENTS.md, README.md and docs/. All 15 root files plus plugin/, standalone/, systemd/, specs/, docs/, scripts/, .github/ and skills/ are documented components.' git show --name-status 13a14a4 => M README.md, D e2e-output/report.md, D e2e-output/tasks.md. e2e-output/ removed via git rm: `git ls-files e2e-output` returns empty and the directory is absent from the working tree. README.md:281-291 documents the e2e-output retirement decision. Root listing (15 files + documented dirs) is fully accounted for in the README 'Repository layout' block at README.md:251-268."
+              },
+              {
+                "criterion": "Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move",
+                "status": "PASS",
+                "detail": "Commit 13a14a4 body contains a 'Grep evidence, captured BEFORE any removal' section listing three commands and their results. Independently re-verified at HEAD: `grep -rn \"e2e-output\" plugin/` => no output; `grep -n \"e2e-output\" .github/workflows/ci.yml` => no output; `grep -n \"e2e-output\" install.sh` => no output; `grep -rn \"e2e-output\" docs/` => no output; `grep -n \"e2e-output\" plugin/test_*.py` => no output. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and README.md:281-286 (the new documentation text itself). README.md:281-291 also records the same grep evidence inline."
+              },
+              {
+                "criterion": "Full test suite green after the change: .venv/bin/python -m pytest -q exits 0 with 0 failed (baseline 314 passed / 4 skipped)",
+                "status": "FAIL",
+                "detail": "Ran the exact criterion command: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped in 14.81s', EXIT=1. Criterion requires exit 0 with 0 failed; it exits 1 with 12 failed. The commit's 'pre-existing host-rule drift' claim is factually verified (pristine worktree at 13a14a4~1/70befdb yields an identical 12-failure set; diff of FAILED lines pristine vs HEAD => IDENTICAL FAILURE SETS), and with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent the suite is green (307 passed, 13 skipped, EXIT=0) \u2014 but the criterion names the bare command with no env vars, and that command is red. The stated baseline is also not reproduced: baseline 314 passed / 4 skipped (confirmed in .coding-hermes/board/events.jsonl:240, tick 249 'suite': '314 passed, 4 skipped') vs best achievable 307 passed / 13 skipped. CI (.github/workflows/ci.yml) runs a different command (`pytest plugin/ -v -m \"not integration\"`) on ubuntu-latest, so CI greenness does not evidence this criterion."
+              },
+              {
+                "criterion": "Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision)",
+                "status": "PASS",
+                "detail": "Committed at HEAD (verified via `git show HEAD:README.md`, not just working tree): README.md:250 '## Repository layout' with the canonical tracked tree at lines 251-268 covering plugin/, standalone/, systemd/, scripts/, specs/, docs/, skills/, .github/, .vfs/, .gitreins/, .coding-hermes/, .memory-bank/ and the 15 root files. README.md:270-279 '**Intentional exceptions**' table contains all five required entries: .vfs/ (line 275), .gitreins/ (276), .coding-hermes/ (277), .memory-bank/ (278), skills/terminal-jail-usage/ (279). README.md:281-291 '**Retired: `e2e-output/`**' records the e2e-output decision with dates, rationale, and grep evidence. AGENTS.md additionally documents repo shape (plugin/, standalone/, systemd/, specs/, .memory-bank/, .coding-hermes/board/tasks.jsonl)."
+              }
+            ],
+            "summary": "Criteria 1, 2, and 4 pass with concrete evidence (inventory + git rm of e2e-output, recorded and independently re-verified grep evidence, and a committed README layout section covering all five exceptions plus the e2e-output decision), but criterion 3 fails because the exact required command `.venv/bin/python -m pytest -q` exits 1 with 12 failed / 295 passed / 13 skipped rather than exit 0 with 0 failed, and the stated 314 passed / 4 skipped baseline is not reproduced."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: CLN-1\n\nStage tier1: FAIL\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m8:37PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~3807605 bytes (3.81 MB) in 2.26s\u001b[0m\n\u001b[90m8:37PM\u001b[0m \u001b[32m\n  \u2717 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 A tracked-file inventory was made comparing root files/dirs against the documented layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate: e2e-output/) is either removed, moved with git mv, or explicitly documented as an intentional exception in repo docs: Commit 13a14a4 body states the inventory explicitly: 'every tracked top-level entry compared against AGENTS.md, README.md and docs/. All 15 root files plus plugin/, standalone/, systemd/, specs/, docs/, scripts/, .github/ and skills/ are documented components.' git show --name-status 13a14a4 => M README.md, D e2e-output/report.md, D e2e-output/tasks.md. e2e-output/ removed via git rm: `git ls-files e2e-output` returns empty and the directory is absent from the working tree. README.md:281-291 documents the e2e-output retirement decision. Root listing (15 files + documented dirs) is fully accounted for in the README 'Repository layout' block at README.md:251-268.\n  \u2713 Commit message or docs record grep evidence that every removed/moved path is not referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh, or docs before the removal/move: Commit 13a14a4 body contains a 'Grep evidence, captured BEFORE any removal' section listing three commands and their results. Independently re-verified at HEAD: `grep -rn \"e2e-output\" plugin/` => no output; `grep -n \"e2e-output\" .github/workflows/ci.yml` => no output; `grep -n \"e2e-output\" install.sh` => no output; `grep -rn \"e2e-output\" docs/` => no output; `grep -n \"e2e-output\" plugin/test_*.py` => no output. `git grep -n \"e2e-output\"` matches only .coding-hermes/board/events.jsonl (board audit history) and README.md:281-286 (the new documentation text itself). README.md:281-291 also records the same grep evidence inline.\n  \u2717 Full test suite green after the change: .venv/bin/python -m pytest -q exits 0 with 0 failed (baseline 314 passed / 4 skipped): Ran the exact criterion command: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest -q` => '12 failed, 295 passed, 13 skipped in 14.81s', EXIT=1. Criterion requires exit 0 with 0 failed; it exits 1 with 12 failed. The commit's 'pre-existing host-rule drift' claim is factually verified (pristine worktree at 13a14a4~1/70befdb yields an identical 12-failure set; diff of FAILED lines pristine vs HEAD => IDENTICAL FAILURE SETS), and with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent the suite is green (307 passed, 13 skipped, EXIT=0) \u2014 but the criterion names the bare command with no env vars, and that command is red. The stated baseline is also not reproduced: baseline 314 passed / 4 skipped (confirmed in .coding-hermes/board/events.jsonl:240, tick 249 'suite': '314 passed, 4 skipped') vs best achievable 307 passed / 13 skipped. CI (.github/workflows/ci.yml) runs a different command (`pytest plugin/ -v -m \"not integration\"`) on ubuntu-latest, so CI greenness does not evidence this criterion.\n  \u2713 Repo docs (README.md or docs/) record the canonical layout including intentional exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the e2e-output decision): Committed at HEAD (verified via `git show HEAD:README.md`, not just working tree): README.md:250 '## Repository layout' with the canonical tracked tree at lines 251-268 covering plugin/, standalone/, systemd/, scripts/, specs/, docs/, skills/, .github/, .vfs/, .gitreins/, .coding-hermes/, .memory-bank/ and the 15 root files. README.md:270-279 '**Intentional exceptions**' table contains all five required entries: .vfs/ (line 275), .gitreins/ (276), .coding-hermes/ (277), .memory-bank/ (278), skills/terminal-jail-usage/ (279). README.md:281-291 '**Retired: `e2e-output/`**' records the e2e-output decision with dates, rationale, and grep evidence. AGENTS.md additionally documents repo shape (plugin/, standalone/, systemd/, specs/, .memory-bank/, .coding-hermes/board/tasks.jsonl).\nCriteria 1, 2, and 4 pass with concrete evidence (inventory + git rm of e2e-output, recorded and independently re-verified grep evidence, and a committed README layout section covering all five exceptions plus the e2e-output decision), but criterion 3 fails because the exact required command `.venv/bin/python -m pytest -q` exits 1 with 12 failed / 295 passed / 13 skipped rather than exit 0 with 0 failed, and the stated 314 passed / 4 skipped baseline is not reproduced.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-11T01:41:12.697908"
+}

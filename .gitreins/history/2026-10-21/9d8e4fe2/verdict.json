@@ -1,0 +1,120 @@
+{
+  "task_id": "INT-CI-011",
+  "task_title": "Fix CI test failures: broaden error message assertions for cross-environment compatibility",
+  "task_criteria": [
+    "CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific error messages ('cannot read', 'not found') instead of accepting the union of all valid degradation messages (also 'not reachable'). Fix: use the same multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition in the two failing tests."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1ce42004b1bd03884f4b222843bfdb88edf98b49",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T163206.025394Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": false,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n11:36AM INF scanned ~6597869 bytes (6.60 MB) in 882ms\n11:36AM WRN leaks found: 1\nsecrets: gitleaks: findings found (exit 1)\nsecrets: builtin cross-check: Scanned 235 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T163206.025394Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2058 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2043 passed, 15 skipped in 175.63s (0:02:55) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T163206.025394Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific error messages ('cannot read', 'not found') instead of accepting the union of all valid degradation messages (also 'not reachable'). Fix: use the same multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition in the two failing tests.: Commit 1ce4200 broadens exactly the two CI-failing assertions to the multi-needle any() pattern. (1) plugin/test_tjdf046_egress_allow_path.py:502-527 (test_unreadable_loader_degrades_loudly): `assert \"cannot read\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"cannot read\", \"not readable\", \"not reachable\", \"cannot be inspected\", \"lacks o+x\"))` \u2014 the identical needle set used by test_modify_path_unreadable_loader_degrades_before_composition at lines 488-499. (2) plugin/test_tjdf047_plain_allow_degrade.py:225-248 (test_missing_loader_degrades_on_the_plain_allow_launch): `assert \"not found\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"not found\", \"not reachable\", \"not readable\", \"missing\"))`. These are precisely the two tests the board names as the CI failures (.coding-hermes/board/tasks.jsonl:291 foreman_note, run 39574929653: 'test_unreadable_loader_degrades_loudly (asserts cannot read in stderr)' and 'test_missing_loader_degrades_on_the_plain_allow_launch (asserts not found in stderr)', with actual CI stderr 'landlock-net-loader.py is not reachable by the launch payload' \u2014 now accepted by both patterns). The 'not reachable' wording is real: plugin/terminal_jail/interruptor/landlock_net.py:765 and landlock.py:1312 emit it. Test evidence: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x --tb=short -q` -> exit_code 0, '38 passed, 1 skipped in 10.47s'; focused run of the two changed tests -> exit_code 0, '2 passed in 0.46s'.\nBoth CI-failing assertions were converted to the same multi-needle any() pattern used by test_modify_path_unreadable_loader_degrades_before_composition, accepting 'not reachable' and the other valid degradation messages, and the affected suites pass locally (38 passed, 1 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific error messages ('cannot read', 'not found') instead of accepting the union of all valid degradation messages (also 'not reachable'). Fix: use the same multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition in the two failing tests.: Commit 1ce4200 broadens exactly the two CI-failing assertions to the multi-needle any() pattern. (1) plugin/test_tjdf046_egress_allow_path.py:502-527 (test_unreadable_loader_degrades_loudly): `assert \"cannot read\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"cannot read\", \"not readable\", \"not reachable\", \"cannot be inspected\", \"lacks o+x\"))` \u2014 the identical needle set used by test_modify_path_unreadable_loader_degrades_before_composition at lines 488-499. (2) plugin/test_tjdf047_plain_allow_degrade.py:225-248 (test_missing_loader_degrades_on_the_plain_allow_launch): `assert \"not found\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"not found\", \"not reachable\", \"not readable\", \"missing\"))`. These are precisely the two tests the board names as the CI failures (.coding-hermes/board/tasks.jsonl:291 foreman_note, run 39574929653: 'test_unreadable_loader_degrades_loudly (asserts cannot read in stderr)' and 'test_missing_loader_degrades_on_the_plain_allow_launch (asserts not found in stderr)', with actual CI stderr 'landlock-net-loader.py is not reachable by the launch payload' \u2014 now accepted by both patterns). The 'not reachable' wording is real: plugin/terminal_jail/interruptor/landlock_net.py:765 and landlock.py:1312 emit it. Test evidence: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x --tb=short -q` -> exit_code 0, '38 passed, 1 skipped in 10.47s'; focused run of the two changed tests -> exit_code 0, '2 passed in 0.46s'.\nBoth CI-failing assertions were converted to the same multi-needle any() pattern used by test_modify_path_unreadable_loader_degrades_before_composition, accepting 'not reachable' and the other valid degradation messages, and the affected suites pass locally (38 passed, 1 skipped).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific error messages ('cannot read', 'not found') instead of accepting the union of all valid degradation messages (also 'not reachable'). Fix: use the same multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition in the two failing tests.",
+                "status": "PASS",
+                "detail": "Commit 1ce4200 broadens exactly the two CI-failing assertions to the multi-needle any() pattern. (1) plugin/test_tjdf046_egress_allow_path.py:502-527 (test_unreadable_loader_degrades_loudly): `assert \"cannot read\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"cannot read\", \"not readable\", \"not reachable\", \"cannot be inspected\", \"lacks o+x\"))` \u2014 the identical needle set used by test_modify_path_unreadable_loader_degrades_before_composition at lines 488-499. (2) plugin/test_tjdf047_plain_allow_degrade.py:225-248 (test_missing_loader_degrades_on_the_plain_allow_launch): `assert \"not found\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"not found\", \"not reachable\", \"not readable\", \"missing\"))`. These are precisely the two tests the board names as the CI failures (.coding-hermes/board/tasks.jsonl:291 foreman_note, run 39574929653: 'test_unreadable_loader_degrades_loudly (asserts cannot read in stderr)' and 'test_missing_loader_degrades_on_the_plain_allow_launch (asserts not found in stderr)', with actual CI stderr 'landlock-net-loader.py is not reachable by the launch payload' \u2014 now accepted by both patterns). The 'not reachable' wording is real: plugin/terminal_jail/interruptor/landlock_net.py:765 and landlock.py:1312 emit it. Test evidence: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x --tb=short -q` -> exit_code 0, '38 passed, 1 skipped in 10.47s'; focused run of the two changed tests -> exit_code 0, '2 passed in 0.46s'.",
+                "resolution_probability": 0.22
+              }
+            ],
+            "summary": "Both CI-failing assertions were converted to the same multi-needle any() pattern used by test_modify_path_unreadable_loader_degrades_before_composition, accepting 'not reachable' and the other valid degradation messages, and the affected suites pass locally (38 passed, 1 skipped)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-011\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific error messages ('cannot read', 'not found') instead of accepting the union of all valid degradation messages (also 'not reachable'). Fix: use the same multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition in the two failing tests.: Commit 1ce4200 broadens exactly the two CI-failing assertions to the multi-needle any() pattern. (1) plugin/test_tjdf046_egress_allow_path.py:502-527 (test_unreadable_loader_degrades_loudly): `assert \"cannot read\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"cannot read\", \"not readable\", \"not reachable\", \"cannot be inspected\", \"lacks o+x\"))` \u2014 the identical needle set used by test_modify_path_unreadable_loader_degrades_before_composition at lines 488-499. (2) plugin/test_tjdf047_plain_allow_degrade.py:225-248 (test_missing_loader_degrades_on_the_plain_allow_launch): `assert \"not found\" in result.stderr` replaced by `assert any(needle in result.stderr for needle in (\"not found\", \"not reachable\", \"not readable\", \"missing\"))`. These are precisely the two tests the board names as the CI failures (.coding-hermes/board/tasks.jsonl:291 foreman_note, run 39574929653: 'test_unreadable_loader_degrades_loudly (asserts cannot read in stderr)' and 'test_missing_loader_degrades_on_the_plain_allow_launch (asserts not found in stderr)', with actual CI stderr 'landlock-net-loader.py is not reachable by the launch payload' \u2014 now accepted by both patterns). The 'not reachable' wording is real: plugin/terminal_jail/interruptor/landlock_net.py:765 and landlock.py:1312 emit it. Test evidence: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x --tb=short -q` -> exit_code 0, '38 passed, 1 skipped in 10.47s'; focused run of the two changed tests -> exit_code 0, '2 passed in 0.46s'.\nBoth CI-failing assertions were converted to the same multi-needle any() pattern used by test_modify_path_unreadable_loader_degrades_before_composition, accepting 'not reachable' and the other valid degradation messages, and the affected suites pass locally (38 passed, 1 skipped).\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-21T16:40:19.265859",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-21T16:40:19.285476+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 4354,
+        "truncated": false,
+        "source": "git show 1ce42004b1bd"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 7967,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-011"
+  }
+}

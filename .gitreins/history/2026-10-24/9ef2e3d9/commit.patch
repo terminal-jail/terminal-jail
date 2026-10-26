@@ -1,0 +1,101 @@
+commit 13eda40c0c598a61192cc0636233273e620dcb76
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Oct 23 20:27:50 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Oct 23 20:33:48 2026 -0500
+
+    fix(wrapper): single-line default for fs-isolation degraded warning (TERMINAL_JAIL_VERBOSE_WARN knob)
+---
+ plugin/test_standalone_cli.py | 24 ++++++++++++++++++++++++
+ standalone/terminal-jail      | 29 ++++++++++++++++++++++++++++-
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+diff --git a/plugin/test_standalone_cli.py b/plugin/test_standalone_cli.py
+index cc227b2..fd3ab03 100644
+--- a/plugin/test_standalone_cli.py
++++ b/plugin/test_standalone_cli.py
+@@ -210,6 +210,30 @@ def test_missing_uname_on_linux_host(cli_path: Path, tmp_path: Path) -> None:
+         os.environ["PATH"] = orig_path
+ 
+ 
++# ── Filesystem-isolation warning verbosity ────────────────────────────────
++
++
++@pytest.mark.standalone_cli
++def test_fs_isolation_warning_verbosity(cli_path: Path) -> None:
++    """The degraded auto-sandbox warning is concise by default and verbose on request."""
++    default = _run_cli(cli_path, "--user", "true")
++    verbose = _run_cli(
++        cli_path,
++        "--user",
++        "true",
++        extra_env={"TERMINAL_JAIL_VERBOSE_WARN": "1"},
++    )
++    default_stderr = default.stderr.decode("utf-8", errors="replace")
++    verbose_stderr = verbose.stderr.decode("utf-8", errors="replace")
++    if "filesystem isolation degraded" not in default_stderr:
++        pytest.skip("HOST-NOT-DEGRADED-FSISO: mapped launch warning did not fire")
++    default_lines = default_stderr.splitlines()
++    verbose_lines = verbose_stderr.splitlines()
++    assert len(default_lines) < 10, default.stderr
++    assert len(verbose_lines) >= 10, verbose.stderr
++    assert "no filesystem isolation" in verbose_stderr
++
++
+ # ── Command execution (host-constrained: unshare --mount-proc may fail) ─────
+ 
+ 
+diff --git a/standalone/terminal-jail b/standalone/terminal-jail
+index 74fc641..51e090e 100755
+--- a/standalone/terminal-jail
++++ b/standalone/terminal-jail
+@@ -337,6 +337,8 @@ fi
+ 
+ # Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor,
+ # --private-proc (any order, all before command).
++TERMINAL_JAIL_VERBOSE_WARN="${TERMINAL_JAIL_VERBOSE_WARN:-0}"
++export TERMINAL_JAIL_VERBOSE_WARN
+ while [ $# -gt 0 ]; do
+     case "$1" in
+         --user)
+@@ -647,6 +649,31 @@ fi
+ 
+ # --- launch -------------------------------------------------------------------
+ 
++# The detailed degradation report remains available for operators who need
++# the diagnosis. Keep the default path to one line because this warning is
++# emitted by every auto-sandbox launch on hosts with the AppArmor restriction.
++_tj_fs_isolation_warning() {
++    local warning
++    warning="terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)"
++    if [ "${TERMINAL_JAIL_VERBOSE_WARN:-0}" = "1" ]; then
++        # Preserve the complete warning text for verbose operators.
++        printf '%s\n' "$warning" >&2
++        printf '%s\n' \
++            "terminal-jail: fallback is the mapping-less PID namespace" \
++            "terminal-jail: identity environment scrubbing remains active" \
++            "terminal-jail: filesystem permissions are not isolated" \
++            "terminal-jail: the mapped launch was rejected by the host policy" \
++            "terminal-jail: the AppArmor profile blocks setuid in user namespaces" \
++            "terminal-jail: PID namespace containment remains enabled" \
++            "terminal-jail: the fallback does not claim DAC isolation" \
++            "terminal-jail: see scripts/fs-isolation-probe.py for classification" \
++            "terminal-jail: use --user for explicit hard-isolation behavior" \
++            "terminal-jail: set TERMINAL_JAIL_UID_MAP=0 for an explicit fallback" >&2
++    else
++        echo "terminal-jail: filesystem isolation degraded (AppArmor); set TERMINAL_JAIL_VERBOSE_WARN=1 for details" >&2
++    fi
++}
++
+ # Read the subordinate-ID range start for a user from /etc/subuid or
+ # /etc/subgid (first matching line). Prints 100000 when the file is absent,
+ # unreadable, or has no entry for the user. The mapped launch is only ever
+@@ -760,7 +787,7 @@ if [ "$USE_USER_NS" -eq 1 ]; then
+                 if [ "$_tj_read_failed" -eq 1 ]; then
+                     echo "terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch — falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; PID-namespace containment and the seccomp filter still apply; remedy: place the loader under a traversable home, or set TERMINAL_JAIL_UID_MAP=0 to select this mode deliberately)" >&2
+                 else
+-                    echo "terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)" >&2
++                    _tj_fs_isolation_warning
+                 fi
+                 UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+             fi

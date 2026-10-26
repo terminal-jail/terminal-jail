@@ -1,0 +1,57 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ecb9301..dfa978a 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1714,3 +1714,24 @@ tasks:
+   status: complete
+   created_at: '2026-10-12T23:20:29.799751+00:00'
+   completed_at: '2026-10-12T23:26:04.320251+00:00'
++- id: TJ-DF-044
++  title: Ship landlock-net-loader.py via install.sh and surface the bridge's landlock-net
++    degrade warning
++  criteria:
++  - install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR
++    (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227)
++  - the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py
++    after a fresh ./install.sh run
++  - 'the wrapper no longer discards the bridge''s stderr wholesale: a landlock-net
++    degrade warning emitted by the bridge on stderr reaches the operator''s terminal,
++    while the bridge''s stdout JSON contract consumed by _interruptor_evaluate stays
++    intact'
++  - "with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's\
++    \ connect() behavior either enforces or the operator sees the loud degrade warning\
++    \ \u2014 never silent"
++  - 'regression tests cover the install.sh copy list (packaging/install test scope)
++    and pass: .venv/bin/python -m pytest plugin -q'
++  - uvx ruff check . exits 0
++  status: complete
++  created_at: '2026-10-13T17:26:34.332461+00:00'
++  completed_at: '2026-10-13T18:22:06.648087+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 5840b9c..4f04b24 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -144,3 +144,4 @@
+ {"ts": 1791759094.5996144, "tokens_in": 1095870, "tokens_out": 8425, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791766329.8609452, "tokens_in": 11668231, "tokens_out": 15445, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791769452.8294144, "tokens_in": 15205129, "tokens_out": 24328, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791923916.9849613, "tokens_in": 10616917, "tokens_out": 19095, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index 30bc551..f469311 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -146,3 +146,14 @@
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:re","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_userns.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}

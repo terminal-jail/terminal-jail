@@ -1,0 +1,111 @@
+{
+  "task_id": "TJ-DF-033",
+  "task_title": "Wire metrics counters to plugin hooks",
+  "task_criteria": [
+    "The Metrics dataclass in plugin/terminal_jail/plugin.py has 9 counters that are never incremented outside tests. Add increment calls at the hook sites that already fire: pre_tool_call/post_tool_call in plugin/__init__.py must increment commands_wrapped/commands_wrapped_user_ns/commands_passed_disabled/commands_passed_no_unshare based on the mode and namespace outcome; jail_crashes increments when a sandboxed command exits non-zero; byte_budget_rejections increments when the byte budget check rejects; wrap_time_ns_total and wrap_count increment around the unshare wrap; perf_regression_alert_count increments when a perf alert fires. Add a test in plugin/test_metrics_counters.py that runs a real intercept() call and asserts the counter incremented. Run .venv/bin/python -m pytest plugin/test_metrics_counters.py -v and confirm it passes. Run scripts/metrics-export.py --json and confirm at least one counter is non-zero after a real command."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1b70a2415899f443937c871d3710a343c12e0367",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T061052.983616Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n1:25AM INF scanned ~5217950 bytes (5.22 MB) in 1.32s\n1:25AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 175 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T061052.983616Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "",
+          "error": "Command timed out",
+          "data": {}
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The Metrics dataclass in plugin/terminal_jail/plugin.py has 9 counters that are never incremented outside tests. Add increment calls at the hook sites that already fire: pre_tool_call/post_tool_call in plugin/__init__.py must increment commands_wrapped/commands_wrapped_user_ns/commands_passed_disabled/commands_passed_no_unshare based on the mode and namespace outcome; jail_crashes increments when a sandboxed command exits non-zero; byte_budget_rejections increments when the byte budget check rejects; wrap_time_ns_total and wrap_count increment around the unshare wrap; perf_regression_alert_count increments when a perf alert fires. Add a test in plugin/test_metrics_counters.py that runs a real intercept() call and asserts the counter incremented. Run .venv/bin/python -m pytest plugin/test_metrics_counters.py -v and confirm it passes. Run scripts/metrics-export.py --json and confirm at least one counter is non-zero after a real command.: All 9 counters wired to real production sites. plugin/terminal_jail/plugin.py:225-240 (_record_wrap) bumps wrap_count, wrap_time_ns_total, commands_wrapped[_user_ns], byte_budget_rejections; :209 (_check_slow_wrap) bumps perf_regression_alert_count; called from plugin/terminal_jail/interruptor/__init__.py:88-100 on Action.MODIFY (the real unshare wrap). plugin/__init__.py:66 bumps commands_passed_no_unshare, :69 bumps commands_passed_disabled (pre_tool_call arms), :93 bumps jail_crashes (post-exec transform_terminal_output hook, the post-execution hook that actually fires \u2014 no post_tool_call hook exists in this codebase). interruptor/__init__.py:64 bumps commands_passed_disabled for disabled mode. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_metrics_counters.py -v` -> '28 passed in 0.24s' exit_code 0; combined run with test_interruptor.py+test_plugin.py -> '559 passed in 4.20s' exit_code 0. plugin/test_metrics_counters.py (369 lines) runs real intercept() calls (e.g. test_real_wrap_increments_wrapped_and_time asserts commands_wrapped==1, wrap_count==1, wrap_time_ns_total>0). EXPORT EVIDENCE: same-process intercept('pytest -q') then runpy scripts/metrics-export.py --json -> commands_wrapped=1, wrap_count=1, wrap_time_ns_total=12289013 (non-zero); counters are process-local by design (documented plugin.py:20-24), so a separate-process export is necessarily zero. Manual checks: byte_budget_rejections=1 on over-budget wrap, commands_passed_disabled=1 on disabled mode, jail_crashes=1 on wrapped non-zero exit. LSP diagnostics: 0 findings. [resolution 0.18; plugin/terminal_jail/plugin.py, plugin/__init__.py, plugin/test_metrics_counters.py, scripts/metrics-export.py]\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The Metrics dataclass in plugin/terminal_jail/plugin.py has 9 counters that are never incremented outside tests. Add increment calls at the hook sites that already fire: pre_tool_call/post_tool_call in plugin/__init__.py must increment commands_wrapped/commands_wrapped_user_ns/commands_passed_disabled/commands_passed_no_unshare based on the mode and namespace outcome; jail_crashes increments when a sandboxed command exits non-zero; byte_budget_rejections increments when the byte budget check rejects; wrap_time_ns_total and wrap_count increment around the unshare wrap; perf_regression_alert_count increments when a perf alert fires. Add a test in plugin/test_metrics_counters.py that runs a real intercept() call and asserts the counter incremented. Run .venv/bin/python -m pytest plugin/test_metrics_counters.py -v and confirm it passes. Run scripts/metrics-export.py --json and confirm at least one counter is non-zero after a real command.: All 9 counters wired to real production sites. plugin/terminal_jail/plugin.py:225-240 (_record_wrap) bumps wrap_count, wrap_time_ns_total, commands_wrapped[_user_ns], byte_budget_rejections; :209 (_check_slow_wrap) bumps perf_regression_alert_count; called from plugin/terminal_jail/interruptor/__init__.py:88-100 on Action.MODIFY (the real unshare wrap). plugin/__init__.py:66 bumps commands_passed_no_unshare, :69 bumps commands_passed_disabled (pre_tool_call arms), :93 bumps jail_crashes (post-exec transform_terminal_output hook, the post-execution hook that actually fires \u2014 no post_tool_call hook exists in this codebase). interruptor/__init__.py:64 bumps commands_passed_disabled for disabled mode. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_metrics_counters.py -v` -> '28 passed in 0.24s' exit_code 0; combined run with test_interruptor.py+test_plugin.py -> '559 passed in 4.20s' exit_code 0. plugin/test_metrics_counters.py (369 lines) runs real intercept() calls (e.g. test_real_wrap_increments_wrapped_and_time asserts commands_wrapped==1, wrap_count==1, wrap_time_ns_total>0). EXPORT EVIDENCE: same-process intercept('pytest -q') then runpy scripts/metrics-export.py --json -> commands_wrapped=1, wrap_count=1, wrap_time_ns_total=12289013 (non-zero); counters are process-local by design (documented plugin.py:20-24), so a separate-process export is necessarily zero. Manual checks: byte_budget_rejections=1 on over-budget wrap, commands_passed_disabled=1 on disabled mode, jail_crashes=1 on wrapped non-zero exit. LSP diagnostics: 0 findings. [resolution 0.18; plugin/terminal_jail/plugin.py, plugin/__init__.py, plugin/test_metrics_counters.py, scripts/metrics-export.py]\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The Metrics dataclass in plugin/terminal_jail/plugin.py has 9 counters that are never incremented outside tests. Add increment calls at the hook sites that already fire: pre_tool_call/post_tool_call in plugin/__init__.py must increment commands_wrapped/commands_wrapped_user_ns/commands_passed_disabled/commands_passed_no_unshare based on the mode and namespace outcome; jail_crashes increments when a sandboxed command exits non-zero; byte_budget_rejections increments when the byte budget check rejects; wrap_time_ns_total and wrap_count increment around the unshare wrap; perf_regression_alert_count increments when a perf alert fires. Add a test in plugin/test_metrics_counters.py that runs a real intercept() call and asserts the counter incremented. Run .venv/bin/python -m pytest plugin/test_metrics_counters.py -v and confirm it passes. Run scripts/metrics-export.py --json and confirm at least one counter is non-zero after a real command.",
+                "status": "PASS",
+                "detail": "All 9 counters wired to real production sites. plugin/terminal_jail/plugin.py:225-240 (_record_wrap) bumps wrap_count, wrap_time_ns_total, commands_wrapped[_user_ns], byte_budget_rejections; :209 (_check_slow_wrap) bumps perf_regression_alert_count; called from plugin/terminal_jail/interruptor/__init__.py:88-100 on Action.MODIFY (the real unshare wrap). plugin/__init__.py:66 bumps commands_passed_no_unshare, :69 bumps commands_passed_disabled (pre_tool_call arms), :93 bumps jail_crashes (post-exec transform_terminal_output hook, the post-execution hook that actually fires \u2014 no post_tool_call hook exists in this codebase). interruptor/__init__.py:64 bumps commands_passed_disabled for disabled mode. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_metrics_counters.py -v` -> '28 passed in 0.24s' exit_code 0; combined run with test_interruptor.py+test_plugin.py -> '559 passed in 4.20s' exit_code 0. plugin/test_metrics_counters.py (369 lines) runs real intercept() calls (e.g. test_real_wrap_increments_wrapped_and_time asserts commands_wrapped==1, wrap_count==1, wrap_time_ns_total>0). EXPORT EVIDENCE: same-process intercept('pytest -q') then runpy scripts/metrics-export.py --json -> commands_wrapped=1, wrap_count=1, wrap_time_ns_total=12289013 (non-zero); counters are process-local by design (documented plugin.py:20-24), so a separate-process export is necessarily zero. Manual checks: byte_budget_rejections=1 on over-budget wrap, commands_passed_disabled=1 on disabled mode, jail_crashes=1 on wrapped non-zero exit. LSP diagnostics: 0 findings. [resolution 0.18; plugin/terminal_jail/plugin.py, plugin/__init__.py, plugin/test_metrics_counters.py, scripts/metrics-export.py]",
+                "resolution_probability": 0.18,
+                "cited_path": "plugin/terminal_jail/plugin.py, plugin/__init__.py, plugin/test_metrics_counters.py, scripts/metrics-export.py"
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-033\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The Metrics dataclass in plugin/terminal_jail/plugin.py has 9 counters that are never incremented outside tests. Add increment calls at the hook sites that already fire: pre_tool_call/post_tool_call in plugin/__init__.py must increment commands_wrapped/commands_wrapped_user_ns/commands_passed_disabled/commands_passed_no_unshare based on the mode and namespace outcome; jail_crashes increments when a sandboxed command exits non-zero; byte_budget_rejections increments when the byte budget check rejects; wrap_time_ns_total and wrap_count increment around the unshare wrap; perf_regression_alert_count increments when a perf alert fires. Add a test in plugin/test_metrics_counters.py that runs a real intercept() call and asserts the counter incremented. Run .venv/bin/python -m pytest plugin/test_metrics_counters.py -v and confirm it passes. Run scripts/metrics-export.py --json and confirm at least one counter is non-zero after a real command.: All 9 counters wired to real production sites. plugin/terminal_jail/plugin.py:225-240 (_record_wrap) bumps wrap_count, wrap_time_ns_total, commands_wrapped[_user_ns], byte_budget_rejections; :209 (_check_slow_wrap) bumps perf_regression_alert_count; called from plugin/terminal_jail/interruptor/__init__.py:88-100 on Action.MODIFY (the real unshare wrap). plugin/__init__.py:66 bumps commands_passed_no_unshare, :69 bumps commands_passed_disabled (pre_tool_call arms), :93 bumps jail_crashes (post-exec transform_terminal_output hook, the post-execution hook that actually fires \u2014 no post_tool_call hook exists in this codebase). interruptor/__init__.py:64 bumps commands_passed_disabled for disabled mode. TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_metrics_counters.py -v` -> '28 passed in 0.24s' exit_code 0; combined run with test_interruptor.py+test_plugin.py -> '559 passed in 4.20s' exit_code 0. plugin/test_metrics_counters.py (369 lines) runs real intercept() calls (e.g. test_real_wrap_increments_wrapped_and_time asserts commands_wrapped==1, wrap_count==1, wrap_time_ns_total>0). EXPORT EVIDENCE: same-process intercept('pytest -q') then runpy scripts/metrics-export.py --json -> commands_wrapped=1, wrap_count=1, wrap_time_ns_total=12289013 (non-zero); counters are process-local by design (documented plugin.py:20-24), so a separate-process export is necessarily zero. Manual checks: byte_budget_rejections=1 on over-budget wrap, commands_passed_disabled=1 on disabled mode, jail_crashes=1 on wrapped non-zero exit. LSP diagnostics: 0 findings. [resolution 0.18; plugin/terminal_jail/plugin.py, plugin/__init__.py, plugin/test_metrics_counters.py, scripts/metrics-export.py]\n\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-30T06:28:19.097237",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-30T06:28:19.135368+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 718,
+        "truncated": false,
+        "source": "git show 1b70a2415899"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 42207,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-033"
+  }
+}

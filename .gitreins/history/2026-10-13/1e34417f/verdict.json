@@ -1,0 +1,149 @@
+{
+  "task_id": "TJ-DF-044",
+  "task_title": "Ship landlock-net-loader.py via install.sh and surface the bridge's landlock-net degrade warning",
+  "task_criteria": [
+    "install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227)",
+    "the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py after a fresh ./install.sh run",
+    "the wrapper no longer discards the bridge's stderr wholesale: a landlock-net degrade warning emitted by the bridge on stderr reaches the operator's terminal, while the bridge's stdout JSON contract consumed by _interruptor_evaluate stays intact",
+    "with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's connect() behavior either enforces or the operator sees the loud degrade warning \u2014 never silent",
+    "regression tests cover the install.sh copy list (packaging/install test scope) and pass: .venv/bin/python -m pytest plugin -q",
+    "uvx ruff check . exits 0"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "664c1f1cf522bf0ca8fefe6dfae7bf7d52160fc7",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone [first ",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261013T181939.035913Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n1:22PM INF scanned ~6253562 bytes (6.25 MB) in 606ms\n1:22PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 225 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261013T181939.035913Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1965 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.......................................                                  [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 51%]\n........................................................................ [ 54%]\n\n\u2026 [3163 chars omitted \u2014 40 line(s)] \u2026\n\n=================================== FAILURES ===================================\n____________ test_check_script_green_path_on_prepared_scratch_clone ____________\ntests/test_release_workflow.py:212: in test_check_script_green_path_on_prepared_scratch_clone\n    assert proc.returncode == 0, f\"stdout:\\n{proc.stdout}\\nstderr:\\n{proc.stderr}\"\nE   AssertionError: stdout:\nE     == release-cut-check ==\nE     OK: tag 'v1.4.0' does not exist yet\nE     OK: pyproject.toml version 1.4.0 == tag v1.4.0\nE     (seam) TJ_RELEASE_CI_JSON set \u2014 using supplied CI run data instead of gh\nE     OK: CI green on HEAD dd9b39e\nE     == release-cut-check: 1 failure(s) ==\nE     \nE     stderr:\nE      M .vfs/graph/edges.jsonl\nE     ?? .vfs/graph/.last_reconcile\nE     ?? .vfs/graph/.parse_cache.json\nE     ?? .vfs/graph/coverage.json\nE     FAIL: working tree is dirty (listing above) \u2014 commit or stash before cutting a release\nE     \nE   assert 1 == 0\nE    +  where 1 = CompletedProcess(args=['/var/tmp/hermes-scratch/pytest-of-kara/pytest-5499/test_check_script_green_path_o0/scratch/scr...?? .vfs/graph/coverage.json\\nFAIL: working tree is dirty (listing above) \u2014 commit or stash before cutting a release\\n').returncode\n=========================== short test summary info ============================\nFAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============ 1 failed, 1937 passed, 11 skipped in 159.26s (0:02:39) ============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone",
+              "first_failing_test": "tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261013T181939.035913Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227): PASS: install.sh lines 1229-1233 (post-diff) contain the new block copying standalone/landlock-net-loader.py into $LIB_DIR, immediately after the landlock-loader.py block (1219-1223) and seccomp-loader.py block (1214-1218). Verified via sed -n 1200,1250p install.sh and git show 41cde86.\n  \u2717 the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py after a fresh ./install.sh run: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 the wrapper no longer discards the bridge's stderr wholesale: a landlock-net degrade warning emitted by the bridge on stderr reaches the operator's terminal, while the bridge's stdout JSON contract consumed by _interruptor_evaluate stays intact: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's connect() behavior either enforces or the operator sees the loud degrade warning \u2014 never silent: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 regression tests cover the install.sh copy list (packaging/install test scope) and pass: .venv/bin/python -m pytest plugin -q: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2713 uvx ruff check . exits 0: PASS: `uvx ruff check .` -> \"All checks passed!\" RUFF_EXIT=0\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227): PASS: install.sh lines 1229-1233 (post-diff) contain the new block copying standalone/landlock-net-loader.py into $LIB_DIR, immediately after the landlock-loader.py block (1219-1223) and seccomp-loader.py block (1214-1218). Verified via sed -n 1200,1250p install.sh and git show 41cde86.\n  \u2717 the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py after a fresh ./install.sh run: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 the wrapper no longer discards the bridge's stderr wholesale: a landlock-net degrade warning emitted by the bridge on stderr reaches the operator's terminal, while the bridge's stdout JSON contract consumed by _interruptor_evaluate stays intact: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's connect() behavior either enforces or the operator sees the loud degrade warning \u2014 never silent: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 regression tests cover the install.sh copy list (packaging/install test scope) and pass: .venv/bin/python -m pytest plugin -q: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2713 uvx ruff check . exits 0: PASS: `uvx ruff check .` -> \"All checks passed!\" RUFF_EXIT=0\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227)",
+                "status": "PASS",
+                "detail": "PASS: install.sh lines 1229-1233 (post-diff) contain the new block copying standalone/landlock-net-loader.py into $LIB_DIR, immediately after the landlock-loader.py block (1219-1223) and seccomp-loader.py block (1214-1218). Verified via sed -n 1200,1250p install.sh and git show 41cde86."
+              },
+              {
+                "criterion": "the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py after a fresh ./install.sh run",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              },
+              {
+                "criterion": "the wrapper no longer discards the bridge's stderr wholesale: a landlock-net degrade warning emitted by the bridge on stderr reaches the operator's terminal, while the bridge's stdout JSON contract consumed by _interruptor_evaluate stays intact",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              },
+              {
+                "criterion": "with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's connect() behavior either enforces or the operator sees the loud degrade warning \u2014 never silent",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              },
+              {
+                "criterion": "regression tests cover the install.sh copy list (packaging/install test scope) and pass: .venv/bin/python -m pytest plugin -q",
+                "status": "FAIL",
+                "detail": "Not verified \u2014 evaluation terminated before this criterion was checked"
+              },
+              {
+                "criterion": "uvx ruff check . exits 0",
+                "status": "PASS",
+                "detail": "PASS: `uvx ruff check .` -> \"All checks passed!\" RUFF_EXIT=0"
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-044\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone [first \n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 install.sh copies standalone/landlock-net-loader.py into the installed LIB_DIR (same block that copies seccomp-loader.py and landlock-loader.py, install.sh ~1219-1227): PASS: install.sh lines 1229-1233 (post-diff) contain the new block copying standalone/landlock-net-loader.py into $LIB_DIR, immediately after the landlock-loader.py block (1219-1223) and seccomp-loader.py block (1214-1218). Verified via sed -n 1200,1250p install.sh and git show 41cde86.\n  \u2717 the installed layout ~/.local/lib/terminal-jail/ contains landlock-net-loader.py after a fresh ./install.sh run: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 the wrapper no longer discards the bridge's stderr wholesale: a landlock-net degrade warning emitted by the bridge on stderr reaches the operator's terminal, while the bridge's stdout JSON contract consumed by _interruptor_evaluate stays intact: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 with TERMINAL_JAIL_LANDLOCK_NET=1 and the loader missing, the probe payload's connect() behavior either enforces or the operator sees the loud degrade warning \u2014 never silent: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2717 regression tests cover the install.sh copy list (packaging/install test scope) and pass: .venv/bin/python -m pytest plugin -q: Not verified \u2014 evaluation terminated before this criterion was checked\n  \u2713 uvx ruff check . exits 0: PASS: `uvx ruff check .` -> \"All checks passed!\" RUFF_EXIT=0\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-13T20:38:37.011625",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-13T20:38:37.028377+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 2744,
+        "truncated": false,
+        "source": "git show 664c1f1cf522"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 3950,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-044"
+  }
+}

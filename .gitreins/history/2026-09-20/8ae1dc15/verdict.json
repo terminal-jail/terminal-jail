@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-10",
+  "task_title": "Document the script-body exemption in specs and quickstart",
+  "task_criteria": [
+    "specs/interruptor.md + README quickstart state explicitly that the rules engine evaluates only the top-level command string, script bodies are covered by namespace/seccomp layers not the firewall, with a short do-not-over-credit warning for bridge callers; docs-only change, no engine code"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "dffbe29f4b7460565ffb8a1d753ef6c0df68656a",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T191749.750256Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n3:19PM INF scanned ~5100732 bytes (5.10 MB) in 581ms\n3:19PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 141 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T191749.750256Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1243 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 24%]\n.................................                                        [ 27%]\nplugin/test_gtfobins_sweep.py .......................................... [ 30%]\n.....................                                                    [ 32%]\nplugin/test_host_probes.py ......................                        [ 34%]\nplugin/test_install.py ................................................. [ 38%]\n.....                                                                    [ 38%]\nplugin/test_interruptor.py ............................................. [ 42%]\n........................................................................ [ 48%]\n........................................................................ [ 53%]\n........................................................................ [ 59%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 76%]\n...........................                                              [ 79%]\nplugin/test_interruptor_integration.py .................s............... [ 81%]\n.......                                                                  [ 82%]\nplugin/test_metrics_export.py .....................                      [ 84%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.                                                                        [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1236 passed, 7 skipped in 35.10s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T191749.750256Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 specs/interruptor.md + README quickstart state explicitly that the rules engine evaluates only the top-level command string, script bodies are covered by namespace/seccomp layers not the firewall, with a short do-not-over-credit warning for bridge callers; docs-only change, no engine code: specs/interruptor.md:14-26 new '### 1.1 Scope and Limits (DF-TERMINAL-JAIL-10)' states the rules engine evaluates 'only the top-level command string', script bodies (./deploy.sh, bash setup.sh, Makefile recipe, python3 script.py) are 'invisible to every rule in \u00a73\u2013\u00a74, including the critical blocklist', and are 'covered by the namespace layers (--user uid-mapped launch, the optional --seccomp filter, PID-namespace containment), NOT by this firewall'. README.md:121-128, inside '### Quick Start' (line 90) of '## Interruptor Bash Command Firewall', states 'Scope: the firewall rules on the command string only' and carries the do-not-over-credit warning: 'If you call the bridge, do not over-credit an ALLOW: \"the firewall checked my command\" never implies the script's contents were ruled on.' CHANGELOG.md:3-11 adds an Unreleased entry naming DF-TERMINAL-JAIL-10. Docs-only confirmed: commit 146315f touches only CHANGELOG.md, README.md, specs/interruptor.md (git show --name-only shows no .py/.yaml/.sh), and git diff HEAD -- plugin/ standalone/ specs/ README.md CHANGELOG.md is empty. Tests: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_packaging.py` -> '64 passed in 3.95s'; `plugin/test_interruptor.py plugin/test_escape_waves.py plugin/test_modify_preflight.py` -> '731 passed in 3.49s'; LSP diagnostics empty (0 findings).\nBoth specs/interruptor.md \u00a71.1 and the README bridge Quick Start explicitly document the top-level-command-only firewall scope with the script-body exemption, namespace/seccomp coverage, and a do-not-over-credit warning, as a docs-only change with no engine code.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 specs/interruptor.md + README quickstart state explicitly that the rules engine evaluates only the top-level command string, script bodies are covered by namespace/seccomp layers not the firewall, with a short do-not-over-credit warning for bridge callers; docs-only change, no engine code: specs/interruptor.md:14-26 new '### 1.1 Scope and Limits (DF-TERMINAL-JAIL-10)' states the rules engine evaluates 'only the top-level command string', script bodies (./deploy.sh, bash setup.sh, Makefile recipe, python3 script.py) are 'invisible to every rule in \u00a73\u2013\u00a74, including the critical blocklist', and are 'covered by the namespace layers (--user uid-mapped launch, the optional --seccomp filter, PID-namespace containment), NOT by this firewall'. README.md:121-128, inside '### Quick Start' (line 90) of '## Interruptor Bash Command Firewall', states 'Scope: the firewall rules on the command string only' and carries the do-not-over-credit warning: 'If you call the bridge, do not over-credit an ALLOW: \"the firewall checked my command\" never implies the script's contents were ruled on.' CHANGELOG.md:3-11 adds an Unreleased entry naming DF-TERMINAL-JAIL-10. Docs-only confirmed: commit 146315f touches only CHANGELOG.md, README.md, specs/interruptor.md (git show --name-only shows no .py/.yaml/.sh), and git diff HEAD -- plugin/ standalone/ specs/ README.md CHANGELOG.md is empty. Tests: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_packaging.py` -> '64 passed in 3.95s'; `plugin/test_interruptor.py plugin/test_escape_waves.py plugin/test_modify_preflight.py` -> '731 passed in 3.49s'; LSP diagnostics empty (0 findings).\nBoth specs/interruptor.md \u00a71.1 and the README bridge Quick Start explicitly document the top-level-command-only firewall scope with the script-body exemption, namespace/seccomp coverage, and a do-not-over-credit warning, as a docs-only change with no engine code.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "specs/interruptor.md + README quickstart state explicitly that the rules engine evaluates only the top-level command string, script bodies are covered by namespace/seccomp layers not the firewall, with a short do-not-over-credit warning for bridge callers; docs-only change, no engine code",
+                "status": "PASS",
+                "detail": "specs/interruptor.md:14-26 new '### 1.1 Scope and Limits (DF-TERMINAL-JAIL-10)' states the rules engine evaluates 'only the top-level command string', script bodies (./deploy.sh, bash setup.sh, Makefile recipe, python3 script.py) are 'invisible to every rule in \u00a73\u2013\u00a74, including the critical blocklist', and are 'covered by the namespace layers (--user uid-mapped launch, the optional --seccomp filter, PID-namespace containment), NOT by this firewall'. README.md:121-128, inside '### Quick Start' (line 90) of '## Interruptor Bash Command Firewall', states 'Scope: the firewall rules on the command string only' and carries the do-not-over-credit warning: 'If you call the bridge, do not over-credit an ALLOW: \"the firewall checked my command\" never implies the script's contents were ruled on.' CHANGELOG.md:3-11 adds an Unreleased entry naming DF-TERMINAL-JAIL-10. Docs-only confirmed: commit 146315f touches only CHANGELOG.md, README.md, specs/interruptor.md (git show --name-only shows no .py/.yaml/.sh), and git diff HEAD -- plugin/ standalone/ specs/ README.md CHANGELOG.md is empty. Tests: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_packaging.py` -> '64 passed in 3.95s'; `plugin/test_interruptor.py plugin/test_escape_waves.py plugin/test_modify_preflight.py` -> '731 passed in 3.49s'; LSP diagnostics empty (0 findings)."
+              }
+            ],
+            "summary": "Both specs/interruptor.md \u00a71.1 and the README bridge Quick Start explicitly document the top-level-command-only firewall scope with the script-body exemption, namespace/seccomp coverage, and a do-not-over-credit warning, as a docs-only change with no engine code."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-10\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 specs/interruptor.md + README quickstart state explicitly that the rules engine evaluates only the top-level command string, script bodies are covered by namespace/seccomp layers not the firewall, with a short do-not-over-credit warning for bridge callers; docs-only change, no engine code: specs/interruptor.md:14-26 new '### 1.1 Scope and Limits (DF-TERMINAL-JAIL-10)' states the rules engine evaluates 'only the top-level command string', script bodies (./deploy.sh, bash setup.sh, Makefile recipe, python3 script.py) are 'invisible to every rule in \u00a73\u2013\u00a74, including the critical blocklist', and are 'covered by the namespace layers (--user uid-mapped launch, the optional --seccomp filter, PID-namespace containment), NOT by this firewall'. README.md:121-128, inside '### Quick Start' (line 90) of '## Interruptor Bash Command Firewall', states 'Scope: the firewall rules on the command string only' and carries the do-not-over-credit warning: 'If you call the bridge, do not over-credit an ALLOW: \"the firewall checked my command\" never implies the script's contents were ruled on.' CHANGELOG.md:3-11 adds an Unreleased entry naming DF-TERMINAL-JAIL-10. Docs-only confirmed: commit 146315f touches only CHANGELOG.md, README.md, specs/interruptor.md (git show --name-only shows no .py/.yaml/.sh), and git diff HEAD -- plugin/ standalone/ specs/ README.md CHANGELOG.md is empty. Tests: `.venv/bin/python -m pytest plugin/test_install.py plugin/test_packaging.py` -> '64 passed in 3.95s'; `plugin/test_interruptor.py plugin/test_escape_waves.py plugin/test_modify_preflight.py` -> '731 passed in 3.49s'; LSP diagnostics empty (0 findings).\nBoth specs/interruptor.md \u00a71.1 and the README bridge Quick Start explicitly document the top-level-command-only firewall scope with the script-body exemption, namespace/seccomp coverage, and a do-not-over-credit warning, as a docs-only change with no engine code.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-20T20:21:44.084219",
+  "evidence": {
+    "collected_at": "2026-09-20T20:21:44.106447+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 783,
+        "truncated": false,
+        "source": "git show dffbe29f4b74"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 78482,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-10"
+  }
+}

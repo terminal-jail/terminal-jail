@@ -1,0 +1,111 @@
+{
+  "task_id": "TJ-GAP-085",
+  "task_title": "Expose rule resolution provenance in verdict",
+  "task_criteria": [
+    "The engine returns rule_id and reason but not which layer won (engine builtin vs shipped YAML mirror vs user rule dir vs rule pack). Add a 'layer' field to InterceptResult (engine/yaml/user/pack) and populate it in Decider.evaluate() based on which rule source matched. Update plugin/test_interruptor.py to assert the layer field is present and correct for a builtin rule, a YAML mirror rule, and a user rule. Update the JSON bridge output in plugin/terminal_jail/interruptor_bridge.py to include the layer field. Run .venv/bin/python -m pytest plugin/test_interruptor.py -v and confirm all tests pass including the new layer assertions."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1b70a2415899f443937c871d3710a343c12e0367",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T061052.983616Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n1:17AM INF scanned ~5217950 bytes (5.22 MB) in 1.04s\n1:17AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 175 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T061052.983616Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "",
+          "error": "Command timed out",
+          "data": {}
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The engine returns rule_id and reason but not which layer won (engine builtin vs shipped YAML mirror vs user rule dir vs rule pack). Add a 'layer' field to InterceptResult (engine/yaml/user/pack) and populate it in Decider.evaluate() based on which rule source matched. Update plugin/test_interruptor.py to assert the layer field is present and correct for a builtin rule, a YAML mirror rule, and a user rule. Update the JSON bridge output in plugin/terminal_jail/interruptor_bridge.py to include the layer field. Run .venv/bin/python -m pytest plugin/test_interruptor.py -v and confirm all tests pass including the new layer assertions.: (1) Layer field: plugin/terminal_jail/interruptor/types.py:17-36 defines Layer.ENGINE/YAML/USER/PACK; :51 __slots__ includes 'layer'; :60 constructor default layer=Layer.ENGINE. (2) Populated in Decider.evaluate(): plugin/terminal_jail/interruptor/decider.py:94-139 _build_rule_layers re-walks system/user rules dirs classifying 00-builtins.yaml->YAML, terminal-jail-pack-*.yaml->PACK, else USER; :382-390 _layer_for() returns map value or Layer.ENGINE for builtins; :410-448 _rule_result passes layer=layer on BLOCK/MODIFY/WARN/ALLOW paths; :456-465 _result_for (whole-command blocklist pass) passes layer=self._layer_for(rule). (3) Tests: plugin/test_interruptor.py:3878-3902 TestRuleLayerProvenance asserts layer=='engine' for builtin (test_builtin_block_rule_reports_layer_engine, test_allowlist_builtin_match_also_reports_engine), 'yaml' for shipped mirror loaded as system dir AND as user dir (:3806-3830), 'user' for a user rule and a downgraded builtin (:3797-3843), 'pack' for terminal-jail-pack-*.yaml (:3845-3870), plus default-allow and aggregate-modify cases. (4) Bridge: plugin/terminal_jail/interruptor_bridge.py:102 emits \"layer\": getattr(result, \"layer\", None) in the main verdict; :124 and :150 set layer:None in the fail-open/fail-closed envelopes; test at plugin/test_interruptor.py:3905-3944 runs the real bridge_module.main() and asserts verdict[\"layer\"]==\"engine\". TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_interruptor.py -v` -> exit_code 0, tail line '============================= 515 passed in 4.01s =============================='; targeted `-k \"Layer or layer or BridgeVerdict\"` -> exit_code 0, '11 passed, 504 deselected in 0.40s'. LSP diagnostics: 0 findings. [resolution 0.10; plugin/test_interruptor.py, plugin/terminal_jail/interruptor_bridge.py]\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The engine returns rule_id and reason but not which layer won (engine builtin vs shipped YAML mirror vs user rule dir vs rule pack). Add a 'layer' field to InterceptResult (engine/yaml/user/pack) and populate it in Decider.evaluate() based on which rule source matched. Update plugin/test_interruptor.py to assert the layer field is present and correct for a builtin rule, a YAML mirror rule, and a user rule. Update the JSON bridge output in plugin/terminal_jail/interruptor_bridge.py to include the layer field. Run .venv/bin/python -m pytest plugin/test_interruptor.py -v and confirm all tests pass including the new layer assertions.: (1) Layer field: plugin/terminal_jail/interruptor/types.py:17-36 defines Layer.ENGINE/YAML/USER/PACK; :51 __slots__ includes 'layer'; :60 constructor default layer=Layer.ENGINE. (2) Populated in Decider.evaluate(): plugin/terminal_jail/interruptor/decider.py:94-139 _build_rule_layers re-walks system/user rules dirs classifying 00-builtins.yaml->YAML, terminal-jail-pack-*.yaml->PACK, else USER; :382-390 _layer_for() returns map value or Layer.ENGINE for builtins; :410-448 _rule_result passes layer=layer on BLOCK/MODIFY/WARN/ALLOW paths; :456-465 _result_for (whole-command blocklist pass) passes layer=self._layer_for(rule). (3) Tests: plugin/test_interruptor.py:3878-3902 TestRuleLayerProvenance asserts layer=='engine' for builtin (test_builtin_block_rule_reports_layer_engine, test_allowlist_builtin_match_also_reports_engine), 'yaml' for shipped mirror loaded as system dir AND as user dir (:3806-3830), 'user' for a user rule and a downgraded builtin (:3797-3843), 'pack' for terminal-jail-pack-*.yaml (:3845-3870), plus default-allow and aggregate-modify cases. (4) Bridge: plugin/terminal_jail/interruptor_bridge.py:102 emits \"layer\": getattr(result, \"layer\", None) in the main verdict; :124 and :150 set layer:None in the fail-open/fail-closed envelopes; test at plugin/test_interruptor.py:3905-3944 runs the real bridge_module.main() and asserts verdict[\"layer\"]==\"engine\". TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_interruptor.py -v` -> exit_code 0, tail line '============================= 515 passed in 4.01s =============================='; targeted `-k \"Layer or layer or BridgeVerdict\"` -> exit_code 0, '11 passed, 504 deselected in 0.40s'. LSP diagnostics: 0 findings. [resolution 0.10; plugin/test_interruptor.py, plugin/terminal_jail/interruptor_bridge.py]\n",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The engine returns rule_id and reason but not which layer won (engine builtin vs shipped YAML mirror vs user rule dir vs rule pack). Add a 'layer' field to InterceptResult (engine/yaml/user/pack) and populate it in Decider.evaluate() based on which rule source matched. Update plugin/test_interruptor.py to assert the layer field is present and correct for a builtin rule, a YAML mirror rule, and a user rule. Update the JSON bridge output in plugin/terminal_jail/interruptor_bridge.py to include the layer field. Run .venv/bin/python -m pytest plugin/test_interruptor.py -v and confirm all tests pass including the new layer assertions.",
+                "status": "PASS",
+                "detail": "(1) Layer field: plugin/terminal_jail/interruptor/types.py:17-36 defines Layer.ENGINE/YAML/USER/PACK; :51 __slots__ includes 'layer'; :60 constructor default layer=Layer.ENGINE. (2) Populated in Decider.evaluate(): plugin/terminal_jail/interruptor/decider.py:94-139 _build_rule_layers re-walks system/user rules dirs classifying 00-builtins.yaml->YAML, terminal-jail-pack-*.yaml->PACK, else USER; :382-390 _layer_for() returns map value or Layer.ENGINE for builtins; :410-448 _rule_result passes layer=layer on BLOCK/MODIFY/WARN/ALLOW paths; :456-465 _result_for (whole-command blocklist pass) passes layer=self._layer_for(rule). (3) Tests: plugin/test_interruptor.py:3878-3902 TestRuleLayerProvenance asserts layer=='engine' for builtin (test_builtin_block_rule_reports_layer_engine, test_allowlist_builtin_match_also_reports_engine), 'yaml' for shipped mirror loaded as system dir AND as user dir (:3806-3830), 'user' for a user rule and a downgraded builtin (:3797-3843), 'pack' for terminal-jail-pack-*.yaml (:3845-3870), plus default-allow and aggregate-modify cases. (4) Bridge: plugin/terminal_jail/interruptor_bridge.py:102 emits \"layer\": getattr(result, \"layer\", None) in the main verdict; :124 and :150 set layer:None in the fail-open/fail-closed envelopes; test at plugin/test_interruptor.py:3905-3944 runs the real bridge_module.main() and asserts verdict[\"layer\"]==\"engine\". TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_interruptor.py -v` -> exit_code 0, tail line '============================= 515 passed in 4.01s =============================='; targeted `-k \"Layer or layer or BridgeVerdict\"` -> exit_code 0, '11 passed, 504 deselected in 0.40s'. LSP diagnostics: 0 findings. [resolution 0.10; plugin/test_interruptor.py, plugin/terminal_jail/interruptor_bridge.py]",
+                "resolution_probability": 0.1,
+                "cited_path": "plugin/test_interruptor.py, plugin/terminal_jail/interruptor_bridge.py"
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-085\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The engine returns rule_id and reason but not which layer won (engine builtin vs shipped YAML mirror vs user rule dir vs rule pack). Add a 'layer' field to InterceptResult (engine/yaml/user/pack) and populate it in Decider.evaluate() based on which rule source matched. Update plugin/test_interruptor.py to assert the layer field is present and correct for a builtin rule, a YAML mirror rule, and a user rule. Update the JSON bridge output in plugin/terminal_jail/interruptor_bridge.py to include the layer field. Run .venv/bin/python -m pytest plugin/test_interruptor.py -v and confirm all tests pass including the new layer assertions.: (1) Layer field: plugin/terminal_jail/interruptor/types.py:17-36 defines Layer.ENGINE/YAML/USER/PACK; :51 __slots__ includes 'layer'; :60 constructor default layer=Layer.ENGINE. (2) Populated in Decider.evaluate(): plugin/terminal_jail/interruptor/decider.py:94-139 _build_rule_layers re-walks system/user rules dirs classifying 00-builtins.yaml->YAML, terminal-jail-pack-*.yaml->PACK, else USER; :382-390 _layer_for() returns map value or Layer.ENGINE for builtins; :410-448 _rule_result passes layer=layer on BLOCK/MODIFY/WARN/ALLOW paths; :456-465 _result_for (whole-command blocklist pass) passes layer=self._layer_for(rule). (3) Tests: plugin/test_interruptor.py:3878-3902 TestRuleLayerProvenance asserts layer=='engine' for builtin (test_builtin_block_rule_reports_layer_engine, test_allowlist_builtin_match_also_reports_engine), 'yaml' for shipped mirror loaded as system dir AND as user dir (:3806-3830), 'user' for a user rule and a downgraded builtin (:3797-3843), 'pack' for terminal-jail-pack-*.yaml (:3845-3870), plus default-allow and aggregate-modify cases. (4) Bridge: plugin/terminal_jail/interruptor_bridge.py:102 emits \"layer\": getattr(result, \"layer\", None) in the main verdict; :124 and :150 set layer:None in the fail-open/fail-closed envelopes; test at plugin/test_interruptor.py:3905-3944 runs the real bridge_module.main() and asserts verdict[\"layer\"]==\"engine\". TEST EVIDENCE: `.venv/bin/python -m pytest plugin/test_interruptor.py -v` -> exit_code 0, tail line '============================= 515 passed in 4.01s =============================='; targeted `-k \"Layer or layer or BridgeVerdict\"` -> exit_code 0, '11 passed, 504 deselected in 0.40s'. LSP diagnostics: 0 findings. [resolution 0.10; plugin/test_interruptor.py, plugin/terminal_jail/interruptor_bridge.py]\n\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-30T06:20:10.575613",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-30T06:20:10.617794+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 718,
+        "truncated": false,
+        "source": "git show 1b70a2415899"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 42086,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-085"
+  }
+}

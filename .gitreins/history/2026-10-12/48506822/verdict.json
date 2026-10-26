@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-GAP-023",
+  "task_title": "Stage tier-2 systemd hardening directives (zero-risk set) in shipped drop-in + sync specs",
+  "task_criteria": [
+    "grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true' systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive count updated in sync AND pytest suite green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a8c6b9dfda4ff3df88ba8763c37c6ae83b1be2c4",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T024228.128042Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n10:35PM INF scanned ~6177397 bytes (6.18 MB) in 483ms\n10:35PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 221 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T024228.128042Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1955 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 20%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 25%]\nplugin/test_host_probes.py .......................                       [ 26%]\nplugin/test_install.py ................................................. [ 28%]\n.....................................                                    [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 51%]\n........................................................................ [ 55%]\n\n\u2026 [1920 chars omitted \u2014 24 line(s)] \u2026\nplugin/test_tjdf024_prefilter.py ..................                      [ 89%]\nplugin/test_tjdf031_unwrapped_notice.py ....                             [ 89%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py ......................s.....                       [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...........                             [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [100%]\n\n================= 1945 passed, 10 skipped in 137.41s (0:02:17) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261012T024228.128042Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true' systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive count updated in sync AND pytest suite green: (1) grep count = 9 (>=8): all nine tier-2 directives are active (uncommented) in systemd/90-terminal-jail-hardening.conf at lines 40-77 (RestrictSUIDSGID, RestrictRealtime, ProtectClock, ProtectHostname, ProtectKernelLogs, ProtectKernelModules, ProtectKernelTunables, LockPersonality, MemoryDenyWriteExecute). (2) specs/systemd.md updated in sync: line 51 states 'only the fourteen directives below are active: the four baseline controls plus the ten zero-risk kernel-interface hardening directives ... added by TJ-GAP-023'; line 334 '14 active directives'; line 344 '[shipped] baseline (14 active directives)' with all 14 properties enumerated; also synced in specs/integration.md:8,104,390 and docs/threat-model.md:23. (3) pytest suite green: ran `.venv/bin/python -u -m pytest -x --tb=short` (config test_command) => '1945 passed, 10 skipped in 132.97s (0:02:12)', exit_code 0. Minor cosmetic note: the stale deployment-status header at specs/systemd.md lines 3-11 still lists only the four baseline controls, but the active-directive COUNT (14) is updated in sync throughout as the criterion requires. [resolution 0.11; specs/systemd.md]\nAll three conjuncts hold: 9 tier-2 directives active in the shipped drop-in, specs/systemd.md (and integration.md/threat-model.md) synced to 14 active directives, and the full pytest suite passes (1945 passed, 10 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true' systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive count updated in sync AND pytest suite green: (1) grep count = 9 (>=8): all nine tier-2 directives are active (uncommented) in systemd/90-terminal-jail-hardening.conf at lines 40-77 (RestrictSUIDSGID, RestrictRealtime, ProtectClock, ProtectHostname, ProtectKernelLogs, ProtectKernelModules, ProtectKernelTunables, LockPersonality, MemoryDenyWriteExecute). (2) specs/systemd.md updated in sync: line 51 states 'only the fourteen directives below are active: the four baseline controls plus the ten zero-risk kernel-interface hardening directives ... added by TJ-GAP-023'; line 334 '14 active directives'; line 344 '[shipped] baseline (14 active directives)' with all 14 properties enumerated; also synced in specs/integration.md:8,104,390 and docs/threat-model.md:23. (3) pytest suite green: ran `.venv/bin/python -u -m pytest -x --tb=short` (config test_command) => '1945 passed, 10 skipped in 132.97s (0:02:12)', exit_code 0. Minor cosmetic note: the stale deployment-status header at specs/systemd.md lines 3-11 still lists only the four baseline controls, but the active-directive COUNT (14) is updated in sync throughout as the criterion requires. [resolution 0.11; specs/systemd.md]\nAll three conjuncts hold: 9 tier-2 directives active in the shipped drop-in, specs/systemd.md (and integration.md/threat-model.md) synced to 14 active directives, and the full pytest suite passes (1945 passed, 10 skipped).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true' systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive count updated in sync AND pytest suite green",
+                "status": "PASS",
+                "detail": "(1) grep count = 9 (>=8): all nine tier-2 directives are active (uncommented) in systemd/90-terminal-jail-hardening.conf at lines 40-77 (RestrictSUIDSGID, RestrictRealtime, ProtectClock, ProtectHostname, ProtectKernelLogs, ProtectKernelModules, ProtectKernelTunables, LockPersonality, MemoryDenyWriteExecute). (2) specs/systemd.md updated in sync: line 51 states 'only the fourteen directives below are active: the four baseline controls plus the ten zero-risk kernel-interface hardening directives ... added by TJ-GAP-023'; line 334 '14 active directives'; line 344 '[shipped] baseline (14 active directives)' with all 14 properties enumerated; also synced in specs/integration.md:8,104,390 and docs/threat-model.md:23. (3) pytest suite green: ran `.venv/bin/python -u -m pytest -x --tb=short` (config test_command) => '1945 passed, 10 skipped in 132.97s (0:02:12)', exit_code 0. Minor cosmetic note: the stale deployment-status header at specs/systemd.md lines 3-11 still lists only the four baseline controls, but the active-directive COUNT (14) is updated in sync throughout as the criterion requires. [resolution 0.11; specs/systemd.md]",
+                "resolution_probability": 0.11,
+                "cited_path": "specs/systemd.md"
+              }
+            ],
+            "summary": "All three conjuncts hold: 9 tier-2 directives active in the shipped drop-in, specs/systemd.md (and integration.md/threat-model.md) synced to 14 active directives, and the full pytest suite passes (1945 passed, 10 skipped)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-023\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep -E '^RestrictSUIDSGID=true|^ProtectClock=true|^ProtectHostname=true|^LockPersonality=true|^MemoryDenyWriteExecute=true|^RestrictRealtime=true|^ProtectKernelLogs=true|^ProtectKernelModules=true|^ProtectKernelTunables=true' systemd/90-terminal-jail-hardening.conf | wc -l >= 8 AND specs/systemd.md active-directive count updated in sync AND pytest suite green: (1) grep count = 9 (>=8): all nine tier-2 directives are active (uncommented) in systemd/90-terminal-jail-hardening.conf at lines 40-77 (RestrictSUIDSGID, RestrictRealtime, ProtectClock, ProtectHostname, ProtectKernelLogs, ProtectKernelModules, ProtectKernelTunables, LockPersonality, MemoryDenyWriteExecute). (2) specs/systemd.md updated in sync: line 51 states 'only the fourteen directives below are active: the four baseline controls plus the ten zero-risk kernel-interface hardening directives ... added by TJ-GAP-023'; line 334 '14 active directives'; line 344 '[shipped] baseline (14 active directives)' with all 14 properties enumerated; also synced in specs/integration.md:8,104,390 and docs/threat-model.md:23. (3) pytest suite green: ran `.venv/bin/python -u -m pytest -x --tb=short` (config test_command) => '1945 passed, 10 skipped in 132.97s (0:02:12)', exit_code 0. Minor cosmetic note: the stale deployment-status header at specs/systemd.md lines 3-11 still lists only the four baseline controls, but the active-directive COUNT (14) is updated in sync throughout as the criterion requires. [resolution 0.11; specs/systemd.md]\nAll three conjuncts hold: 9 tier-2 directives active in the shipped drop-in, specs/systemd.md (and integration.md/threat-model.md) synced to 14 active directives, and the full pytest suite passes (1945 passed, 10 skipped).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-12T03:47:22.237114",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-12T03:47:22.253025+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 889,
+        "truncated": false,
+        "source": "git show a8c6b9dfda4f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1585,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-023"
+  }
+}

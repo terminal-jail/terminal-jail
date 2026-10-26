@@ -1,0 +1,26 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 8f60200..750ff27 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1672,3 +1672,12 @@ tasks:
+   status: complete
+   created_at: '2026-10-07T23:06:00.837848+00:00'
+   completed_at: '2026-10-07T23:16:59.709580+00:00'
++- id: TJ-DF-028
++  title: Scope README CI-green claim to proved kernel matrix
++  criteria:
++  - README 'CI green' claim scoped to kernels actually proved on (not universal);
++    HOST-DEGRADED-PIDNS skip marker present in test; docs/backend-parity.md has pinned
++    kernel-matrix note
++  status: complete
++  created_at: '2026-10-08T01:11:22.533422+00:00'
++  completed_at: '2026-10-08T01:13:43.746436+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index a23cc4f..78c265b 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -137,3 +137,4 @@
+ {"ts": 1791409577.908353, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791413551.8850965, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791415215.734488, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791422158.4554396, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}

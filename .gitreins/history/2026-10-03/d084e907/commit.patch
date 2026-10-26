@@ -1,0 +1,383 @@
+commit 52dc15c70080166025b248aadeeb316a8a27d237
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Oct 3 07:55:06 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Oct 3 07:55:06 2026 -0500
+
+    feat(installer): first-class pack replace via --rule-pack-file --replace-rule-packs. Addresses TJ-DF-041.
+    
+    The pack edit-iterate loop previously required an undocumented manual
+    uninstall+reinstall: --rule-pack-file refused any file whose derived name
+    was already installed, with no in-place replacement path.
+    
+    --replace-rule-packs is a MODIFIER of --rule-pack-file, never a mode:
+    
+    - Without it, behavior is unchanged: the existing skip fires, now hinting
+      at the new flag (the old --unrule-pack hint remains as the second
+      remedy).
+    - With it, the replacement follows the same fail-closed pipeline: parser
+      charset gate -> prefix-scope skip -> file-exists -> python3/PyYAML
+      preflight -> validator. Only AFTER the validator passes is the installed
+      terminal-jail-pack-<name>.yaml backed up to <dest>.bak-<UTC ts> (the
+      same .bak- family --uninstall sweeps) and overwritten. A refused
+      replacement leaves the installed pack byte-identical and writes no
+      backup (the backup site sits below the validator gate for exactly this
+      reason — the first cut had it above the gate and the RED test caught
+      the backup of a then-refused pack).
+    - One UTC timestamp per run; the once-only guard is per-destination
+      (.bak-<ts> existence), so a second file deriving the same name
+      re-replaces silently without stacking a backup of the new copy.
+    - Parse-time refusals (exit 2, nothing written): the flag alone without
+      --rule-pack-file, in release mode, combined with --uninstall or
+      --hermes-plugin; --replace-rule-packs=<value> is refused (bare flag).
+    
+    Usage text documents the flag; docs/quickstart.md gains "The pack
+    edit-iterate loop" section. Tests: 6 new cases in plugin/test_install.py
+    (skip pin, replace+one .bak, validator-refusal keeps pack byte-identical
+    with no backup, flag-alone refusal, help+quickstart documentation, and
+    the v2 replacement body fixture). RED-proved against HEAD before the fix
+    (unknown-argument refusal on a throwaway worktree) and the full
+    plugin/test_install.py suite run green on the final tree.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ docs/quickstart.md     |  27 +++++++++
+ install.sh             |  69 +++++++++++++++++++++-
+ plugin/test_install.py | 153 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 247 insertions(+), 2 deletions(-)
+
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index 6a38ca1..a352120 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -777,3 +777,30 @@ See `specs/interruptor.md`.
+ - [docs/supply-chain.md](supply-chain.md) — release & supply-chain integrity
+ - [docs/pentest-plan.md](pentest-plan.md) — adversarial verification plan
+ - [docs/COMPATIBILITY.md](COMPATIBILITY.md) — host/kernel compatibility matrix
++
++## The pack edit-iterate loop (`--rule-pack-file --replace-rule-packs`)
++
++Iterating on an externally-authored pack is one command. `--rule-pack-file`
++refuses to overwrite an installed pack by design (fail-closed); the
++`--replace-rule-packs` modifier is the explicit opt-in that makes replacement
++safe and first-class:
++
++```bash
++./install.sh --rule-pack-file ~/policy/my-team-pack.yaml --replace-rule-packs
++```
++
++What the modifier does, in order:
++
++1. The replacement is **validated first** — a pack the validator refuses
++   (bad schema, malformed YAML, id outside the derived namespace) skips
++   loudly, and the installed pack is left untouched.
++2. Only after validation passes, the existing
++   `terminal-jail-pack-<name>.yaml` is backed up to
++   `<dest>.bak-<UTC timestamp>` **once** for the run (never a second backup
++   of an already-replaced copy), then the new file is written.
++3. Without the modifier nothing changes: the installed pack is skipped with
++   a hint naming this flag.
++
++`--replace-rule-packs` is a modifier, never a mode: alone (without
++`--rule-pack-file`), in release mode, or combined with `--uninstall` /
++`--hermes-plugin` it is refused with exit `2` and nothing written.
+diff --git a/install.sh b/install.sh
+index 6b8b4c6..ca19888 100755
+--- a/install.sh
++++ b/install.sh
+@@ -132,6 +132,12 @@ UNINSTALL_SYSTEMD=0
+ # named a specific file and silence would read as success.
+ RULE_PACK_FILES=""
+ UNINSTALL_RULE_PACK_FILES=""
++# TJ-DF-041: REPLACE_RULE_PACKS is a MODIFIER of --rule-pack-file, never a
++# mode of its own. Unset it means today's behavior exactly: an external file
++# whose derived name is already installed is skipped loudly. Set, it turns
++# the edit-iterate loop into one command: the installed copy is backed up
++# once per run, then the replacement is validated (fail-closed) and written.
++REPLACE_RULE_PACKS=0
+ # The file queues are NEWLINE-delimited (TJ-DF-034): unlike the name-based
+ # queues above, a file path may legitimately contain spaces (a directory in
+ # the path, never the [a-z0-9-] basename), so space-splitting iteration would
+@@ -246,6 +252,15 @@ Options:
+                         Unlike --unrule-pack this asserts: if no such pack is
+                         installed the run exits 1 with an explicit reason
+                         instead of reporting a no-op.
++  --replace-rule-packs  With --rule-pack-file: REPLACE the installed
++                        terminal-jail-pack-<name>.yaml instead of skipping.
++                        The existing pack is backed up to <dest>.bak-<UTC
++                        timestamp> (once per run, not per pack) BEFORE the
++                        replacement is written, and only AFTER the new file
++                        passes the validator — a refused replacement leaves
++                        the installed pack untouched. Without this flag the
++                        previous behavior holds: an installed name is skipped
++                        with a hint pointing here.
+   --list-rule-packs     List the rule packs this checkout ships (exit 0).
+   --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
+                         __init__.py, terminal_jail/) into dir (default:
+@@ -335,6 +350,16 @@ while [ $# -gt 0 ]; do
+             add_uninstall_rule_pack_file "${1#--uninstall-rule-pack-file=}"
+             shift
+             ;;
++        --replace-rule-packs)
++            REPLACE_RULE_PACKS=1
++            shift
++            ;;
++        --replace-rule-packs=*)
++            # Boolean-style flag: only the bare spelling (and its implicit
++            # value) is meaningful — an explicit value is a caller error.
++            echo "terminal-jail installer: --replace-rule-packs takes no value (it is a flag, not an option); use it bare alongside --rule-pack-file" >&2
++            exit 2
++            ;;
+         --list-rule-packs)
+             LIST_RULE_PACKS=1
+             shift
+@@ -470,6 +495,20 @@ if [ -z "$LOCAL_WRAPPER" ]; then
+     fi
+ fi
+ 
++# --- TJ-DF-041: --replace-rule-packs is a MODIFIER, never a mode --------------
++# A modifier the installer silently ignores is the defect this flag exists to
++# remove: alone (no pack files), in release mode, or combined with a mode that
++# never reaches the pack path, it is refused loudly instead of inert. Nothing
++# is written by any of these refusals (they precede every mkdir/write).
++if [ "$REPLACE_RULE_PACKS" -eq 1 ] && [ -z "$RULE_PACK_FILES" ]; then
++    echo "terminal-jail installer: --replace-rule-packs only means something together with --rule-pack-file <path> (nothing was written); example: ./install.sh --rule-pack-file ~/my-pack.yaml --replace-rule-packs" >&2
++    exit 2
++fi
++if [ "$REPLACE_RULE_PACKS" -eq 1 ] && [ -z "$LOCAL_WRAPPER" ]; then
++    echo "terminal-jail installer: --replace-rule-packs needs the repository checkout (local mode); release mode ships no rule-pack source — nothing was written" >&2
++    exit 2
++fi
++
+ # --- --uninstall refuses pack/flag mixing (TJ-GAP-071) -----------------------
+ # Parse-time refusals: nothing has been created or written yet, so a rejected
+ # combination leaves the filesystem untouched. Pack flags belong to an install
+@@ -480,6 +519,10 @@ if [ "$UNINSTALL" -eq 1 ]; then
+         echo "terminal-jail installer: --uninstall cannot be combined with --rule-pack/--unrule-pack/--rule-pack-file/--uninstall-rule-pack-file/--list-rule-packs — run them separately (nothing was written)" >&2
+         exit 2
+     fi
++    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
++        echo "terminal-jail installer: --replace-rule-packs cannot be combined with --uninstall — run them separately (nothing was written)" >&2
++        exit 2
++    fi
+ fi
+ # TJ-DF-022: --hermes-plugin is a standalone mode exactly like --uninstall and
+ # --list-rule-packs — parse-time refusals, nothing written.
+@@ -493,6 +536,10 @@ if [ "$HERMES_PLUGIN" -eq 1 ]; then
+         echo "terminal-jail installer: --hermes-plugin cannot be combined with --uninstall/--list-rule-packs — run them separately (nothing was written)" >&2
+         exit 2
+     fi
++    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
++        echo "terminal-jail installer: --hermes-plugin cannot be combined with --replace-rule-packs — run them separately (nothing was written)" >&2
++        exit 2
++    fi
+ fi
+ if [ "$UNINSTALL_SYSTEMD" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then
+     echo "terminal-jail installer: --uninstall-systemd only means something together with --uninstall (nothing was written)" >&2
+@@ -959,8 +1006,8 @@ EOF
+             skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — file not found; give the path to the rule pack YAML you want to install"
+             return 0
+         fi
+-        if [ -f "$pack_dest" ]; then
+-            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — a pack with the derived name '${pack_name}' is already installed at ${pack_dest}; an external file never replaces an installed pack. Re-run with --unrule-pack ${pack_name} first if you really want to replace it."
++        if [ -f "$pack_dest" ] && [ "$REPLACE_RULE_PACKS" -ne 1 ]; then
++            skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — a pack with the derived name '${pack_name}' is already installed at ${pack_dest}; an external file never replaces an installed pack. Re-run with --replace-rule-packs to replace it in one step, or --unrule-pack ${pack_name} to remove it first."
+             return 0
+         fi
+         if ! command -v python3 >/dev/null 2>&1; then
+@@ -983,6 +1030,17 @@ EOF
+             skip_rule_pack "terminal-jail installer: skipped: pack file '${pack_file}' — REFUSED by the validator, nothing was written (see the validator reason above)"
+             return 0
+         fi
++        # TJ-DF-041 replace path: the validator has PASSED, so this is the
++        # first moment the installed copy may be touched. Back the old copy
++        # up next to itself (<dest>.bak-<UTC ts>, the same .bak- family
++        # --uninstall already sweeps), ONCE per destination per run — a
++        # second file deriving the same name re-replaces silently and never
++        # stacks a second backup of the already-new copy. Fresh installs
++        # (no existing dest) skip the backup entirely.
++        if [ -f "$pack_dest" ] && [ ! -f "${pack_dest}.bak-${REPLACE_TS}" ]; then
++            cp -- "$pack_dest" "${pack_dest}.bak-${REPLACE_TS}"
++            echo "terminal-jail installer: backed up existing rule pack '${pack_name}' to ${pack_dest}.bak-${REPLACE_TS}"
++        fi
+         mkdir -p "$RESOLVED_RULES_DIR"
+         cp -- "$pack_file" "$pack_dest"
+         echo "terminal-jail installer: installed rule pack file '${pack_file}' to ${pack_dest}"
+@@ -1007,6 +1065,13 @@ EOF
+     }
+ 
+     UNINSTALL_FILE_FAILURES=0
++    # TJ-DF-041: one UTC timestamp for the whole run, so "backed up once" is
++    # name-addressable: every backup this run creates carries this suffix and
++    # a destination already backed up under it is never backed up again.
++    REPLACE_TS=""
++    if [ "$REPLACE_RULE_PACKS" -eq 1 ]; then
++        REPLACE_TS="$(date -u +%Y%m%dT%H%M%SZ)"
++    fi
+     # newline-delimited queues (TJ-DF-034): iterate line-wise; the counter
+     # lives in the MAIN shell (a while-read pipe would run uninstall_rule_
+     # pack_file in a subshell and lose every increment).
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index e8a186d..6c7716a 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -1818,6 +1818,159 @@ def test_rule_pack_file_needs_the_checkout_like_named_packs(tmp_path: Path) -> N
+     assert "need the repository checkout" in out, out
+ 
+ 
++# ── TJ-DF-041: one-command edit-iterate (--replace-rule-packs) ───────────────
++
++# The replacement body is a DIFFERENT valid pack under the SAME derived name:
++# same `pack-my-pack-*` namespace, different rule (so byte-identity assertions
++# can tell v1 from v2), no escaping pitfalls in the pattern.
++_EXTERNAL_PACK_BODY_V2 = """rules:
++  - id: "pack-my-pack-block-curl-evil"
++    description: "replaced pack body (TJ-DF-041)"
++    priority: 950
++    action: block
++    block_message: "Blocked by the replaced pack."
++    match:
++      type: pattern
++      pattern: "^curl -s http://evil"
++"""
++
++
++@pytest.mark.standalone_cli
++def test_rule_pack_file_over_an_existing_pack_still_skips_without_the_flag(
++    tmp_path: Path,
++) -> None:
++    """Pins today's behavior (TJ-DF-034): --rule-pack-file over an installed
++    pack name skips loudly — and now points at --replace-rule-packs. The
++    installed pack survives byte-identical and no .bak-* backup appears."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    external = tmp_path / "my-pack.yaml"
++    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
++
++    first = _run_repo_install(
++        tmp_path, "--rule-pack-file", str(external), extra_env=env
++    )
++    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
++    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
++    before = pack.read_bytes()
++
++    # Edit-iterate WITHOUT the flag: the file on disk changed; the installed
++    # copy must not.
++    external.write_text(_EXTERNAL_PACK_BODY_V2, encoding="utf-8")
++    result = _run_repo_install(
++        tmp_path, "--rule-pack-file", str(external), extra_env=env
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "is already installed at" in out, out
++    assert "--replace-rule-packs" in out, out
++    assert pack.read_bytes() == before, out
++    assert list(rules_dir.glob("*.bak-*")) == [], out
++
++
++@pytest.mark.standalone_cli
++def test_rule_pack_file_replace_replaces_the_pack_and_writes_one_bak(
++    tmp_path: Path,
++) -> None:
++    """--replace-rule-packs turns the edit-iterate loop into ONE command: the
++    installed pack is backed up to <dest>.bak-<timestamp>, the replacement is
++    validated (it is: this run exits 0), and the installed copy matches the
++    new file byte-for-byte."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    external = tmp_path / "my-pack.yaml"
++    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
++    first = _run_repo_install(
++        tmp_path, "--rule-pack-file", str(external), extra_env=env
++    )
++    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
++    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
++    v1 = pack.read_bytes()
++
++    external.write_text(_EXTERNAL_PACK_BODY_V2, encoding="utf-8")
++    result = _run_repo_install(
++        tmp_path,
++        "--rule-pack-file",
++        str(external),
++        "--replace-rule-packs",
++        extra_env=env,
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    assert pack.read_bytes() == external.read_bytes(), out
++    backups = sorted(rules_dir.glob("terminal-jail-pack-my-pack.yaml.bak-*"))
++    assert len(backups) == 1, out
++    assert backups[0].read_bytes() == v1, out
++    assert "backed up existing rule pack" in out, out
++    assert f"installed rule pack file '{external}' to {pack}" in out, out
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
++
++
++@pytest.mark.standalone_cli
++def test_rule_pack_file_replace_refused_by_the_validator_keeps_the_pack(
++    tmp_path: Path,
++) -> None:
++    """Validate-FIRST, then replace: a replacement the validator refuses (this
++    body's rule id sits outside the pack-my-pack-* namespace AND has no
++    'match' mapping) leaves the installed pack byte-identical and writes no
++    .bak-* backup — the backup happens only after the validator passes."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    external = tmp_path / "my-pack.yaml"
++    external.write_text(_EXTERNAL_PACK_BODY, encoding="utf-8")
++    first = _run_repo_install(
++        tmp_path, "--rule-pack-file", str(external), extra_env=env
++    )
++    assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
++    pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
++    before = pack.read_bytes()
++
++    external.write_text(_SCHEMA_INVALID_PACK, encoding="utf-8")
++    result = _run_repo_install(
++        tmp_path,
++        "--rule-pack-file",
++        str(external),
++        "--replace-rule-packs",
++        extra_env=env,
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "REFUSED by the validator, nothing was written" in out, out
++    assert pack.read_bytes() == before, out
++    assert list(rules_dir.glob("*.bak-*")) == [], out
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
++
++
++@pytest.mark.standalone_cli
++def test_replace_rule_packs_without_pack_files_errors_cleanly(
++    tmp_path: Path,
++) -> None:
++    """--replace-rule-packs is a modifier of --rule-pack-file, never a mode of
++    its own: alone (no pack files) it is refused at parse time with a message
++    naming both flags — nothing written."""
++    result = _run_repo_install(tmp_path, "--replace-rule-packs")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 2, out
++    assert "--replace-rule-packs" in out, out
++    assert "--rule-pack-file" in out, out
++    _assert_nothing_written(tmp_path)
++
++
++@pytest.mark.standalone_cli
++def test_help_documents_the_replace_rule_packs_flag(tmp_path: Path) -> None:
++    """Usage text and the quickstart doc name the new flag (TJ-DF-041
++    acceptance: documented in usage text and one doc file)."""
++    result = _run_repo_install(tmp_path, "--help")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++    assert result.returncode == 0, out
++    assert "--replace-rule-packs" in out, out
++
++    quickstart = (PROJECT_ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8")
++    assert "--replace-rule-packs" in quickstart, quickstart[-2000:]
++    assert "--rule-pack-file" in quickstart, quickstart[-2000:]
++
++
+ # ── TJ-GAP-065: the PATH hint follows the ACTUAL install dir ────────────────
+ 
+ 

@@ -1,0 +1,647 @@
+commit b46ab8723e9c930f53f46e669fd3ca1579a2381b
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Tue Sep 22 15:18:30 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Tue Sep 22 15:18:30 2026 -0500
+
+    board: tick #310 — release 1.2.0 cut: TJ-GAP-073 complete (6346531 worker + 3bf4dac polish, judge PASS 238cda72 after attempt-1 judge time-cap, suite 1397/7, tag v1.2.0 pushed), gitreins history folded
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .coding-hermes/board/board.jsonl                   |   2 +-
+ .coding-hermes/board/events.jsonl                  |   2 +
+ .coding-hermes/board/tasks.jsonl                   |   2 +-
+ .gitreins/history/2026-09-22/8c38e7b6/commit.patch |  43 ++++++
+ .gitreins/history/2026-09-22/8c38e7b6/summary.md   |  38 ++++++
+ .gitreins/history/2026-09-22/8c38e7b6/verdict.json | 144 +++++++++++++++++++++
+ .../history/2026-09-22/8c38e7b6/worktree.patch     |  30 +++++
+ .gitreins/history/2026-09-22/c664d42f/commit.patch |  43 ++++++
+ .gitreins/history/2026-09-22/c664d42f/summary.md   |  38 ++++++
+ .gitreins/history/2026-09-22/c664d42f/verdict.json | 144 +++++++++++++++++++++
+ .../history/2026-09-22/c664d42f/worktree.patch     |  31 +++++
+ .gitreins/tasks.yaml                               |  13 ++
+ .gitreins/usage.jsonl                              |   2 +
+ 13 files changed, 530 insertions(+), 2 deletions(-)
+
+diff --git a/.coding-hermes/board/board.jsonl b/.coding-hermes/board/board.jsonl
+index d4647e6..d98073f 100644
+--- a/.coding-hermes/board/board.jsonl
++++ b/.coding-hermes/board/board.jsonl
+@@ -1 +1 @@
+-{"project": "Terminal-Jail", "namespace": "terminal-jail", "version": 2, "last_tick": "2026-09-22 13:20:00", "ticks_total": 309, "ticks_idle": 0, "cooldown_s": 900, "service_port": null, "service_url": null, "health_endpoint": null, "git_branch": "main", "git_remote": "origin", "last_commit": "12bb66c", "updated_at": "2026-09-22 13:21:52.000000"}
++{"project": "Terminal-Jail", "namespace": "terminal-jail", "version": 2, "last_tick": "2026-09-22 15:11:29.000000", "ticks_total": 310, "ticks_idle": 0, "cooldown_s": 900, "service_port": null, "service_url": null, "health_endpoint": null, "git_branch": "main", "git_remote": "origin", "last_commit": "3bf4dac", "updated_at": "2026-09-22 15:11:29.000000"}
+diff --git a/.coding-hermes/board/events.jsonl b/.coding-hermes/board/events.jsonl
+index 3781c56..5cadea3 100644
+--- a/.coding-hermes/board/events.jsonl
++++ b/.coding-hermes/board/events.jsonl
+@@ -418,3 +418,5 @@
+ {"id": 418, "timestamp": "2026-09-22 15:13:30.000000", "event_type": "audit", "task_id": null, "actor": "foreman", "detail": "{\"tick\": 308, \"tick_type\": \"recovery-work\", \"summary\": \"Recovery of interrupted tick #307 wave: it merged TJ-GAP-070 (2e351ff) + TJ-GAP-071 (f0141d0), got 070 judge-INCOMPLETE on a real empty-stdout hole, landed follow-up 455f865, saw CI red from degraded-host test assumptions, committed fix 11a708a (INT-CI-001), pushed main — then died before the board close, verdict fold, and INT-CI-001 judge. This tick: verified all three PASS verdicts (8b89c163 re-judge, 7fd82d00 inherited, 75b974e0 after an 8M->12M cap-rung raise for 28f44876 INCOMPLETE-at-cap), ran the judge's own failing repro (now exit 126 block), full suite 1395/7, closed 070/071, filed+closed INT-CI-001, folded .gitreins history + cap-rung config comment + wave manifest into the board commit.\", \"git\": {\"pre_tick_head\": \"11a708a\", \"content_commit\": \"11a708a (inherited from tick #307)\", \"board_commit\": \"pending\", \"pushed\": \"pending\"}, \"ci\": {\"latest\": \"run 35740806798 success on 11a708a; new run expected after this tick's push\"}, \"issues\": [], \"scheduler\": {\"ticks_total\": 308, \"ticks_idle\": 0}, \"siblings\": [], \"hilo\": \"not run (no impact query needed; hilo would touch tracked edges.jsonl)\", \"off_by_one\": \"daemon alive (pid 2102, started Sep 21, --port 8766); no solving activity observed; cap-starvation class resolved from corpus answer 2269\", \"host_load\": \"normal during tick; two background judge runs completed cleanly\", \"duckbrain\": \"written post-push\", \"header\": {\"ticks_total\": 308, \"last_commit\": \"11a708a\"}, \"board\": {\"rows\": 170, \"guard\": \"170 rows / 170 unique ids expected\", \"diff\": \"tasks.jsonl 2 rows updated + INT-CI-001 appended; events.jsonl +4; board.jsonl header\"}, \"fixtures\": \"none touched\", \"blocked\": \"standing: DF-19 + DF-26 (bunker infra, owner=infra), QA-9 + QA-11 (battery harness side), TJ-DF-018 (skill-vs-deployed-bunkerd drift, P3)\", \"verdict\": \"WORK TICK #308 — recovery: TJ-GAP-070 + TJ-GAP-071 closed (judges PASS), INT-CI-001 filed+closed (judge PASS after cap rung raise), CI green, pushed\"}"}
+ {"id":419,"timestamp":"2026-09-22 13:21:46.000000","event_type":"task_completed","task_id":"TJ-GAP-072","actor":"foreman","detail":"{\"tick\": 309, \"commit\": \"12bb66c2d8d2457518aaeda266429bba1d487c80\", \"judge\": \"PASS d1dd18e8 (first attempt; judge re-ran regression tests + independent manual repro + full suite)\", \"guard\": \"tier1 PASS 4/4 (12bb66c pre-commit); full plugin suite 1397 passed / 7 skipped\", \"ci\": \"run 35765459009 success on 12bb66c\"}","tick_number":309}
+ {"id":420,"timestamp":"2026-09-22 13:21:52.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"tick\": 309, \"tick_type\": \"salvage-work\", \"summary\": \"Recovered TJ-GAP-072 from a dead worker session (20260922_114226_bd5a59, glm-5.3-flash, died 12:17 local mid-debug, 21 api calls, no process/worktree/branch): its uncommitted install-manifest prune + .bak-retention implementation sat in the tree with one failing test. Salvaged foreman-direct per the interrupted-lifecycle recipe: fixed the test's prune-count arithmetic (7 installs - 5 kept = 2 prune announcements, not 3) and added the missing sed stub to _INSTALL_TOOLS (curated-PATH tests exit 127 without it; head-copy run isolated the cause). RED-proof: both new tests fail against old install.sh. Committed 12bb66c, guard 4/4, suite 1397/7, ruff clean, CI green 35765459009, judge PASS d1dd18e8, row closed, pushed.\", \"git\": {\"pre_tick_head\": \"76b970c\", \"content_commit\": \"12bb66c\", \"board_commit\": \"pending\", \"pushed\": \"pending\"}, \"ci\": {\"latest\": \"run 35765459009 success on 12bb66c; board-commit run expected after push\"}, \"issues\": [], \"scheduler\": {\"ticks_total\": 309, \"ticks_idle\": 0}, \"siblings\": [], \"hilo\": \"not run (no impact query needed; hilo would touch tracked edges.jsonl)\", \"off_by_one\": \"daemon alive (pid 2102, uptime 24h50m); discover: 2 classes no-solution; submitted post-debug sub_7dd347 (installer-upgrade-stale-file-prune-manifest)\", \"host_load\": \"normal; two sibling hermes-dagger / chimera-v2 workers running, unrelated\", \"duckbrain\": \"written post-push\", \"header\": {\"ticks_total\": 309, \"last_commit\": \"12bb66c\"}, \"board\": {\"rows\": 170, \"guard\": \"170 rows / 170 unique ids\", \"diff\": \"tasks.jsonl 1 row updated (TJ-GAP-072); events.jsonl +2; board.jsonl header\"}, \"fixtures\": \"none touched\", \"blocked\": \"standing: DF-19 + DF-26 (bunker infra, owner=infra), QA-9 + QA-11 (battery harness side), TJ-DF-018 (skill-vs-deployed-bunkerd drift, P3)\", \"verdict\": \"WORK TICK #309 — salvage: TJ-GAP-072 recovered from dead worker, committed 12bb66c, judge PASS d1dd18e8, CI green, pushed\"}","tick_number":309}
++{"id":421,"timestamp":"2026-09-22 15:11:29.000000","event_type":"task_completed","task_id":"TJ-GAP-073","actor":"foreman","detail":"{\"tick\": 310, \"commit\": \"6346531fafceaa1a657a01062fb326cd74b1ec94 (worker) + 3bf4dac0ca01c244454427f9cf228465e4f3565f (foreman polish)\", \"guard\": \"tier1 PASS on both commits (worker: 2 guard runs — first refused the stale test_metrics_export version assertion, second green after the 1-line test bump; polish: DEGRADED PASS 4 lanes diff-mode)\", \"judge\": \"PASS 238cda72 record (verdict dir c664d42f; re-judge after attempt 1 FAIL 8c38e7b6 — the judge's own pytest run hit its evaluation time cap under host load with capture 0 bytes; attempt 2 captured 1397 passed / 7 skipped)\", \"ci\": \"run 35766783741 success (pre-push latest); new run expected after push\"}","tick_number":310}
++{"id":422,"timestamp":"2026-09-22 15:11:29.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"tick\": 310, \"tick_type\": \"work\", \"summary\": \"Release cut 1.2.0 (TJ-GAP-073, P3, stand-in PM row 2026-09-21): worker glm-5.3-flash (session 20260922_134851_60c08f) bumped every machine literal 1.1.0 -> 1.2.0 (pyproject.toml, plugin/plugin.yaml, install.sh x2 sites, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md transcript) and promoted the CHANGELOG [Unreleased] section to [1.2.0] — 2026-09-22 with all 28 ### subsections byte-identical and an empty [Unreleased] reopened (verified: 2-line diff, 28/28 subsections before/after). Deviations disclosed by the worker, both verified foreman-side: uv.lock is gitignored (.gitignore:7) so it was regenerated on disk (pin 1.2.0, uv lock --check rc=0) not committed — brief error; plugin/test_metrics_export.py:97 pins the exact released literal so one assertion moved to 1.2.0 after the tier-1 guard refused the first commit attempt. Foreman polish 3bf4dac fixed the two remaining v1.1.0 plugin load banners (no test pins them). Independent foreman verification: grep zero 1.1.0 across bump sites, --version prints terminal-jail 1.2.0, sh -n install.sh ok, pytest plugin 1397 passed / 7 skipped, uvx ruff clean, uv lock --check rc=0. Wave path skipped: only ONE dispatchable in-repo task existed (QA-9/QA-11/DF-19/DF-26 are harness/bunker-side, TJ-DF-018 says do-not-dispatch).\", \"git\": {\"pre_tick_head\": \"8da1b0e\", \"content_commit\": \"6346531 + 3bf4dac (polish)\", \"board_commit\": \"pending\", \"pushed\": \"pending\"}, \"ci\": {\"latest\": \"run 35766783741 success on board #309 commit; new run expected after push\"}, \"issues\": \"none — CI green on last 3 runs at tick start\", \"scheduler\": \"GET /api/v1/projects/terminal-jail -> cooldown_s 21600, enabled true; latest_tick running (this tick)\", \"siblings\": \"10 concurrent running ticks at dispatch: gitreins, trouble-sync, terminal-jail (self), heading-dogfood, hermes-canopy, hermes-dagger, auger, chimera-v2, coding-hermes-scheduler, h3\", \"hilo\": \"not probed this tick (no graph-impact queries run; edges.jsonl untouched)\", \"off_by_one\": \"daemon alive on :8766; discover(version-bump-release-drift) -> not_found; corpus grep found 2129-rust-release-cut-changelog-promotion and its bucket-merge pattern was applied to the CHANGELOG promotion; no debugging was performed this tick -> nothing submitted\", \"host_load\": \"loadavg 12.0 at judge start -> 8.3 later; 10 scheduler ticks concurrently; judge attempt 1 hit its evaluation TIME CAP (its pytest capture stayed 0 bytes — truncation, not a red suite; foreman's own parallel run already showed 1397/7 green), re-judge captured the suite and PASSED\", \"duckbrain\": \"tick-310 narration key write pending at event time\", \"header\": {\"ticks_total\": 310, \"ticks_idle\": 0, \"last_commit\": \"3bf4dac\"}, \"board\": \"TJ-GAP-073 pending->complete; events 421 (task_completed) + 422 (audit) appended; board.jsonl header bumped\", \"fixtures\": 3, \"blocked\": \"3 blocked rows stand; premise-rot check not re-run this tick (QA-TERMINAL-JAIL-9 + DF-19/26 are harness/bunker-side; QA-11 channel mismatch, TJ-DF-018 upstream skill repo, E2E-001 + NEVER-DONE perpetual)\", \"verdict\": \"WORK TICK #310 — release 1.2.0 cut: worker 6346531 + polish 3bf4dac, judge PASS 238cda72, suite 1397/7, ruff clean, CI run expected after push\"}","tick_number":310}
+diff --git a/.coding-hermes/board/tasks.jsonl b/.coding-hermes/board/tasks.jsonl
+index 763c056..8ae1b6b 100644
+--- a/.coding-hermes/board/tasks.jsonl
++++ b/.coding-hermes/board/tasks.jsonl
+@@ -166,7 +166,7 @@
+ {"status": "complete", "primary_model": "glm-5.3-flash", "primary_provider": "zai-glm-default", "created_at": "2026-09-21T11:23:44+00:00", "attempts": 1, "id": "TJ-GAP-070", "priority": "P1", "title": "[P1] Engine crash inside a user rule file fails the firewall OPEN: bridge catches the exception and emits action=allow with a [bridge-error] reason the wrapper never inspects — one malformed user rule (e.g. priority: not-a-number) silently disables ALL rule protection", "detail": "Verified end-to-end 2026-09-21: with TERMINAL_JAIL_INTERRUPTOR_RULES_DIR pointing at a dir whose only yaml sets priority: not-a-number, `bridge({'command': 'true'})` returns rc=0, action=allow, rule_id=null, reason '[bridge-error] interrupt() raised an exception — fail-open: allowing command' (interruptor_bridge.py:68-71 catches Exception and calls _emit_fail_open), and the full wrapper `standalone/terminal-jail true` exits 0 and RUNS the command with zero warning — enforce mode's documented fail-closed contract does not trigger because the bridge exits 0 with valid JSON. Two wrapper fail-open hazards sit beside it: the verdict parser does `|| echo \"allow\"` on any bridge stdout that is not JSON (standalone/terminal-jail:319), and empty-stdout-with-exit-0 falls through unparsed. Control probe (clean rules dir): builtin-chmod-777-root still blocks — the firewall itself is healthy; the hole is exception-to-allow. DF-TERMINAL-JAIL-6 fixed the INPUT schema boundary (bridge still fails open there, documented); TJ-GAP-063 fixed the BRIDGE-UNAVAILABLE boundary (fails closed); the ENGINE-EXCEPTION boundary was never decided and currently defaults to allow.", "reasoning": "stand-in PM cycle 2026-09-21 (hunter-verified real-use finding; PM re-ran every load-bearing probe before gating) || TICK #306 FOREMAN PREMISE-CHECK (independent, same-day): REPRODUCED as described. With TERMINAL_JAIL_INTERRUPTOR_RULES_DIR pointing at a dir whose only yaml sets `priority: not-a-number`, the bridge on `{\"command\": \"terraform destroy\"}` returns rc=0, action=allow, rule_id=null, reason `[bridge-error] interrupt() raised an exception — fail-open: allowing command`. Control probe (clean rules dir): builtin-chmod-777-root still blocks — the firewall itself is healthy; the hole is exception-to-allow. Note for the fixing tick: loader-boundary crash shapes (malformed YAML, invalid regex, wrong field types) are ALREADY silently skipped with a WARNING per DF-TERMINAL-JAIL-6 — this row's hole is specifically the post-parse processing/evaluation exception path.", "review_notes": "Decide and implement the contract explicitly: (a) preferred — the bridge distinguishes 'policy says allow' from 'engine could not evaluate': on exception emit action=deny (or a dedicated 'error' action) with the [bridge-error] reason so the wrapper's enforce mode blocks, keeping the allow envelope ONLY for malformed stdin/transport where blocking could brick the host shell; validate rules at LOAD time too (rule-pack-tool-style schema pass over rules.d on RuleSet init: refuse the whole file with a loud one-line stderr note, so a typo cannot arm this path). (b) wrapper-side hardening regardless: treat any verdict carrying a non-empty reason starting with [bridge-error] as block in enforce mode, and treat empty/non-JSON bridge stdout as block (never `|| echo allow`). PASS: (1) poison-priority fixture (priority: not-a-number) -> `standalone/terminal-jail true` exits 126 with a block/error box and the payload does not run, enforce mode; (2) the same fixture in warn mode runs with a loud warning line; (3) bridge emitting garbage on stdout -> enforce blocks; (4) all existing suites stay green and the clean-rules control probe still allows/blocks exactly as before (no regression on the DF-6 contract).", "source": "pm-standin-2026-09-21", "worker_status": "complete", "completed_at": "2026-09-22 10:20:00.000000", "commit_hash": "2e351ff0e6275a245c4d6df72c7142bfc87a55b1", "guard_result": "PASS (gitreins tier1 lint/secrets/tests; full-repo suite 1395 passed/7 skipped)", "ci_result": "success (run 35740806798 on follow-up 11a708a)", "worker_summary": "Wave worker (wt/TJ-GAP-070, glm-5.3-flash @ zai-glm-default): fail-closed engine evaluation — bridge emits action=block rule_id=[bridge-error] on intercept() exception; wrapper treats unusable verdicts ([bridge-error] reason, non-JSON/whitespace/empty stdout) as exit-126 block in enforce / loud WARN in warn mode; RuleSchemaError load-time schema pass with one-line stderr note; +505-line plugin/test_bridge_fail_closed.py.", "foreman_note": "Closed tick #308 (recovery: tick #307 died after merge+judge, before board close). First judge dd860bdb INCOMPLETE was a REAL merits finding — empty bridge stdout ran unguarded in enforce mode (live repro in verdict body); follow-up 455f865 closed the hole; re-judge 8b89c163 PASS 2026-09-22 (judge re-ran the exact repro: exit 126 block box; suite 1395/7)."}
+ {"status": "complete", "primary_model": "glm-5.3-flash", "primary_provider": "zai-glm-default", "created_at": "2026-09-21T11:23:44+00:00", "attempts": 1, "id": "TJ-GAP-071", "priority": "P2", "title": "[P2] No uninstall/removal path exists: install.sh only installs (its sole removal knob is --unrule-pack) and no doc removes the five artifact classes, so a user who wants terminal-jail gone must hand-hunt ~/.local/bin, ~/.local/lib, ~/.config, rc-file PATH lines and .bak files", "detail": "Hunter-verified 2026-09-21: no script or documented procedure removes an installation. install.sh's only removal verb is --unrule-pack (rule packs); the only rollback text is the systemd drop-in procedure inside systemd/90-terminal-jail-hardening.conf. Nothing removes: (1) ~/.local/bin/terminal-jail wrapper, (2) ~/.local/lib/terminal-jail tree, (3) ~/.config/terminal-jail/rules.d/* including accumulated .bak-* backups, (4) the '# terminal-jail' PATH lines appended to shell rc files, (5) /etc/systemd/system/hermes-gateway.service.d/ drop-in if it was installed. A user who misses some gets a phantom PATH entry (command not found) or orphaned rules still loaded by the engine.", "reasoning": "stand-in PM cycle 2026-09-21 (hunter-verified real-use finding; PM re-ran every load-bearing probe before gating)", "review_notes": "Add `./install.sh --uninstall` (or scripts/uninstall.sh) mirroring every install target exactly — remove wrapper, lib tree, installed rules.d files that terminal-jail wrote (pack-<name>.yaml + 00-builtins.yaml it seeded; leave user-authored rules with a printed note), rc PATH lines, and optionally the systemd drop-in behind a flag; print everything it removes. Document a Removal section in README + docs/quickstart.md. PASS: (1) documented uninstall run on a scratch-HOME install leaves zero terminal-jail files under $HOME (command -v terminal-jail finds nothing); (2) re-running install.sh after uninstall reproduces a working install (round-trip); (3) user-authored rules.d files are preserved (or explicitly listed for manual review), not silently deleted.", "source": "pm-standin-2026-09-21", "worker_status": "complete", "completed_at": "2026-09-22 10:20:00.000000", "commit_hash": "f0141d067ebe68da9de3a2394c59e99c226c6d00", "guard_result": "PASS (gitreins tier1 lint/secrets/tests, verdict 7fd82d00)", "ci_result": "success (covered by main runs post-merge)", "worker_summary": "Wave worker (wt/TJ-GAP-071, glm-5.3-flash @ zai-glm-default): install.sh --uninstall — removes marker-matched artifacts (bin shim, LIB_DIR, config rules mirror with user-authored-file preservation + listing, rc PATH lines, systemd drop-in behind explicit flag), scratch-HOME + round-trip tests (+344-line test_uninstall.py), README/quickstart Removal sections.", "foreman_note": "Closed tick #308 (recovery: tick #307 died after merge+judge, before board close). Judge 7fd82d00 PASS: zero terminal-jail files left under scratch HOME, round-trip install->uninstall->install works, idempotent no-op on never-installed HOME. Merge bf8c974."}
+ {"status":"completed","primary_model":"glm-5.3-flash","primary_provider":"zai-glm-default","created_at":"2026-09-21T11:23:44+00:00","attempts":0,"id":"TJ-GAP-072","priority":"P3","title":"[P3] Upgrade never prunes: the documented upgrade path (re-running install.sh) cp -R's the plugin tree with no manifest/prune, so files deleted upstream persist forever in ~/.local/lib/terminal-jail, and differing-rule .bak-* backups accumulate unbounded","detail":"install.sh:555 is a bare `cp -R \"$SCRIPT_DIR/plugin/terminal_jail\" \"$LIB_DIR/plugin/\"` — no manifest, no rsync --delete, no wipe-and-recreate; grep of install.sh finds no prune mechanism anywhere. After upgrading from a checkout where a module was renamed/removed, the installed tree keeps the stale file and the bridge's candidate resolution can still import it, making installed-state vs checkout-state indistinguishable when debugging. Separately, install.sh:586-591 backs up user-differing rules as .bak-<timestamp> with no retention cap.","reasoning":"Worker session 20260922_114226_bd5a59 (glm-5.3-flash) died at 12:17 local mid-debug (21 API calls, no process, no worktree/branch/manifest entry); implementation recovered from the tree and finished foreman-direct per the interrupted-lifecycle recipe: fixed the test's prune-count arithmetic (7 installs - 5 kept = 2 prune announcements, not 3) and added the missing sed stub to _INSTALL_TOOLS the new manifest pipeline needs (curated-PATH tests exit 127 without it). RED-proof: both new tests fail against old install.sh. Salvage, not re-dispatch.","review_notes":"Pick one: (a) record an install manifest (list of files install.sh wrote) and prune manifest entries that vanish from the checkout on re-install; or (b) wipe-and-recreate LIB_DIR/plugin/terminal_jail on re-install after the fresh copy succeeds (copy to tmp dir, then atomic swap), with the same .bak protection rules already carry. Cap or prune .bak-* retention (e.g. keep newest 5). PASS: install, delete a module from plugin/terminal_jail in the checkout, re-run install.sh, and the file is absent from the installed lib tree; .bak count is bounded after repeated installs with changing user rules.","source":"pm-standin-2026-09-21","worker_status":"salvaged","commit_hash":"12bb66c","guard_result":"tier1 PASS 4/4 (12bb66c pre-commit, diff mode + full plugin suite 1397/7 pre-commit)","ci_result":"run 35765459009 success on 12bb66c","judge_verdict":"PASS d1dd18e8 (first attempt; judge re-ran regressions + independent manual repro + full suite 1397/7)","completed_at":"2026-09-22T18:30:00Z","foreman_note":"Implementation + tests salvaged from dead worker session 20260922_114226_bd5a59; foreman fixes: prune-line count 3->2 (arithmetic in test comment/assert) + sed in _INSTALL_TOOLS (curated-PATH 127). RED-proofed, suite 1397/7, ruff clean, CI green 35765459009, judge PASS. ob1 post-debug sub_7dd347 (installer-upgrade-stale-file-prune-manifest)."}
+-{"status": "pending", "primary_model": "glm-5.3-flash", "primary_provider": "zai-glm-default", "created_at": "2026-09-21T11:23:44+00:00", "attempts": 0, "id": "TJ-GAP-073", "priority": "P3", "title": "[P3] Version-label drift: every machine literal says 1.1.0 while docs/specs label shipped behavior 'v1.2' and CHANGELOG holds the bwrap-backend work under [Unreleased] with no [1.2.0] section", "detail": "Verified 2026-09-21: version = 1.1.0 at pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 and :176, standalone/terminal-jail:80, docs/quickstart.md:79 — all agree (good). But docs/quickstart.md:142/149/398, README.md:624/641 and specs/cli.md (multiple lines) describe current behavior as 'v1.2' (backend selection, bubblewrap), while `terminal-jail --version` reports 1.1.0 and CHANGELOG.md carries the backend work under [Unreleased] with no [1.2.0] header. An operator cannot tell whether an installed 1.1.0 artifact actually contains the v1.2 backend code, and the release-mode installer default pins 1.1.0.", "reasoning": "stand-in PM cycle 2026-09-21 (hunter-verified real-use finding; PM re-ran every load-bearing probe before gating)", "review_notes": "Either cut the release — bump all literals to 1.2.0, add the CHANGELOG [1.2.0] section from the current [Unreleased] content, update the installer default — or relabel every 'v1.2' docs mention as unreleased. PASS: all version literals equal the latest CHANGELOG release header, `--version` output matches it, and no doc attaches a version label to behavior that the version literals do not carry.", "source": "pm-standin-2026-09-21"}
++{"status":"complete","primary_model":"glm-5.3-flash","primary_provider":"zai-glm-default","created_at":"2026-09-21T11:23:44+00:00","attempts":1,"id":"TJ-GAP-073","priority":"P3","title":"[P3] Version-label drift: every machine literal says 1.1.0 while docs/specs label shipped behavior 'v1.2' and CHANGELOG holds the bwrap-backend work under [Unreleased] with no [1.2.0] section","detail":"Verified 2026-09-21: version = 1.1.0 at pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 and :176, standalone/terminal-jail:80, docs/quickstart.md:79 — all agree (good). But docs/quickstart.md:142/149/398, README.md:624/641 and specs/cli.md (multiple lines) describe current behavior as 'v1.2' (backend selection, bubblewrap), while `terminal-jail --version` reports 1.1.0 and CHANGELOG.md carries the backend work under [Unreleased] with no [1.2.0] header. An operator cannot tell whether an installed 1.1.0 artifact actually contains the v1.2 backend code, and the release-mode installer default pins 1.1.0.","reasoning":"stand-in PM cycle 2026-09-21 (hunter-verified real-use finding; PM re-ran every load-bearing probe before gating)","review_notes":"Either cut the release — bump all literals to 1.2.0, add the CHANGELOG [1.2.0] section from the current [Unreleased] content, update the installer default — or relabel every 'v1.2' docs mention as unreleased. PASS: all version literals equal the latest CHANGELOG release header, `--version` output matches it, and no doc attaches a version label to behavior that the version literals do not carry.","source":"pm-standin-2026-09-21","worker_status":"complete","completed_at":"2026-09-22T15:12:19-05:00","updated_at":"2026-09-22T15:12:19-05:00","commit_hash":"6346531 (worker) + 3bf4dac (foreman polish)","guard_result":"tier1 PASS on both commits (worker's first commit refused by guard on stale test assertion — disclosed; polish DEGRADED PASS diff-mode)","ci_result":"pre-push latest run 35766783741 success; post-push run expected","worker_summary":"glm-5.3-flash (session 20260922_134851_60c08f) cut release 1.2.0: all machine literals bumped, CHANGELOG [Unreleased] promoted to [1.2.0] — 2026-09-22 (28/28 subsections byte-identical, empty [Unreleased] reopened), uv.lock regenerated on disk (gitignored), one stale test assertion updated after guard refusal; foreman polish 3bf4dac bumped the two plugin load banners","foreman_note":"PASS 238cda72 (verdict dir c664d42f; attempt 1 FAIL 8c38e7b6 was the judge's own pytest evaluation time-cap under 10-tick host load — capture stayed 0 bytes; re-judge captured 1397 passed / 7 skipped)"}
+ {"id": "INT-CI-001", "status": "complete", "priority": "P1", "complexity": 1, "title": "[P1] CI red on wrapper verdict-hardening run-assertions: tests assume the wrapped command RAN, which namespace-degraded hosts (CI runner class) deny", "detail": "gh run 35733081762 failure on main (2026-09-22 13:22Z): the four TestWrapperVerdictHardening tests added for TJ-GAP-070 assert the wrapped command actually ran, but on hosts where bare unshare is denied the wrapper fail-closes with exit 2 before running, so run-assertions red while warn semantics still held. Fix 11a708a: gate run-assertions behind _host_denies_bare_launch() (bare-launch probe rc=2 + degraded marker: Permission denied / Operation not permitted / namespace creation failed, lru_cache'd); warn semantics asserted unconditionally on every host.", "reasoning": "Filed+closed foreman-direct tick #308: the fix commit (11a708a) was already landed and pushed by interrupted tick #307 before its death; CI green on it (run 35740806798). Judge independently simulated a degraded host via a PATH unshare stub.", "created_at": "2026-09-22T14:17:49+00:00", "updated_at": "2026-09-22T15:12:00+00:00", "worker_status": "foreman", "completed_at": "2026-09-22 10:20:00.000000", "attempts": 1, "commit_hash": "11a708accdd7a158dcb52e39931e7998eea790c4", "guard_result": "PASS (tier1 in judge 75b974e0: lint/secrets/tests; suite 1395 passed/7 skipped local; judge simulated degraded host -> 9 passed)", "ci_result": "success run 35740806798 on 11a708a (replaces failure 35733081762 on 455f865)", "worker_summary": "Foreman-direct recovery: fix already committed by tick #307 before death; verified locally + judge PASS.", "foreman_note": "gitreins INT-CI-001 first judge attempt hit input-token cap starvation (8.1M used vs 8.0M cap) -> verdict 28f44876 INCOMPLETE tier1-PASS; max_input_tokens raised 8M->12M (1.5x rung per corpus answer 2269; ratio was near-miss band, rung recorded as probe pending normal-burn settle); re-judge 75b974e0 PASS."}
+ {"id": "REVIEW-TJ-001", "title": "[P2] v1.2.0 is committed and pushed but never released \u2014 tree says 1.2.0, the only tag in existence (local and remote) is v1.0.0", "status": "pending", "priority": "P2", "type": "task", "created_at": "2026-09-22T15:08:23", "created_by": "review-programme", "description": "Fleet project review #7; CORRECTED at 2026-09-22T15:08:54 after re-verification (the earlier text said the release commits were unpushed \u2014 that was true when measured and false by the time this row was filed, because a tick pushed them in between). Verified now: the cut commit 6346531 and the follow-up 3bf4dac are BOTH ancestors of origin/main (published), and pyproject.toml states version = \"1.2.0\" \u2014 yet `git tag` and `git ls-remote --tags origin` agree on exactly one tag: v1.0.0. So the release is published but never cut: no v1.2.0 tag, no release, and nothing a channel can serve above v1.0.0, while the tree advertises 1.2.0. The project's own QA row (QA-TERMINAL-JAIL-11) described the upgrade cell failing on a channel mismatch, which is the same shape seen from the other end. The committed egg-info/PKG-INFO literals (1.1.0, 1.2.3) add to the confusion (tracked on REVIEW-TJ-004).", "acceptance_criteria": "Either v1.2.0 is pushed and published through the documented channel (tag present on the remote and installable), or the release commits are folded into an explicit next cut with the version literal sites updated; no state where the tree says 1.2.0 and no channel has it.", "source": "review #7 terminal-jail \u2014 fleet review programme 2026-09-22", "review_notes": "Correction discipline: the original claim is preserved here rather than silently rewritten \u2014 it read \"v1.2.0 is cut but unpublished (2 commits unpushed)\", measured 2026-09-22T15:08, and a tick pushed those commits before the row landed. The verified finding is narrower and stronger: published, but unreleased."}
+ {"id": "REVIEW-TJ-002", "title": "[P2] Three rows blocked since 31 July with no stated blocker (Phase 5/6 and GPG-signed releases)", "status": "pending", "priority": "P2", "type": "task", "created_at": "2026-09-22T15:08:23", "created_by": "review-programme", "description": "Fleet project review #7, re-verified 2026-09-22T15:08:23: rows sit in status=blocked with no blocker field naming what they wait on, including Phase 6 production deployment (P1). The README describes the full PID-namespace profile as staged but not active. A blocked row with no named dependency is indistinguishable from an abandoned one and removes the row from any open-work count.", "acceptance_criteria": "Every blocked row names its dependency and either has a target date or is returned to pending; the count of blocked rows with no stated blocker reaches zero.", "source": "review #7 terminal-jail \u2014 fleet review programme 2026-09-22"}
+diff --git a/.gitreins/history/2026-09-22/8c38e7b6/commit.patch b/.gitreins/history/2026-09-22/8c38e7b6/commit.patch
+new file mode 100644
+index 0000000..b485dc8
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/8c38e7b6/commit.patch
+@@ -0,0 +1,43 @@
++commit 3bf4dac0ca01c244454427f9cf228465e4f3565f
++Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
++AuthorDate: Tue Sep 22 14:03:09 2026 -0500
++Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
++CommitDate: Tue Sep 22 14:03:09 2026 -0500
++
++    polish(release): plugin load banners 1.1.0 -> 1.2.0 (TJ-GAP-073 follow-up)
++    
++    Worker-flagged residue: the two plugin log banners were the only machine
++    literals still carrying 1.1.0 after 6346531. No test pins them.
++    
++    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
++---
++ plugin/__init__.py               | 2 +-
++ plugin/terminal_jail/__init__.py | 2 +-
++ 2 files changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/plugin/__init__.py b/plugin/__init__.py
++index dcf7f44..6015c34 100644
++--- a/plugin/__init__.py
+++++ b/plugin/__init__.py
++@@ -81,7 +81,7 @@ def register(ctx) -> None:
++     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
++ 
++     logger.info(
++-        "terminal-jail v1.1.0 loaded. "
+++        "terminal-jail v1.2.0 loaded. "
++         "NOTE: pre-execution command wrapping requires Hermes core "
++         "pre-execution hooks (see task HOOK-GAP-03). "
++         "Observability hooks registered."
++diff --git a/plugin/terminal_jail/__init__.py b/plugin/terminal_jail/__init__.py
++index 6642b06..7f02eea 100644
++--- a/plugin/terminal_jail/__init__.py
+++++ b/plugin/terminal_jail/__init__.py
++@@ -79,7 +79,7 @@ def register(ctx) -> None:
++     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
++ 
++     logger.info(
++-        "terminal-jail v1.1.0 loaded. "
+++        "terminal-jail v1.2.0 loaded. "
++         "NOTE: pre-execution command wrapping requires Hermes core "
++         "pre-execution hooks (see task HOOK-GAP-03). "
++         "Observability hooks registered."
+diff --git a/.gitreins/history/2026-09-22/8c38e7b6/summary.md b/.gitreins/history/2026-09-22/8c38e7b6/summary.md
+new file mode 100644
+index 0000000..1a4ca49
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/8c38e7b6/summary.md
+@@ -0,0 +1,38 @@
++# Verdict: TJ-GAP-073
++
++**Task:** Release cut 1.2.0: version literals + CHANGELOG promotion
++**Evaluated:** 2026-09-22T20:04:27.585954
++**Result:** ✗ FAIL
++
++## Pipeline Stages
++
++- ✓ **tier1**
++  -   ✓ lint: ok (no output)
++  ✓ secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)
++  ✓ tests: ============================= test session starts ==============================
++- ✗ **tier2**
++  - INCOMPLETE
++  ✓ grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\.1\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = "1.2.0"`, plugin/plugin.yaml:2 `version: "1.2.0"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"`, scripts/metrics-export.py:36 `d["version"] = "1.2.0"`, docs/quickstart.md:82 `# → terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]
++  ✓ CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] — 2026-09-22 with the ### subsection count identical before/after and no bullet altered: `git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] — 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection — so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5–428, before `## [1.1.0] — 2026-07-24` at line 436), matching the commit message's "all 28 ### subsections byte-identical". [resolution 0.31; CHANGELOG.md]
++  ✓ uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-149: `name = "terminal-jail"` / `version = "1.2.0"` / `source = { editable = "." }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)
++  ✗ ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output — no exit code or summary line exists as evidence.
++Version literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green.
++
++## Summary
++
++Judge Result: TJ-GAP-073
++
++Stage tier1: PASS
++    ✓ lint: ok (no output)
++  ✓ secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)
++  ✓ tests: ============================= test session starts ==============================
++
++Stage tier2: FAIL
++  INCOMPLETE
++  ✓ grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\.1\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = "1.2.0"`, plugin/plugin.yaml:2 `version: "1.2.0"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"`, scripts/metrics-export.py:36 `d["version"] = "1.2.0"`, docs/quickstart.md:82 `# → terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]
++  ✓ CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] — 2026-09-22 with the ### subsection count identical before/after and no bullet altered: `git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] — 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection — so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5–428, before `## [1.1.0] — 2026-07-24` at line 436), matching the commit message's "all 28 ### subsections byte-identical". [resolution 0.31; CHANGELOG.md]
++  ✓ uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-149: `name = "terminal-jail"` / `version = "1.2.0"` / `source = { editable = "." }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)
++  ✗ ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output — no exit code or summary line exists as evidence.
++Version literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green.
++
++Overall: FAIL ✗
+diff --git a/.gitreins/history/2026-09-22/8c38e7b6/verdict.json b/.gitreins/history/2026-09-22/8c38e7b6/verdict.json
+new file mode 100644
+index 0000000..124ca3e
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/8c38e7b6/verdict.json
+@@ -0,0 +1,144 @@
++{
++  "task_id": "TJ-GAP-073",
++  "task_title": "Release cut 1.2.0: version literals + CHANGELOG promotion",
++  "task_criteria": [
++    "grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits",
++    "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered",
++    "uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0",
++    "./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean"
++  ],
++  "passed": false,
++  "worktree": "/home/kara/terminal-jail",
++  "branch": "main",
++  "commit": "3bf4dac0ca01c244454427f9cf228465e4f3565f",
++  "items": [],
++  "stages": {
++    "tier1": {
++      "id": "tier1",
++      "passed": true,
++      "any_failed": false,
++      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
++      "steps": [
++        {
++          "id": "lint",
++          "type": "script",
++          "passed": true,
++          "output": "",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log"
++          }
++        },
++        {
++          "id": "secrets",
++          "type": "script",
++          "passed": true,
++          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n2:03PM INF scanned ~4783740 bytes (4.78 MB) in 549ms\n2:03PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 151 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log",
++            "secrets_scanners": [
++              "gitleaks",
++              "builtin"
++            ]
++          }
++        },
++        {
++          "id": "tests",
++          "type": "script",
++          "passed": true,
++          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1404 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1397 passed, 7 skipped in 55.03s =======================\n",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "pytest_outcome": {
++              "kind": "passed",
++              "detail": "pytest passed",
++              "first_failing_test": null,
++              "failures": 0,
++              "interrupted": false
++            },
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log"
++          }
++        }
++      ],
++      "coverage": "secrets+lint+tests"
++    },
++    "tier2": {
++      "id": "tier2",
++      "passed": false,
++      "any_failed": true,
++      "summary": "INCOMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = \"1.2.0\"`, plugin/plugin.yaml:2 `version: \"1.2.0\"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"`, scripts/metrics-export.py:36 `d[\"version\"] = \"1.2.0\"`, docs/quickstart.md:82 `# \u2192 terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: `git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] \u2014 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection \u2014 so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5\u2013428, before `## [1.1.0] \u2014 2026-07-24` at line 436), matching the commit message's \"all 28 ### subsections byte-identical\". [resolution 0.31; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-149: `name = \"terminal-jail\"` / `version = \"1.2.0\"` / `source = { editable = \".\" }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)\n  \u2717 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output \u2014 no exit code or summary line exists as evidence.\nVersion literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green.",
++      "steps": [
++        {
++          "id": "tier2",
++          "type": "ai_eval",
++          "passed": false,
++          "output": "INCOMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = \"1.2.0\"`, plugin/plugin.yaml:2 `version: \"1.2.0\"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"`, scripts/metrics-export.py:36 `d[\"version\"] = \"1.2.0\"`, docs/quickstart.md:82 `# \u2192 terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: `git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] \u2014 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection \u2014 so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5\u2013428, before `## [1.1.0] \u2014 2026-07-24` at line 436), matching the commit message's \"all 28 ### subsections byte-identical\". [resolution 0.31; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-149: `name = \"terminal-jail\"` / `version = \"1.2.0\"` / `source = { editable = \".\" }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)\n  \u2717 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output \u2014 no exit code or summary line exists as evidence.\nVersion literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green.",
++          "error": "",
++          "data": {
++            "verdict": "INCOMPLETE",
++            "items": [
++              {
++                "criterion": "grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits",
++                "status": "PASS",
++                "detail": "`grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = \"1.2.0\"`, plugin/plugin.yaml:2 `version: \"1.2.0\"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"`, scripts/metrics-export.py:36 `d[\"version\"] = \"1.2.0\"`, docs/quickstart.md:82 `# \u2192 terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]",
++                "resolution_probability": 0.31,
++                "cited_path": "pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md"
++              },
++              {
++                "criterion": "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered",
++                "status": "PASS",
++                "detail": "`git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] \u2014 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection \u2014 so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5\u2013428, before `## [1.1.0] \u2014 2026-07-24` at line 436), matching the commit message's \"all 28 ### subsections byte-identical\". [resolution 0.31; CHANGELOG.md]",
++                "resolution_probability": 0.31,
++                "cited_path": "CHANGELOG.md"
++              },
++              {
++                "criterion": "uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0",
++                "status": "PASS",
++                "detail": "uv.lock:147-149: `name = \"terminal-jail\"` / `version = \"1.2.0\"` / `source = { editable = \".\" }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)",
++                "resolution_probability": 0.31
++              },
++              {
++                "criterion": "./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean",
++                "status": "FAIL",
++                "detail": "Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output \u2014 no exit code or summary line exists as evidence.",
++                "resolution_probability": 0.31,
++                "cited_path": "install.sh"
++              }
++            ],
++            "summary": "Version literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green."
++          }
++        }
++      ]
++    }
++  },
++  "summary": "Judge Result: TJ-GAP-073\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned no output, exit code 1 (zero hits). All six files now carry 1.2.0: pyproject.toml:7 `version = \"1.2.0\"`, plugin/plugin.yaml:2 `version: \"1.2.0\"`, install.sh:13 and install.sh:191, standalone/terminal-jail:80 `VERSION=\"${TERMINAL_JAIL_VERSION:-1.2.0}\"`, scripts/metrics-export.py:36 `d[\"version\"] = \"1.2.0\"`, docs/quickstart.md:82 `# \u2192 terminal-jail 1.2.0`. [resolution 0.31; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: `git show 6346531 -- CHANGELOG.md` diff is exactly `@@ -1,5 +1,7 @@` adding only two lines: `+## [1.2.0] \u2014 2026-09-22` and `+` (blank), inserted between the existing `## [Unreleased]` header and the first `### ` subsection \u2014 so [Unreleased] is reopened empty above [1.2.0]. No `-` (removed/altered) lines in the diff, so no bullet was touched. `grep -c '^### ' CHANGELOG.md` = 28, and all 28 subsections fall inside the [1.2.0] block (lines 5\u2013428, before `## [1.1.0] \u2014 2026-07-24` at line 436), matching the commit message's \"all 28 ### subsections byte-identical\". [resolution 0.31; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-149: `name = \"terminal-jail\"` / `version = \"1.2.0\"` / `source = { editable = \".\" }`. `uv lock --check` printed `Resolved 9 packages in 1ms` and exited 0. (uv.lock is gitignored at .gitignore:7 and untracked, but the on-disk lockfile satisfies the criterion as written.)\n  \u2717 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: Three of four sub-checks verified with real output: `./standalone/terminal-jail --version` -> `terminal-jail 1.2.0` (exit 0); `sh -n install.sh` -> exit 0, no output; `uvx ruff check .` -> `All checks passed!` (exit 0). The pytest sub-check is UNVERIFIED: `.venv/bin/python -m pytest -x --tb=short` (the repo's pinned test_command from .gitreins/config.yaml) was launched in the background and was still running when the evaluation time cap hit; /tmp/pytest_out.txt remained 0 bytes, so no green (or red) result was ever captured. Per the mandatory test-verification rule, a criterion requiring a green suite cannot be marked PASS without actual passing output \u2014 no exit code or summary line exists as evidence.\nVersion literals, CHANGELOG promotion, and uv.lock pin are all verified correct, but the plugin pytest suite never produced a completed run, so the combined criterion 4 cannot be confirmed green.\n\nOverall: FAIL \u2717",
++  "evaluated_at": "2026-09-22T20:04:27.585954",
++  "supersedes": null,
++  "superseded_by": null,
++  "evidence": {
++    "collected_at": "2026-09-22T20:04:27.599333+00:00",
++    "items": [
++      {
++        "name": "patch",
++        "label": "Landed commit patch",
++        "file": "commit.patch",
++        "bytes": 1830,
++        "truncated": false,
++        "source": "git show 3bf4dac0ca01"
++      },
++      {
++        "name": "worktree",
++        "label": "Working-tree diff (graded)",
++        "file": "worktree.patch",
++        "bytes": 1730,
++        "truncated": false,
++        "source": "git diff HEAD (working tree)"
++      }
++    ],
++    "task_id": "TJ-GAP-073"
++  }
++}
+\ No newline at end of file
+diff --git a/.gitreins/history/2026-09-22/8c38e7b6/worktree.patch b/.gitreins/history/2026-09-22/8c38e7b6/worktree.patch
+new file mode 100644
+index 0000000..c23774f
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/8c38e7b6/worktree.patch
+@@ -0,0 +1,30 @@
++diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
++index 00406f9..e7b1db1 100644
++--- a/.gitreins/tasks.yaml
+++++ b/.gitreins/tasks.yaml
++@@ -1282,3 +1282,16 @@ tasks:
++   status: complete
++   created_at: '2026-09-22T16:40:09.669149+00:00'
++   completed_at: '2026-09-22T18:11:44.000329+00:00'
+++- id: TJ-GAP-073
+++  title: 'Release cut 1.2.0: version literals + CHANGELOG promotion'
+++  criteria:
+++  - grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail,
+++    scripts/metrics-export.py, docs/quickstart.md returns zero hits
+++  - "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with\
+++    \ the ### subsection count identical before/after and no bullet altered"
+++  - uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0
+++  - ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh
+++    passes, the plugin pytest suite is green, and uvx ruff check . is clean
+++  status: complete
+++  created_at: '2026-09-22T18:48:17.817794+00:00'
+++  completed_at: '2026-09-22T19:03:30.968837+00:00'
++diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
++index 39d5ec3..8c8e2d2 100644
++--- a/.gitreins/usage.jsonl
+++++ b/.gitreins/usage.jsonl
++@@ -79,3 +79,4 @@
++ {"ts": 1790088686.9226427, "tokens_in": 1742431, "tokens_out": 8087, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++ {"ts": 1790089126.8282027, "tokens_in": 411586, "tokens_out": 3093, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++ {"ts": 1790100967.189588, "tokens_in": 515965, "tokens_out": 5141, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+++{"ts": 1790107467.5682955, "tokens_in": 3274336, "tokens_out": 13240, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.gitreins/history/2026-09-22/c664d42f/commit.patch b/.gitreins/history/2026-09-22/c664d42f/commit.patch
+new file mode 100644
+index 0000000..b485dc8
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/c664d42f/commit.patch
+@@ -0,0 +1,43 @@
++commit 3bf4dac0ca01c244454427f9cf228465e4f3565f
++Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
++AuthorDate: Tue Sep 22 14:03:09 2026 -0500
++Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
++CommitDate: Tue Sep 22 14:03:09 2026 -0500
++
++    polish(release): plugin load banners 1.1.0 -> 1.2.0 (TJ-GAP-073 follow-up)
++    
++    Worker-flagged residue: the two plugin log banners were the only machine
++    literals still carrying 1.1.0 after 6346531. No test pins them.
++    
++    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
++---
++ plugin/__init__.py               | 2 +-
++ plugin/terminal_jail/__init__.py | 2 +-
++ 2 files changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/plugin/__init__.py b/plugin/__init__.py
++index dcf7f44..6015c34 100644
++--- a/plugin/__init__.py
+++++ b/plugin/__init__.py
++@@ -81,7 +81,7 @@ def register(ctx) -> None:
++     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
++ 
++     logger.info(
++-        "terminal-jail v1.1.0 loaded. "
+++        "terminal-jail v1.2.0 loaded. "
++         "NOTE: pre-execution command wrapping requires Hermes core "
++         "pre-execution hooks (see task HOOK-GAP-03). "
++         "Observability hooks registered."
++diff --git a/plugin/terminal_jail/__init__.py b/plugin/terminal_jail/__init__.py
++index 6642b06..7f02eea 100644
++--- a/plugin/terminal_jail/__init__.py
+++++ b/plugin/terminal_jail/__init__.py
++@@ -79,7 +79,7 @@ def register(ctx) -> None:
++     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
++ 
++     logger.info(
++-        "terminal-jail v1.1.0 loaded. "
+++        "terminal-jail v1.2.0 loaded. "
++         "NOTE: pre-execution command wrapping requires Hermes core "
++         "pre-execution hooks (see task HOOK-GAP-03). "
++         "Observability hooks registered."
+diff --git a/.gitreins/history/2026-09-22/c664d42f/summary.md b/.gitreins/history/2026-09-22/c664d42f/summary.md
+new file mode 100644
+index 0000000..4557157
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/c664d42f/summary.md
+@@ -0,0 +1,38 @@
++# Verdict: TJ-GAP-073
++
++**Task:** Release cut 1.2.0: version literals + CHANGELOG promotion
++**Evaluated:** 2026-09-22T20:08:15.828439
++**Result:** ✓ PASS
++
++## Pipeline Stages
++
++- ✓ **tier1**
++  -   ✓ lint: ok (no output)
++  ✓ secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)
++  ✓ tests: ============================= test session starts ==============================
++- ✓ **tier2**
++  - COMPLETE
++  ✓ grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\.1\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]
++  ✓ CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] — 2026-09-22 with the ### subsection count identical before/after and no bullet altered: CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] — 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] — 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) — identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]
++  ✓ uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-148 shows name = "terminal-jail" / version = "1.2.0" (source = { editable = "." }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.
++  ✓ ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: `./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]
++All four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green.
++
++## Summary
++
++Judge Result: TJ-GAP-073
++
++Stage tier1: PASS
++    ✓ lint: ok (no output)
++  ✓ secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)
++  ✓ tests: ============================= test session starts ==============================
++
++Stage tier2: PASS
++  COMPLETE
++  ✓ grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\.1\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]
++  ✓ CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] — 2026-09-22 with the ### subsection count identical before/after and no bullet altered: CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] — 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] — 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) — identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]
++  ✓ uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-148 shows name = "terminal-jail" / version = "1.2.0" (source = { editable = "." }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.
++  ✓ ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: `./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]
++All four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green.
++
++Overall: PASS ✓
+diff --git a/.gitreins/history/2026-09-22/c664d42f/verdict.json b/.gitreins/history/2026-09-22/c664d42f/verdict.json
+new file mode 100644
+index 0000000..a99dffd
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/c664d42f/verdict.json
+@@ -0,0 +1,144 @@
++{
++  "task_id": "TJ-GAP-073",
++  "task_title": "Release cut 1.2.0: version literals + CHANGELOG promotion",
++  "task_criteria": [
++    "grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits",
++    "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered",
++    "uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0",
++    "./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean"
++  ],
++  "passed": true,
++  "worktree": "/home/kara/terminal-jail",
++  "branch": "main",
++  "commit": "3bf4dac0ca01c244454427f9cf228465e4f3565f",
++  "items": [],
++  "stages": {
++    "tier1": {
++      "id": "tier1",
++      "passed": true,
++      "any_failed": false,
++      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
++      "steps": [
++        {
++          "id": "lint",
++          "type": "script",
++          "passed": true,
++          "output": "",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log"
++          }
++        },
++        {
++          "id": "secrets",
++          "type": "script",
++          "passed": true,
++          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n3:05PM INF scanned ~4783740 bytes (4.78 MB) in 394ms\n3:05PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 151 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log",
++            "secrets_scanners": [
++              "gitleaks",
++              "builtin"
++            ]
++          }
++        },
++        {
++          "id": "tests",
++          "type": "script",
++          "passed": true,
++          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1404 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1397 passed, 7 skipped in 52.29s =======================\n",
++          "error": "",
++          "data": {
++            "exit_code": 0,
++            "pytest_outcome": {
++              "kind": "passed",
++              "detail": "pytest passed",
++              "first_failing_test": null,
++              "failures": 0,
++              "interrupted": false
++            },
++            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260922T190309.640403Z.log"
++          }
++        }
++      ],
++      "coverage": "secrets+lint+tests"
++    },
++    "tier2": {
++      "id": "tier2",
++      "passed": true,
++      "any_failed": false,
++      "summary": "COMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] \u2014 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] \u2014 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) \u2014 identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-148 shows name = \"terminal-jail\" / version = \"1.2.0\" (source = { editable = \".\" }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.\n  \u2713 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: `./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]\nAll four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green.",
++      "steps": [
++        {
++          "id": "tier2",
++          "type": "ai_eval",
++          "passed": true,
++          "output": "COMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] \u2014 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] \u2014 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) \u2014 identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-148 shows name = \"terminal-jail\" / version = \"1.2.0\" (source = { editable = \".\" }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.\n  \u2713 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: `./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]\nAll four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green.",
++          "error": "",
++          "data": {
++            "verdict": "COMPLETE",
++            "items": [
++              {
++                "criterion": "grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits",
++                "status": "PASS",
++                "detail": "`grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]",
++                "resolution_probability": 0.28,
++                "cited_path": "pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md"
++              },
++              {
++                "criterion": "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered",
++                "status": "PASS",
++                "detail": "CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] \u2014 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] \u2014 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) \u2014 identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]",
++                "resolution_probability": 0.28,
++                "cited_path": "CHANGELOG.md"
++              },
++              {
++                "criterion": "uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0",
++                "status": "PASS",
++                "detail": "uv.lock:147-148 shows name = \"terminal-jail\" / version = \"1.2.0\" (source = { editable = \".\" }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.",
++                "resolution_probability": 0.28
++              },
++              {
++                "criterion": "./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean",
++                "status": "PASS",
++                "detail": "`./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]",
++                "resolution_probability": 0.28,
++                "cited_path": "install.sh"
++              }
++            ],
++            "summary": "All four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green."
++          }
++        }
++      ]
++    }
++  },
++  "summary": "Judge Result: TJ-GAP-073\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 grep '1\\.1\\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail, scripts/metrics-export.py, docs/quickstart.md returns zero hits: `grep -n '1\\.1\\.0' pyproject.toml plugin/plugin.yaml install.sh standalone/terminal-jail scripts/metrics-export.py docs/quickstart.md` returned EXIT=1 (zero hits). All sites now carry 1.2.0: pyproject.toml:7, plugin/plugin.yaml:2, install.sh:13 & :191, standalone/terminal-jail:80, scripts/metrics-export.py:36, docs/quickstart.md:82. [resolution 0.28; pyproject.toml, plugin/plugin.yaml, install.sh, scripts/metrics-export.py, docs/quickstart.md]\n  \u2713 CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with the ### subsection count identical before/after and no bullet altered: CHANGELOG.md:1 is '## [Unreleased]' followed by a blank line, then CHANGELOG.md:3 '## [1.2.0] \u2014 2026-09-22'. `git diff 6346531^ 6346531 -- CHANGELOG.md` shows exactly two added lines ('+## [1.2.0] \u2014 2026-09-22' and '+') with no deletions. `grep -c '^### '` = 28 before (6346531^) and 28 after (HEAD) \u2014 identical; no bullet lines touched. [resolution 0.28; CHANGELOG.md]\n  \u2713 uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0: uv.lock:147-148 shows name = \"terminal-jail\" / version = \"1.2.0\" (source = { editable = \".\" }). `uv lock --check` output: 'Resolved 9 packages in 1ms', EXIT=0.\n  \u2713 ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh passes, the plugin pytest suite is green, and uvx ruff check . is clean: `./standalone/terminal-jail --version` -> 'terminal-jail 1.2.0' (EXIT=0). `sh -n install.sh` -> EXIT=0, no output. `.venv/bin/python -m pytest plugin -q` -> '1397 passed, 7 skipped in 48.05s' with 0 FAILED/ERROR lines. `uvx ruff check .` -> 'All checks passed!' EXIT=0. [resolution 0.28; install.sh]\nAll four release-cut criteria verified with live command output: zero 1.1.0 literals, CHANGELOG promoted with 28 subsections unchanged and empty [Unreleased] reopened, uv.lock pinned to 1.2.0 with uv lock --check exit 0, and version/sh -n/pytest (1397 passed)/ruff all green.\n\nOverall: PASS \u2713",
++  "evaluated_at": "2026-09-22T20:08:15.828439",
++  "supersedes": null,
++  "superseded_by": null,
++  "evidence": {
++    "collected_at": "2026-09-22T20:08:15.841256+00:00",
++    "items": [
++      {
++        "name": "patch",
++        "label": "Landed commit patch",
++        "file": "commit.patch",
++        "bytes": 1830,
++        "truncated": false,
++        "source": "git show 3bf4dac0ca01"
++      },
++      {
++        "name": "worktree",
++        "label": "Working-tree diff (graded)",
++        "file": "worktree.patch",
++        "bytes": 1851,
++        "truncated": false,
++        "source": "git diff HEAD (working tree)"
++      }
++    ],
++    "task_id": "TJ-GAP-073"
++  }
++}
+\ No newline at end of file
+diff --git a/.gitreins/history/2026-09-22/c664d42f/worktree.patch b/.gitreins/history/2026-09-22/c664d42f/worktree.patch
+new file mode 100644
+index 0000000..05c2905
+--- /dev/null
++++ b/.gitreins/history/2026-09-22/c664d42f/worktree.patch
+@@ -0,0 +1,31 @@
++diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
++index 00406f9..76dd570 100644
++--- a/.gitreins/tasks.yaml
+++++ b/.gitreins/tasks.yaml
++@@ -1282,3 +1282,16 @@ tasks:
++   status: complete
++   created_at: '2026-09-22T16:40:09.669149+00:00'
++   completed_at: '2026-09-22T18:11:44.000329+00:00'
+++- id: TJ-GAP-073
+++  title: 'Release cut 1.2.0: version literals + CHANGELOG promotion'
+++  criteria:
+++  - grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail,
+++    scripts/metrics-export.py, docs/quickstart.md returns zero hits
+++  - "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with\
+++    \ the ### subsection count identical before/after and no bullet altered"
+++  - uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0
+++  - ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh
+++    passes, the plugin pytest suite is green, and uvx ruff check . is clean
+++  status: complete
+++  created_at: '2026-09-22T18:48:17.817794+00:00'
+++  completed_at: '2026-09-22T20:05:22.342321+00:00'
++diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
++index 39d5ec3..5ad6a54 100644
++--- a/.gitreins/usage.jsonl
+++++ b/.gitreins/usage.jsonl
++@@ -79,3 +79,5 @@
++ {"ts": 1790088686.9226427, "tokens_in": 1742431, "tokens_out": 8087, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++ {"ts": 1790089126.8282027, "tokens_in": 411586, "tokens_out": 3093, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++ {"ts": 1790100967.189588, "tokens_in": 515965, "tokens_out": 5141, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+++{"ts": 1790107467.5682955, "tokens_in": 3274336, "tokens_out": 13240, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+++{"ts": 1790107695.8107545, "tokens_in": 140005, "tokens_out": 3184, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 00406f9..76dd570 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1282,3 +1282,16 @@ tasks:
+   status: complete
+   created_at: '2026-09-22T16:40:09.669149+00:00'
+   completed_at: '2026-09-22T18:11:44.000329+00:00'
++- id: TJ-GAP-073
++  title: 'Release cut 1.2.0: version literals + CHANGELOG promotion'
++  criteria:
++  - grep '1\.1\.0' across pyproject.toml, plugin/plugin.yaml, install.sh, standalone/terminal-jail,
++    scripts/metrics-export.py, docs/quickstart.md returns zero hits
++  - "CHANGELOG.md reopens an empty [Unreleased] above [1.2.0] \u2014 2026-09-22 with\
++    \ the ### subsection count identical before/after and no bullet altered"
++  - uv.lock pins terminal-jail 1.2.0 and uv lock --check exits 0
++  - ./standalone/terminal-jail --version prints terminal-jail 1.2.0, sh -n install.sh
++    passes, the plugin pytest suite is green, and uvx ruff check . is clean
++  status: complete
++  created_at: '2026-09-22T18:48:17.817794+00:00'
++  completed_at: '2026-09-22T20:05:22.342321+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 39d5ec3..5ad6a54 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -79,3 +79,5 @@
+ {"ts": 1790088686.9226427, "tokens_in": 1742431, "tokens_out": 8087, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790089126.8282027, "tokens_in": 411586, "tokens_out": 3093, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790100967.189588, "tokens_in": 515965, "tokens_out": 5141, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790107467.5682955, "tokens_in": 3274336, "tokens_out": 13240, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790107695.8107545, "tokens_in": 140005, "tokens_out": 3184, "cache_read": 0, "cache_write": 0, "step": "tier2"}

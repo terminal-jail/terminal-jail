@@ -1,0 +1,11 @@
+commit ff61a06f7c1d4fc9259fc9e7b8745da110d33fc7
+Merge: 8e366b3 9faca6b
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 25 11:36:24 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 25 11:36:24 2026 -0500
+
+    merge DOC-21 documentation worker
+
+ docs/quickstart.md | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)

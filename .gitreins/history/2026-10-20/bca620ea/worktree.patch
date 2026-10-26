@@ -1,0 +1,30 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 58c0ad7..6d9439e 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1813,3 +1813,16 @@ tasks:
+   status: complete
+   created_at: '2026-10-20T04:00:30.529030+00:00'
+   completed_at: '2026-10-20T12:02:01.192509+00:00'
++- id: TJ-DF-047
++  title: Verify landed plain-allow Landlock filesystem degradation
++  criteria:
++  - 'The landed TJ-DF-047 implementation at commits 5429bdb and 1f830c5 adds one standalone
++    wrapper filesystem-degrade helper, emits named warnings for missing or unreadable
++    loaders on bwrap and unshare plain-allow paths, preserves the mapped-launch silent
++    skip and modify-path loader warnings, and is covered by plugin/test_tjdf047_fs_degrade_plain_allow.py.
++    Verify the exact committed tree: focused TJ-DF-047 tests pass; the full repository
++    test suite passes; the wrapper source and regression tests satisfy the behavioral
++    acceptance without unrelated file changes.'
++  status: complete
++  created_at: '2026-10-20T21:26:04.927470+00:00'
++  completed_at: '2026-10-20T21:29:24.028551+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 8bf0555..8fab1d2 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -152,3 +152,4 @@
+ {"ts": 1792098482.4608371, "tokens_in": 179400, "tokens_out": 2988, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792153193.2670262, "tokens_in": 188523, "tokens_out": 2317, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792466859.2536936, "tokens_in": 125868, "tokens_out": 2647, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792532192.305947, "tokens_in": 1219960, "tokens_out": 5775, "cache_read": 0, "cache_write": 0, "step": "tier2"}

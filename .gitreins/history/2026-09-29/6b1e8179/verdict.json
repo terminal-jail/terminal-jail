@@ -1,0 +1,111 @@
+{
+  "task_id": "REVIEW-TJ-005",
+  "task_title": "Refresh live Hermes plugin 0.2.0->1.2.0",
+  "task_criteria": [
+    "plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood record committed and pushed"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "48e9fe10413f4324f435cd3666492739ad6f3901",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T223535.194409Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n5:35PM INF scanned ~5157636 bytes (5.16 MB) in 3.04s\n5:35PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 174 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T223535.194409Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "",
+          "error": "Command timed out",
+          "data": {}
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood record committed and pushed: Repo plugin/plugin.yaml:2 and pyproject.toml:7 both report 1.2.0; live ~/.hermes/plugins/terminal-jail/plugin.yaml reports version: \"1.2.0\" (match). Reproduced: `./install.sh --hermes-plugin` exit_code=0 with output 'deployed Hermes plugin v1.2.0 to /home/kara/.hermes/plugins/terminal-jail', post-run grep => 1.2.0; diff -r repo/plugin vs live dir shows only .pyc bytecode differences (source tree clean). Dogfood record docs/dogfood/2026-09-29-plugin-refresh.md (64 lines, before/after evidence) is committed in 48e9fe1, tracked by git ls-files, and present in origin/main (git cat-file -e origin/main:docs/dogfood/2026-09-29-plugin-refresh.md => PRESENT). HEAD == origin/main == 48e9fe1, git status 'up to date with origin/main', git rev-list --count origin/main..HEAD = 0 (pushed). [resolution 0.11; plugin.yaml, install.sh]\nLive Hermes plugin refreshed to 1.2.0 matching the repo via install.sh --hermes-plugin, with the dogfood record committed and pushed to origin/main.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood record committed and pushed: Repo plugin/plugin.yaml:2 and pyproject.toml:7 both report 1.2.0; live ~/.hermes/plugins/terminal-jail/plugin.yaml reports version: \"1.2.0\" (match). Reproduced: `./install.sh --hermes-plugin` exit_code=0 with output 'deployed Hermes plugin v1.2.0 to /home/kara/.hermes/plugins/terminal-jail', post-run grep => 1.2.0; diff -r repo/plugin vs live dir shows only .pyc bytecode differences (source tree clean). Dogfood record docs/dogfood/2026-09-29-plugin-refresh.md (64 lines, before/after evidence) is committed in 48e9fe1, tracked by git ls-files, and present in origin/main (git cat-file -e origin/main:docs/dogfood/2026-09-29-plugin-refresh.md => PRESENT). HEAD == origin/main == 48e9fe1, git status 'up to date with origin/main', git rev-list --count origin/main..HEAD = 0 (pushed). [resolution 0.11; plugin.yaml, install.sh]\nLive Hermes plugin refreshed to 1.2.0 matching the repo via install.sh --hermes-plugin, with the dogfood record committed and pushed to origin/main.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood record committed and pushed",
+                "status": "PASS",
+                "detail": "Repo plugin/plugin.yaml:2 and pyproject.toml:7 both report 1.2.0; live ~/.hermes/plugins/terminal-jail/plugin.yaml reports version: \"1.2.0\" (match). Reproduced: `./install.sh --hermes-plugin` exit_code=0 with output 'deployed Hermes plugin v1.2.0 to /home/kara/.hermes/plugins/terminal-jail', post-run grep => 1.2.0; diff -r repo/plugin vs live dir shows only .pyc bytecode differences (source tree clean). Dogfood record docs/dogfood/2026-09-29-plugin-refresh.md (64 lines, before/after evidence) is committed in 48e9fe1, tracked by git ls-files, and present in origin/main (git cat-file -e origin/main:docs/dogfood/2026-09-29-plugin-refresh.md => PRESENT). HEAD == origin/main == 48e9fe1, git status 'up to date with origin/main', git rev-list --count origin/main..HEAD = 0 (pushed). [resolution 0.11; plugin.yaml, install.sh]",
+                "resolution_probability": 0.11,
+                "cited_path": "plugin.yaml, install.sh"
+              }
+            ],
+            "summary": "Live Hermes plugin refreshed to 1.2.0 matching the repo via install.sh --hermes-plugin, with the dogfood record committed and pushed to origin/main."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-005\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 plugin.yaml version matches repo 1.2.0 after install.sh --hermes-plugin; dogfood record committed and pushed: Repo plugin/plugin.yaml:2 and pyproject.toml:7 both report 1.2.0; live ~/.hermes/plugins/terminal-jail/plugin.yaml reports version: \"1.2.0\" (match). Reproduced: `./install.sh --hermes-plugin` exit_code=0 with output 'deployed Hermes plugin v1.2.0 to /home/kara/.hermes/plugins/terminal-jail', post-run grep => 1.2.0; diff -r repo/plugin vs live dir shows only .pyc bytecode differences (source tree clean). Dogfood record docs/dogfood/2026-09-29-plugin-refresh.md (64 lines, before/after evidence) is committed in 48e9fe1, tracked by git ls-files, and present in origin/main (git cat-file -e origin/main:docs/dogfood/2026-09-29-plugin-refresh.md => PRESENT). HEAD == origin/main == 48e9fe1, git status 'up to date with origin/main', git rev-list --count origin/main..HEAD = 0 (pushed). [resolution 0.11; plugin.yaml, install.sh]\nLive Hermes plugin refreshed to 1.2.0 matching the repo via install.sh --hermes-plugin, with the dogfood record committed and pushed to origin/main.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-29T22:38:26.903117",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-29T22:38:26.926924+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3933,
+        "truncated": false,
+        "source": "git show 48e9fe10413f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 13475,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-005"
+  }
+}

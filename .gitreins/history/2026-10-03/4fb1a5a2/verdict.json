@@ -1,0 +1,93 @@
+{
+  "task_id": "TJ-DF-041",
+  "task_title": "Pack replacement path for --rule-pack-file",
+  "task_criteria": [
+    "One-command edit-iterate: --replace-rule-packs replaces an installed pack after validation, backup kept; behavior unchanged without the flag; tested"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1579ddc2fbe29982feeb0ca709b7378a314f69d3",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T125506.522744Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n8:20AM INF scanned ~5891031 bytes (5.89 MB) in 411ms\n8:20AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 187 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T125506.522744Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1594 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n............................                                             [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................                                 [ 66%]\nplugin/test_interruptor_integration.py .................s............... [ 68%]\n\n\u2026 [400 chars omitted \u2014 5 line(s)] \u2026\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 84%]\nplugin/test_rules_drift_probe.py .......................                 [ 86%]\nplugin/test_seccomp.py .........................................sss..... [ 89%]\n.                                                                        [ 89%]\nplugin/test_standalone_cli.py ......................                     [ 90%]\nplugin/test_systemd_directive_probe.py .................                 [ 91%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 93%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n..................                                                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1587 passed, 7 skipped in 777.36s (0:12:57) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261003T132256.978457Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    }
+  },
+  "summary": "Judge Result: TJ-DF-041\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-03T13:33:23.231813",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-03T13:33:23.251217+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 89577,
+        "truncated": false,
+        "source": "git show 1579ddc2fbe2"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2184,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-041"
+  }
+}

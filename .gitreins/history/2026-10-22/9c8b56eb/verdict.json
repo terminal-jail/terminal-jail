@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-051",
+  "task_title": "Fix composed-mode egress contradiction",
+  "task_criteria": [
+    "Acceptance 1: composed 0750-home launch never emits both the Landlock network not-applied warning and kernel egress tier APPLIED; one truthful outcome only. Acceptance 2: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW emits exactly one named degrade line. Acceptance 3: committed regression coverage drives the composed 0750 shape and asserts the contradictory strings cannot co-occur. Also verify the committed trace marker resolves to the task row, README contract, test, and implementation commit."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1f915993bde9201896b9ab80513bc1c588b187f3",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T222816.199416Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:52PM INF scanned ~5705165 bytes (5.71 MB) in 493ms\n5:52PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 235 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T222816.199416Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2061 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2046 passed, 15 skipped in 186.67s (0:03:06) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261022T222816.199416Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 Acceptance 1: composed 0750-home launch never emits both the Landlock network not-applied warning and kernel egress tier APPLIED; one truthful outcome only. Acceptance 2: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW emits exactly one named degrade line. Acceptance 3: committed regression coverage drives the composed 0750 shape and asserts the contradictory strings cannot co-occur. Also verify the committed trace marker resolves to the task row, README contract, test, and implementation commit.: No implementation exists \u2014 the only change in the tree is the board row (.gitreins/tasks.yaml:1868 marked status: complete). `git log --all --grep=TJ-DF-051` returns only board/verdict/dogfood commits (37eb0cf criteria, db88923/3481a81/ed2fac6 'dispatch failed', ad68064/81c705d 'verdict: TJ-DF-051 \u2014 FAIL'); the wt/TJ-DF-051 worktree HEAD 73b8677 has `git diff --stat main...HEAD` EMPTY. Board row .coding-hermes/board/tasks.jsonl:287 is still status 'pending', attempts 0, evidence null. README.md:457-458 contract unchanged. (A1) The contradiction path is untouched: plugin/terminal_jail/interruptor/landlock_net.py:764-768 still degrades via `_world_traversable(loader)` ('landlock-net-loader.py is not reachable by the launch's payload uid (a parent of \u2026 lacks o+x \u2014 e.g. a 0700/0750 home)') while the composed attach standalone/terminal-jail:1148 `_tj_egress_tier_decide --here` uses `test -r` in the launch's own context \u2192 TJ_EGRESS_TIER_ATTACH=1 \u2192 'egress: enforced by terminal-jail' + loader prints 'kernel egress tier APPLIED' (landlock_net.py:579). No composed-specific suppression was added. (A2) REPRODUCED LIVE on this host (ABI 8) with TERMINAL_JAIL_LANDLOCK_NET=1, NET_ALLOW=443,bogus-port: engine compose path printed 'WARNING: Landlock network (egress) tier not applied (probe crash: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW token 'bogus-port' \u2026)' and the loader path printed 'WARNING: Landlock network (egress) tier not applied (invalid allowlist token 'bogus-port')' \u2014 two lines, two wordings for one condition (landlock_net.py:251-255 message-vs-cause, :565 apply_net_tier returns exc.cause, :699 probe returns exc.cause, standalone/landlock-net-loader.py:114-124). (A3) No regression coverage: `grep -rn 'TJ-DF-051' --include=*.py .` = 0 hits; no test drives a 0750 ancestor in the composed shape and no test asserts the two strings cannot co-occur. The existing cell plugin/test_tjdf046_egress_allow_path.py:670-673 still uses the `or` assertion ('egress: enforced by terminal-jail' OR 'Landlock network (egress) tier not applied') and pytest.skips when 'COMPOSED MODE' is absent \u2014 i.e. the exact TJ-DF-052 defect that lets the contradictory pair pass. Test runs (evidence of no new coverage, not of a fix): `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x -q` \u2192 exit_code 0, '38 passed, 1 skipped in 10.06s'; `.venv/bin/python -m pytest plugin/test_landlock_net.py tests/test_composed_mode.py -q` \u2192 exit_code 0, '62 passed, 3 skipped in 19.19s' \u2014 the suite is green precisely because nothing pins the fixed behaviour. Trace marker does not resolve to any implementation commit, README contract change, or test.\n",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 Acceptance 1: composed 0750-home launch never emits both the Landlock network not-applied warning and kernel egress tier APPLIED; one truthful outcome only. Acceptance 2: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW emits exactly one named degrade line. Acceptance 3: committed regression coverage drives the composed 0750 shape and asserts the contradictory strings cannot co-occur. Also verify the committed trace marker resolves to the task row, README contract, test, and implementation commit.: No implementation exists \u2014 the only change in the tree is the board row (.gitreins/tasks.yaml:1868 marked status: complete). `git log --all --grep=TJ-DF-051` returns only board/verdict/dogfood commits (37eb0cf criteria, db88923/3481a81/ed2fac6 'dispatch failed', ad68064/81c705d 'verdict: TJ-DF-051 \u2014 FAIL'); the wt/TJ-DF-051 worktree HEAD 73b8677 has `git diff --stat main...HEAD` EMPTY. Board row .coding-hermes/board/tasks.jsonl:287 is still status 'pending', attempts 0, evidence null. README.md:457-458 contract unchanged. (A1) The contradiction path is untouched: plugin/terminal_jail/interruptor/landlock_net.py:764-768 still degrades via `_world_traversable(loader)` ('landlock-net-loader.py is not reachable by the launch's payload uid (a parent of \u2026 lacks o+x \u2014 e.g. a 0700/0750 home)') while the composed attach standalone/terminal-jail:1148 `_tj_egress_tier_decide --here` uses `test -r` in the launch's own context \u2192 TJ_EGRESS_TIER_ATTACH=1 \u2192 'egress: enforced by terminal-jail' + loader prints 'kernel egress tier APPLIED' (landlock_net.py:579). No composed-specific suppression was added. (A2) REPRODUCED LIVE on this host (ABI 8) with TERMINAL_JAIL_LANDLOCK_NET=1, NET_ALLOW=443,bogus-port: engine compose path printed 'WARNING: Landlock network (egress) tier not applied (probe crash: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW token 'bogus-port' \u2026)' and the loader path printed 'WARNING: Landlock network (egress) tier not applied (invalid allowlist token 'bogus-port')' \u2014 two lines, two wordings for one condition (landlock_net.py:251-255 message-vs-cause, :565 apply_net_tier returns exc.cause, :699 probe returns exc.cause, standalone/landlock-net-loader.py:114-124). (A3) No regression coverage: `grep -rn 'TJ-DF-051' --include=*.py .` = 0 hits; no test drives a 0750 ancestor in the composed shape and no test asserts the two strings cannot co-occur. The existing cell plugin/test_tjdf046_egress_allow_path.py:670-673 still uses the `or` assertion ('egress: enforced by terminal-jail' OR 'Landlock network (egress) tier not applied') and pytest.skips when 'COMPOSED MODE' is absent \u2014 i.e. the exact TJ-DF-052 defect that lets the contradictory pair pass. Test runs (evidence of no new coverage, not of a fix): `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x -q` \u2192 exit_code 0, '38 passed, 1 skipped in 10.06s'; `.venv/bin/python -m pytest plugin/test_landlock_net.py tests/test_composed_mode.py -q` \u2192 exit_code 0, '62 passed, 3 skipped in 19.19s' \u2014 the suite is green precisely because nothing pins the fixed behaviour. Trace marker does not resolve to any implementation commit, README contract change, or test.\n",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "Acceptance 1: composed 0750-home launch never emits both the Landlock network not-applied warning and kernel egress tier APPLIED; one truthful outcome only. Acceptance 2: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW emits exactly one named degrade line. Acceptance 3: committed regression coverage drives the composed 0750 shape and asserts the contradictory strings cannot co-occur. Also verify the committed trace marker resolves to the task row, README contract, test, and implementation commit.",
+                "status": "FAIL",
+                "detail": "No implementation exists \u2014 the only change in the tree is the board row (.gitreins/tasks.yaml:1868 marked status: complete). `git log --all --grep=TJ-DF-051` returns only board/verdict/dogfood commits (37eb0cf criteria, db88923/3481a81/ed2fac6 'dispatch failed', ad68064/81c705d 'verdict: TJ-DF-051 \u2014 FAIL'); the wt/TJ-DF-051 worktree HEAD 73b8677 has `git diff --stat main...HEAD` EMPTY. Board row .coding-hermes/board/tasks.jsonl:287 is still status 'pending', attempts 0, evidence null. README.md:457-458 contract unchanged. (A1) The contradiction path is untouched: plugin/terminal_jail/interruptor/landlock_net.py:764-768 still degrades via `_world_traversable(loader)` ('landlock-net-loader.py is not reachable by the launch's payload uid (a parent of \u2026 lacks o+x \u2014 e.g. a 0700/0750 home)') while the composed attach standalone/terminal-jail:1148 `_tj_egress_tier_decide --here` uses `test -r` in the launch's own context \u2192 TJ_EGRESS_TIER_ATTACH=1 \u2192 'egress: enforced by terminal-jail' + loader prints 'kernel egress tier APPLIED' (landlock_net.py:579). No composed-specific suppression was added. (A2) REPRODUCED LIVE on this host (ABI 8) with TERMINAL_JAIL_LANDLOCK_NET=1, NET_ALLOW=443,bogus-port: engine compose path printed 'WARNING: Landlock network (egress) tier not applied (probe crash: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW token 'bogus-port' \u2026)' and the loader path printed 'WARNING: Landlock network (egress) tier not applied (invalid allowlist token 'bogus-port')' \u2014 two lines, two wordings for one condition (landlock_net.py:251-255 message-vs-cause, :565 apply_net_tier returns exc.cause, :699 probe returns exc.cause, standalone/landlock-net-loader.py:114-124). (A3) No regression coverage: `grep -rn 'TJ-DF-051' --include=*.py .` = 0 hits; no test drives a 0750 ancestor in the composed shape and no test asserts the two strings cannot co-occur. The existing cell plugin/test_tjdf046_egress_allow_path.py:670-673 still uses the `or` assertion ('egress: enforced by terminal-jail' OR 'Landlock network (egress) tier not applied') and pytest.skips when 'COMPOSED MODE' is absent \u2014 i.e. the exact TJ-DF-052 defect that lets the contradictory pair pass. Test runs (evidence of no new coverage, not of a fix): `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x -q` \u2192 exit_code 0, '38 passed, 1 skipped in 10.06s'; `.venv/bin/python -m pytest plugin/test_landlock_net.py tests/test_composed_mode.py -q` \u2192 exit_code 0, '62 passed, 3 skipped in 19.19s' \u2014 the suite is green precisely because nothing pins the fixed behaviour. Trace marker does not resolve to any implementation commit, README contract change, or test.",
+                "resolution_probability": 0.18
+              }
+            ],
+            "summary": ""
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-051\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 Acceptance 1: composed 0750-home launch never emits both the Landlock network not-applied warning and kernel egress tier APPLIED; one truthful outcome only. Acceptance 2: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW emits exactly one named degrade line. Acceptance 3: committed regression coverage drives the composed 0750 shape and asserts the contradictory strings cannot co-occur. Also verify the committed trace marker resolves to the task row, README contract, test, and implementation commit.: No implementation exists \u2014 the only change in the tree is the board row (.gitreins/tasks.yaml:1868 marked status: complete). `git log --all --grep=TJ-DF-051` returns only board/verdict/dogfood commits (37eb0cf criteria, db88923/3481a81/ed2fac6 'dispatch failed', ad68064/81c705d 'verdict: TJ-DF-051 \u2014 FAIL'); the wt/TJ-DF-051 worktree HEAD 73b8677 has `git diff --stat main...HEAD` EMPTY. Board row .coding-hermes/board/tasks.jsonl:287 is still status 'pending', attempts 0, evidence null. README.md:457-458 contract unchanged. (A1) The contradiction path is untouched: plugin/terminal_jail/interruptor/landlock_net.py:764-768 still degrades via `_world_traversable(loader)` ('landlock-net-loader.py is not reachable by the launch's payload uid (a parent of \u2026 lacks o+x \u2014 e.g. a 0700/0750 home)') while the composed attach standalone/terminal-jail:1148 `_tj_egress_tier_decide --here` uses `test -r` in the launch's own context \u2192 TJ_EGRESS_TIER_ATTACH=1 \u2192 'egress: enforced by terminal-jail' + loader prints 'kernel egress tier APPLIED' (landlock_net.py:579). No composed-specific suppression was added. (A2) REPRODUCED LIVE on this host (ABI 8) with TERMINAL_JAIL_LANDLOCK_NET=1, NET_ALLOW=443,bogus-port: engine compose path printed 'WARNING: Landlock network (egress) tier not applied (probe crash: invalid TERMINAL_JAIL_LANDLOCK_NET_ALLOW token 'bogus-port' \u2026)' and the loader path printed 'WARNING: Landlock network (egress) tier not applied (invalid allowlist token 'bogus-port')' \u2014 two lines, two wordings for one condition (landlock_net.py:251-255 message-vs-cause, :565 apply_net_tier returns exc.cause, :699 probe returns exc.cause, standalone/landlock-net-loader.py:114-124). (A3) No regression coverage: `grep -rn 'TJ-DF-051' --include=*.py .` = 0 hits; no test drives a 0750 ancestor in the composed shape and no test asserts the two strings cannot co-occur. The existing cell plugin/test_tjdf046_egress_allow_path.py:670-673 still uses the `or` assertion ('egress: enforced by terminal-jail' OR 'Landlock network (egress) tier not applied') and pytest.skips when 'COMPOSED MODE' is absent \u2014 i.e. the exact TJ-DF-052 defect that lets the contradictory pair pass. Test runs (evidence of no new coverage, not of a fix): `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py plugin/test_tjdf047_plain_allow_degrade.py -x -q` \u2192 exit_code 0, '38 passed, 1 skipped in 10.06s'; `.venv/bin/python -m pytest plugin/test_landlock_net.py tests/test_composed_mode.py -q` \u2192 exit_code 0, '62 passed, 3 skipped in 19.19s' \u2014 the suite is green precisely because nothing pins the fixed behaviour. Trace marker does not resolve to any implementation commit, README contract change, or test.\n\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-22T22:57:31.513987",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-22T22:57:31.547651+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 17886,
+        "truncated": false,
+        "source": "git show 1f915993bde9"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 7431,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-051"
+  }
+}

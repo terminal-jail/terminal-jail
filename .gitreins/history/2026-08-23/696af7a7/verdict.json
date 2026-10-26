@@ -1,0 +1,77 @@
+{
+  "task_id": "tj-gap-042",
+  "task_title": "Block code-injection in quoted interpreter args (TJ-GAP-042)",
+  "task_criteria": [
+    "builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__ anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick; YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7 live probe vectors blocked with correct rule id, 5/5 benign allowed"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m5:34AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9731556 bytes (9.73 MB) in 883ms\u001b[0m\n\u001b[90m5:34AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m5:34AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9731556 bytes (9.73 MB) in 883ms\u001b[0m\n\u001b[90m5:34AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 318 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 20%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__ anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick; YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7 live probe vectors blocked with correct rule id, 5/5 benign allowed: All sub-parts verified. (1) builtin-code-injection rule at plugin/terminal_jail/interruptor/blocklist.py:198 pattern `\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\(` blocks all listed vectors; live intercept tests confirmed os.system/os.popen/shutil.rmtree/subprocess.call/run/Popen/check_call/check_output/eval/exec/__import__ all return builtin-code-injection, including mid-command embedding. (2) rm-rf-root boundary at blocklist.py:84 extended to `(?:\\s|$|[\\\"')`])` (quotes/parens/backtick); live tests confirmed bash -c 'rm -rf /', echo \"rm -rf /\", rm -rf /), rm -rf /` all block. (3) YAML mirror 00-builtins.yaml has 30 rules (12 block/8 sandbox/10 allow) matching engine BUILTIN_* constants; test_shipped_rules_yaml_mirrors_engine_builtin_ids passes (test_packaging.py: 5 passed). (4) Full suite: `314 passed, 4 skipped in 4.98s` (pytest -q). (5) 7/7 probe vectors blocked with correct rule id and 5/5 benign commands allowed via live intercept verification. ruff clean, no LSP diagnostics.\nTJ-GAP-042 fully implemented: code-injection rule blocks all listed vectors anywhere in raw command, rm-rf-root boundary extended to quotes/parens/backtick, YAML mirror in sync (30 rules), suite 314 passed/4 skipped, and 7/7 probes blocked with 5/5 benign allowed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__ anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick; YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7 live probe vectors blocked with correct rule id, 5/5 benign allowed: All sub-parts verified. (1) builtin-code-injection rule at plugin/terminal_jail/interruptor/blocklist.py:198 pa",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__ anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick; YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7 live probe vectors blocked with correct rule id, 5/5 benign allowed",
+                "status": "PASS",
+                "detail": "All sub-parts verified. (1) builtin-code-injection rule at plugin/terminal_jail/interruptor/blocklist.py:198 pattern `\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\(` blocks all listed vectors; live intercept tests confirmed os.system/os.popen/shutil.rmtree/subprocess.call/run/Popen/check_call/check_output/eval/exec/__import__ all return builtin-code-injection, including mid-command embedding. (2) rm-rf-root boundary at blocklist.py:84 extended to `(?:\\s|$|[\\\"')`])` (quotes/parens/backtick); live tests confirmed bash -c 'rm -rf /', echo \"rm -rf /\", rm -rf /), rm -rf /` all block. (3) YAML mirror 00-builtins.yaml has 30 rules (12 block/8 sandbox/10 allow) matching engine BUILTIN_* constants; test_shipped_rules_yaml_mirrors_engine_builtin_ids passes (test_packaging.py: 5 passed). (4) Full suite: `314 passed, 4 skipped in 4.98s` (pytest -q). (5) 7/7 probe vectors blocked with correct rule id and 5/5 benign commands allowed via live intercept verification. ruff clean, no LSP diagnostics."
+              }
+            ],
+            "summary": "TJ-GAP-042 fully implemented: code-injection rule blocks all listed vectors anywhere in raw command, rm-rf-root boundary extended to quotes/parens/backtick, YAML mirror in sync (30 rules), suite 314 passed/4 skipped, and 7/7 probes blocked with 5/5 benign allowed."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: tj-gap-042\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m5:34AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9731556 bytes (9.73 MB) in 883ms\u001b[0m\n\u001b[90m5:34AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__ anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick; YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7 live probe vectors blocked with correct rule id, 5/5 benign allowed: All sub-parts verified. (1) builtin-code-injection rule at plugin/terminal_jail/interruptor/blocklist.py:198 pattern `\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\(` blocks all listed vectors; live intercept tests confirmed os.system/os.popen/shutil.rmtree/subprocess.call/run/Popen/check_call/check_output/eval/exec/__import__ all return builtin-code-injection, including mid-command embedding. (2) rm-rf-root boundary at blocklist.py:84 extended to `(?:\\s|$|[\\\"')`])` (quotes/parens/backtick); live tests confirmed bash -c 'rm -rf /', echo \"rm -rf /\", rm -rf /), rm -rf /` all block. (3) YAML mirror 00-builtins.yaml has 30 rules (12 block/8 sandbox/10 allow) matching engine BUILTIN_* constants; test_shipped_rules_yaml_mirrors_engine_builtin_ids passes (test_packaging.py: 5 passed). (4) Full suite: `314 passed, 4 skipped in 4.98s` (pytest -q). (5) 7/7 probe vectors blocked with correct rule id and 5/5 benign commands allowed via live intercept verification. ruff clean, no LSP diagnostics.\nTJ-GAP-042 fully implemented: code-injection rule blocks all listed vectors anywhere in raw command, rm-rf-root boundary extended to quotes/parens/backtick, YAML mirror in sync (30 rules), suite 314 passed/4 skipped, and 7/7 probes blocked with 5/5 benign allowed.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-23T10:36:57.573260"
+}

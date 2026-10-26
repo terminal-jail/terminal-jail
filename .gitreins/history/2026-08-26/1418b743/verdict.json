@@ -1,0 +1,61 @@
+{
+  "task_id": "TJ-GAP-042",
+  "task_title": "Battery PID-NS layer FULL vs DEGRADED labeling + honest bare-mode tests",
+  "task_criteria": [
+    "python3 scripts/pidns-capability-probe.py exits 0 and prints DEGRADED on this host (FULL when bare mode works, UNKNOWN otherwise)",
+    "plugin/test_standalone_cli.py has test_bare_mode_pid_namespace_containment asserting the PID ns inode inside bare-mode jail differs from the host when capable, and skipping with HOST-DEGRADED-PIDNS marker when the host refuses namespace creation",
+    "Bare-mode host-conditional tests skip with HOST-DEGRADED-PIDNS marker instead of silently passing when host refuses namespace creation (9 markers in a standalone_cli run on this host)",
+    "README.md headline no longer implies automatic --user fallback and Graceful Degradation documents FULL vs DEGRADED battery labeling",
+    ".venv/bin/python -m pytest -q passes with zero failures on this host and standalone/terminal-jail bare mode still exits 2 with the degradation message (fail-closed contract preserved)"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m12:59PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8977599 \n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": ""
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m12:59PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8977599 bytes (8.98 MB) in 797ms\u001b[0m\n\u001b[90m12:59PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": ""
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 320 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 20%]\n................................................",
+          "error": ""
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 python3 scripts/pidns-capability-probe.py exits 0 and prints DEGRADED on this host (FULL when bare mode works, UNKNOWN otherwise): Ran `python3 scripts/pidns-capability-probe.py` \u2192 output 'DEGRADED', exit 0. Script classifies FULL (rc==0), DEGRADED (rc==2 + degradation markers), UNKNOWN otherwise.\n  \u2713 plugin/test_standalone_cli.py has test_bare_mode_pid_namespace_containment asserting the PID ns inode inside bare-mode jail differs from the host when capable, and skipping with HOST-DEGRADED-PIDNS marker when the host refuses namespace creation: test_bare_mode_pid_namespace_containment at plugin/test_standalone_cli.py:342 asserts `inside != str(outside)` (PID ns inode differs) when capable, and pytest.skip('HOST-DEGRADED-PIDNS: host refused PID namespace creation...') at line 357 when host refuses.\n  \u2713 Bare-mode host-conditional tests skip with HOST-DEGRADED-PIDNS marker instead of silently passing when host refuses namespace creation (9 markers in a standalone_cli run on this host): `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q -rs` produced exactly 9 HOST-DEGRADED-PIDNS skips (lines 182,198,214,227,238,266,282,335,357); 10 passed, 9 skipped.\n  \u2713 README.md headline no longer implies automatic --user fallback and Graceful Degradation documents FULL vs DEGRADED battery labeling: README.md headline (lines 1-28) says 'use the --user fallback instead' as explicit user action, no automatic fallback. Graceful Degradation (lines 203-210) states 'There is no automatic fallback' and documents FULL/DEGRADED labeling via scripts/pidns-capability-probe.py.\n  \u2713 .venv/bin/python -m pytest -q passes with zero failures on this host and standalone/terminal-jail bare mode still exits 2 with the degradation message (fail-closed contract preserved): `.venv/bin/python -m pytest -q` \u2192 307 passed, 13 skipped, 0 failures. `./standalone/terminal-jail true` exits 2 with 'namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user'.\nAll 5 criteria verified: probe prints DEGRADED with exit 0, containment test asserts inode difference and skips with HOST-DEGRADED-PIDNS, exactly 9 markers in standalone_cli run, README documents no automatic fallback + FULL/DEGRADED labeling, and full pytest passes with fail-closed exit-2 preserved.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 python3 scripts/pidns-capability-probe.py exits 0 and prints DEGRADED on this host (FULL when bare mode works, UNKNOWN otherwise): Ran `python3 scripts/pidns-capability-probe.py` \u2192 output 'DEGRADED', exit 0. Script classifies FULL (rc==0), DEGRADED (rc==2 + degradation markers), UNKNOWN otherwise.\n  \u2713 plugin/test_standalone_cli.py has test_bare_mode_pid_namespace_containment asserting the PID ns inode inside bare-mode jail differs from the host when capable, and skipping with HOST-D",
+          "error": ""
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-042\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m12:59PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~8977599 \n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 python3 scripts/pidns-capability-probe.py exits 0 and prints DEGRADED on this host (FULL when bare mode works, UNKNOWN otherwise): Ran `python3 scripts/pidns-capability-probe.py` \u2192 output 'DEGRADED', exit 0. Script classifies FULL (rc==0), DEGRADED (rc==2 + degradation markers), UNKNOWN otherwise.\n  \u2713 plugin/test_standalone_cli.py has test_bare_mode_pid_namespace_containment asserting the PID ns inode inside bare-mode jail differs from the host when capable, and skipping with HOST-DEGRADED-PIDNS marker when the host refuses namespace creation: test_bare_mode_pid_namespace_containment at plugin/test_standalone_cli.py:342 asserts `inside != str(outside)` (PID ns inode differs) when capable, and pytest.skip('HOST-DEGRADED-PIDNS: host refused PID namespace creation...') at line 357 when host refuses.\n  \u2713 Bare-mode host-conditional tests skip with HOST-DEGRADED-PIDNS marker instead of silently passing when host refuses namespace creation (9 markers in a standalone_cli run on this host): `.venv/bin/python -m pytest plugin/test_standalone_cli.py -q -rs` produced exactly 9 HOST-DEGRADED-PIDNS skips (lines 182,198,214,227,238,266,282,335,357); 10 passed, 9 skipped.\n  \u2713 README.md headline no longer implies automatic --user fallback and Graceful Degradation documents FULL vs DEGRADED battery labeling: README.md headline (lines 1-28) says 'use the --user fallback instead' as explicit user action, no automatic fallback. Graceful Degradation (lines 203-210) states 'There is no automatic fallback' and documents FULL/DEGRADED labeling via scripts/pidns-capability-probe.py.\n  \u2713 .venv/bin/python -m pytest -q passes with zero failures on this host and standalone/terminal-jail bare mode still exits 2 with the degradation message (fail-closed contract preserved): `.venv/bin/python -m pytest -q` \u2192 307 passed, 13 skipped, 0 failures. `./standalone/terminal-jail true` exits 2 with 'namespace creation failed (unshare exit 1); command not run \u2014 on unprivileged hosts try --user'.\nAll 5 criteria verified: probe prints DEGRADED with exit 0, containment test asserts inode difference and skips with HOST-DEGRADED-PIDNS, exactly 9 markers in standalone_cli run, README documents no automatic fallback + FULL/DEGRADED labeling, and full pytest passes with fail-closed exit-2 preserved.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-26T18:00:22.460319"
+}

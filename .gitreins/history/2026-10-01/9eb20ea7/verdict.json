@@ -1,0 +1,146 @@
+{
+  "task_id": "TJ-DF-029",
+  "task_title": "systemd-directive-probe RestrictNamespaces missing host-baseline negative control",
+  "task_criteria": [
+    "1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe once OUTSIDE the transient unit and stores the host rc. 2) Verdict = ENFORCED only when host rc==0 AND unit rc!=0. 3) When host rc!=0 the verdict is UNKNOWN with a message naming the host denial. 4) CloseOnExec=true control remains UNSUPPORTED (classifier sanity). 5) plugin/test_packaging.py or a new test asserts the UNKNOWN branch on a simulated host-deny scenario. 6) Full pytest suite passes, gitreins guard --full 4/4."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "b558240c9c1bf02c57c31423b160e3c8cc72a91f",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T062308.454935Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n1:27AM INF scanned ~5756032 bytes (5.76 MB) in 343ms\n1:27AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 176 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T062308.454935Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1565 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  4%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 64%]\n......................................                                   [ 67%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [240 chars omitted \u2014 3 line(s)] \u2026\nplugin/test_modify_preflight.py ......                                   [ 73%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 87%]\nplugin/test_seccomp.py .........................................sss..... [ 90%]\n.                                                                        [ 90%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1558 passed, 7 skipped in 111.52s (0:01:51) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T062308.454935Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe once OUTSIDE the transient unit and stores the host rc.: scripts/systemd-directive-probe.py:264-299 defines _host_unshare_baseline() which runs subprocess.run([unshare, '--user', '--pid', 'true'], ...) directly on the host (argv list, no unit switches) and returns (rc, reason). It is invoked from _judge_restrict_namespaces at line 313 (baseline_rc, baseline_note = _host_unshare_baseline(_HOST_BASELINE_TIMEOUT_S)). test_built_argv_never_touches_gateway_or_etc_or_control_verbs asserts the host-control argv carries no --wait/--collect/--unit switches. PASSED. [resolution 0.14; scripts/systemd-directive-probe.py, plugin/test_packaging.py]\n  \u2713 2) Verdict = ENFORCED only when host rc==0 AND unit rc!=0.: scripts/systemd-directive-probe.py:325-328: after baseline_rc==0 check, `if observed != \"0\": return \"ENFORCED\"`. Direct invocation confirmed: host rc=0 + unit RNS_RC=1 -> ('ENFORCED', 'unshare --user --pid denied (rc=1); host-baseline rc=0'). Test test_rns_host_allows_and_unit_denies_is_enforced PASSED.\n  \u2713 3) When host rc!=0 the verdict is UNKNOWN with a message naming the host denial.: scripts/systemd-directive-probe.py:319-324: `if baseline_rc != 0: return \"UNKNOWN\", f\"host denies unprivileged user namespaces (host-baseline unshare rc={baseline_rc}); ...\"`. Direct invocation confirmed host rc=1 -> ('UNKNOWN', 'host denies unprivileged user namespaces (host-baseline unshare rc=1)...'). Test test_rns_host_denies_is_unknown_despite_inunit_denial PASSED (asserts 'host denies' and 'host-baseline' in evidence).\n  \u2713 4) CloseOnExec=true control remains UNSUPPORTED (classifier sanity).: scripts/systemd-directive-probe.py: _PAYLOADS['CloseOnExec']=('CloseOnExec=true','true'); _probe_one returns UNSUPPORTED on load rejection for CloseOnExec with the negative-control message; _judge_close_on_exec never returns ENFORCED. test_full_table_rejected_by_manager_is_all_unsupported asserts coe verdict != ENFORCED (PASSED); live test test_live_host_close_on_exec_control_and_enforcement asserts verdict == 'UNSUPPORTED' and PASSED (not skipped) on this host.\n  \u2713 5) plugin/test_packaging.py or a new test asserts the UNKNOWN branch on a simulated host-deny scenario.: plugin/test_systemd_directive_probe.py:249 test_rns_host_denies_is_unknown_despite_inunit_denial simulates host-deny via a fake `unshare` on PATH (TJ_FAKE_HOST_UNSHARE_RC=1) and asserts record['verdict']=='UNKNOWN' and 'host denies' in evidence. PASSED. Additional coverage: test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown all PASSED.\n  \u2713 6) Full pytest suite passes, gitreins guard --full 4/4.: `.venv/bin/python -u -m pytest --tb=short -q -p no:cacheprovider` -> '1558 passed, 7 skipped in 90.60s' (exit 0). `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree)' with secrets/lint/tests(full)/static_analysis all PASS; log .gitreins/logs/guard-20261001T064116.825195Z.log shows 'guards: 4 (0 failed, 0 skipped)' and tests exit_code=0, '1558 passed, 7 skipped'.\nAll six criteria verified: the host-baseline unshare control gates RestrictNamespaces ENFORCED/UNKNOWN correctly, CloseOnExec stays UNSUPPORTED, the simulated host-deny UNKNOWN branch is tested, and both the full pytest suite (1558 passed) and gitreins guard --full (4/4) pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe once OUTSIDE the transient unit and stores the host rc.: scripts/systemd-directive-probe.py:264-299 defines _host_unshare_baseline() which runs subprocess.run([unshare, '--user', '--pid', 'true'], ...) directly on the host (argv list, no unit switches) and returns (rc, reason). It is invoked from _judge_restrict_namespaces at line 313 (baseline_rc, baseline_note = _host_unshare_baseline(_HOST_BASELINE_TIMEOUT_S)). test_built_argv_never_touches_gateway_or_etc_or_control_verbs asserts the host-control argv carries no --wait/--collect/--unit switches. PASSED. [resolution 0.14; scripts/systemd-directive-probe.py, plugin/test_packaging.py]\n  \u2713 2) Verdict = ENFORCED only when host rc==0 AND unit rc!=0.: scripts/systemd-directive-probe.py:325-328: after baseline_rc==0 check, `if observed != \"0\": return \"ENFORCED\"`. Direct invocation confirmed: host rc=0 + unit RNS_RC=1 -> ('ENFORCED', 'unshare --user --pid denied (rc=1); host-baseline rc=0'). Test test_rns_host_allows_and_unit_denies_is_enforced PASSED.\n  \u2713 3) When host rc!=0 the verdict is UNKNOWN with a message naming the host denial.: scripts/systemd-directive-probe.py:319-324: `if baseline_rc != 0: return \"UNKNOWN\", f\"host denies unprivileged user namespaces (host-baseline unshare rc={baseline_rc}); ...\"`. Direct invocation confirmed host rc=1 -> ('UNKNOWN', 'host denies unprivileged user namespaces (host-baseline unshare rc=1)...'). Test test_rns_host_denies_is_unknown_despite_inunit_denial PASSED (asserts 'host denies' and 'host-baseline' in evidence).\n  \u2713 4) CloseOnExec=true control remains UNSUPPORTED (classifier sanity).: scripts/systemd-directive-probe.py: _PAYLOADS['CloseOnExec']=('CloseOnExec=true','true'); _probe_one returns UNSUPPORTED on load rejection for CloseOnExec with the negative-control message; _judge_close_on_exec never returns ENFORCED. test_full_table_rejected_by_manager_is_all_unsupported asserts coe verdict != ENFORCED (PASSED); live test test_live_host_close_on_exec_control_and_enforcement asserts verdict == 'UNSUPPORTED' and PASSED (not skipped) on this host.\n  \u2713 5) plugin/test_packaging.py or a new test asserts the UNKNOWN branch on a simulated host-deny scenario.: plugin/test_systemd_directive_probe.py:249 test_rns_host_denies_is_unknown_despite_inunit_denial simulates host-deny via a fake `unshare` on PATH (TJ_FAKE_HOST_UNSHARE_RC=1) and asserts record['verdict']=='UNKNOWN' and 'host denies' in evidence. PASSED. Additional coverage: test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown all PASSED.\n  \u2713 6) Full pytest suite passes, gitreins guard --full 4/4.: `.venv/bin/python -u -m pytest --tb=short -q -p no:cacheprovider` -> '1558 passed, 7 skipped in 90.60s' (exit 0). `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree)' with secrets/lint/tests(full)/static_analysis all PASS; log .gitreins/logs/guard-20261001T064116.825195Z.log shows 'guards: 4 (0 failed, 0 skipped)' and tests exit_code=0, '1558 passed, 7 skipped'.\nAll six criteria verified: the host-baseline unshare control gates RestrictNamespaces ENFORCED/UNKNOWN correctly, CloseOnExec stays UNSUPPORTED, the simulated host-deny UNKNOWN branch is tested, and both the full pytest suite (1558 passed) and gitreins guard --full (4/4) pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe once OUTSIDE the transient unit and stores the host rc.",
+                "status": "PASS",
+                "detail": "scripts/systemd-directive-probe.py:264-299 defines _host_unshare_baseline() which runs subprocess.run([unshare, '--user', '--pid', 'true'], ...) directly on the host (argv list, no unit switches) and returns (rc, reason). It is invoked from _judge_restrict_namespaces at line 313 (baseline_rc, baseline_note = _host_unshare_baseline(_HOST_BASELINE_TIMEOUT_S)). test_built_argv_never_touches_gateway_or_etc_or_control_verbs asserts the host-control argv carries no --wait/--collect/--unit switches. PASSED. [resolution 0.14; scripts/systemd-directive-probe.py, plugin/test_packaging.py]",
+                "resolution_probability": 0.14,
+                "cited_path": "scripts/systemd-directive-probe.py, plugin/test_packaging.py"
+              },
+              {
+                "criterion": "2) Verdict = ENFORCED only when host rc==0 AND unit rc!=0.",
+                "status": "PASS",
+                "detail": "scripts/systemd-directive-probe.py:325-328: after baseline_rc==0 check, `if observed != \"0\": return \"ENFORCED\"`. Direct invocation confirmed: host rc=0 + unit RNS_RC=1 -> ('ENFORCED', 'unshare --user --pid denied (rc=1); host-baseline rc=0'). Test test_rns_host_allows_and_unit_denies_is_enforced PASSED."
+              },
+              {
+                "criterion": "3) When host rc!=0 the verdict is UNKNOWN with a message naming the host denial.",
+                "status": "PASS",
+                "detail": "scripts/systemd-directive-probe.py:319-324: `if baseline_rc != 0: return \"UNKNOWN\", f\"host denies unprivileged user namespaces (host-baseline unshare rc={baseline_rc}); ...\"`. Direct invocation confirmed host rc=1 -> ('UNKNOWN', 'host denies unprivileged user namespaces (host-baseline unshare rc=1)...'). Test test_rns_host_denies_is_unknown_despite_inunit_denial PASSED (asserts 'host denies' and 'host-baseline' in evidence)."
+              },
+              {
+                "criterion": "4) CloseOnExec=true control remains UNSUPPORTED (classifier sanity).",
+                "status": "PASS",
+                "detail": "scripts/systemd-directive-probe.py: _PAYLOADS['CloseOnExec']=('CloseOnExec=true','true'); _probe_one returns UNSUPPORTED on load rejection for CloseOnExec with the negative-control message; _judge_close_on_exec never returns ENFORCED. test_full_table_rejected_by_manager_is_all_unsupported asserts coe verdict != ENFORCED (PASSED); live test test_live_host_close_on_exec_control_and_enforcement asserts verdict == 'UNSUPPORTED' and PASSED (not skipped) on this host."
+              },
+              {
+                "criterion": "5) plugin/test_packaging.py or a new test asserts the UNKNOWN branch on a simulated host-deny scenario.",
+                "status": "PASS",
+                "detail": "plugin/test_systemd_directive_probe.py:249 test_rns_host_denies_is_unknown_despite_inunit_denial simulates host-deny via a fake `unshare` on PATH (TJ_FAKE_HOST_UNSHARE_RC=1) and asserts record['verdict']=='UNKNOWN' and 'host denies' in evidence. PASSED. Additional coverage: test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown all PASSED."
+              },
+              {
+                "criterion": "6) Full pytest suite passes, gitreins guard --full 4/4.",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -u -m pytest --tb=short -q -p no:cacheprovider` -> '1558 passed, 7 skipped in 90.60s' (exit 0). `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree)' with secrets/lint/tests(full)/static_analysis all PASS; log .gitreins/logs/guard-20261001T064116.825195Z.log shows 'guards: 4 (0 failed, 0 skipped)' and tests exit_code=0, '1558 passed, 7 skipped'."
+              }
+            ],
+            "summary": "All six criteria verified: the host-baseline unshare control gates RestrictNamespaces ENFORCED/UNKNOWN correctly, CloseOnExec stays UNSUPPORTED, the simulated host-deny UNKNOWN branch is tested, and both the full pytest suite (1558 passed) and gitreins guard --full (4/4) pass."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-029\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe once OUTSIDE the transient unit and stores the host rc.: scripts/systemd-directive-probe.py:264-299 defines _host_unshare_baseline() which runs subprocess.run([unshare, '--user', '--pid', 'true'], ...) directly on the host (argv list, no unit switches) and returns (rc, reason). It is invoked from _judge_restrict_namespaces at line 313 (baseline_rc, baseline_note = _host_unshare_baseline(_HOST_BASELINE_TIMEOUT_S)). test_built_argv_never_touches_gateway_or_etc_or_control_verbs asserts the host-control argv carries no --wait/--collect/--unit switches. PASSED. [resolution 0.14; scripts/systemd-directive-probe.py, plugin/test_packaging.py]\n  \u2713 2) Verdict = ENFORCED only when host rc==0 AND unit rc!=0.: scripts/systemd-directive-probe.py:325-328: after baseline_rc==0 check, `if observed != \"0\": return \"ENFORCED\"`. Direct invocation confirmed: host rc=0 + unit RNS_RC=1 -> ('ENFORCED', 'unshare --user --pid denied (rc=1); host-baseline rc=0'). Test test_rns_host_allows_and_unit_denies_is_enforced PASSED.\n  \u2713 3) When host rc!=0 the verdict is UNKNOWN with a message naming the host denial.: scripts/systemd-directive-probe.py:319-324: `if baseline_rc != 0: return \"UNKNOWN\", f\"host denies unprivileged user namespaces (host-baseline unshare rc={baseline_rc}); ...\"`. Direct invocation confirmed host rc=1 -> ('UNKNOWN', 'host denies unprivileged user namespaces (host-baseline unshare rc=1)...'). Test test_rns_host_denies_is_unknown_despite_inunit_denial PASSED (asserts 'host denies' and 'host-baseline' in evidence).\n  \u2713 4) CloseOnExec=true control remains UNSUPPORTED (classifier sanity).: scripts/systemd-directive-probe.py: _PAYLOADS['CloseOnExec']=('CloseOnExec=true','true'); _probe_one returns UNSUPPORTED on load rejection for CloseOnExec with the negative-control message; _judge_close_on_exec never returns ENFORCED. test_full_table_rejected_by_manager_is_all_unsupported asserts coe verdict != ENFORCED (PASSED); live test test_live_host_close_on_exec_control_and_enforcement asserts verdict == 'UNSUPPORTED' and PASSED (not skipped) on this host.\n  \u2713 5) plugin/test_packaging.py or a new test asserts the UNKNOWN branch on a simulated host-deny scenario.: plugin/test_systemd_directive_probe.py:249 test_rns_host_denies_is_unknown_despite_inunit_denial simulates host-deny via a fake `unshare` on PATH (TJ_FAKE_HOST_UNSHARE_RC=1) and asserts record['verdict']=='UNKNOWN' and 'host denies' in evidence. PASSED. Additional coverage: test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown all PASSED.\n  \u2713 6) Full pytest suite passes, gitreins guard --full 4/4.: `.venv/bin/python -u -m pytest --tb=short -q -p no:cacheprovider` -> '1558 passed, 7 skipped in 90.60s' (exit 0). `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree)' with secrets/lint/tests(full)/static_analysis all PASS; log .gitreins/logs/guard-20261001T064116.825195Z.log shows 'guards: 4 (0 failed, 0 skipped)' and tests exit_code=0, '1558 passed, 7 skipped'.\nAll six criteria verified: the host-baseline unshare control gates RestrictNamespaces ENFORCED/UNKNOWN correctly, CloseOnExec stays UNSUPPORTED, the simulated host-deny UNKNOWN branch is tested, and both the full pytest suite (1558 passed) and gitreins guard --full (4/4) pass.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-01T06:41:34.283977",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-01T06:41:34.299386+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3687,
+        "truncated": false,
+        "source": "git show b558240c9c1b"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2324,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-029"
+  }
+}

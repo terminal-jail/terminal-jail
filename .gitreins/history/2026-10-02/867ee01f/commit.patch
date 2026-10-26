@@ -1,0 +1,712 @@
+commit e3bfcb0c728deaee431a6cb9049bf12f68829afb
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Oct 1 23:07:10 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Oct 1 23:07:10 2026 -0500
+
+    fix: fail closed on unparseable rule files (PyYAML-less fresh host). Addresses TJ-DF-040.
+    
+    Posture change: on a host without PyYAML the stdlib-JSON fallback is the
+    ONLY path a .yaml rule file can take, so the JSON-fallback parse failure
+    covers EVERY installed rule file — the shipped 00-builtins.yaml mirror
+    included. Until now _load_file swallowed that failure and returned [],
+    so the whole firewall silently degraded to allow-everything while the
+    sandbox layer still ran; the loud stderr note from TJ-DF-039 named the
+    file but the bridge verdict stayed a plain allow.
+    
+    Now the fallback failure raises RuleFallbackParseError (new, subclass of
+    RuleParseError) after its one loud note; _load_file refuses it and the
+    load ABORTS, so the existing TJ-GAP-070 engine-exception path turns it
+    into the blocking [bridge-error] verdict. Fail open survives only for
+    two NARROW, named arms (no more blanket `except Exception`):
+    
+    - RuleParseError (real PyYAML parser rejected the SYNTAX): DF-6's
+      documented skip-with-warning leniency, narrowed to the class it was
+      written for — only reachable when PyYAML is importable, so it cannot
+      mask the fresh-host shape.
+    - OSError (unreadable file): one bad permission must not brick the whole
+      ruleset; the skip is announced via the new UNREADABLE note.
+    
+    With PyYAML present behavior is byte-identical (control tests/probes).
+    
+    Also updated: the two-stage-leniency docstrings in rules.py, the
+    _rule_ids_in_file provenance note in decider.py, specs/interruptor.md
+    (§3.5 failure-path split + §14 error handling) and docs/quickstart.md
+    (engine-failure paragraph). Tests: new DF-040 class in
+    test_bridge_fail_closed.py (bridge fail-closed verdict, loader abort,
+    installed-mirror intercept abort, PyYAML control, named fail-open arms);
+    the TJ-DF-039-era pins that asserted the old fail-open posture were
+    re-pointed at the new posture (test_mirror_fails_closed_loudly...,
+    builtin-blocks-via-engine-constants) instead of deleted.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ docs/quickstart.md                          |   5 +-
+ plugin/terminal_jail/interruptor/decider.py |   5 +-
+ plugin/terminal_jail/interruptor/rules.py   | 193 +++++++++++++++-----
+ plugin/test_bridge_fail_closed.py           | 263 +++++++++++++++++++++++++---
+ specs/interruptor.md                        |  35 +++-
+ 5 files changed, 423 insertions(+), 78 deletions(-)
+
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index f6bfa5f..015950f 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -283,7 +283,10 @@ printf 'not json {\n' | python3 plugin/terminal_jail/interruptor_bridge.py
+ `action: "allow"`, rc=0).
+ 
+ An **engine-evaluation** failure — `intercept()` itself raising, e.g. a rule
+-file that parses but carries fields the engine cannot evaluate — fails
++file that parses but carries fields the engine cannot evaluate, or a rule
++file the PyYAML-less JSON fallback cannot parse (TJ-DF-040: on a host
++without PyYAML the installed `.yaml` rules are unreadable to the engine, so
++it refuses to allow instead of silently allowing everything) — fails
+ **closed** instead: the verdict is a normal-shaped BLOCK with the sentinel
+ `rule_id: "[bridge-error]"` and a `[bridge-error] … — fail-closed: blocking
+ command (enforce mode)` reason (the refusal detail is also printed to
+diff --git a/plugin/terminal_jail/interruptor/decider.py b/plugin/terminal_jail/interruptor/decider.py
+index 2db0736..40e68f1 100644
+--- a/plugin/terminal_jail/interruptor/decider.py
++++ b/plugin/terminal_jail/interruptor/decider.py
+@@ -476,7 +476,10 @@ def _rule_ids_in_file(file_path: Path) -> list[str]:
+     this helper returns for such a file are the ones the REFUSAL conversation
+     is about, and the loader loads none of them — the map may name ids the
+     engine never evaluates, which is harmless (provenance is only read for
+-    rules that matched).
++    rules that matched). Since TJ-DF-040 the same is true of the
++    PyYAML-less JSON-fallback class: the loader REFUSES it (fail closed)
++    before any map is built, so this helper's empty-contribution result is
++    never consulted for a file of that class either.
+     """
+     try:
+         with open(file_path) as f:
+diff --git a/plugin/terminal_jail/interruptor/rules.py b/plugin/terminal_jail/interruptor/rules.py
+index 796a658..c82d5ab 100644
+--- a/plugin/terminal_jail/interruptor/rules.py
++++ b/plugin/terminal_jail/interruptor/rules.py
+@@ -124,11 +124,42 @@ class RuleSet:
+ class RuleSchemaError(ValueError):
+     """A rule file LOADED but carries a field whose type the engine cannot use.
+ 
+-    Distinct from a file that cannot be parsed at all (DF-TERMINAL-JAIL-6 keeps
+-    skipping those): this is a well-formed YAML document whose field values
+-    would explode during EVALUATION — ``priority: not-a-number`` reaches
+-    ``RuleSet._sort`` and raises ``TypeError`` inside ``intercept()``, which the
+-    bridge used to swallow into a fail-open allow (TJ-GAP-070).
++    Distinct from a file that cannot be parsed at all: that split is now
++    two-stage (TJ-DF-040). A syntax error a REAL YAML parser rejected
++    (``RuleParseError``) is still skipped with a loud note — DF-TERMINAL-
++    JAIL-6's leniency. The PyYAML-less JSON-fallback failure
++    (``RuleFallbackParseError``) ABORTS the load, because without PyYAML
++    that fallback is the only path a ``.yaml`` file can take and skipping
++    would silently unload the entire installed policy. This error — a
++    well-formed document whose field values would explode during
++    EVALUATION — always aborts: ``priority: not-a-number`` reaches
++    ``RuleSet._sort`` and raises ``TypeError`` inside ``intercept()``,
++    which the bridge used to swallow into a fail-open allow (TJ-GAP-070).
++    """
++
++
++class RuleParseError(RuntimeError):
++    """A rule file could not be PARSED into a rules document.
++
++    Raised by ``_parse_file`` after its one loud stderr note naming the
++    file. ``_load_file`` treats the plain form as DF-TERMINAL-JAIL-6's
++    leniency class — skipped, but no longer silent — and the
++    ``RuleFallbackParseError`` subclass as a refusal (load aborts,
++    TJ-DF-040).
++    """
++
++
++class RuleFallbackParseError(RuleParseError):
++    """The PyYAML-less JSON fallback could not parse a ``.yaml`` file.
++
++    TJ-DF-040: on a host without PyYAML the stdlib-json fallback is the
++    ONLY path a ``.yaml`` file can take, and YAML is not JSON — so every
++    installed rule file (the shipped 00-builtins.yaml mirror included)
++    fails here. Skipping would silently unload the whole policy while the
++    sandbox layer still ran: the firewall would degrade to
++    allow-everything with nothing on the verdict saying so. The load
++    ABORTS instead; the bridge converts the raise into the blocking
++    ``[bridge-error]`` verdict (TJ-GAP-070 shape).
+     """
+ 
+ 
+@@ -264,24 +295,35 @@ def inherit_override_message(override: Rule, replaced: Rule | None) -> Rule:
+ class RuleLoader:
+     """Loads rules from YAML files in one or more directories.
+ 
+-    Two-stage leniency (TJ-GAP-070):
+-
+-    - A file that cannot be PARSED (invalid YAML/JSON, unreadable) is skipped
+-      and contributes no rules — DF-TERMINAL-JAIL-6's documented leniency. On a
+-      host without PyYAML the JSON fallback is the ONLY path a ``.yaml`` file
+-      can take, so the whole mirror lands here; that skip is announced with one
+-      loud stderr note instead of being silent (TJ-DF-039).
++    Failure posture (TJ-GAP-070 as narrowed by TJ-DF-040):
++
++    - A file the PyYAML-less JSON fallback cannot parse REFUSES the load:
++      on a host without PyYAML that fallback is the ONLY path a ``.yaml``
++      file can take, so the whole installed mirror (00-builtins.yaml
++      included) lands there — skipping it would silently unload the
++      operator's entire policy while the sandbox layer still ran, i.e.
++      allow-everything with nothing on the verdict saying so. The refusal
++      is announced with one loud stderr note naming the file (TJ-DF-039)
++      and ABORTS the load; the bridge turns it into a blocking
++      ``[bridge-error]`` verdict.
++    - A file whose content a REAL YAML parser rejected (PyYAML importable)
++      is still skipped with a loud one-line stderr note — that is
++      DF-TERMINAL-JAIL-6's documented leniency, now narrowed to the class
++      it was written for. Same for a file that cannot be READ (OSError):
++      one bad permission must not brick the whole ruleset, and the skip
++      is announced, never silent.
+     - A file that parses but whose FIELDS fail type validation (e.g.
+-      ``priority: not-a-number``) is REFUSED with a loud one-line stderr note
+-      naming the file, and the load ABORTS. Silently skipping it would be worse
+-      than either extreme: the operator's policy would appear installed while
+-      being absent. Aborting is also what makes the failure fail CLOSED — the
+-      bridge turns it into a blocking ``[bridge-error]`` verdict instead of an
+-      allow, so a typo cannot silently remove protection.
+-
+-    ``schema_notes`` collects the loud notes so callers/tests can assert them
+-    without capturing stderr. ``parse_notes`` collects the same for the
+-    PyYAML-less JSON-fallback failure (TJ-DF-039), which stays fail-open.
++      ``priority: not-a-number``) is REFUSED with a loud one-line stderr
++      note naming the file, and the load ABORTS. Silently skipping it
++      would be worse than either extreme: the operator's policy would
++      appear installed while being absent. Aborting is also what makes
++      the failure fail CLOSED — the bridge turns it into a blocking
++      ``[bridge-error]`` verdict instead of an allow, so a typo cannot
++      silently remove protection.
++
++    ``schema_notes`` collects the loud notes so callers/tests can assert
++    them without capturing stderr. ``parse_notes`` collects the same for
++    the parse-side failures (TJ-DF-039).
+     """
+ 
+     def __init__(
+@@ -344,30 +386,72 @@ class RuleLoader:
+         return rules
+ 
+     def _load_file(self, file_path: str) -> list[Rule]:
+-        """Load rules from a single YAML file.
+-
+-        The file is expected to contain a top-level ``rules`` list. A file that
+-        cannot be PARSED returns empty (DF-TERMINAL-JAIL-6 leniency) — but when
+-        the failure came from the PyYAML-less JSON fallback it is no longer
+-        silent: ``_parse_file`` has already written one loud stderr note naming
+-        the file (TJ-DF-039). A file that parses but violates the field schema
+-        raises ``RuleSchemaError`` after writing one loud stderr note naming it
+-        (TJ-GAP-070).
++        """Load rules from a single file (TJ-DF-040 posture).
++
++        The file is expected to contain a top-level ``rules`` list. Three
++        failure classes, deliberately NOT one blanket catch:
++
++        - REFUSES (load ABORTS, fail closed): a file the PyYAML-less JSON
++          fallback cannot parse (``RuleFallbackParseError``) — on such a
++          host that fallback is the ONLY path a ``.yaml`` file can take,
++          so skipping would silently unload the entire installed policy
++          (shipped mirror included). Same refusal/verdict path as
++          ``RuleSchemaError`` (TJ-GAP-070). Also refused: a file that
++          parses but violates the field schema.
++        - SKIPS with one loud stderr note (fail open, DF-TERMINAL-JAIL-6's
++          documented leniency, narrowed): a file whose content a REAL YAML
++          parser rejected (``RuleParseError``) — only reachable when
++          PyYAML is importable.
++        - SKIPS with one loud stderr note (fail open, named arm): a file
++          that cannot be READ (OSError). One bad permission must not brick
++          the whole ruleset; the file's absence is announced, so it is a
++          skip with warning, never a silent one.
+         """
+         try:
+             return self._parse_file(file_path)
+         except RuleSchemaError:
++            # TJ-GAP-070: bad field types refuse the load (fail closed).
+             raise
+-        except Exception:  # noqa: BLE001 — fail-open on file parse errors
++        except RuleFallbackParseError:
++            # TJ-DF-040: without PyYAML this failure class covers EVERY
++            # ``.yaml`` file on the host (the shipped mirror included) —
++            # skipping it is the allow-everything degradation, so refuse
++            # like a schema violation instead.
++            raise
++        except RuleParseError:
++            # DF-TERMINAL-JAIL-6: a real YAML parser rejected the syntax.
++            # Only reachable when PyYAML is importable (the fallback path
++            # raises the RuleFallbackParseError subclass above), so this
++            # skip cannot mask the fresh-host shape. Still loud via the
++            # note ``_parse_file`` already wrote.
++            return []
++        except OSError:
++            # Named fail-open arm: UNREADABLE file (permissions, race on
++            # delete, loop). Load-time note printed by _parse_file.
+             return []
+ 
+     def _parse_file(self, file_path: str) -> list[Rule]:
+         """Parse a YAML file and return a list of Rules.
+ 
+-        Uses stdlib json as fallback if PyYAML is not available.
++        Uses stdlib json as fallback if PyYAML is not available. Parse
++        failures raise typed errors AFTER the one loud stderr note naming
++        the file: ``RuleFallbackParseError`` for the PyYAML-less fallback
++        (refused by ``_load_file`` — fail closed, TJ-DF-040) and
++        ``RuleParseError`` for a real YAML parser's syntax rejection
++        (skipped by ``_load_file`` — DF-TERMINAL-JAIL-6 leniency, loud
++        since TJ-DF-039).
+         """
+-        with open(file_path) as f:
+-            content = f.read()
++        try:
++            with open(file_path) as f:
++                content = f.read()
++        except OSError as exc:
++            note = (
++                f"terminal-jail: UNREADABLE rule file {file_path} "
++                f"({exc}) — the rules in this file are NOT loaded"
++            )
++            self.parse_notes.append(note)
++            print(note, file=sys.stderr, flush=True)
++            raise
+ 
+         rules: list[Rule] = []
+ 
+@@ -379,26 +463,43 @@ class RuleLoader:
+             # semantics, ~10x faster. The pure-Python loader costs ~9ms per
+             # call once install.sh ships the full builtins file into the user
+             # rules dir, regressing the warm-start benchmark (E2E-001-GAP-07).
+-            if hasattr(yaml, "CSafeLoader"):
+-                data = yaml.load(content, Loader=yaml.CSafeLoader)
+-            else:
+-                data = yaml.safe_load(content)
++            try:
++                if hasattr(yaml, "CSafeLoader"):
++                    data = yaml.load(content, Loader=yaml.CSafeLoader)
++                else:
++                    data = yaml.safe_load(content)
++            except yaml.YAMLError as exc:
++                # DF-TERMINAL-JAIL-6 leniency class (narrowed by TJ-DF-040):
++                # a REAL parser rejected the SYNTAX. One loud note, then a
++                # typed error ``_load_file`` skips the file for.
++                note = (
++                    f"terminal-jail: UNPARSEABLE rule file {file_path} "
++                    f"(invalid YAML: {exc}) — the rules in this file are "
++                    "NOT loaded"
++                )
++                self.parse_notes.append(note)
++                print(note, file=sys.stderr, flush=True)
++                raise RuleParseError(note) from exc
+         except ImportError:
+             # Fall back to json. On a host WITHOUT PyYAML this is the ONLY path
+             # a ``.yaml`` rule file can take — and YAML is not JSON, so
+             # ``json.loads`` raises on the shipped mirror (TJ-DF-039): the file
+-            # then contributes ZERO rules. DF-TERMINAL-JAIL-6's leniency is
++            # would contribute ZERO rules. DF-TERMINAL-JAIL-6's leniency is
+             # about the engine's ACTION on an unparseable file; it says nothing
+             # about the operator being told, and swallowing this quietly made a
+-            # whole installed mirror inert with no message anywhere on the host.
+-            # The note is one line, in the TJ-GAP-070 style, and the exception
+-            # is re-raised so ``_load_file`` keeps its fail-open behaviour —
+-            # action unchanged, silence removed.
++            # whole installed mirror inert with no message anywhere on the host
++            # (TJ-DF-039). TJ-DF-040 goes one step further: on such a host
++            # skipping EVERY ``.yaml`` file silently degrades the firewall to
++            # allow-everything while the sandbox layer still runs, so this
++            # class is REFUSED (``RuleFallbackParseError``; ``_load_file``
++            # aborts the load and the bridge emits the blocking
++            # ``[bridge-error]`` verdict). The note stays one line, in the
++            # TJ-GAP-070 style.
+             import json
+ 
+             try:
+                 data = json.loads(content)
+-            except Exception as exc:  # noqa: BLE001 — re-raised below
++            except Exception as exc:  # noqa: BLE001 — re-raised typed below
+                 note = (
+                     f"terminal-jail: UNPARSEABLE rule file {file_path} "
+                     f"(PyYAML unavailable, JSON fallback failed: {exc}) "
+@@ -406,7 +507,7 @@ class RuleLoader:
+                 )
+                 self.parse_notes.append(note)
+                 print(note, file=sys.stderr, flush=True)
+-                raise
++                raise RuleFallbackParseError(note) from exc
+ 
+         # TJ-GAP-070: refuse a document the engine cannot EVALUATE. The parse
+         # above succeeded, so DF-TERMINAL-JAIL-6's skip path (which is for
+diff --git a/plugin/test_bridge_fail_closed.py b/plugin/test_bridge_fail_closed.py
+index 1f0ab02..cbfe42f 100644
+--- a/plugin/test_bridge_fail_closed.py
++++ b/plugin/test_bridge_fail_closed.py
+@@ -13,14 +13,20 @@ Contract (board-decided):
+   mode; empty or non-JSON bridge stdout blocks in enforce mode too.
+ - The rule loader refuses (loud one-line stderr note naming the file) any
+   rule file whose rules fail type validation — e.g. a non-numeric
+-  ``priority`` — so a typo can no longer reach evaluation time. Files the
+-  schema pass cannot PARSE keep DF-TERMINAL-JAIL-6's skip-with-warning
+-  behavior.
++  ``priority`` — so a typo can no longer reach evaluation time.
+ - TJ-DF-039: when the parse failure comes from the PyYAML-less JSON fallback
+   (on such a host that fallback is the ONLY path a ``.yaml`` rule file can
+-  take, so an entire installed mirror is affected) the skip stops being
+-  silent: one loud stderr note names the file and the cause. The engine's
+-  ACTION is unchanged — still fail open, nothing propagates.
++  take, so an entire installed mirror is affected) the skip is announced with
++  one loud stderr note naming the file and the cause.
++- TJ-DF-040: that same PyYAML-less JSON-fallback failure now also FAILS
++  CLOSED (``RuleParseError`` aborts the load, the bridge emits the blocking
++  ``[bridge-error]`` verdict). A fresh host without PyYAML used to degrade
++  the whole installed firewall to allow-everything while the sandbox layer
++  still ran; now the engine refuses to allow on a policy it cannot read.
++  The retained fail-open arms are NARROW and named in ``_load_file``: an
++  UNREADABLE file (OSError), and a syntax error a real YAML parser rejected
++  (yaml.YAMLError — DF-TERMINAL-JAIL-6's skip-with-warning, only reachable
++  when a real parser is present).
+ """
+ 
+ from __future__ import annotations
+@@ -663,11 +669,12 @@ rules:
+ class TestLoaderPyYAMLLessMirrorIsLoud:
+     """On a host without PyYAML the stdlib json fallback is the ONLY path a
+     ``.yaml`` rule file can take (rules.py), and YAML is not JSON — so every
+-    installed rule file contributes ZERO rules. DF-TERMINAL-JAIL-6's fail-open
+-    ACTION is unchanged (the Python builtins stay live, nothing propagates);
+-    what changes is that the skip is no longer silent: one loud stderr note
+-    names the file and the cause, and ``loader.parse_notes`` carries it for
+-    callers that cannot capture stderr.
++    installed rule file fails the fallback. Since TJ-DF-040 that failure is
++    FAIL-CLOSED: one loud stderr note names the file and the cause (kept
++    from TJ-DF-039), ``loader.parse_notes`` carries it for callers that
++    cannot capture stderr, and the load ABORTS so the bridge emits the
++    blocking ``[bridge-error]`` verdict instead of silently allowing
++    everything.
+     """
+ 
+     @staticmethod
+@@ -698,23 +705,28 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
+         assert stderr.getvalue() == ""
+         assert loader.parse_notes == []
+ 
+-    def test_mirror_fails_open_loudly_without_pyyaml(
++    def test_mirror_fails_closed_loudly_without_pyyaml(
+         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+     ) -> None:
+         # ``sys.modules["yaml"] = None`` makes `import yaml` raise ImportError
+         # deterministically — the fresh-host-without-PyYAML simulation (same
+         # seam as test_rule_packs.py's PyYAML-less cases).
+         monkeypatch.setitem(sys.modules, "yaml", None)
+-        from terminal_jail.interruptor.rules import RuleLoader
++        from terminal_jail.interruptor.rules import (
++            RuleFallbackParseError,
++            RuleLoader,
++        )
+ 
+         rules_dir = self._install_shipped_mirror(tmp_path)
+         mirror = rules_dir / "00-builtins.yaml"
+         stderr = io.StringIO()
+         with mock.patch.object(sys, "stderr", stderr):
+             loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
+-            ruleset = loader.load_all()  # must NOT raise: fail open is retained
++            # TJ-DF-040: the load ABORTS — a policy the engine cannot read
++            # must never come back as an empty, silently-allowed ruleset.
++            with pytest.raises(RuleFallbackParseError):
++                loader.load_all()
+         err = stderr.getvalue()
+-        assert len(ruleset) == 0, "no rule can be read without a YAML parser"
+         # exactly one loud line, naming the file and the cause
+         assert err.count("\n") == 1, f"exactly one loud line, got: {err!r}"
+         assert str(mirror) in err, f"note must name the file, got: {err!r}"
+@@ -723,23 +735,23 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
+         assert loader.parse_notes == [err.rstrip("\n")]
+         assert loader.schema_notes == []
+ 
+-    def test_engine_verdict_is_unchanged_without_pyyaml(
++    def test_without_pyyaml_builtin_still_blocks_via_engine_constants(
+         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+     ) -> None:
+-        """Removing the silence must not change the DECISION: a builtin-covered
+-        command still BLOCKs with the same rule id on a PyYAML-less host."""
++        """The PyYAML-less BLOCK capability still exists — via the ENGINE
++        builtins with NO rules files at all (dirs absent, nothing to parse).
++        On a PyYAML-less host with an INSTALLED mirror the load aborts
++        instead (see the tests above); this pins that the fail-closed
++        posture removed the mirror path, not the engine's own protection."""
+         monkeypatch.setitem(sys.modules, "yaml", None)
+         from terminal_jail.interruptor import Action
+ 
+-        rules_dir = self._install_shipped_mirror(tmp_path)
+         config = Config(
+             mode="enforce",
+             system_rules_dir=str(tmp_path / "absent-system"),
+-            user_rules_dir=str(rules_dir),
++            user_rules_dir=str(tmp_path / "absent-user"),
+         )
+-        stderr = io.StringIO()
+-        with mock.patch.object(sys, "stderr", stderr):
+-            result = intercept("rm -rf /", config=config)
++        result = intercept("rm -rf /", config=config)
+         assert result.action == Action.BLOCK
+         assert result.rule_id == "builtin-rm-rf-root"
+ 
+@@ -775,3 +787,208 @@ class TestLoaderPyYAMLLessMirrorIsLoud:
+         assert ruleset.by_id("json-block") is not None
+         assert stderr.getvalue() == ""
+         assert loader.parse_notes == []
++
++
++# ── F. TJ-DF-040: PyYAML-less JSON-fallback failure FAILS CLOSED ────────────
++
++
++class TestPyYAMLLessParseFailureFailsClosed:
++    """TJ-DF-040. TJ-DF-039 made the PyYAML-less JSON-fallback parse failure
++    LOUD but kept it fail-open: on a fresh host without PyYAML the entire
++    installed mirror (00-builtins.yaml and every operator ``.yaml`` file —
++    the fallback is the ONLY path a ``.yaml`` file can take there) unloaded
++    and the firewall silently degraded to allow-everything while the sandbox
++    layer still ran. The loud stderr note does not change the verdict.
++
++    The new posture follows the TJ-GAP-070 shape: the fallback failure
++    raises ``RuleParseError`` after its one loud note, ``load_all`` ABORTS,
++    and the bridge converts it into the blocking ``[bridge-error]``
++    verdict — the engine refuses to allow on a policy it cannot read.
++
++    Fail-open survives only for two NARROW, named classes (tests below):
++    an UNREADABLE file (OSError — one bad permission must not brick the
++    whole ruleset) and a syntax error a REAL YAML parser rejected
++    (yaml.YAMLError — DF-TERMINAL-JAIL-6's documented skip-with-warning;
++    only reachable when PyYAML is actually importable).
++    """
++
++    YAML_ONLY_USER_RULE = """\
++rules:
++  - id: pack-testonly-yaml-rule
++    priority: 100
++    action: block
++    block_message: blocked by the yaml-only rule
++    match:
++      type: pattern
++      pattern: "danger-tool"
++"""
++
++    @staticmethod
++    def _yaml_only_rules_dir(tmp_path: Path) -> Path:
++        """A rules dir whose ONLY file is YAML a JSON fallback cannot read."""
++        rules_dir = tmp_path / "rules.d"
++        _write_rule_file(rules_dir, "99-df040.yaml", TestPyYAMLLessParseFailureFailsClosed.YAML_ONLY_USER_RULE)  # fmt: skip
++        return rules_dir
++
++    def test_control_yaml_only_rule_blocks_with_pyyaml(self, tmp_path: Path) -> None:
++        """(a) Control: WITH PyYAML the yaml-only rule blocks through the
++        bridge — the fixture is a real policy, not a broken file."""
++        rules_dir = self._yaml_only_rules_dir(tmp_path)
++        proc = _bridge_main_inproc(
++            '{"command": "danger-tool --do-it"}',
++            extra_env={
++                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(tmp_path / "absent-system"),
++                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
++            },
++        )
++        assert proc.returncode == 0
++        response = json.loads(proc.stdout.decode())
++        assert response["action"] == "block", response
++        assert response["rule_id"] == "pack-testonly-yaml-rule", response
++
++    def test_without_pyyaml_bridge_verdict_is_not_a_plain_allow(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """(b) The defect: without PyYAML the same policy must NOT yield a
++        plain allow verdict — the bridge must return the blocking
++        ``[bridge-error]`` envelope (fail closed), not ``{"action":
++        "allow"}`` with ``rule_id: null``."""
++        monkeypatch.setitem(sys.modules, "yaml", None)
++        rules_dir = self._yaml_only_rules_dir(tmp_path)
++        proc = _bridge_main_inproc(
++            '{"command": "danger-tool --do-it"}',
++            extra_env={
++                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(tmp_path / "absent-system"),
++                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
++            },
++        )
++        response = json.loads(proc.stdout.decode())
++        assert response["action"] == "block", (
++            f"PyYAML-less parse failure must fail CLOSED, got {response!r}"
++        )
++        assert response["rule_id"] == "[bridge-error]", response
++        assert response["reason"].startswith("[bridge-error]"), response
++        assert "fail-closed" in response["reason"], response
++        # The TJ-DF-039 loud note stays — the in-proc harness captures it
++        # into proc.stderr (the outer mock would race the harness's own
++        # capture, and the detail belongs on the bridge's stderr anyway).
++        err = proc.stderr.decode()
++        assert str(rules_dir / "99-df040.yaml") in err, err
++        assert "UNPARSEABLE" in err, err
++
++    def test_without_pyyaml_load_all_raises_rule_parse_error(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """The loader aborts (TJ-GAP-070 style) instead of returning a
++        ruleset that silently omits every ``.yaml`` file."""
++        monkeypatch.setitem(sys.modules, "yaml", None)
++        from terminal_jail.interruptor.rules import (
++            RuleLoader,
++            RuleParseError,
++        )
++
++        rules_dir = self._yaml_only_rules_dir(tmp_path)
++        stderr = io.StringIO()
++        with mock.patch.object(sys, "stderr", stderr):
++            loader = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent")
++            with pytest.raises(RuleParseError):
++                loader.load_all()
++        assert loader.parse_notes, "the loud note is still recorded"
++
++    def test_without_pyyaml_installed_mirror_aborts_intercept(
++        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        """The fresh-host shape: the INSTALLED mirror (shipped
++        00-builtins.yaml in the user dir) is YAML-only too, so on a
++        PyYAML-less host ``intercept()`` itself must raise rather than
++        decide on an empty ruleset (allow-everything)."""
++        monkeypatch.setitem(sys.modules, "yaml", None)
++        from terminal_jail.interruptor import Action
++        from terminal_jail.interruptor.rules import RuleFallbackParseError
++
++        rules_dir = TestLoaderPyYAMLLessMirrorIsLoud._install_shipped_mirror(tmp_path)
++        config = Config(
++            mode="enforce",
++            system_rules_dir=str(tmp_path / "absent-system"),
++            user_rules_dir=str(rules_dir),
++        )
++        stderr = io.StringIO()
++        with mock.patch.object(sys, "stderr", stderr):
++            with pytest.raises(RuleFallbackParseError):
++                intercept("echo benign", config=config)
++        # The loud note still names the mirror (the raise's detail).
++        assert "00-builtins.yaml" in stderr.getvalue()
++        assert Action.BLOCK  # (import liveness; the posture is the raise)
++
++    def test_unreadable_rule_file_still_fails_open_named_class(
++        self, tmp_path: Path
++    ) -> None:
++        """The retained NARROW fail-open arm: a file that cannot be READ
++        (OSError, e.g. permission) is skipped with the loud-note shape so
++        one bad permission cannot brick the whole ruleset. Named explicitly
++        in ``_load_file``'s comment — this test pins that it did not grow
++        back into a blanket ``except Exception``."""
++        rules_dir = tmp_path / "rules.d"
++        _write_rule_file(
++            rules_dir,
++            "10-good.yaml",
++            """\
++rules:
++  - id: good-block-df040
++    priority: 100
++    action: block
++    match:
++      type: pattern
++      pattern: "danger-tool"
++""",
++        )
++        unreadable = rules_dir / "20-locked.yaml"
++        unreadable.write_text("rules: []\n")
++        unreadable.chmod(0o000)
++        stderr = io.StringIO()
++        with mock.patch.object(sys, "stderr", stderr):
++            from terminal_jail.interruptor.rules import RuleLoader
++
++            try:
++                ruleset = RuleLoader(
++                    system_dir=str(rules_dir), user_dir="/nonexistent"
++                ).load_all()
++            finally:
++                unreadable.chmod(0o644)  # let tmp cleanup delete it
++        assert ruleset.by_id("good-block-df040") is not None
++        # The skip is loud (TJ-DF-039's shape, kept for this class).
++        err = stderr.getvalue()
++        assert "20-locked.yaml" in err, f"note must name the file: {err!r}"
++
++    def test_yaml_parser_syntax_error_still_skips_df6_leniency(
++        self, tmp_path: Path
++    ) -> None:
++        """DF-TERMINAL-JAIL-6's original leniency survives for the class it
++        was written for: a SYNTAX error a real YAML parser rejected
++        (yaml.YAMLError). Only reachable with PyYAML present — without it
++        the same content fails closed via the JSON fallback (test above)."""
++        from terminal_jail.interruptor.rules import RuleLoader
++
++        rules_dir = tmp_path / "rules.d"
++        _write_rule_file(rules_dir, "broken.yaml", "rules: [unclosed")
++        _write_rule_file(
++            rules_dir,
++            "good.yaml",
++            """\
++rules:
++  - id: good-block-df040
++    priority: 100
++    action: block
++    match:
++      type: pattern
++      pattern: "danger-tool"
++""",
++        )
++        stderr = io.StringIO()
++        with mock.patch.object(sys, "stderr", stderr):
++            ruleset = RuleLoader(
++                system_dir=str(rules_dir), user_dir="/nonexistent"
++            ).load_all()
++        assert ruleset.by_id("good-block-df040") is not None, (
++            "DF-6 skip-with-warning survives for real-parser syntax errors"
++        )
+diff --git a/specs/interruptor.md b/specs/interruptor.md
+index e259a10..e461c64 100644
+--- a/specs/interruptor.md
++++ b/specs/interruptor.md
+@@ -131,10 +131,21 @@ Every field value the engine reads is type-checked when a rule file is loaded:
+ | `match.conditions` | list |
+ | `match.not` | mapping or list |
+ 
+-Load has two distinct failure paths, and they must not be conflated:
+-
+-- **Cannot PARSE** (invalid YAML/JSON, unreadable file) → the file is
+-  **skipped** and contributes no rules (DF-TERMINAL-JAIL-6 leniency; §14).
++Load has distinct failure paths, and they must not be conflated (TJ-GAP-070
++as narrowed by TJ-DF-040):
++
++- **Cannot PARSE via the PyYAML-less JSON fallback** (a host without PyYAML;
++  there the fallback is the ONLY path a `.yaml` file can take, so the whole
++  installed mirror lands here) → the file is **REFUSED**: one loud one-line
++  note naming the file is written to stderr and the load **ABORTS**
++  (`RuleFallbackParseError`). Skipping would let the firewall silently
++  degrade to allow-everything while the sandbox layer still ran; the abort
++  reaches the bridge as an engine exception and becomes the fail-closed
++  verdict below (TJ-DF-040).
++- **Cannot PARSE with a real YAML parser** (PyYAML importable, syntax
++  error) or **cannot be READ** (OSError) → the file is **skipped** and
++  contributes no rules, loudly (one stderr line naming the file;
++  DF-TERMINAL-JAIL-6 leniency, §14 — fail open, but never silent).
+ - **Parses but a field has the wrong TYPE** (e.g. `priority: not-a-number`) →
+   the file is **REFUSED**: one loud one-line note naming the file is written to
+   stderr and the load **ABORTS** (``RuleSchemaError``). It is never silently
+@@ -755,9 +766,19 @@ commands are evaluated and allowed (never skipped, no over-length marker).
+ 
+ ## 14. Error Handling
+ 
+-- Invalid rule file → **two paths, never conflated** (TJ-GAP-070, §3.5):
+-  - *unparseable* (invalid YAML/JSON, unreadable) → skip with warning, continue
+-    loading others;
++- Invalid rule file → **distinct paths, never conflated** (TJ-GAP-070,
++  §3.5, TJ-DF-040):
++  - *unparseable via the PyYAML-less JSON fallback* (a host without PyYAML;
++    there the fallback is the ONLY path a `.yaml` file can take, so the
++    whole installed mirror lands here) → REFUSE with one loud one-line
++    stderr note naming the file, and abort the load. The refusal reaches
++    the bridge as an engine exception and becomes a blocking
++    `[bridge-error]` verdict (fail CLOSED — §3.6): the engine refuses to
++    allow on a policy it cannot read, instead of the old silent
++    allow-everything degradation (TJ-DF-040).
++  - *unparseable with a real YAML parser* (PyYAML importable) or
++    *unreadable* (OSError) → skip with a loud one-line warning, continue
++    loading others (DF-TERMINAL-JAIL-6 leniency, narrowed by TJ-DF-040);
+   - *parses but a field has the wrong type* (e.g. `priority: not-a-number`) →
+     REFUSE with one loud one-line stderr note naming the file, and abort the
+     load. The refusal reaches the bridge as an engine exception and becomes a

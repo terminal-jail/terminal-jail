@@ -1,0 +1,26 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 1cfa7aa..26cf1f0 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -776,3 +776,12 @@ tasks:
+   status: complete
+   created_at: '2026-09-18T08:42:36.949469+00:00'
+   completed_at: '2026-09-18T08:54:44.423708+00:00'
++- id: tj-gap-054
++  title: Optional bubblewrap jail backend
++  criteria:
++  - Add runtime-detected bubblewrap backend with private /proc and --die-with-parent,
++    preserve unshare fallback, add tests and docs; no regressions in existing wrapper
++    behavior.
++  status: complete
++  created_at: '2026-09-18T12:09:12.922760+00:00'
++  completed_at: '2026-09-18T12:09:13.256010+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index f9df3c4..5c7018f 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -32,3 +32,4 @@
+ {"ts": 1789613809.6572924, "tokens_in": 261163, "tokens_out": 4596, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789702135.6819832, "tokens_in": 291306, "tokens_out": 3533, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789721780.6753387, "tokens_in": 675119, "tokens_out": 7208, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789733554.5718024, "tokens_in": 993488, "tokens_out": 8960, "cache_read": 0, "cache_write": 0, "step": "tier2"}

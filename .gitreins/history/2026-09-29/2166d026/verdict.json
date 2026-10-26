@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-038",
+  "task_title": "Preflight misdiagnoses missing uname as non-Linux",
+  "task_criteria": [
+    "preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression tests green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "702d791e73cd5265402d3be2d631acf528e8648e",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T101305.787546Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n5:13AM INF scanned ~5660275 bytes (5.66 MB) in 390ms\n5:13AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 172 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T101305.787546Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1515 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 22%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 27%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 30%]\nplugin/test_install.py ................................................. [ 33%]\n.................                                                        [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 42%]\n........................................................................ [ 47%]\n........................................................................ [ 52%]\n........................................................................ [ 56%]\n........................................................................ [ 61%]\n........................................................................ [ 66%]\n...........................                                              [ 68%]\nplugin/test_interruptor_integration.py .................s............... [ 70%]\n.......                                                                  [ 70%]\nplugin/test_metrics_export.py .....................                      [ 72%]\nplugin/test_modify_preflight.py ......                                   [ 72%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n.........                                                                [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 86%]\nplugin/test_seccomp.py .........................................sss..... [ 89%]\n.                                                                        [ 89%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1508 passed, 7 skipped in 67.55s (0:01:07) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260929T101411.127350Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression tests green: standalone/terminal-jail:452-467 (commit cd31f7b): L452 captures `uname -s`; L453-463 when empty falls back to /proc/sys/kernel/ostype then /proc/version ('Linux version') and otherwise prints 'terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)' and exits 2 (names the missing tool); L465-467 non-Linux prints 'this CLI requires Linux PID namespaces' and exits 2 (fail-closed). Live: PATH without uname -> 'unshare is required (install util-linux)' rc=2 (no false non-Linux claim); stub uname=Darwin -> 'requires Linux PID namespaces' rc=2. Regression test plugin/test_standalone_cli.py:169-207 test_missing_uname_on_linux_host covers both arms. Fresh runs: `plugin/test_standalone_cli.py` 22 passed in 3.76s; `test_missing_uname_on_linux_host` 1 passed in 0.59s; `test_standalone_cli.py test_install.py test_modify_preflight.py` 94 passed in 20.20s (exit 0).\nPreflight now names a missing uname, falls back to /proc/version, fails closed with exit 2, and the added regression test plus the standalone-CLI/install/modify-preflight suites are green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression tests green: standalone/terminal-jail:452-467 (commit cd31f7b): L452 captures `uname -s`; L453-463 when empty falls back to /proc/sys/kernel/ostype then /proc/version ('Linux version') and otherwise prints 'terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)' and exits 2 (names the missing tool); L465-467 non-Linux prints 'this CLI requires Linux PID namespaces' and exits 2 (fail-closed). Live: PATH without uname -> 'unshare is required (install util-linux)' rc=2 (no false non-Linux claim); stub uname=Darwin -> 'requires Linux PID namespaces' rc=2. Regression test plugin/test_standalone_cli.py:169-207 test_missing_uname_on_linux_host covers both arms. Fresh runs: `plugin/test_standalone_cli.py` 22 passed in 3.76s; `test_missing_uname_on_linux_host` 1 passed in 0.59s; `test_standalone_cli.py test_install.py test_modify_preflight.py` 94 passed in 20.20s (exit 0).\nPreflight now names a missing uname, falls back to /proc/version, fails closed with exit 2, and the added regression test plus the standalone-CLI/install/modify-preflight suites are green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression tests green",
+                "status": "PASS",
+                "detail": "standalone/terminal-jail:452-467 (commit cd31f7b): L452 captures `uname -s`; L453-463 when empty falls back to /proc/sys/kernel/ostype then /proc/version ('Linux version') and otherwise prints 'terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)' and exits 2 (names the missing tool); L465-467 non-Linux prints 'this CLI requires Linux PID namespaces' and exits 2 (fail-closed). Live: PATH without uname -> 'unshare is required (install util-linux)' rc=2 (no false non-Linux claim); stub uname=Darwin -> 'requires Linux PID namespaces' rc=2. Regression test plugin/test_standalone_cli.py:169-207 test_missing_uname_on_linux_host covers both arms. Fresh runs: `plugin/test_standalone_cli.py` 22 passed in 3.76s; `test_missing_uname_on_linux_host` 1 passed in 0.59s; `test_standalone_cli.py test_install.py test_modify_preflight.py` 94 passed in 20.20s (exit 0).",
+                "resolution_probability": 0.06
+              }
+            ],
+            "summary": "Preflight now names a missing uname, falls back to /proc/version, fails closed with exit 2, and the added regression test plus the standalone-CLI/install/modify-preflight suites are green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-038\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression tests green: standalone/terminal-jail:452-467 (commit cd31f7b): L452 captures `uname -s`; L453-463 when empty falls back to /proc/sys/kernel/ostype then /proc/version ('Linux version') and otherwise prints 'terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)' and exits 2 (names the missing tool); L465-467 non-Linux prints 'this CLI requires Linux PID namespaces' and exits 2 (fail-closed). Live: PATH without uname -> 'unshare is required (install util-linux)' rc=2 (no false non-Linux claim); stub uname=Darwin -> 'requires Linux PID namespaces' rc=2. Regression test plugin/test_standalone_cli.py:169-207 test_missing_uname_on_linux_host covers both arms. Fresh runs: `plugin/test_standalone_cli.py` 22 passed in 3.76s; `test_missing_uname_on_linux_host` 1 passed in 0.59s; `test_standalone_cli.py test_install.py test_modify_preflight.py` 94 passed in 20.20s (exit 0).\nPreflight now names a missing uname, falls back to /proc/version, fails closed with exit 2, and the added regression test plus the standalone-CLI/install/modify-preflight suites are green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-29T10:15:42.082999",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-29T10:15:42.107211+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 16252,
+        "truncated": false,
+        "source": "git show 702d791e73cd"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1880,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-038"
+  }
+}

@@ -2073,11 +2073,3 @@ tasks:
   status: complete
   created_at: '2026-10-25T16:36:08.414539+00:00'
   completed_at: '2026-10-25T16:36:31.119399+00:00'
-- id: NEVER-DONE
-  title: 12-point audit sweep complete
-  criteria:
-  - 'board_id_guard: 312/312 unique; rules-drift-probe: drift=0; rule-catalog: 55/55
-    OK'
-  status: complete
-  created_at: '2026-10-26T07:39:30.086709+00:00'
-  completed_at: '2026-10-26T07:45:43.810487+00:00'

@@ -1,0 +1,89 @@
+{
+  "task_id": "TJ-DF-011",
+  "task_title": "P0 chmod recursive world-writable bypass",
+  "task_criteria": [
+    "Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root",
+    "00-builtins.yaml chmod pattern stays byte-identical to blocklist.py",
+    "Regression tests cover the 5 variants plus allow controls"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m5:34PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 833ms\u001b[0m\n\u001b[90m5:34PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m5:34PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 833ms\u001b[0m\n\u001b[90m5:34PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 305 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root: Verified via bridge JSON stdin protocol: all 5 variants return action=block rule=builtin-chmod-777-root. Pattern at blocklist.py:139. Direct intercept() also confirms.\n  \u2713 00-builtins.yaml chmod pattern stays byte-identical to blocklist.py: Programmatic comparison: PY pattern == YAML pattern == '\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|777|a\\+rwx)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)?[^|;&]*\\s+/' -> BYTE-IDENTICAL: True. blocklist.py:139 vs 00-builtins.yaml:106.\n  \u2713 Regression tests cover the 5 variants plus allow controls: test_interruptor.py:66-70 covers all 5 variants in test_blocked; lines 124-127 cover allow controls (chmod 755 /, chmod -R 644 /etc, chmod 777 ./relative) in test_safe_commands; line 761 covers quoted recursive form. Full suite: 301 passed, 4 skipped (pytest -x --tb=short).\nAll 3 criteria verified: bridge blocks all 5 chmod world-writable variants under builtin-chmod-777-root, the YAML pattern is byte-identical to blocklist.py, and regression tests cover the variants plus allow controls with a passing suite.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root: Verified via bridge JSON stdin protocol: all 5 variants return action=block rule=builtin-chmod-777-root. Pattern at blocklist.py:139. Direct intercept() also confirms.\n  \u2713 00-builtins.yaml chmod pattern stays byte-identical to blocklist.py: Programmatic comparison: PY pattern == YAML pattern == '\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|77",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root",
+                "status": "PASS",
+                "detail": "Verified via bridge JSON stdin protocol: all 5 variants return action=block rule=builtin-chmod-777-root. Pattern at blocklist.py:139. Direct intercept() also confirms."
+              },
+              {
+                "criterion": "00-builtins.yaml chmod pattern stays byte-identical to blocklist.py",
+                "status": "PASS",
+                "detail": "Programmatic comparison: PY pattern == YAML pattern == '\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|777|a\\+rwx)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)?[^|;&]*\\s+/' -> BYTE-IDENTICAL: True. blocklist.py:139 vs 00-builtins.yaml:106."
+              },
+              {
+                "criterion": "Regression tests cover the 5 variants plus allow controls",
+                "status": "PASS",
+                "detail": "test_interruptor.py:66-70 covers all 5 variants in test_blocked; lines 124-127 cover allow controls (chmod 755 /, chmod -R 644 /etc, chmod 777 ./relative) in test_safe_commands; line 761 covers quoted recursive form. Full suite: 301 passed, 4 skipped (pytest -x --tb=short)."
+              }
+            ],
+            "summary": "All 3 criteria verified: bridge blocks all 5 chmod world-writable variants under builtin-chmod-777-root, the YAML pattern is byte-identical to blocklist.py, and regression tests cover the variants plus allow controls with a passing suite."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-011\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m5:34PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9433190 bytes (9.43 MB) in 833ms\u001b[0m\n\u001b[90m5:34PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root: Verified via bridge JSON stdin protocol: all 5 variants return action=block rule=builtin-chmod-777-root. Pattern at blocklist.py:139. Direct intercept() also confirms.\n  \u2713 00-builtins.yaml chmod pattern stays byte-identical to blocklist.py: Programmatic comparison: PY pattern == YAML pattern == '\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|777|a\\+rwx)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)?[^|;&]*\\s+/' -> BYTE-IDENTICAL: True. blocklist.py:139 vs 00-builtins.yaml:106.\n  \u2713 Regression tests cover the 5 variants plus allow controls: test_interruptor.py:66-70 covers all 5 variants in test_blocked; lines 124-127 cover allow controls (chmod 755 /, chmod -R 644 /etc, chmod 777 ./relative) in test_safe_commands; line 761 covers quoted recursive form. Full suite: 301 passed, 4 skipped (pytest -x --tb=short).\nAll 3 criteria verified: bridge blocks all 5 chmod world-writable variants under builtin-chmod-777-root, the YAML pattern is byte-identical to blocklist.py, and regression tests cover the variants plus allow controls with a passing suite.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-19T22:35:55.362979"
+}

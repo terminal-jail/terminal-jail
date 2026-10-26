@@ -1,0 +1,15 @@
+commit 7706df697e4163d7a049f27621c5c3a9b1ff73d3
+Merge: 9275507 fa622be
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Mon Oct 12 01:04:03 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Mon Oct 12 01:04:03 2026 -0500
+
+    Merge PARITY-TJ-001: first incumbent-parity sweep artifact
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ CHANGELOG.md                        |  18 ++++
+ docs/capability-matrix.md           |  12 ++-
+ docs/incumbent-parity-2026-10-12.md | 198 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 223 insertions(+), 5 deletions(-)

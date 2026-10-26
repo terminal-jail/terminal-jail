@@ -1,0 +1,120 @@
+{
+  "task_id": "DOC-4",
+  "task_title": "DOC-4 wave docs task",
+  "task_criteria": [
+    "docs-only change per board row acceptance criteria"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "8d929256753a49c4a54b11a67e9637f109a7340f",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T070550.067181Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n2:12AM INF scanned ~5216258 bytes (5.22 MB) in 1.13s\n2:12AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 176 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T070550.067181Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1565 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  4%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 64%]\n......................................                                   [ 67%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [240 chars omitted \u2014 3 line(s)] \u2026\nplugin/test_modify_preflight.py ......                                   [ 73%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 87%]\nplugin/test_seccomp.py .........................................sss..... [ 90%]\n.                                                                        [ 90%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1558 passed, 7 skipped in 77.60s (0:01:17) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T070550.067181Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs-only change per board row acceptance criteria: Board row DOC-4 (.coding-hermes/board/tasks.jsonl:204) = 'missing reference: 3 wrapper env vars undocumented (USE_INTERRUPTOR, TERMINAL_JAIL_SECCOMP_LOADER, TERMINAL_JAIL_SECCOMP_READ_PROBE)'; accept: 'each var appears with its default, effect and file anchor'. DOC-4 commit 53cd7e8 touches ONLY README.md (`git diff 53cd7e8^..53cd7e8 --name-only` => README.md; grep -v '\\.(md|rst|txt)$' => 'ALL DOC FILES'; 3 insertions, 0 deletions, no code/test/config). README.md:297 documents USE_INTERRUPTOR (default 1, effect, anchors :112/:236/:240/:285) matching source standalone/terminal-jail:112 `USE_INTERRUPTOR=\"${USE_INTERRUPTOR:-1}\"`, flags :236/:240, guard :285; README.md:298 documents TERMINAL_JAIL_SECCOMP_LOADER (unset auto-discover, fail-closed exit 2) matching source :99-109 and :731; README.md:299 documents TERMINAL_JAIL_SECCOMP_READ_PROBE (unset, test-only seam, bash -c instead of both probes) matching source :541-557. All three var names grep-present in README.md with default + effect + file anchor. Test evidence: `.venv/bin/python -m pytest plugin/test_interruptor.py -q` exit_code 0 '515 passed in 3.81s'; `pytest plugin/test_rule_packs.py plugin/test_board_id_guard.py plugin/test_install.py -q` exit_code 0 '156 passed in 20.89s' (full `pytest -x` run exceeds the 30s tool wall; relevant suites green).\nDOC-4 is a genuine docs-only change (README.md, 3 insertions) that documents all three previously-undocumented wrapper env vars with defaults, effects and verified file anchors, satisfying the board row's acceptance criteria.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs-only change per board row acceptance criteria: Board row DOC-4 (.coding-hermes/board/tasks.jsonl:204) = 'missing reference: 3 wrapper env vars undocumented (USE_INTERRUPTOR, TERMINAL_JAIL_SECCOMP_LOADER, TERMINAL_JAIL_SECCOMP_READ_PROBE)'; accept: 'each var appears with its default, effect and file anchor'. DOC-4 commit 53cd7e8 touches ONLY README.md (`git diff 53cd7e8^..53cd7e8 --name-only` => README.md; grep -v '\\.(md|rst|txt)$' => 'ALL DOC FILES'; 3 insertions, 0 deletions, no code/test/config). README.md:297 documents USE_INTERRUPTOR (default 1, effect, anchors :112/:236/:240/:285) matching source standalone/terminal-jail:112 `USE_INTERRUPTOR=\"${USE_INTERRUPTOR:-1}\"`, flags :236/:240, guard :285; README.md:298 documents TERMINAL_JAIL_SECCOMP_LOADER (unset auto-discover, fail-closed exit 2) matching source :99-109 and :731; README.md:299 documents TERMINAL_JAIL_SECCOMP_READ_PROBE (unset, test-only seam, bash -c instead of both probes) matching source :541-557. All three var names grep-present in README.md with default + effect + file anchor. Test evidence: `.venv/bin/python -m pytest plugin/test_interruptor.py -q` exit_code 0 '515 passed in 3.81s'; `pytest plugin/test_rule_packs.py plugin/test_board_id_guard.py plugin/test_install.py -q` exit_code 0 '156 passed in 20.89s' (full `pytest -x` run exceeds the 30s tool wall; relevant suites green).\nDOC-4 is a genuine docs-only change (README.md, 3 insertions) that documents all three previously-undocumented wrapper env vars with defaults, effects and verified file anchors, satisfying the board row's acceptance criteria.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs-only change per board row acceptance criteria",
+                "status": "PASS",
+                "detail": "Board row DOC-4 (.coding-hermes/board/tasks.jsonl:204) = 'missing reference: 3 wrapper env vars undocumented (USE_INTERRUPTOR, TERMINAL_JAIL_SECCOMP_LOADER, TERMINAL_JAIL_SECCOMP_READ_PROBE)'; accept: 'each var appears with its default, effect and file anchor'. DOC-4 commit 53cd7e8 touches ONLY README.md (`git diff 53cd7e8^..53cd7e8 --name-only` => README.md; grep -v '\\.(md|rst|txt)$' => 'ALL DOC FILES'; 3 insertions, 0 deletions, no code/test/config). README.md:297 documents USE_INTERRUPTOR (default 1, effect, anchors :112/:236/:240/:285) matching source standalone/terminal-jail:112 `USE_INTERRUPTOR=\"${USE_INTERRUPTOR:-1}\"`, flags :236/:240, guard :285; README.md:298 documents TERMINAL_JAIL_SECCOMP_LOADER (unset auto-discover, fail-closed exit 2) matching source :99-109 and :731; README.md:299 documents TERMINAL_JAIL_SECCOMP_READ_PROBE (unset, test-only seam, bash -c instead of both probes) matching source :541-557. All three var names grep-present in README.md with default + effect + file anchor. Test evidence: `.venv/bin/python -m pytest plugin/test_interruptor.py -q` exit_code 0 '515 passed in 3.81s'; `pytest plugin/test_rule_packs.py plugin/test_board_id_guard.py plugin/test_install.py -q` exit_code 0 '156 passed in 20.89s' (full `pytest -x` run exceeds the 30s tool wall; relevant suites green).",
+                "resolution_probability": 0.39
+              }
+            ],
+            "summary": "DOC-4 is a genuine docs-only change (README.md, 3 insertions) that documents all three previously-undocumented wrapper env vars with defaults, effects and verified file anchors, satisfying the board row's acceptance criteria."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-4\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs-only change per board row acceptance criteria: Board row DOC-4 (.coding-hermes/board/tasks.jsonl:204) = 'missing reference: 3 wrapper env vars undocumented (USE_INTERRUPTOR, TERMINAL_JAIL_SECCOMP_LOADER, TERMINAL_JAIL_SECCOMP_READ_PROBE)'; accept: 'each var appears with its default, effect and file anchor'. DOC-4 commit 53cd7e8 touches ONLY README.md (`git diff 53cd7e8^..53cd7e8 --name-only` => README.md; grep -v '\\.(md|rst|txt)$' => 'ALL DOC FILES'; 3 insertions, 0 deletions, no code/test/config). README.md:297 documents USE_INTERRUPTOR (default 1, effect, anchors :112/:236/:240/:285) matching source standalone/terminal-jail:112 `USE_INTERRUPTOR=\"${USE_INTERRUPTOR:-1}\"`, flags :236/:240, guard :285; README.md:298 documents TERMINAL_JAIL_SECCOMP_LOADER (unset auto-discover, fail-closed exit 2) matching source :99-109 and :731; README.md:299 documents TERMINAL_JAIL_SECCOMP_READ_PROBE (unset, test-only seam, bash -c instead of both probes) matching source :541-557. All three var names grep-present in README.md with default + effect + file anchor. Test evidence: `.venv/bin/python -m pytest plugin/test_interruptor.py -q` exit_code 0 '515 passed in 3.81s'; `pytest plugin/test_rule_packs.py plugin/test_board_id_guard.py plugin/test_install.py -q` exit_code 0 '156 passed in 20.89s' (full `pytest -x` run exceeds the 30s tool wall; relevant suites green).\nDOC-4 is a genuine docs-only change (README.md, 3 insertions) that documents all three previously-undocumented wrapper env vars with defaults, effects and verified file anchors, satisfying the board row's acceptance criteria.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-30T07:15:07.950094",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-30T07:15:07.964400+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 582,
+        "truncated": false,
+        "source": "git show 8d929256753a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1410,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-4"
+  }
+}

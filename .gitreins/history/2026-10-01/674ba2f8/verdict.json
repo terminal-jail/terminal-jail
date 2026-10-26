@@ -1,0 +1,103 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-15",
+  "task_title": "Fix rule-pack-file test timeout under load",
+  "task_criteria": [
+    "plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a2253cc4a0a594898b979fdddb99bed14d3cd27d",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T092223.875030Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:40AM INF scanned ~5749969 bytes (5.75 MB) in 352ms\n4:40AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 176 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T092223.875030Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "",
+          "error": "Command timed out",
+          "data": {}
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Cap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-15\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out\n\nStage tier2: FAIL\n  INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-01T10:43:12.355891",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-01T10:43:12.404413+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 14070,
+        "truncated": false,
+        "source": "git show a2253cc4a0a5"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5939,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-15"
+  }
+}

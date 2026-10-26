@@ -1,0 +1,14 @@
+commit 9ee4da81280ad488be27e922e549e5e0b9832cda
+Merge: d9e240f 12966ff
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 4 00:06:41 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 4 00:06:41 2026 -0500
+
+    Merge branch 'wt/TJ-GAP-087'
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ install.sh             | 39 +++++++++++++++++++++++++++++++++++++--
+ plugin/test_install.py | 19 +++++++++++++++----
+ 2 files changed, 52 insertions(+), 6 deletions(-)

@@ -1,0 +1,28 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index c1b94f7..ccee515 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -835,3 +835,14 @@ tasks:
+   status: complete
+   created_at: '2026-09-19T01:44:36.844516+00:00'
+   completed_at: '2026-09-19T01:54:06.179700+00:00'
++- id: DF-TERMINAL-JAIL-20
++  title: Convert egress MODIFY uploads into real containment or document and enforce
++    the security intent
++  criteria:
++  - curl file-upload MODIFY verdict must not deliver a local secret to a local collector;
++    add a regression proving the collector receives no secret, preserve legitimate
++    upload controls or document deliberate changes, update docs and YAML parity, full
++    suite and guard green
++  status: complete
++  created_at: '2026-09-19T03:25:33.852366+00:00'
++  completed_at: '2026-09-19T03:49:59.897715+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 547e7b0..babc7bf 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -37,3 +37,4 @@
+ {"ts": 1789741307.9216335, "tokens_in": 950476, "tokens_out": 8703, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789741353.3120563, "tokens_in": 364374, "tokens_out": 5263, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789776223.3044894, "tokens_in": 620295, "tokens_out": 6632, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789789941.8382192, "tokens_in": 535383, "tokens_out": 5819, "cache_read": 0, "cache_write": 0, "step": "tier2"}

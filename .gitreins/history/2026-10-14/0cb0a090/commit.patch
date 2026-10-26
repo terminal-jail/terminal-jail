@@ -1,0 +1,57 @@
+commit 58ff44ad64746ebf477f33860005052b6446a986
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Oct 14 07:38:54 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Oct 14 07:38:54 2026 -0500
+
+    test(TJ-GAP-094): isolate release-check scratch clone from harness artifacts
+    
+    The clone's own guard hooks (core.hooksPath) emit untracked .gitreins/.vfs
+    artifacts AND modify tracked .vfs/graph/edges.jsonl during the version-prep
+    commit, so release-cut-check's dirt gate refused and the green-path test
+    failed on any dev host with repo hooks active (reproduced at pre-worker
+    HEAD 65583f0 in a fresh archive clone; CI green — env-only). Fix in the
+    SCRATCH clone only: .git/info/exclude entries + a post-commit checkout
+    restore. A real release tree is hook-quiet and unaffected.
+---
+ tests/test_release_workflow.py | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/tests/test_release_workflow.py b/tests/test_release_workflow.py
+index f580bee..825a833 100644
+--- a/tests/test_release_workflow.py
++++ b/tests/test_release_workflow.py
+@@ -168,6 +168,15 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
+     # test is independent of what the clone's base commit captured; on a
+     # base commit that predates the script this stages it as a new file
+     shutil.copy2(CHECK_SCRIPT, clone / "scripts" / "release-cut-check.sh")
++    # TJ-GAP-094: the clone's own guard hooks (.gitreins, core.hooksPath)
++    # emit untracked harness artifacts (.gitreins/logs, .vfs/graph/*), which
++    # release-cut-check's `git status --porcelain` dirt gate then refuses.
++    # Exclude them in the SCRATCH clone only (info/exclude, not tracked
++    # .gitignore) — a real release tree has no such artifacts.
++    exclude = clone / ".git" / "info" / "exclude"
++    exclude.parent.mkdir(parents=True, exist_ok=True)
++    with open(exclude, "a", encoding="utf-8") as fh:
++        fh.write("\n.gitreins/\n.vfs/\n")
+     subprocess.run(
+         ["git", "add", "scripts/release-cut-check.sh"],
+         cwd=clone,
+@@ -201,6 +210,17 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
+         text=True,
+         timeout=60,
+     )
++    # TJ-GAP-094 (tracked half): the clone's guard hooks also MODIFY tracked
++    # harness files (.vfs/graph/edges.jsonl) during the commit above. Restore
++    # them — checkout runs no hooks; a real release tree is hook-quiet.
++    subprocess.run(
++        ["git", "checkout", "--", "."],
++        cwd=clone,
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=60,
++    )
+ 
+     proc = _run_script(
+         clone,

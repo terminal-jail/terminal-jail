@@ -1,0 +1,33 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index f7f6a6a..7a76022 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1477,15 +1477,19 @@ tasks:
+   created_at: '2026-09-28T02:55:02.183822+00:00'
+   completed_at: '2026-09-28T03:19:02.238910+00:00'
+ - id: TJ-DF-029
+-  title: Add host-baseline control to RestrictNamespaces probe
+-  criteria:
+-  - The systemd directive probe runs the unshare test outside the transient unit as
+-    a host baseline; classify RestrictNamespaces ENFORCED only when host rc=0 and
+-    unit rc!=0, and classify UNKNOWN with a host-denies explanation when host rc!=0.
+-    Add tests covering both host outcomes and preserve existing behavior for other
+-    directives.
+-  status: pending
+-  created_at: '2026-09-28T18:15:20.520134+00:00'
++  title: systemd-directive-probe RestrictNamespaces missing host-baseline negative
++    control
++  criteria:
++  - 1) scripts/systemd-directive-probe.py runs the same unshare --user --pid probe
++    once OUTSIDE the transient unit and stores the host rc. 2) Verdict = ENFORCED
++    only when host rc==0 AND unit rc!=0. 3) When host rc!=0 the verdict is UNKNOWN
++    with a message naming the host denial. 4) CloseOnExec=true control remains UNSUPPORTED
++    (classifier sanity). 5) plugin/test_packaging.py or a new test asserts the UNKNOWN
++    branch on a simulated host-deny scenario. 6) Full pytest suite passes, gitreins
++    guard --full 4/4.
++  status: complete
++  created_at: '2026-10-01T06:24:17.123090+00:00'
++  completed_at: '2026-10-01T06:36:17.395780+00:00'
+ - id: TJ-DF-039
+   title: 'PyYAML-less host: rule mirror fails open silently + drift probe blind'
+   criteria:

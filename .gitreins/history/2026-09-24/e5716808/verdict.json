@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-GAP-081",
+  "task_title": "CI drift-guards job: rule-catalog --check + drift probes wired into ci.yml",
+  "task_criteria": [
+    "ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and the mutation reverted; all probes exit 0 at HEAD"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "5229c2e3e373b8dcc464b72b50d177003e744a87",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:38PM INF scanned ~5468022 bytes (5.47 MB) in 384ms\n4:38PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 159 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1444 passed, 7 skipped in 57.45s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and the mutation reverted; all probes exit 0 at HEAD: .github/workflows/ci.yml:76-101 adds a `drift-guards` job (YAML parses; jobs=['test','lint','audit','drift-guards']) with steps `python scripts/rule-catalog.py --check`, `python scripts/yaml-mirror-parity-probe.py`, `python scripts/rules-drift-probe.py --fail-on-drift` (plus backend-parity-battery.py --json), on actions/setup-python@v5 python-version \"3.13\" + `pip install pyyaml` \u2014 the same pinned-interpreter setup style as the existing lint/audit jobs (the repo .venv is gitignored and cannot exist in CI; 3.13 satisfies the repo's 3.11+ tomllib requirement). HEAD green, evaluator-run with .venv/bin/python 3.11.15 / PyYAML 6.0.3 AND with bare `python3` exactly as ci.yml invokes: rule-catalog --check EXIT=0 '[catalog] OK \u2014 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date'; yaml-mirror-parity-probe EXIT=0 'ALL PROBES PASS'; rules-drift-probe --fail-on-drift EXIT=0 'RESULT: drift=0'; backend-parity-battery --json EXIT=0. RED-proof independently reproduced: appending a dummy block rule to plugin/terminal_jail/rules/00-builtins.yaml made rule-catalog --check EXIT=1 '[catalog] DRIFT \u2014 56 rules (37 block / 9 sandbox / 10 allow); committed docs/rule-catalog.md is stale' and yaml-mirror-parity-probe EXIT=1 '[totals] block=37/36 ... total=56/55 -> MISMATCH / PROBE FAILURES'; `git checkout --` restored the file byte-identical (md5 65d7516cc95e74d05175d1188223a91b matches pre-mutation backup, git status clean) and --check returned to EXIT=0. [resolution 0.15; ci.yml, rule-catalog.py, rules-drift-probe.py, yaml-mirror-parity-probe.py]\nThe drift-guards CI job wires all three required probes on a pinned Python 3.13 interpreter, all probes exit 0 at HEAD, and the RED-proof (--check exit 1 on a mutated rules file, then byte-identical revert) reproduces exactly.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and the mutation reverted; all probes exit 0 at HEAD: .github/workflows/ci.yml:76-101 adds a `drift-guards` job (YAML parses; jobs=['test','lint','audit','drift-guards']) with steps `python scripts/rule-catalog.py --check`, `python scripts/yaml-mirror-parity-probe.py`, `python scripts/rules-drift-probe.py --fail-on-drift` (plus backend-parity-battery.py --json), on actions/setup-python@v5 python-version \"3.13\" + `pip install pyyaml` \u2014 the same pinned-interpreter setup style as the existing lint/audit jobs (the repo .venv is gitignored and cannot exist in CI; 3.13 satisfies the repo's 3.11+ tomllib requirement). HEAD green, evaluator-run with .venv/bin/python 3.11.15 / PyYAML 6.0.3 AND with bare `python3` exactly as ci.yml invokes: rule-catalog --check EXIT=0 '[catalog] OK \u2014 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date'; yaml-mirror-parity-probe EXIT=0 'ALL PROBES PASS'; rules-drift-probe --fail-on-drift EXIT=0 'RESULT: drift=0'; backend-parity-battery --json EXIT=0. RED-proof independently reproduced: appending a dummy block rule to plugin/terminal_jail/rules/00-builtins.yaml made rule-catalog --check EXIT=1 '[catalog] DRIFT \u2014 56 rules (37 block / 9 sandbox / 10 allow); committed docs/rule-catalog.md is stale' and yaml-mirror-parity-probe EXIT=1 '[totals] block=37/36 ... total=56/55 -> MISMATCH / PROBE FAILURES'; `git checkout --` restored the file byte-identical (md5 65d7516cc95e74d05175d1188223a91b matches pre-mutation backup, git status clean) and --check returned to EXIT=0. [resolution 0.15; ci.yml, rule-catalog.py, rules-drift-probe.py, yaml-mirror-parity-probe.py]\nThe drift-guards CI job wires all three required probes on a pinned Python 3.13 interpreter, all probes exit 0 at HEAD, and the RED-proof (--check exit 1 on a mutated rules file, then byte-identical revert) reproduces exactly.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and the mutation reverted; all probes exit 0 at HEAD",
+                "status": "PASS",
+                "detail": ".github/workflows/ci.yml:76-101 adds a `drift-guards` job (YAML parses; jobs=['test','lint','audit','drift-guards']) with steps `python scripts/rule-catalog.py --check`, `python scripts/yaml-mirror-parity-probe.py`, `python scripts/rules-drift-probe.py --fail-on-drift` (plus backend-parity-battery.py --json), on actions/setup-python@v5 python-version \"3.13\" + `pip install pyyaml` \u2014 the same pinned-interpreter setup style as the existing lint/audit jobs (the repo .venv is gitignored and cannot exist in CI; 3.13 satisfies the repo's 3.11+ tomllib requirement). HEAD green, evaluator-run with .venv/bin/python 3.11.15 / PyYAML 6.0.3 AND with bare `python3` exactly as ci.yml invokes: rule-catalog --check EXIT=0 '[catalog] OK \u2014 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date'; yaml-mirror-parity-probe EXIT=0 'ALL PROBES PASS'; rules-drift-probe --fail-on-drift EXIT=0 'RESULT: drift=0'; backend-parity-battery --json EXIT=0. RED-proof independently reproduced: appending a dummy block rule to plugin/terminal_jail/rules/00-builtins.yaml made rule-catalog --check EXIT=1 '[catalog] DRIFT \u2014 56 rules (37 block / 9 sandbox / 10 allow); committed docs/rule-catalog.md is stale' and yaml-mirror-parity-probe EXIT=1 '[totals] block=37/36 ... total=56/55 -> MISMATCH / PROBE FAILURES'; `git checkout --` restored the file byte-identical (md5 65d7516cc95e74d05175d1188223a91b matches pre-mutation backup, git status clean) and --check returned to EXIT=0. [resolution 0.15; ci.yml, rule-catalog.py, rules-drift-probe.py, yaml-mirror-parity-probe.py]",
+                "resolution_probability": 0.15,
+                "cited_path": "ci.yml, rule-catalog.py, rules-drift-probe.py, yaml-mirror-parity-probe.py"
+              }
+            ],
+            "summary": "The drift-guards CI job wires all three required probes on a pinned Python 3.13 interpreter, all probes exit 0 at HEAD, and the RED-proof (--check exit 1 on a mutated rules file, then byte-identical revert) reproduces exactly."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-081\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 ci.yml runs rule-catalog.py --check plus rules-drift-probe.py and yaml-mirror-parity-probe.py on the pinned venv; RED-proof shows --check exit 1 on a mutated rules file and the mutation reverted; all probes exit 0 at HEAD: .github/workflows/ci.yml:76-101 adds a `drift-guards` job (YAML parses; jobs=['test','lint','audit','drift-guards']) with steps `python scripts/rule-catalog.py --check`, `python scripts/yaml-mirror-parity-probe.py`, `python scripts/rules-drift-probe.py --fail-on-drift` (plus backend-parity-battery.py --json), on actions/setup-python@v5 python-version \"3.13\" + `pip install pyyaml` \u2014 the same pinned-interpreter setup style as the existing lint/audit jobs (the repo .venv is gitignored and cannot exist in CI; 3.13 satisfies the repo's 3.11+ tomllib requirement). HEAD green, evaluator-run with .venv/bin/python 3.11.15 / PyYAML 6.0.3 AND with bare `python3` exactly as ci.yml invokes: rule-catalog --check EXIT=0 '[catalog] OK \u2014 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date'; yaml-mirror-parity-probe EXIT=0 'ALL PROBES PASS'; rules-drift-probe --fail-on-drift EXIT=0 'RESULT: drift=0'; backend-parity-battery --json EXIT=0. RED-proof independently reproduced: appending a dummy block rule to plugin/terminal_jail/rules/00-builtins.yaml made rule-catalog --check EXIT=1 '[catalog] DRIFT \u2014 56 rules (37 block / 9 sandbox / 10 allow); committed docs/rule-catalog.md is stale' and yaml-mirror-parity-probe EXIT=1 '[totals] block=37/36 ... total=56/55 -> MISMATCH / PROBE FAILURES'; `git checkout --` restored the file byte-identical (md5 65d7516cc95e74d05175d1188223a91b matches pre-mutation backup, git status clean) and --check returned to EXIT=0. [resolution 0.15; ci.yml, rule-catalog.py, rules-drift-probe.py, yaml-mirror-parity-probe.py]\nThe drift-guards CI job wires all three required probes on a pinned Python 3.13 interpreter, all probes exit 0 at HEAD, and the RED-proof (--check exit 1 on a mutated rules file, then byte-identical revert) reproduces exactly.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T21:39:58.807659",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T21:39:58.828502+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 728,
+        "truncated": false,
+        "source": "git show 5229c2e3e373"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 53424,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-081"
+  }
+}

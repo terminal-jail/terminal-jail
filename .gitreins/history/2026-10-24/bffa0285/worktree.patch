@@ -1,0 +1,51 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index eb43be6..b462bf4 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2003,3 +2003,37 @@ tasks:
+   status: complete
+   created_at: '2026-10-24T02:17:36.519177+00:00'
+   completed_at: '2026-10-24T02:45:58.660553+00:00'
++- id: TJ-REVIEW-071
++  title: "pidns probe reports FULL via auto/bwrap backend while bare unshare is denied\
++    \ \u2014 per-backend classification"
++  criteria:
++  - '1) python3 scripts/pidns-capability-probe.py exits 0 AND its output names the
++    backend it used (e.g. FULL (backend: bwrap) or DEGRADED (backend: unshare)); 2)
++    with TERMINAL_JAIL_JAIL_BACKEND=unshare exported the same probe must print DEGRADED
++    (or exit nonzero) on this host where plain unshare is AppArmor-denied, while the
++    default auto run stays exit 0; 3) grep -c TERMINAL_JAIL_JAIL_BACKEND docs/quickstart.md
++    exits 0 with count >= 1 AND quickstart 3a branches on backend, not on a single
++    FULL/DEGRADED label; 4) full pytest suite green (uv run pytest plugin -q) AND
++    gitreins guard PASS 4/4; 5) commit includes Co-authored-by trailer.'
++  status: complete
++  created_at: '2026-10-24T03:22:45.710796+00:00'
++  completed_at: '2026-10-24T03:50:21.562966+00:00'
++- id: REVIEW-TJ-016
++  title: 'Release runbook: remove unsupported --dry-run claim for release-cut-check.sh'
++  criteria:
++  - 'docs/releasing.md no longer presents --dry-run as a supported release-cut-check.sh
++    invocation: the dry-run-proof section states the versioned invocation scripts/release-cut-check.sh
++    vX.Y.Z is the read-only pre-cut check and that the script accepts only a positional
++    tag; verified by grepping docs/releasing.md for the removed flag phrasing'
++  - 'tests/test_release_workflow.py pins the documented behaviour: a test asserts
++    scripts/release-cut-check.sh --dry-run exits 2 with the usage message naming the
++    vX.Y.Z tag requirement, and the versioned pre-cut check is asserted read-only
++    (no tree mutation across a run) and green; verified by .venv/bin/python -m pytest
++    tests/test_release_workflow.py -q passing'
++  - the full suite stays green (.venv/bin/python -m pytest -q, no new failures) and
++    docs/releasing.md plus CHANGELOG.md document the change
++  - the implementation commit carries a ch:trace line naming row=REVIEW-TJ-016 with
++    spec, test and evidence paths
++  status: complete
++  created_at: '2026-10-24T08:09:49.386918+00:00'
++  completed_at: '2026-10-24T08:28:04.750833+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index b4921d0..dfb8b13 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -166,3 +166,4 @@
+ {"ts": 1792802814.1286867, "tokens_in": 1957767, "tokens_out": 6896, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792804852.3580494, "tokens_in": 156824, "tokens_out": 3442, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792805837.3379753, "tokens_in": 130424, "tokens_out": 2809, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1792831741.5920773, "tokens_in": 460344, "tokens_out": 4189, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}

@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-27",
+  "task_title": "Leaked live bunkerd token from dogfood scratch HOME: rotate, purge, and make scratch-HOME hygiene structural",
+  "task_criteria": [
+    "Rotated token on las-03 verified (old 401/new 200), scratch-HOME hygiene checker exists in scripts/, docs/dogfood/checklist.md and diagnostics.md updated, guard green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "49caaa883c495689d555b6f451974c97e8416fd2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T040530.853333Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n11:06PM INF scanned ~5174717 bytes (5.17 MB) in 424ms\n11:06PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 144 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T040530.853333Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1355 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  8%]\ns.s..                                                                    [  8%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 29%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.....                                                                    [ 35%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 77%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 87%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 91%]\nplugin/test_rules_drift_probe.py .................                       [ 92%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 97%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1348 passed, 7 skipped in 36.78s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T040530.853333Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Rotated token on las-03 verified (old 401/new 200), scratch-HOME hygiene checker exists in scripts/, docs/dogfood/checklist.md and diagnostics.md updated, guard green: All components verified. (1) Checker exists: scripts/scratch-home-hygiene.sh (executable, committed 49caaa8); live-tested \u2014 clean /tmp exits 0 ('scanned 24 scratch dir(s); 0 finding(s)'), synthetic 0755 dir + 644 config.yaml with token yields 'FINDING dir-mode=755 file-mode=644' exit 1, bad root exits 2, and it prints only paths/modes (never contents). (2) docs/dogfood/checklist.md lines 10-13 add the standing item (scratch HOMEs 0700, run the checker each tick, non-zero exit = blocker). (3) docs/dogfood/diagnostics.md \u00a78.6 lines 268-278 add the resolution paragraph (purge + rotation + two-part structural guard). (4) Guard green: .gitreins/logs/guard-20260921T040822.595716Z.log (last run, post-commit) shows 'overall: PASS', 'guards: 4 (0 failed, 0 skipped)', [PASS] secrets (gitleaks clean), [PASS] lint (ruff clean, 53 files), [PASS] tests (1348 passed, 7 skipped), [PASS] static_analysis. (5) Rotation live-verified: `bunker status --server bunker-las-03` -> Status: ONLINE (new token accepted, 200-equiv); a wrong token -> 'server info: unauthenticated: invalid token' (401-equiv); leaked /tmp/dogfood-tj/home/.bunker/config.yaml and secret.txt are GONE and /tmp/dogfood-tj is now mode 0700; rotation documented at diagnostics.md:270-273 (old 401 / new ServerInfo 200); ~/.bunker/config.yaml backup is mode 0600 as claimed. (6) tests/test_scratch_home_hygiene.py: 7 passed in 0.15s (explicit run). Note: pyproject testpaths=[\"plugin\"] so the guard's tests lane does not collect tests/ \u2014 the new tests are not in the guard run, but the criterion only requires the guard to be green, which it is, and the tests pass when run explicitly.\nThe scratch-HOME hygiene checker, checklist/diagnostics updates, live-verified las-03 token rotation (new token ONLINE / invalid token rejected), and a green 4/4 guard all satisfy the single composite criterion.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Rotated token on las-03 verified (old 401/new 200), scratch-HOME hygiene checker exists in scripts/, docs/dogfood/checklist.md and diagnostics.md updated, guard green: All components verified. (1) Checker exists: scripts/scratch-home-hygiene.sh (executable, committed 49caaa8); live-tested \u2014 clean /tmp exits 0 ('scanned 24 scratch dir(s); 0 finding(s)'), synthetic 0755 dir + 644 config.yaml with token yields 'FINDING dir-mode=755 file-mode=644' exit 1, bad root exits 2, and it prints only paths/modes (never contents). (2) docs/dogfood/checklist.md lines 10-13 add the standing item (scratch HOMEs 0700, run the checker each tick, non-zero exit = blocker). (3) docs/dogfood/diagnostics.md \u00a78.6 lines 268-278 add the resolution paragraph (purge + rotation + two-part structural guard). (4) Guard green: .gitreins/logs/guard-20260921T040822.595716Z.log (last run, post-commit) shows 'overall: PASS', 'guards: 4 (0 failed, 0 skipped)', [PASS] secrets (gitleaks clean), [PASS] lint (ruff clean, 53 files), [PASS] tests (1348 passed, 7 skipped), [PASS] static_analysis. (5) Rotation live-verified: `bunker status --server bunker-las-03` -> Status: ONLINE (new token accepted, 200-equiv); a wrong token -> 'server info: unauthenticated: invalid token' (401-equiv); leaked /tmp/dogfood-tj/home/.bunker/config.yaml and secret.txt are GONE and /tmp/dogfood-tj is now mode 0700; rotation documented at diagnostics.md:270-273 (old 401 / new ServerInfo 200); ~/.bunker/config.yaml backup is mode 0600 as claimed. (6) tests/test_scratch_home_hygiene.py: 7 passed in 0.15s (explicit run). Note: pyproject testpaths=[\"plugin\"] so the guard's tests lane does not collect tests/ \u2014 the new tests are not in the guard run, but the criterion only requires the guard to be green, which it is, and the tests pass when run explicitly.\nThe scratch-HOME hygiene checker, checklist/diagnostics updates, live-verified las-03 token rotation (new token ONLINE / invalid token rejected), and a green 4/4 guard all satisfy the single composite criterion.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Rotated token on las-03 verified (old 401/new 200), scratch-HOME hygiene checker exists in scripts/, docs/dogfood/checklist.md and diagnostics.md updated, guard green",
+                "status": "PASS",
+                "detail": "All components verified. (1) Checker exists: scripts/scratch-home-hygiene.sh (executable, committed 49caaa8); live-tested \u2014 clean /tmp exits 0 ('scanned 24 scratch dir(s); 0 finding(s)'), synthetic 0755 dir + 644 config.yaml with token yields 'FINDING dir-mode=755 file-mode=644' exit 1, bad root exits 2, and it prints only paths/modes (never contents). (2) docs/dogfood/checklist.md lines 10-13 add the standing item (scratch HOMEs 0700, run the checker each tick, non-zero exit = blocker). (3) docs/dogfood/diagnostics.md \u00a78.6 lines 268-278 add the resolution paragraph (purge + rotation + two-part structural guard). (4) Guard green: .gitreins/logs/guard-20260921T040822.595716Z.log (last run, post-commit) shows 'overall: PASS', 'guards: 4 (0 failed, 0 skipped)', [PASS] secrets (gitleaks clean), [PASS] lint (ruff clean, 53 files), [PASS] tests (1348 passed, 7 skipped), [PASS] static_analysis. (5) Rotation live-verified: `bunker status --server bunker-las-03` -> Status: ONLINE (new token accepted, 200-equiv); a wrong token -> 'server info: unauthenticated: invalid token' (401-equiv); leaked /tmp/dogfood-tj/home/.bunker/config.yaml and secret.txt are GONE and /tmp/dogfood-tj is now mode 0700; rotation documented at diagnostics.md:270-273 (old 401 / new ServerInfo 200); ~/.bunker/config.yaml backup is mode 0600 as claimed. (6) tests/test_scratch_home_hygiene.py: 7 passed in 0.15s (explicit run). Note: pyproject testpaths=[\"plugin\"] so the guard's tests lane does not collect tests/ \u2014 the new tests are not in the guard run, but the criterion only requires the guard to be green, which it is, and the tests pass when run explicitly."
+              }
+            ],
+            "summary": "The scratch-HOME hygiene checker, checklist/diagnostics updates, live-verified las-03 token rotation (new token ONLINE / invalid token rejected), and a green 4/4 guard all satisfy the single composite criterion."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-27\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Rotated token on las-03 verified (old 401/new 200), scratch-HOME hygiene checker exists in scripts/, docs/dogfood/checklist.md and diagnostics.md updated, guard green: All components verified. (1) Checker exists: scripts/scratch-home-hygiene.sh (executable, committed 49caaa8); live-tested \u2014 clean /tmp exits 0 ('scanned 24 scratch dir(s); 0 finding(s)'), synthetic 0755 dir + 644 config.yaml with token yields 'FINDING dir-mode=755 file-mode=644' exit 1, bad root exits 2, and it prints only paths/modes (never contents). (2) docs/dogfood/checklist.md lines 10-13 add the standing item (scratch HOMEs 0700, run the checker each tick, non-zero exit = blocker). (3) docs/dogfood/diagnostics.md \u00a78.6 lines 268-278 add the resolution paragraph (purge + rotation + two-part structural guard). (4) Guard green: .gitreins/logs/guard-20260921T040822.595716Z.log (last run, post-commit) shows 'overall: PASS', 'guards: 4 (0 failed, 0 skipped)', [PASS] secrets (gitleaks clean), [PASS] lint (ruff clean, 53 files), [PASS] tests (1348 passed, 7 skipped), [PASS] static_analysis. (5) Rotation live-verified: `bunker status --server bunker-las-03` -> Status: ONLINE (new token accepted, 200-equiv); a wrong token -> 'server info: unauthenticated: invalid token' (401-equiv); leaked /tmp/dogfood-tj/home/.bunker/config.yaml and secret.txt are GONE and /tmp/dogfood-tj is now mode 0700; rotation documented at diagnostics.md:270-273 (old 401 / new ServerInfo 200); ~/.bunker/config.yaml backup is mode 0600 as claimed. (6) tests/test_scratch_home_hygiene.py: 7 passed in 0.15s (explicit run). Note: pyproject testpaths=[\"plugin\"] so the guard's tests lane does not collect tests/ \u2014 the new tests are not in the guard run, but the criterion only requires the guard to be green, which it is, and the tests pass when run explicitly.\nThe scratch-HOME hygiene checker, checklist/diagnostics updates, live-verified las-03 token rotation (new token ONLINE / invalid token rejected), and a green 4/4 guard all satisfy the single composite criterion.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-21T04:10:12.309977",
+  "evidence": {
+    "collected_at": "2026-09-21T04:10:12.320048+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 15772,
+        "truncated": false,
+        "source": "git show 49caaa883c49"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 12665,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-27"
+  }
+}

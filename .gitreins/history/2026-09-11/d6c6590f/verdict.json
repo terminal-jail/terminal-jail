@@ -1,0 +1,107 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-3",
+  "task_title": "install.sh must not silently clobber customized user rules",
+  "task_criteria": [
+    "install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults, and prints the backup path",
+    "plugin/test_install.py contains test_local_install_backs_up_customized_user_rules: seeds customized content, runs install.sh with temp HOME + TERMINAL_JAIL_INSTALL_DIR, asserts rc=0, installed file is the shipped default, and the backup holds the customized content",
+    ".venv/bin/python -m pytest -q exits 0 with 0 failed on this host (expected 308 passed / 13 skipped / 0 failed)",
+    "uvx ruff check plugin/ reports 0 findings",
+    "install.sh stays non-interactive (no read/prompt) and sh -n install.sh passes",
+    "commit addresses DF-TERMINAL-JAIL-3, touches only install.sh + plugin/test_install.py, and carries exactly one Co-authored-by trailer"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m12:41PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4532840 bytes (4.53 MB) in 389ms\u001b[0m\n\u001b[90m12:41PM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m12:41PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4532840 bytes (4.53 MB) in 389ms\u001b[0m\n\u001b[90m12:41PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 322 items\n\nplugin/test_install.py .....................                             [  6%]\nplu",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults, and prints the backup path: install.sh:167-174: `if [ -f \"$installed_rules\" ] && ! cmp -s \"$shipped_rules\" \"$installed_rules\"` then `rules_backup=\"${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)\"`, `cp \"$installed_rules\" \"$rules_backup\"`, and `echo \"...WARNING \u2014 existing user rules differed; backed up to ${rules_backup} before installing defaults\"` before the unconditional `cp \"$shipped_rules\" \"$installed_rules\"`.\n  \u2713 plugin/test_install.py contains test_local_install_backs_up_customized_user_rules: seeds customized content, runs install.sh with temp HOME + TERMINAL_JAIL_INSTALL_DIR, asserts rc=0, installed file is the shipped default, and the backup holds the customized content: plugin/test_install.py:475-517: seeds `customized = \"# user edit\\nrules: []\\n\"`, runs `[\"sh\",\"install.sh\"]` with env HOME=temp home and TERMINAL_JAIL_INSTALL_DIR=temp bin, asserts returncode==0, `\"builtin-rm-rf-root\" in installed.read_text()`, exactly 1 `00-builtins.yaml.bak-*` backup whose content == customized, and backup path in output. Test run: `1 passed in 0.07s`.\n  \u2713 .venv/bin/python -m pytest -q exits 0 with 0 failed on this host (expected 308 passed / 13 skipped / 0 failed): `.venv/bin/python -m pytest -q` exit_code=0, output tail: `309 passed, 13 skipped in 7.89s` \u2014 0 failed (309 vs expected 308, one extra from the new test; still 0 failed).\n  \u2713 uvx ruff check plugin/ reports 0 findings: `uvx ruff check plugin/` exit_code=0, output: `All checks passed!` \u2014 0 findings.\n  \u2713 install.sh stays non-interactive (no read/prompt) and sh -n install.sh passes: grep for read/prompt/select in install.sh matches only the comment at line 169 ('never prompt, never read stdin'); no actual read/prompt command. `sh -n install.sh` exit_code=0 (PASS).\n  \u2713 commit addresses DF-TERMINAL-JAIL-3, touches only install.sh + plugin/test_install.py, and carries exactly one Co-authored-by trailer: Commit 00846a3 message references DF-TERMINAL-JAIL-3; `git show --name-only` lists only install.sh and plugin/test_install.py; `grep -c \"Co-authored-by:\"` = 1 (Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>).\nAll 6 criteria pass: install.sh backs up differing user rules with a UTC-stamped sibling and prints the path, the new test verifies it, pytest exits 0 (309 passed/13 skipped/0 failed), ruff reports 0 findings, install.sh is non-interactive and sh -n clean, and the commit is scoped correctly with one Co-authored-by trailer.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults, and prints the backup path: install.sh:167-174: `if [ -f \"$installed_rules\" ] && ! cmp -s \"$shipped_rules\" \"$installed_rules\"` then `rules_backup=\"${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)\"`, `cp \"$installed_rules\" \"$rules_backup\"`, and `echo \"...WARNING \u2014 existing user rules differed; backed up to ${rules_back",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults, and prints the backup path",
+                "status": "PASS",
+                "detail": "install.sh:167-174: `if [ -f \"$installed_rules\" ] && ! cmp -s \"$shipped_rules\" \"$installed_rules\"` then `rules_backup=\"${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)\"`, `cp \"$installed_rules\" \"$rules_backup\"`, and `echo \"...WARNING \u2014 existing user rules differed; backed up to ${rules_backup} before installing defaults\"` before the unconditional `cp \"$shipped_rules\" \"$installed_rules\"`."
+              },
+              {
+                "criterion": "plugin/test_install.py contains test_local_install_backs_up_customized_user_rules: seeds customized content, runs install.sh with temp HOME + TERMINAL_JAIL_INSTALL_DIR, asserts rc=0, installed file is the shipped default, and the backup holds the customized content",
+                "status": "PASS",
+                "detail": "plugin/test_install.py:475-517: seeds `customized = \"# user edit\\nrules: []\\n\"`, runs `[\"sh\",\"install.sh\"]` with env HOME=temp home and TERMINAL_JAIL_INSTALL_DIR=temp bin, asserts returncode==0, `\"builtin-rm-rf-root\" in installed.read_text()`, exactly 1 `00-builtins.yaml.bak-*` backup whose content == customized, and backup path in output. Test run: `1 passed in 0.07s`."
+              },
+              {
+                "criterion": ".venv/bin/python -m pytest -q exits 0 with 0 failed on this host (expected 308 passed / 13 skipped / 0 failed)",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest -q` exit_code=0, output tail: `309 passed, 13 skipped in 7.89s` \u2014 0 failed (309 vs expected 308, one extra from the new test; still 0 failed)."
+              },
+              {
+                "criterion": "uvx ruff check plugin/ reports 0 findings",
+                "status": "PASS",
+                "detail": "`uvx ruff check plugin/` exit_code=0, output: `All checks passed!` \u2014 0 findings."
+              },
+              {
+                "criterion": "install.sh stays non-interactive (no read/prompt) and sh -n install.sh passes",
+                "status": "PASS",
+                "detail": "grep for read/prompt/select in install.sh matches only the comment at line 169 ('never prompt, never read stdin'); no actual read/prompt command. `sh -n install.sh` exit_code=0 (PASS)."
+              },
+              {
+                "criterion": "commit addresses DF-TERMINAL-JAIL-3, touches only install.sh + plugin/test_install.py, and carries exactly one Co-authored-by trailer",
+                "status": "PASS",
+                "detail": "Commit 00846a3 message references DF-TERMINAL-JAIL-3; `git show --name-only` lists only install.sh and plugin/test_install.py; `grep -c \"Co-authored-by:\"` = 1 (Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>)."
+              }
+            ],
+            "summary": "All 6 criteria pass: install.sh backs up differing user rules with a UTC-stamped sibling and prints the path, the new test verifies it, pytest exits 0 (309 passed/13 skipped/0 failed), ruff reports 0 findings, install.sh is non-interactive and sh -n clean, and the commit is scoped correctly with one Co-authored-by trailer."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-3\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m12:41PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4532840 bytes (4.53 MB) in 389ms\u001b[0m\n\u001b[90m12:41PM\u001b[0m \u001b[3\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults, and prints the backup path: install.sh:167-174: `if [ -f \"$installed_rules\" ] && ! cmp -s \"$shipped_rules\" \"$installed_rules\"` then `rules_backup=\"${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)\"`, `cp \"$installed_rules\" \"$rules_backup\"`, and `echo \"...WARNING \u2014 existing user rules differed; backed up to ${rules_backup} before installing defaults\"` before the unconditional `cp \"$shipped_rules\" \"$installed_rules\"`.\n  \u2713 plugin/test_install.py contains test_local_install_backs_up_customized_user_rules: seeds customized content, runs install.sh with temp HOME + TERMINAL_JAIL_INSTALL_DIR, asserts rc=0, installed file is the shipped default, and the backup holds the customized content: plugin/test_install.py:475-517: seeds `customized = \"# user edit\\nrules: []\\n\"`, runs `[\"sh\",\"install.sh\"]` with env HOME=temp home and TERMINAL_JAIL_INSTALL_DIR=temp bin, asserts returncode==0, `\"builtin-rm-rf-root\" in installed.read_text()`, exactly 1 `00-builtins.yaml.bak-*` backup whose content == customized, and backup path in output. Test run: `1 passed in 0.07s`.\n  \u2713 .venv/bin/python -m pytest -q exits 0 with 0 failed on this host (expected 308 passed / 13 skipped / 0 failed): `.venv/bin/python -m pytest -q` exit_code=0, output tail: `309 passed, 13 skipped in 7.89s` \u2014 0 failed (309 vs expected 308, one extra from the new test; still 0 failed).\n  \u2713 uvx ruff check plugin/ reports 0 findings: `uvx ruff check plugin/` exit_code=0, output: `All checks passed!` \u2014 0 findings.\n  \u2713 install.sh stays non-interactive (no read/prompt) and sh -n install.sh passes: grep for read/prompt/select in install.sh matches only the comment at line 169 ('never prompt, never read stdin'); no actual read/prompt command. `sh -n install.sh` exit_code=0 (PASS).\n  \u2713 commit addresses DF-TERMINAL-JAIL-3, touches only install.sh + plugin/test_install.py, and carries exactly one Co-authored-by trailer: Commit 00846a3 message references DF-TERMINAL-JAIL-3; `git show --name-only` lists only install.sh and plugin/test_install.py; `grep -c \"Co-authored-by:\"` = 1 (Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>).\nAll 6 criteria pass: install.sh backs up differing user rules with a UTC-stamped sibling and prints the path, the new test verifies it, pytest exits 0 (309 passed/13 skipped/0 failed), ruff reports 0 findings, install.sh is non-interactive and sh -n clean, and the commit is scoped correctly with one Co-authored-by trailer.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-11T17:41:54.080820"
+}

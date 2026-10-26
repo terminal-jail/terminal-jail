@@ -1,0 +1,141 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-32",
+  "task_title": "Record 2026-09-19 fresh-machine install re-verification as the DF-21/DF-26 regression evidence",
+  "task_criteria": [
+    "docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522 on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf",
+    "That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh --rule-pack db correctly SKIPPED with the remediation message and 'base install completed', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a fresh machine)",
+    "The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow with rule_id provenance",
+    "The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth 17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete with reasoning citing the evening dogfood doc",
+    "Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check . clean"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "08269f9e690de7d934d42e3d26b922c2fc041141",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T113018.565073Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n6:35AM INF scanned ~5733476 bytes (5.73 MB) in 434ms\n6:35AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 145 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T113018.565073Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1364 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ............................           [  5%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.....                                                                    [ 35%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 75%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 77%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 78%]\nplugin/test_plugin.py ................                                   [ 79%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 87%]\nplugin/test_rule_packs.py .............................................. [ 90%]\n.....                                                                    [ 91%]\nplugin/test_rules_drift_probe.py .................                       [ 92%]\nplugin/test_seccomp.py .........................................sss      [ 95%]\nplugin/test_standalone_cli.py ...................                        [ 97%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1357 passed, 7 skipped in 35.97s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260921T113018.565073Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522 on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf: docs/dogfood/2026-09-19-evening-integration.md exists (57 lines). Line 3: 'Target: terminal-jail @ d80c0bf.' Lines 24-26: 'Fresh-machine install leg on bunker-las-03 agent fb251522 (Debian 13, PyYAML-less, pip present under PEP 668): documented https clone OK (HEAD d80c0bf)'. All required elements present.\n  \u2713 That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh --rule-pack db correctly SKIPPED with the remediation message and 'base install completed', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a fresh machine): Doc lines 24-28: 'documented https clone OK (HEAD d80c0bf), ./install.sh rc=0, --rule-pack db correctly skipped with remediation message (DF-21 fix live), smoke PASS'. Board row .coding-hermes/board/tasks.jsonl:163 detail spells out the full chain: 'git clone of the documented https origin URL succeeded (HEAD d80c0bf, ~4s); ./install.sh rc=0 in 0s; ./install.sh --rule-pack db on PyYAML-less pip-present PEP-668 host correctly SKIPPED the pack with the exact remediation message and 'base install completed' summary, rc=0, 00-builtins.yaml intact (DF-21 fix live).'\n  \u2713 The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow with rule_id provenance: Doc lines 24-28: 'smoke PASS (FULL probe, containment inode, block rc=126, bridge provenance)'; doc lines 36-40 'Re-verified live, still fixed ... DF-15 (loud mapped-launch fallback warning), default-allow provenance (rule_id null vs named)'. Board row tasks.jsonl:163 detail enumerates each: '--version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, bridge allow with rule_id provenance, DF-15 auto-sandbox warning intact.'\n  \u2713 The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth 17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete with reasoning citing the evening dogfood doc: Doc lines 33-34: 'DF-TERMINAL-JAIL-32 [P2] fresh-install regression evidence (PASS) + las-03 leaked-user count now 33 (DF-26 leak growing).' Board row .coding-hermes/board/tasks.jsonl:163: status='complete', detail 'las-03 now holds 33 leaked bunker-* users (17 at last count) \u2014 DF-TERMINAL-JAIL-26 leak is growing', reasoning 'docs/dogfood/2026-09-19-evening-integration.md is the durable record', foreman_note 'Closed from docs/dogfood/2026-09-19-evening-integration.md (findings section names DF-TERMINAL-JAIL-32)'. Row is complete with reasoning citing the doc.\n  \u2713 Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check . clean: Ran fresh: `.venv/bin/python -m pytest plugin -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 44.43s' (exit 0). `uvx ruff check .` -> 'All checks passed!' with RUFF_EXIT=0. Matches the board row's recorded '1357 passed / 7 skipped; uvx ruff clean'.\nAll five criteria verified: the evening dogfood doc and the closed DF-TERMINAL-JAIL-32 board row record the fresh-machine install re-verification (agent fb251522 on bunker-las-03 at d80c0bf), the DF-21 pack-skip fix, the DF-15/probe/rc=126/provenance smoke results, and the 17->33 leaked-user DF-26 evidence, with the plugin suite (1357 passed, 7 skipped) and ruff both green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522 on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf: docs/dogfood/2026-09-19-evening-integration.md exists (57 lines). Line 3: 'Target: terminal-jail @ d80c0bf.' Lines 24-26: 'Fresh-machine install leg on bunker-las-03 agent fb251522 (Debian 13, PyYAML-less, pip present under PEP 668): documented https clone OK (HEAD d80c0bf)'. All required elements present.\n  \u2713 That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh --rule-pack db correctly SKIPPED with the remediation message and 'base install completed', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a fresh machine): Doc lines 24-28: 'documented https clone OK (HEAD d80c0bf), ./install.sh rc=0, --rule-pack db correctly skipped with remediation message (DF-21 fix live), smoke PASS'. Board row .coding-hermes/board/tasks.jsonl:163 detail spells out the full chain: 'git clone of the documented https origin URL succeeded (HEAD d80c0bf, ~4s); ./install.sh rc=0 in 0s; ./install.sh --rule-pack db on PyYAML-less pip-present PEP-668 host correctly SKIPPED the pack with the exact remediation message and 'base install completed' summary, rc=0, 00-builtins.yaml intact (DF-21 fix live).'\n  \u2713 The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow with rule_id provenance: Doc lines 24-28: 'smoke PASS (FULL probe, containment inode, block rc=126, bridge provenance)'; doc lines 36-40 'Re-verified live, still fixed ... DF-15 (loud mapped-launch fallback warning), default-allow provenance (rule_id null vs named)'. Board row tasks.jsonl:163 detail enumerates each: '--version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, bridge allow with rule_id provenance, DF-15 auto-sandbox warning intact.'\n  \u2713 The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth 17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete with reasoning citing the evening dogfood doc: Doc lines 33-34: 'DF-TERMINAL-JAIL-32 [P2] fresh-install regression evidence (PASS) + las-03 leaked-user count now 33 (DF-26 leak growing).' Board row .coding-hermes/board/tasks.jsonl:163: status='complete', detail 'las-03 now holds 33 leaked bunker-* users (17 at last count) \u2014 DF-TERMINAL-JAIL-26 leak is growing', reasoning 'docs/dogfood/2026-09-19-evening-integration.md is the durable record', foreman_note 'Closed from docs/dogfood/2026-09-19-evening-integration.md (findings section names DF-TERMINAL-JAIL-32)'. Row is complete with reasoning citing the doc.\n  \u2713 Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check . clean: Ran fresh: `.venv/bin/python -m pytest plugin -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 44.43s' (exit 0). `uvx ruff check .` -> 'All checks passed!' with RUFF_EXIT=0. Matches the board row's recorded '1357 passed / 7 skipped; uvx ruff clean'.\nAll five criteria verified: the evening dogfood doc and the closed DF-TERMINAL-JAIL-32 board row record the fresh-machine install re-verification (agent fb251522 on bunker-las-03 at d80c0bf), the DF-21 pack-skip fix, the DF-15/probe/rc=126/provenance smoke results, and the 17->33 leaked-user DF-26 evidence, with the plugin suite (1357 passed, 7 skipped) and ruff both green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522 on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf",
+                "status": "PASS",
+                "detail": "docs/dogfood/2026-09-19-evening-integration.md exists (57 lines). Line 3: 'Target: terminal-jail @ d80c0bf.' Lines 24-26: 'Fresh-machine install leg on bunker-las-03 agent fb251522 (Debian 13, PyYAML-less, pip present under PEP 668): documented https clone OK (HEAD d80c0bf)'. All required elements present."
+              },
+              {
+                "criterion": "That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh --rule-pack db correctly SKIPPED with the remediation message and 'base install completed', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a fresh machine)",
+                "status": "PASS",
+                "detail": "Doc lines 24-28: 'documented https clone OK (HEAD d80c0bf), ./install.sh rc=0, --rule-pack db correctly skipped with remediation message (DF-21 fix live), smoke PASS'. Board row .coding-hermes/board/tasks.jsonl:163 detail spells out the full chain: 'git clone of the documented https origin URL succeeded (HEAD d80c0bf, ~4s); ./install.sh rc=0 in 0s; ./install.sh --rule-pack db on PyYAML-less pip-present PEP-668 host correctly SKIPPED the pack with the exact remediation message and 'base install completed' summary, rc=0, 00-builtins.yaml intact (DF-21 fix live).'"
+              },
+              {
+                "criterion": "The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow with rule_id provenance",
+                "status": "PASS",
+                "detail": "Doc lines 24-28: 'smoke PASS (FULL probe, containment inode, block rc=126, bridge provenance)'; doc lines 36-40 'Re-verified live, still fixed ... DF-15 (loud mapped-launch fallback warning), default-allow provenance (rule_id null vs named)'. Board row tasks.jsonl:163 detail enumerates each: '--version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, bridge allow with rule_id provenance, DF-15 auto-sandbox warning intact.'"
+              },
+              {
+                "criterion": "The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth 17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete with reasoning citing the evening dogfood doc",
+                "status": "PASS",
+                "detail": "Doc lines 33-34: 'DF-TERMINAL-JAIL-32 [P2] fresh-install regression evidence (PASS) + las-03 leaked-user count now 33 (DF-26 leak growing).' Board row .coding-hermes/board/tasks.jsonl:163: status='complete', detail 'las-03 now holds 33 leaked bunker-* users (17 at last count) \u2014 DF-TERMINAL-JAIL-26 leak is growing', reasoning 'docs/dogfood/2026-09-19-evening-integration.md is the durable record', foreman_note 'Closed from docs/dogfood/2026-09-19-evening-integration.md (findings section names DF-TERMINAL-JAIL-32)'. Row is complete with reasoning citing the doc."
+              },
+              {
+                "criterion": "Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check . clean",
+                "status": "PASS",
+                "detail": "Ran fresh: `.venv/bin/python -m pytest plugin -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 44.43s' (exit 0). `uvx ruff check .` -> 'All checks passed!' with RUFF_EXIT=0. Matches the board row's recorded '1357 passed / 7 skipped; uvx ruff clean'."
+              }
+            ],
+            "summary": "All five criteria verified: the evening dogfood doc and the closed DF-TERMINAL-JAIL-32 board row record the fresh-machine install re-verification (agent fb251522 on bunker-las-03 at d80c0bf), the DF-21 pack-skip fix, the DF-15/probe/rc=126/provenance smoke results, and the 17->33 leaked-user DF-26 evidence, with the plugin suite (1357 passed, 7 skipped) and ruff both green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-32\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/dogfood/2026-09-19-evening-integration.md exists and names agent fb251522 on bunker-las-03 (Debian 13, PyYAML-less, PEP 668) at HEAD d80c0bf: docs/dogfood/2026-09-19-evening-integration.md exists (57 lines). Line 3: 'Target: terminal-jail @ d80c0bf.' Lines 24-26: 'Fresh-machine install leg on bunker-las-03 agent fb251522 (Debian 13, PyYAML-less, pip present under PEP 668): documented https clone OK (HEAD d80c0bf)'. All required elements present.\n  \u2713 That doc records: documented https clone OK, ./install.sh rc=0, ./install.sh --rule-pack db correctly SKIPPED with the remediation message and 'base install completed', rc=0, 00-builtins.yaml intact (DF-TERMINAL-JAIL-21 fix live on a fresh machine): Doc lines 24-28: 'documented https clone OK (HEAD d80c0bf), ./install.sh rc=0, --rule-pack db correctly skipped with remediation message (DF-21 fix live), smoke PASS'. Board row .coding-hermes/board/tasks.jsonl:163 detail spells out the full chain: 'git clone of the documented https origin URL succeeded (HEAD d80c0bf, ~4s); ./install.sh rc=0 in 0s; ./install.sh --rule-pack db on PyYAML-less pip-present PEP-668 host correctly SKIPPED the pack with the exact remediation message and 'base install completed' summary, rc=0, 00-builtins.yaml intact (DF-21 fix live).'\n  \u2713 The doc records the DF-15 auto-sandbox warning intact, --version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, and bridge allow with rule_id provenance: Doc lines 24-28: 'smoke PASS (FULL probe, containment inode, block rc=126, bridge provenance)'; doc lines 36-40 'Re-verified live, still fixed ... DF-15 (loud mapped-launch fallback warning), default-allow provenance (rule_id null vs named)'. Board row tasks.jsonl:163 detail enumerates each: '--version ok, pidns probe FULL, --user ns inode differs from host, fdisk block rc=126, bridge allow with rule_id provenance, DF-15 auto-sandbox warning intact.'\n  \u2713 The doc and the closed board row DF-TERMINAL-JAIL-32 record the leaked-user growth 17 -> 33 on las-03 as active DF-TERMINAL-JAIL-26 evidence; the row is complete with reasoning citing the evening dogfood doc: Doc lines 33-34: 'DF-TERMINAL-JAIL-32 [P2] fresh-install regression evidence (PASS) + las-03 leaked-user count now 33 (DF-26 leak growing).' Board row .coding-hermes/board/tasks.jsonl:163: status='complete', detail 'las-03 now holds 33 leaked bunker-* users (17 at last count) \u2014 DF-TERMINAL-JAIL-26 leak is growing', reasoning 'docs/dogfood/2026-09-19-evening-integration.md is the durable record', foreman_note 'Closed from docs/dogfood/2026-09-19-evening-integration.md (findings section names DF-TERMINAL-JAIL-32)'. Row is complete with reasoning citing the doc.\n  \u2713 Full plugin suite green on the merged tree (pytest plugin -q) and uvx ruff check . clean: Ran fresh: `.venv/bin/python -m pytest plugin -q -p no:cacheprovider` -> '1357 passed, 7 skipped in 44.43s' (exit 0). `uvx ruff check .` -> 'All checks passed!' with RUFF_EXIT=0. Matches the board row's recorded '1357 passed / 7 skipped; uvx ruff clean'.\nAll five criteria verified: the evening dogfood doc and the closed DF-TERMINAL-JAIL-32 board row record the fresh-machine install re-verification (agent fb251522 on bunker-las-03 at d80c0bf), the DF-21 pack-skip fix, the DF-15/probe/rc=126/provenance smoke results, and the 17->33 leaked-user DF-26 evidence, with the plugin suite (1357 passed, 7 skipped) and ruff both green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-21T11:44:18.780240",
+  "evidence": {
+    "collected_at": "2026-09-21T11:44:18.806483+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 19317,
+        "truncated": false,
+        "source": "git show 08269f9e690d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 29307,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-32"
+  }
+}

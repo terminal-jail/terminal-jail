@@ -1,0 +1,121 @@
+{
+  "task_id": "REVIEW-TJ-014",
+  "task_title": "install.sh PATH append pollution",
+  "task_criteria": [
+    "install.sh gains --no-path flag AND skips the PATH block when install dir is under /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked block; test covers all three skip conditions; README documents the flag"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "4dfad2f3e0bc55d4cccfe9537bf9e4abc7d1a708",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T121129.653601Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n7:16AM INF scanned ~6876928 bytes (6.88 MB) in 443ms\n7:16AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 229 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T121129.653601Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2003 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 28%]\n.................................................                        [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n\n\u2026 [2080 chars omitted \u2014 26 line(s)] \u2026\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 88%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 1991 passed, 12 skipped in 131.42s (0:02:11) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T121129.653601Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh gains --no-path flag AND skips the PATH block when install dir is under /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked block; test covers all three skip conditions; README documents the flag: --no-path flag: install.sh:265 (help text), 381-388 (arg parse; --no-path=* refused with exit 2), 1354-1355 (skip reason '--no-path flag'). Auto-skips in the ordered if/elif chain: SUDO_USER at install.sh:1357, CI (non-empty and != 0/false/no/off) at 1359-1364, /tmp prefix via `case \"$TERMINAL_JAIL_INSTALL_DIR\" in /tmp/*)` at 1365-1366; the whole PATH block (1372-1430) is wrapped in the else branch so it is skipped entirely. --uninstall removes the marked block: install.sh:855-880 greps '# terminal-jail' + the exact path line and awk-deletes the marker-scoped block. Tests: plugin/test_install.py:2739 (--no-path), 2781 (/tmp prefix), 2822 (CI=true, plus CI=0 falsy control), 2852 (SUDO_USER), 2873 (precedence), 2896 (uninstall still removes marked block). README.md:70 documents --no-path and all three auto-skip conditions. TEST EVIDENCE: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -k \"no_path or tmp_prefix or ci_env or sudo_user or skip_precedence or uninstall_still_removes\" -p no:cacheprovider --tb=short -q` -> exit_code 0, output '........ [100%]  8 passed, 90 deselected in 8.57s'. [resolution 0.04; install.sh]\ninstall.sh implements --no-path plus /tmp, CI, and SUDO_USER auto-skips, --uninstall removes the marked block, README documents the flag, and all 8 targeted tests pass (exit 0).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh gains --no-path flag AND skips the PATH block when install dir is under /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked block; test covers all three skip conditions; README documents the flag: --no-path flag: install.sh:265 (help text), 381-388 (arg parse; --no-path=* refused with exit 2), 1354-1355 (skip reason '--no-path flag'). Auto-skips in the ordered if/elif chain: SUDO_USER at install.sh:1357, CI (non-empty and != 0/false/no/off) at 1359-1364, /tmp prefix via `case \"$TERMINAL_JAIL_INSTALL_DIR\" in /tmp/*)` at 1365-1366; the whole PATH block (1372-1430) is wrapped in the else branch so it is skipped entirely. --uninstall removes the marked block: install.sh:855-880 greps '# terminal-jail' + the exact path line and awk-deletes the marker-scoped block. Tests: plugin/test_install.py:2739 (--no-path), 2781 (/tmp prefix), 2822 (CI=true, plus CI=0 falsy control), 2852 (SUDO_USER), 2873 (precedence), 2896 (uninstall still removes marked block). README.md:70 documents --no-path and all three auto-skip conditions. TEST EVIDENCE: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -k \"no_path or tmp_prefix or ci_env or sudo_user or skip_precedence or uninstall_still_removes\" -p no:cacheprovider --tb=short -q` -> exit_code 0, output '........ [100%]  8 passed, 90 deselected in 8.57s'. [resolution 0.04; install.sh]\ninstall.sh implements --no-path plus /tmp, CI, and SUDO_USER auto-skips, --uninstall removes the marked block, README documents the flag, and all 8 targeted tests pass (exit 0).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh gains --no-path flag AND skips the PATH block when install dir is under /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked block; test covers all three skip conditions; README documents the flag",
+                "status": "PASS",
+                "detail": "--no-path flag: install.sh:265 (help text), 381-388 (arg parse; --no-path=* refused with exit 2), 1354-1355 (skip reason '--no-path flag'). Auto-skips in the ordered if/elif chain: SUDO_USER at install.sh:1357, CI (non-empty and != 0/false/no/off) at 1359-1364, /tmp prefix via `case \"$TERMINAL_JAIL_INSTALL_DIR\" in /tmp/*)` at 1365-1366; the whole PATH block (1372-1430) is wrapped in the else branch so it is skipped entirely. --uninstall removes the marked block: install.sh:855-880 greps '# terminal-jail' + the exact path line and awk-deletes the marker-scoped block. Tests: plugin/test_install.py:2739 (--no-path), 2781 (/tmp prefix), 2822 (CI=true, plus CI=0 falsy control), 2852 (SUDO_USER), 2873 (precedence), 2896 (uninstall still removes marked block). README.md:70 documents --no-path and all three auto-skip conditions. TEST EVIDENCE: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -k \"no_path or tmp_prefix or ci_env or sudo_user or skip_precedence or uninstall_still_removes\" -p no:cacheprovider --tb=short -q` -> exit_code 0, output '........ [100%]  8 passed, 90 deselected in 8.57s'. [resolution 0.04; install.sh]",
+                "resolution_probability": 0.04,
+                "cited_path": "install.sh"
+              }
+            ],
+            "summary": "install.sh implements --no-path plus /tmp, CI, and SUDO_USER auto-skips, --uninstall removes the marked block, README documents the flag, and all 8 targeted tests pass (exit 0)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: REVIEW-TJ-014\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh gains --no-path flag AND skips the PATH block when install dir is under /tmp or when CI/SUDO_USER is set; existing --uninstall path removes the marked block; test covers all three skip conditions; README documents the flag: --no-path flag: install.sh:265 (help text), 381-388 (arg parse; --no-path=* refused with exit 2), 1354-1355 (skip reason '--no-path flag'). Auto-skips in the ordered if/elif chain: SUDO_USER at install.sh:1357, CI (non-empty and != 0/false/no/off) at 1359-1364, /tmp prefix via `case \"$TERMINAL_JAIL_INSTALL_DIR\" in /tmp/*)` at 1365-1366; the whole PATH block (1372-1430) is wrapped in the else branch so it is skipped entirely. --uninstall removes the marked block: install.sh:855-880 greps '# terminal-jail' + the exact path line and awk-deletes the marker-scoped block. Tests: plugin/test_install.py:2739 (--no-path), 2781 (/tmp prefix), 2822 (CI=true, plus CI=0 falsy control), 2852 (SUDO_USER), 2873 (precedence), 2896 (uninstall still removes marked block). README.md:70 documents --no-path and all three auto-skip conditions. TEST EVIDENCE: `cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -k \"no_path or tmp_prefix or ci_env or sudo_user or skip_precedence or uninstall_still_removes\" -p no:cacheprovider --tb=short -q` -> exit_code 0, output '........ [100%]  8 passed, 90 deselected in 8.57s'. [resolution 0.04; install.sh]\ninstall.sh implements --no-path plus /tmp, CI, and SUDO_USER auto-skips, --uninstall removes the marked block, README documents the flag, and all 8 targeted tests pass (exit 0).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-16T12:19:53.293532",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-16T12:19:53.319135+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 16325,
+        "truncated": false,
+        "source": "git show 4dfad2f3e0bc"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5334,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "REVIEW-TJ-014"
+  }
+}

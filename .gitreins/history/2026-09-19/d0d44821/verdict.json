@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-9",
+  "task_title": "Rule counts truthful + rule catalog exists",
+  "task_criteria": [
+    "README.md and docs/quickstart.md state the shipped rule counts that match plugin/terminal_jail/rules/00-builtins.yaml (block/sandbox/allow); a rule catalog of ids/scopes exists (doc or generated); quickstart 3d pytest step carries a working interpreter/venv path; counts verified live against the engine"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "f46a169a8a49013cac8e19854e7e6c369e98aab2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T193758.707677Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n3:45PM INF scanned ~4794565 bytes (4.79 MB) in 436ms\n3:45PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 127 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T193758.707677Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 901 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [  9%]\n........................................................................ [ 17%]\n............................................................             [ 24%]\nplugin/test_install.py ................................................. [ 30%]\n                                                                         [ 30%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 43%]\n........................................................................ [ 51%]\n........................................................................ [ 59%]\n........................................................................ [ 67%]\n........................................................................ [ 75%]\n.......                                                                  [ 75%]\nplugin/test_interruptor_integration.py .............s................... [ 79%]\n...                                                                      [ 79%]\nplugin/test_metrics_export.py .....................                      [ 82%]\nplugin/test_modify_preflight.py ......                                   [ 82%]\nplugin/test_packaging.py ..........                                      [ 83%]\nplugin/test_plugin.py ................                                   [ 85%]\nplugin/test_rule_packs.py ...........................                    [ 88%]\nplugin/test_seccomp.py .........................................sss      [ 93%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 896 passed, 5 skipped in 21.43s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T193758.707677Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 README.md and docs/quickstart.md state the shipped rule counts that match plugin/terminal_jail/rules/00-builtins.yaml (block/sandbox/allow); a rule catalog of ids/scopes exists (doc or generated); quickstart 3d pytest step carries a working interpreter/venv path; counts verified live against the engine: Live counts: PyYAML parse of plugin/terminal_jail/rules/00-builtins.yaml -> 54 rules, Counter({'block':35,'allow':10,'sandbox':9}); engine constants via `.venv/bin/python -c 'from plugin.terminal_jail.interruptor.{blocklist,sandbox,allowlist} import ...'` -> block 35 / sandbox 9 / allow 10 (identical). README.md:132 states 'currently **35 critical blocklist, 9 auto-sandbox, 10 always-allow**' and README.md:147/183/194 head the per-layer lists '**35 Critical Blocklist**' / '**9 Auto-Sandbox**' / '**10 Always-Allow**'; a scripted set comparison of the ids listed in each README section vs the YAML per-action ids returned missing=[] extra=[] for all three layers (35/9/10). docs/quickstart.md carries no stale counts (grep for 54/35/39/'30 built'/'12 blocklist' -> no hits) and points at the catalog (quickstart.md:344, 418-420). Catalog exists: docs/rule-catalog.md (103 lines, generated by scripts/rule-catalog.py) with a Totals table (35 block / 9 sandbox / 10 allow / 54) and per-layer id+scope tables; scripted comparison of catalog ids vs YAML ids -> 35/9/10, missing=[] extra=[]; `python3 scripts/rule-catalog.py --check` -> '[catalog] OK \u2014 54 rules (35 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date' exit=0, and `--stdout | diff - docs/rule-catalog.md` -> CATALOG BYTE-IDENTICAL. Quickstart 3d (docs/quickstart.md:260) now reads `uv sync --dev && uv run pytest plugin/test_plugin.py -q`; uv is installed (/home/kara/.local/bin/uv 0.11.17), `uv sync --dev` exit=0, `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.01s' exit=0 (also `.venv/bin/python -m pytest plugin/test_plugin.py -q` -> 16 passed). Full suite `.venv/bin/python -m pytest -q` -> '896 passed, 5 skipped in 23.89s' exit=0; plugin/test_packaging.py -> '10 passed', including test_shipped_rules_yaml_mirrors_engine_builtin_ids which enforces YAML==engine ids and per-layer counts. Only cosmetic nit: a stale comment at plugin/test_packaging.py:130 still says 'documented engine (31/13/10)' (comment only, no assertion).\nRule counts in README/quickstart match the shipped 00-builtins.yaml (35 block / 9 sandbox / 10 allow = 54) and the engine constants, a generated id/scope catalog exists with a passing --check drift gate, and the quickstart 3d pytest step runs green via uv (16 passed; full suite 896 passed, 5 skipped).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 README.md and docs/quickstart.md state the shipped rule counts that match plugin/terminal_jail/rules/00-builtins.yaml (block/sandbox/allow); a rule catalog of ids/scopes exists (doc or generated); quickstart 3d pytest step carries a working interpreter/venv path; counts verified live against the engine: Live counts: PyYAML parse of plugin/terminal_jail/rules/00-builtins.yaml -> 54 rules, Counter({'block':35,'allow':10,'sandbox':9}); engine constants via `.venv/bin/python -c 'from plugin.terminal_jail.interruptor.{blocklist,sandbox,allowlist} import ...'` -> block 35 / sandbox 9 / allow 10 (identical). README.md:132 states 'currently **35 critical blocklist, 9 auto-sandbox, 10 always-allow**' and README.md:147/183/194 head the per-layer lists '**35 Critical Blocklist**' / '**9 Auto-Sandbox**' / '**10 Always-Allow**'; a scripted set comparison of the ids listed in each README section vs the YAML per-action ids returned missing=[] extra=[] for all three layers (35/9/10). docs/quickstart.md carries no stale counts (grep for 54/35/39/'30 built'/'12 blocklist' -> no hits) and points at the catalog (quickstart.md:344, 418-420). Catalog exists: docs/rule-catalog.md (103 lines, generated by scripts/rule-catalog.py) with a Totals table (35 block / 9 sandbox / 10 allow / 54) and per-layer id+scope tables; scripted comparison of catalog ids vs YAML ids -> 35/9/10, missing=[] extra=[]; `python3 scripts/rule-catalog.py --check` -> '[catalog] OK \u2014 54 rules (35 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date' exit=0, and `--stdout | diff - docs/rule-catalog.md` -> CATALOG BYTE-IDENTICAL. Quickstart 3d (docs/quickstart.md:260) now reads `uv sync --dev && uv run pytest plugin/test_plugin.py -q`; uv is installed (/home/kara/.local/bin/uv 0.11.17), `uv sync --dev` exit=0, `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.01s' exit=0 (also `.venv/bin/python -m pytest plugin/test_plugin.py -q` -> 16 passed). Full suite `.venv/bin/python -m pytest -q` -> '896 passed, 5 skipped in 23.89s' exit=0; plugin/test_packaging.py -> '10 passed', including test_shipped_rules_yaml_mirrors_engine_builtin_ids which enforces YAML==engine ids and per-layer counts. Only cosmetic nit: a stale comment at plugin/test_packaging.py:130 still says 'documented engine (31/13/10)' (comment only, no assertion).\nRule counts in README/quickstart match the shipped 00-builtins.yaml (35 block / 9 sandbox / 10 allow = 54) and the engine constants, a generated id/scope catalog exists with a passing --check drift gate, and the quickstart 3d pytest step runs green via uv (16 passed; full suite 896 passed, 5 skipped).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "README.md and docs/quickstart.md state the shipped rule counts that match plugin/terminal_jail/rules/00-builtins.yaml (block/sandbox/allow); a rule catalog of ids/scopes exists (doc or generated); quickstart 3d pytest step carries a working interpreter/venv path; counts verified live against the engine",
+                "status": "PASS",
+                "detail": "Live counts: PyYAML parse of plugin/terminal_jail/rules/00-builtins.yaml -> 54 rules, Counter({'block':35,'allow':10,'sandbox':9}); engine constants via `.venv/bin/python -c 'from plugin.terminal_jail.interruptor.{blocklist,sandbox,allowlist} import ...'` -> block 35 / sandbox 9 / allow 10 (identical). README.md:132 states 'currently **35 critical blocklist, 9 auto-sandbox, 10 always-allow**' and README.md:147/183/194 head the per-layer lists '**35 Critical Blocklist**' / '**9 Auto-Sandbox**' / '**10 Always-Allow**'; a scripted set comparison of the ids listed in each README section vs the YAML per-action ids returned missing=[] extra=[] for all three layers (35/9/10). docs/quickstart.md carries no stale counts (grep for 54/35/39/'30 built'/'12 blocklist' -> no hits) and points at the catalog (quickstart.md:344, 418-420). Catalog exists: docs/rule-catalog.md (103 lines, generated by scripts/rule-catalog.py) with a Totals table (35 block / 9 sandbox / 10 allow / 54) and per-layer id+scope tables; scripted comparison of catalog ids vs YAML ids -> 35/9/10, missing=[] extra=[]; `python3 scripts/rule-catalog.py --check` -> '[catalog] OK \u2014 54 rules (35 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date' exit=0, and `--stdout | diff - docs/rule-catalog.md` -> CATALOG BYTE-IDENTICAL. Quickstart 3d (docs/quickstart.md:260) now reads `uv sync --dev && uv run pytest plugin/test_plugin.py -q`; uv is installed (/home/kara/.local/bin/uv 0.11.17), `uv sync --dev` exit=0, `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.01s' exit=0 (also `.venv/bin/python -m pytest plugin/test_plugin.py -q` -> 16 passed). Full suite `.venv/bin/python -m pytest -q` -> '896 passed, 5 skipped in 23.89s' exit=0; plugin/test_packaging.py -> '10 passed', including test_shipped_rules_yaml_mirrors_engine_builtin_ids which enforces YAML==engine ids and per-layer counts. Only cosmetic nit: a stale comment at plugin/test_packaging.py:130 still says 'documented engine (31/13/10)' (comment only, no assertion)."
+              }
+            ],
+            "summary": "Rule counts in README/quickstart match the shipped 00-builtins.yaml (35 block / 9 sandbox / 10 allow = 54) and the engine constants, a generated id/scope catalog exists with a passing --check drift gate, and the quickstart 3d pytest step runs green via uv (16 passed; full suite 896 passed, 5 skipped)."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-9\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 README.md and docs/quickstart.md state the shipped rule counts that match plugin/terminal_jail/rules/00-builtins.yaml (block/sandbox/allow); a rule catalog of ids/scopes exists (doc or generated); quickstart 3d pytest step carries a working interpreter/venv path; counts verified live against the engine: Live counts: PyYAML parse of plugin/terminal_jail/rules/00-builtins.yaml -> 54 rules, Counter({'block':35,'allow':10,'sandbox':9}); engine constants via `.venv/bin/python -c 'from plugin.terminal_jail.interruptor.{blocklist,sandbox,allowlist} import ...'` -> block 35 / sandbox 9 / allow 10 (identical). README.md:132 states 'currently **35 critical blocklist, 9 auto-sandbox, 10 always-allow**' and README.md:147/183/194 head the per-layer lists '**35 Critical Blocklist**' / '**9 Auto-Sandbox**' / '**10 Always-Allow**'; a scripted set comparison of the ids listed in each README section vs the YAML per-action ids returned missing=[] extra=[] for all three layers (35/9/10). docs/quickstart.md carries no stale counts (grep for 54/35/39/'30 built'/'12 blocklist' -> no hits) and points at the catalog (quickstart.md:344, 418-420). Catalog exists: docs/rule-catalog.md (103 lines, generated by scripts/rule-catalog.py) with a Totals table (35 block / 9 sandbox / 10 allow / 54) and per-layer id+scope tables; scripted comparison of catalog ids vs YAML ids -> 35/9/10, missing=[] extra=[]; `python3 scripts/rule-catalog.py --check` -> '[catalog] OK \u2014 54 rules (35 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date' exit=0, and `--stdout | diff - docs/rule-catalog.md` -> CATALOG BYTE-IDENTICAL. Quickstart 3d (docs/quickstart.md:260) now reads `uv sync --dev && uv run pytest plugin/test_plugin.py -q`; uv is installed (/home/kara/.local/bin/uv 0.11.17), `uv sync --dev` exit=0, `uv run pytest plugin/test_plugin.py -q` -> '16 passed in 0.01s' exit=0 (also `.venv/bin/python -m pytest plugin/test_plugin.py -q` -> 16 passed). Full suite `.venv/bin/python -m pytest -q` -> '896 passed, 5 skipped in 23.89s' exit=0; plugin/test_packaging.py -> '10 passed', including test_shipped_rules_yaml_mirrors_engine_builtin_ids which enforces YAML==engine ids and per-layer counts. Only cosmetic nit: a stale comment at plugin/test_packaging.py:130 still says 'documented engine (31/13/10)' (comment only, no assertion).\nRule counts in README/quickstart match the shipped 00-builtins.yaml (35 block / 9 sandbox / 10 allow = 54) and the engine constants, a generated id/scope catalog exists with a passing --check drift gate, and the quickstart 3d pytest step runs green via uv (16 passed; full suite 896 passed, 5 skipped).\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T20:47:27.814413",
+  "evidence": {
+    "collected_at": "2026-09-19T20:47:27.836425+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 126133,
+        "truncated": false,
+        "source": "git show f46a169a8a49"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 8393,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-9"
+  }
+}

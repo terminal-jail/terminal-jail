@@ -1,0 +1,88 @@
+diff --git a/.coding-hermes/board/events.jsonl b/.coding-hermes/board/events.jsonl
+index 1d9d5b3..580a35e 100644
+--- a/.coding-hermes/board/events.jsonl
++++ b/.coding-hermes/board/events.jsonl
+@@ -533,3 +533,4 @@
+ {"id": 523, "timestamp": "2026-10-01 19:11:41.208456", "event_type": "task_created", "task_id": "TJ-DF-043", "actor": "carter-review", "detail": "{\"id\": \"TJ-DF-043\", \"status\": \"pending\", \"priority\": \"P1\"}", "tick_number": null}
+ {"id": 524, "timestamp": "2026-10-01 19:11:41.208456", "event_type": "task_created", "task_id": "TJ-GAP-088", "actor": "carter-review", "detail": "{\"id\": \"TJ-GAP-088\", \"status\": \"pending\", \"priority\": \"P2\"}", "tick_number": null}
+ {"id": 525, "timestamp": "2026-10-01 19:11:41.208456", "event_type": "task_created", "task_id": "PARITY-TJ-001", "actor": "carter-review", "detail": "{\"id\": \"PARITY-TJ-001\", \"status\": \"pending\", \"priority\": \"P3\"}", "tick_number": null}
++{"id": 526, "event_type": "task_dispatch", "task_id": "TJ-DF-040", "actor": "foreman", "tick_number": null, "timestamp": "2026-10-01 22:13:40.938537470", "detail": "{\"model\":\"glm-5.3-flash\",\"provider\":\"zai-glm-default\",\"worker_pid\":4126969,\"session\":\"20261001_221203_2b38eb\",\"scope\":\"fail-closed on unparseable rule files (PyYAML-less fresh host); RED tests + fix + docs posture change\"}"}
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index b67ac57..0528ee2 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1572,3 +1572,15 @@ tasks:
+   status: complete
+   created_at: '2026-10-01T07:54:20.392645+00:00'
+   completed_at: '2026-10-01T09:40:55.680364+00:00'
++- id: TJ-DF-040
++  title: 'PyYAML-less fresh host: rule files silently unload -> engine allows everything
++    (fail-open)'
++  criteria:
++  - 'On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse
++    must NOT contribute zero rules silently: the engine must fail closed (abort load
++    -> blocking bridge-error verdict) and the bridge verdict must state the failure;
++    yaml-only policy must block with PyYAML and refuse-to-allow without it; regression
++    tests pin both arms'
++  status: complete
++  created_at: '2026-10-02T03:10:31.504260+00:00'
++  completed_at: '2026-10-02T04:28:05.787535+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 8ba0ac9..cf3be8b 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -119,3 +119,4 @@
+ {"ts": 1790836894.2606728, "tokens_in": 1544998, "tokens_out": 6631, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790847259.9714558, "tokens_in": 3203618, "tokens_out": 9704, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790851392.3058026, "tokens_in": 3340717, "tokens_out": 10990, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790916093.1155896, "tokens_in": 2049279, "tokens_out": 6766, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..05846eb 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,45 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:contextlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:unittest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.allowlist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.sandbox","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.types","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:plugin.terminal_jail.interruptor.userns","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:yaml","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/decider.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/rules.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}

@@ -1,0 +1,141 @@
+{
+  "task_id": "VERSION-002",
+  "task_title": "Load-hygiene: bridge integration tests run in-process, real-exec parity seam kept",
+  "task_criteria": [
+    "In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs",
+    "Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow",
+    "Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests)",
+    "ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645",
+    "CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "f70120087c1cc36ffe3756afb6bc01bc31f85c67",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n6:17AM INF scanned ~4113173 bytes (4.11 MB) in 896ms\n6:17AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 132 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1025 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 20%]\n............................................................             [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 33%]\n.                                                                        [ 33%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 59%]\n........................................................................ [ 66%]\n........................................................................ [ 73%]\n..............................................                           [ 77%]\nplugin/test_interruptor_integration.py ...............s................. [ 80%]\n.....                                                                    [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...................................            [ 90%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1018 passed, 7 skipped in 51.46s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T102959.917057Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: The in-process conversion and parity coverage are real: _bridge_main_inproc is used 8x (lines 288,294,339,374,390,563,728) and all bridge verdict assertions drive main() in-process; test_bridge_real_exec_parity (line 317) spawns the real python3 interruptor_bridge.py and asserts proc.returncode==inproc.returncode==0 and proc.stdout==inproc.stdout across BRIDGE_PARITY_INPUTS (lines 306-312) = allow/block/modify/empty-schema({})/null \u2014 I confirmed all 5 produce distinct verdicts (allow, block, modify, allow+bridge-error, allow+bridge-error). BUT the criterion's literal claim is false: grep -n 'subprocess.run' returns 3 hits, yet only ONE (line 329) is inside test_bridge_real_exec_parity. Line 70 is a real call site inside the _run_cli CLI helper (not the parity test), and line 363 is a docstring mention, not a call site. Actual call sites = 2 (grep -c 'subprocess.run(' = 2), not 3, and they are NOT all inside test_bridge_real_exec_parity.\n  \u2713 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: plugin/test_interruptor_integration.py:352-378 defines test_bridge_in_process_path_never_spawns_a_process; line 370-372 does mock.patch.object(subprocess, 'run', side_effect=AssertionError('spawned a process')) then calls _bridge_main_inproc('{\"command\": \"echo hello\"}') and asserts response['action']=='allow' and response['command']=='echo hello'. Ran `.venv/bin/python -m pytest plugin/test_interruptor_integration.py::test_bridge_real_exec_parity plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process -q` -> '2 passed in 0.40s'.\n  \u2713 Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests): Full suite: `.venv/bin/python -u -m pytest plugin -q -p no:cacheprovider` -> '1018 passed, 7 skipped in 80.29s' (exact match). File after: '37 passed, 1 skipped in 2.95s' (3 repeat runs: 4.80s/3.52s/4.97s, consistent with 4.1s). Baseline before (git show 6f6c2e6^:plugin/test_interruptor_integration.py restored in place) -> '35 passed, 1 skipped in 6.60s', consistent with the 7.8s claim under host load. Test defs 23->25 (+2: test_bridge_real_exec_parity, test_bridge_in_process_path_never_spawns_a_process); `git diff 6f6c2e6^ 6f6c2e6` shows zero '-def test' deletions. Skip marks: exactly 1 before and 1 after (same @pytest.mark.skip on test_rule_hot_reload, line 551) \u2014 zero added.\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. Full suite green: '1018 passed, 7 skipped in 80.29s'. HEAD is f701200 (a follow-up fix commit); ec3e645 is an ancestor of HEAD (`git merge-base --is-ancestor ec3e645 HEAD` -> YES), so the merged-main state is present and green.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md line 1 '## [Unreleased]', line 3 '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)', and the body states 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' \u2014 the before/after numbers are present.\nFour of five criteria are fully met (seam test, measurements 1018 passed/7 skipped, ruff clean + green suite, CHANGELOG entry), but criterion 1 fails its literal requirement: only 1 of the 3 grep hits for subprocess.run is inside test_bridge_real_exec_parity (line 70 is a real call in the _run_cli helper, line 363 is a docstring), so there are 2 call sites, not 3, and they are not all inside the parity test.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: The in-process conversion and parity coverage are real: _bridge_main_inproc is used 8x (lines 288,294,339,374,390,563,728) and all bridge verdict assertions drive main() in-process; test_bridge_real_exec_parity (line 317) spawns the real python3 interruptor_bridge.py and asserts proc.returncode==inproc.returncode==0 and proc.stdout==inproc.stdout across BRIDGE_PARITY_INPUTS (lines 306-312) = allow/block/modify/empty-schema({})/null \u2014 I confirmed all 5 produce distinct verdicts (allow, block, modify, allow+bridge-error, allow+bridge-error). BUT the criterion's literal claim is false: grep -n 'subprocess.run' returns 3 hits, yet only ONE (line 329) is inside test_bridge_real_exec_parity. Line 70 is a real call site inside the _run_cli CLI helper (not the parity test), and line 363 is a docstring mention, not a call site. Actual call sites = 2 (grep -c 'subprocess.run(' = 2), not 3, and they are NOT all inside test_bridge_real_exec_parity.\n  \u2713 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: plugin/test_interruptor_integration.py:352-378 defines test_bridge_in_process_path_never_spawns_a_process; line 370-372 does mock.patch.object(subprocess, 'run', side_effect=AssertionError('spawned a process')) then calls _bridge_main_inproc('{\"command\": \"echo hello\"}') and asserts response['action']=='allow' and response['command']=='echo hello'. Ran `.venv/bin/python -m pytest plugin/test_interruptor_integration.py::test_bridge_real_exec_parity plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process -q` -> '2 passed in 0.40s'.\n\n\u2026 [935 chars omitted \u2014 1 line(s)] \u2026\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. Full suite green: '1018 passed, 7 skipped in 80.29s'. HEAD is f701200 (a follow-up fix commit); ec3e645 is an ancestor of HEAD (`git merge-base --is-ancestor ec3e645 HEAD` -> YES), so the merged-main state is present and green.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md line 1 '## [Unreleased]', line 3 '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)', and the body states 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' \u2014 the before/after numbers are present.\nFour of five criteria are fully met (seam test, measurements 1018 passed/7 skipped, ruff clean + green suite, CHANGELOG entry), but criterion 1 fails its literal requirement: only 1 of the 3 grep hits for subprocess.run is inside test_bridge_real_exec_parity (line 70 is a real call in the _run_cli helper, line 363 is a docstring), so there are 2 call sites, not 3, and they are not all inside the parity test.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs",
+                "status": "FAIL",
+                "detail": "The in-process conversion and parity coverage are real: _bridge_main_inproc is used 8x (lines 288,294,339,374,390,563,728) and all bridge verdict assertions drive main() in-process; test_bridge_real_exec_parity (line 317) spawns the real python3 interruptor_bridge.py and asserts proc.returncode==inproc.returncode==0 and proc.stdout==inproc.stdout across BRIDGE_PARITY_INPUTS (lines 306-312) = allow/block/modify/empty-schema({})/null \u2014 I confirmed all 5 produce distinct verdicts (allow, block, modify, allow+bridge-error, allow+bridge-error). BUT the criterion's literal claim is false: grep -n 'subprocess.run' returns 3 hits, yet only ONE (line 329) is inside test_bridge_real_exec_parity. Line 70 is a real call site inside the _run_cli CLI helper (not the parity test), and line 363 is a docstring mention, not a call site. Actual call sites = 2 (grep -c 'subprocess.run(' = 2), not 3, and they are NOT all inside test_bridge_real_exec_parity."
+              },
+              {
+                "criterion": "Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow",
+                "status": "PASS",
+                "detail": "plugin/test_interruptor_integration.py:352-378 defines test_bridge_in_process_path_never_spawns_a_process; line 370-372 does mock.patch.object(subprocess, 'run', side_effect=AssertionError('spawned a process')) then calls _bridge_main_inproc('{\"command\": \"echo hello\"}') and asserts response['action']=='allow' and response['command']=='echo hello'. Ran `.venv/bin/python -m pytest plugin/test_interruptor_integration.py::test_bridge_real_exec_parity plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process -q` -> '2 passed in 0.40s'."
+              },
+              {
+                "criterion": "Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests)",
+                "status": "PASS",
+                "detail": "Full suite: `.venv/bin/python -u -m pytest plugin -q -p no:cacheprovider` -> '1018 passed, 7 skipped in 80.29s' (exact match). File after: '37 passed, 1 skipped in 2.95s' (3 repeat runs: 4.80s/3.52s/4.97s, consistent with 4.1s). Baseline before (git show 6f6c2e6^:plugin/test_interruptor_integration.py restored in place) -> '35 passed, 1 skipped in 6.60s', consistent with the 7.8s claim under host load. Test defs 23->25 (+2: test_bridge_real_exec_parity, test_bridge_in_process_path_never_spawns_a_process); `git diff 6f6c2e6^ 6f6c2e6` shows zero '-def test' deletions. Skip marks: exactly 1 before and 1 after (same @pytest.mark.skip on test_rule_hot_reload, line 551) \u2014 zero added."
+              },
+              {
+                "criterion": "ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645",
+                "status": "PASS",
+                "detail": "`uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. Full suite green: '1018 passed, 7 skipped in 80.29s'. HEAD is f701200 (a follow-up fix commit); ec3e645 is an ancestor of HEAD (`git merge-base --is-ancestor ec3e645 HEAD` -> YES), so the merged-main state is present and green."
+              },
+              {
+                "criterion": "CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers",
+                "status": "PASS",
+                "detail": "CHANGELOG.md line 1 '## [Unreleased]', line 3 '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)', and the body states 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' \u2014 the before/after numbers are present."
+              }
+            ],
+            "summary": "Four of five criteria are fully met (seam test, measurements 1018 passed/7 skipped, ruff clean + green suite, CHANGELOG entry), but criterion 1 fails its literal requirement: only 1 of the 3 grep hits for subprocess.run is inside test_bridge_real_exec_parity (line 70 is a real call in the _run_cli helper, line 363 is a docstring), so there are 2 call sites, not 3, and they are not all inside the parity test."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: VERSION-002\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: The in-process conversion and parity coverage are real: _bridge_main_inproc is used 8x (lines 288,294,339,374,390,563,728) and all bridge verdict assertions drive main() in-process; test_bridge_real_exec_parity (line 317) spawns the real python3 interruptor_bridge.py and asserts proc.returncode==inproc.returncode==0 and proc.stdout==inproc.stdout across BRIDGE_PARITY_INPUTS (lines 306-312) = allow/block/modify/empty-schema({})/null \u2014 I confirmed all 5 produce distinct verdicts (allow, block, modify, allow+bridge-error, allow+bridge-error). BUT the criterion's literal claim is false: grep -n 'subprocess.run' returns 3 hits, yet only ONE (line 329) is inside test_bridge_real_exec_parity. Line 70 is a real call site inside the _run_cli CLI helper (not the parity test), and line 363 is a docstring mention, not a call site. Actual call sites = 2 (grep -c 'subprocess.run(' = 2), not 3, and they are NOT all inside test_bridge_real_exec_parity.\n  \u2713 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: plugin/test_interruptor_integration.py:352-378 defines test_bridge_in_process_path_never_spawns_a_process; line 370-372 does mock.patch.object(subprocess, 'run', side_effect=AssertionError('spawned a process')) then calls _bridge_main_inproc('{\"command\": \"echo hello\"}') and asserts response['action']=='allow' and response['command']=='echo hello'. Ran `.venv/bin/python -m pytest plugin/test_interruptor_integration.py::test_bridge_real_exec_parity plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process -q` -> '2 passed in 0.40s'.\n  \u2713 Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests): Full suite: `.venv/bin/python -u -m pytest plugin -q -p no:cacheprovider` -> '1018 passed, 7 skipped in 80.29s' (exact match). File after: '37 passed, 1 skipped in 2.95s' (3 repeat runs: 4.80s/3.52s/4.97s, consistent with 4.1s). Baseline before (git show 6f6c2e6^:plugin/test_interruptor_integration.py restored in place) -> '35 passed, 1 skipped in 6.60s', consistent with the 7.8s claim under host load. Test defs 23->25 (+2: test_bridge_real_exec_parity, test_bridge_in_process_path_never_spawns_a_process); `git diff 6f6c2e6^ 6f6c2e6` shows zero '-def test' deletions. Skip marks: exactly 1 before and 1 after (same @pytest.mark.skip on test_rule_hot_reload, line 551) \u2014 zero added.\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. Full suite green: '1018 passed, 7 skipped in 80.29s'. HEAD is f701200 (a follow-up fix commit); ec3e645 is an ancestor of HEAD (`git merge-base --is-ancestor ec3e645 HEAD` -> YES), so the merged-main state is present and green.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md line 1 '## [Unreleased]', line 3 '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)', and the body states 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' \u2014 the before/after numbers are present.\nFour of five criteria are fully met (seam test, measurements 1018 passed/7 skipped, ruff clean + green suite, CHANGELOG entry), but criterion 1 fails its literal requirement: only 1 of the 3 grep hits for subprocess.run is inside test_bridge_real_exec_parity (line 70 is a real call in the _run_cli helper, line 363 is a docstring), so there are 2 call sites, not 3, and they are not all inside the parity test.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-20T11:30:56.617989",
+  "evidence": {
+    "collected_at": "2026-09-20T11:30:56.640227+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 2923,
+        "truncated": false,
+        "source": "git show f70120087c1c"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 39173,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "VERSION-002"
+  }
+}

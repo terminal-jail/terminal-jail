@@ -1,0 +1,119 @@
+{
+  "task_id": "TJ-DF-046",
+  "task_title": "Egress tier: engage Landlock on plain-allow verdicts",
+  "task_criteria": [
+    "1. A rule_id=null (allow) verdict with TERMINAL_JAIL_LANDLOCK_NET=1 MUST either engage the net tier (landlock-net-loader) and enforce egress blocking, or print a loud degrade warning naming the cause \u2014 never silently run the payload CONNECTED. 2. README documented example (python3 -c socket.connect to non-allowlisted port) must NOT succeed CONNECTED under the installed CLI. 3. A contract test verifies: plain-allow command to blocked port prints a degrade warning or is blocked."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9a5a64261f05ab3ff8ff3f19c2f407ec0510b3e9",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261017T145844.048442Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n4:29AM INF scanned ~6401266 bytes (6.40 MB) in 498ms\n4:29AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 231 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261017T145844.048442Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2025 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 27%]\n.................................................                        [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 35%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 53%]\n\n\u2026 [2160 chars omitted \u2014 27 line(s)] \u2026\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 88%]\nplugin/test_tjdf046_egress_allow_path.py .....................s          [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2013 passed, 12 skipped in 165.12s (0:02:45) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261017T145844.048442Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 1. A rule_id=null (allow) verdict with TERMINAL_JAIL_LANDLOCK_NET=1 MUST either engage the net tier (landlock-net-loader) and enforce egress blocking, or print a loud degrade warning naming the cause \u2014 never silently run the payload CONNECTED. 2. README documented example (python3 -c socket.connect to non-allowlisted port) must NOT succeed CONNECTED under the installed CLI. 3. A contract test verifies: plain-allow command to blocked port prints a degrade warning or is blocked.: PASS: standalone/terminal-jail:147-160 resolves landlock-net-loader.py; :1046-1068 _tj_egress_tier_decide sets TJ_EGRESS_TIER_ATTACH or calls _tj_egress_degrade (loud WARNING naming cause + searched paths); called at :1100 (composed), :1253/:1262 (seccomp trampoline), :1298/:1338 (bwrap/unshare). Live run (plain-allow verdict action=allow rule_id=null): knob=0 -> CONNECTED (control); knob=1 -> \"landlock-net: kernel egress tier APPLIED ... TCP connect() restricted to ports [22,53,80,443]\" then PermissionError [Errno 13], no CONNECTED.\nPartial verdict \u2014 all verified criteria passed",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 1. A rule_id=null (allow) verdict with TERMINAL_JAIL_LANDLOCK_NET=1 MUST either engage the net tier (landlock-net-loader) and enforce egress blocking, or print a loud degrade warning naming the cause \u2014 never silently run the payload CONNECTED. 2. README documented example (python3 -c socket.connect to non-allowlisted port) must NOT succeed CONNECTED under the installed CLI. 3. A contract test verifies: plain-allow command to blocked port prints a degrade warning or is blocked.: PASS: standalone/terminal-jail:147-160 resolves landlock-net-loader.py; :1046-1068 _tj_egress_tier_decide sets TJ_EGRESS_TIER_ATTACH or calls _tj_egress_degrade (loud WARNING naming cause + searched paths); called at :1100 (composed), :1253/:1262 (seccomp trampoline), :1298/:1338 (bwrap/unshare). Live run (plain-allow verdict action=allow rule_id=null): knob=0 -> CONNECTED (control); knob=1 -> \"landlock-net: kernel egress tier APPLIED ... TCP connect() restricted to ports [22,53,80,443]\" then PermissionError [Errno 13], no CONNECTED.\nPartial verdict \u2014 all verified criteria passed",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "1. A rule_id=null (allow) verdict with TERMINAL_JAIL_LANDLOCK_NET=1 MUST either engage the net tier (landlock-net-loader) and enforce egress blocking, or print a loud degrade warning naming the cause \u2014 never silently run the payload CONNECTED. 2. README documented example (python3 -c socket.connect to non-allowlisted port) must NOT succeed CONNECTED under the installed CLI. 3. A contract test verifies: plain-allow command to blocked port prints a degrade warning or is blocked.",
+                "status": "PASS",
+                "detail": "PASS: standalone/terminal-jail:147-160 resolves landlock-net-loader.py; :1046-1068 _tj_egress_tier_decide sets TJ_EGRESS_TIER_ATTACH or calls _tj_egress_degrade (loud WARNING naming cause + searched paths); called at :1100 (composed), :1253/:1262 (seccomp trampoline), :1298/:1338 (bwrap/unshare). Live run (plain-allow verdict action=allow rule_id=null): knob=0 -> CONNECTED (control); knob=1 -> \"landlock-net: kernel egress tier APPLIED ... TCP connect() restricted to ports [22,53,80,443]\" then PermissionError [Errno 13], no CONNECTED."
+              }
+            ],
+            "summary": "Partial verdict \u2014 all verified criteria passed"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-046\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 1. A rule_id=null (allow) verdict with TERMINAL_JAIL_LANDLOCK_NET=1 MUST either engage the net tier (landlock-net-loader) and enforce egress blocking, or print a loud degrade warning naming the cause \u2014 never silently run the payload CONNECTED. 2. README documented example (python3 -c socket.connect to non-allowlisted port) must NOT succeed CONNECTED under the installed CLI. 3. A contract test verifies: plain-allow command to blocked port prints a degrade warning or is blocked.: PASS: standalone/terminal-jail:147-160 resolves landlock-net-loader.py; :1046-1068 _tj_egress_tier_decide sets TJ_EGRESS_TIER_ATTACH or calls _tj_egress_degrade (loud WARNING naming cause + searched paths); called at :1100 (composed), :1253/:1262 (seccomp trampoline), :1298/:1338 (bwrap/unshare). Live run (plain-allow verdict action=allow rule_id=null): knob=0 -> CONNECTED (control); knob=1 -> \"landlock-net: kernel egress tier APPLIED ... TCP connect() restricted to ports [22,53,80,443]\" then PermissionError [Errno 13], no CONNECTED.\nPartial verdict \u2014 all verified criteria passed\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-18T11:39:58.422444",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-18T11:39:58.481895+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 32168,
+        "truncated": false,
+        "source": "git show 9a5a64261f05"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 6315,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-046"
+  }
+}

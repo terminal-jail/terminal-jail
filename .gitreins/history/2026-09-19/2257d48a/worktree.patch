@@ -1,0 +1,37 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 4a93d11..bdcbaca 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -908,3 +908,12 @@ tasks:
+   status: complete
+   created_at: '2026-09-19T16:33:54.978164+00:00'
+   completed_at: '2026-09-19T17:56:32.236565+00:00'
++- id: DF-TERMINAL-JAIL-22
++  title: Prefix install rule-pack target is inert
++  criteria:
++  - A custom-prefix install must place requested packs in a directory the engine actually
++    loads or emit an explicit non-success warning; tests and docs must prove the resolved
++    path, suite and lint green.
++  status: complete
++  created_at: '2026-09-19T18:35:18.521263+00:00'
++  completed_at: '2026-09-19T19:23:48.772142+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 3ef0c25..726254f 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -42,3 +42,4 @@
+ {"ts": 1789794299.677283, "tokens_in": 785523, "tokens_out": 7225, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789801183.0123444, "tokens_in": 419101, "tokens_out": 5220, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1789840660.8194084, "tokens_in": 295616, "tokens_out": 3601, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1789845869.5737247, "tokens_in": 787295, "tokens_out": 5545, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..38101f9 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,6 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}

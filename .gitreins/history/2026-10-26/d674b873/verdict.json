@@ -1,0 +1,129 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-21",
+  "task_title": "Fix private-proc demand battery divergence",
+  "task_criteria": [
+    "The private-proc demand battery changes must pass plugin/test_private_proc_demand.py, the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior for composed hosts; the landed commit must be pushed and origin parity must be zero."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a96a3555dc8e4639faf40d674567f6e50ac2f28a",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T234114.878659Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n6:53PM INF scanned ~5204948 bytes (5.20 MB) in 397ms\n6:53PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 240 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T234114.878659Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2070 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2055 passed, 15 skipped in 176.99s (0:02:56) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261025T234114.878659Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 The private-proc demand battery changes must pass plugin/test_private_proc_demand.py, the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior for composed hosts; the landed commit must be pushed and origin parity must be zero.: Test/lint/KNOWN-LIMIT halves PASS, but the push/parity half FAILS. Evidence: (a) plugin/test_private_proc_demand.py \u2014 HEAD a96a355: `20 passed in 5.08s`; fix branch b9abd50: `22 passed in 6.04s`. (b) Full suite \u2014 HEAD: `2055 passed, 15 skipped in 183.54s`; branch b9abd50: `2057 passed, 15 skipped in 186.53s` (exit 0 both). (c) ruff \u2014 `.venv/bin/python -m ruff check .` -> CHECK_RC=0 'All checks passed!'; `ruff format --check .` -> FMT_RC=0 '154 files already formatted' (both trees). (d) KNOWN-LIMIT honesty preserved: b9abd50 adds scripts/backend-parity-battery.py `_proc_view_pair_ok` accepting `proc_view=platform-owned` on composed hosts while still rejecting `proc_view=none`/missing/rc!=0, cell 5b refusal -> KNOWN-LIMIT/UNMEASURED, cells 1-2 UNMEASURED must be KNOWN-LIMIT; pinned by new tests `test_battery_cell9_verdict_accepts_composed_host_attribution` and `test_battery_live_slice_refusal_is_known_limit_not_divergence`; live runs: backend-parity-battery rc=0 'zero unexplained divergences' with DIFFERS=[] (cell 8 FAIL-CLOSED-PROVEN, cell 9 SAME, cell 2 KNOWN-LIMIT), composed-mode-battery '3/3 PASS, 0 UNAVAILABLE'. (e) PUSH/PARITY FAILS: the landed fix commit b9abd50 ('fix(battery): parity battery accepts composed-host truths... Addresses QA-TERMINAL-JAIL-21') is NOT an ancestor of HEAD (`git merge-base --is-ancestor b9abd50 HEAD` -> NOT-ANCESTOR) and NOT in origin/main (`--is-ancestor b9abd50 origin/main` -> NOT-IN-ORIGIN). It exists only on branch wt/QA-TERMINAL-JAIL-21 (local + origin/wt/QA-TERMINAL-JAIL-21); `git rev-list --left-right --count origin/main...origin/wt/QA-TERMINAL-JAIL-21` = `1 1` (branch 1 ahead, 1 behind). HEAD...origin/main = `0 0` only because the work never landed on main \u2014 the working tree at HEAD still contains the OLD battery code (grep `_proc_view_pair_ok` in HEAD scripts/backend-parity-battery.py = 0 matches) and the OLD test file (grep `test_battery_cell9_verdict_accepts_composed_host_attribution` = 0 matches), while the branch worktree has both (2 and 1 matches). The task's own diff is only the .gitreins/tasks.yaml board row marking the task complete \u2014 no code change is on main. So the landed commit is not pushed to main and origin parity for the landed work is not zero.\nThe battery fix passes its test file, the full suite, ruff check/format and keeps honest KNOWN-LIMIT composed-host behavior, but the fix commit b9abd50 was never merged/pushed to main (it lives only on wt/QA-TERMINAL-JAIL-21, 1 ahead / 1 behind origin/main), so the push-and-zero-parity requirement fails.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 The private-proc demand battery changes must pass plugin/test_private_proc_demand.py, the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior for composed hosts; the landed commit must be pushed and origin parity must be zero.: Test/lint/KNOWN-LIMIT halves PASS, but the push/parity half FAILS. Evidence: (a) plugin/test_private_proc_demand.py \u2014 HEAD a96a355: `20 passed in 5.08s`; fix branch b9abd50: `22 passed in 6.04s`. (b) Full suite \u2014 HEAD: `2055 passed, 15 skipped in 183.54s`; branch b9abd50: `2057 passed, 15 skipped in 186.53s` (exit 0 both). (c) ruff \u2014 `.venv/bin/python -m ruff check .` -> CHECK_RC=0 'All checks passed!'; `ruff format --check .` -> FMT_RC=0 '154 files already formatted' (both trees). (d) KNOWN-LIMIT honesty preserved: b9abd50 adds scripts/backend-parity-battery.py `_proc_view_pair_ok` accepting `proc_view=platform-owned` on composed hosts while still rejecting `proc_view=none`/missing/rc!=0, cell 5b refusal -> KNOWN-LIMIT/UNMEASURED, cells 1-2 UNMEASURED must be KNOWN-LIMIT; pinned by new tests `test_battery_cell9_verdict_accepts_composed_host_attribution` and `test_battery_live_slice_refusal_is_known_limit_not_divergence`; live runs: backend-parity-battery rc=0 'zero unexplained divergences' with DIFFERS=[] (cell 8 FAIL-CLOSED-PROVEN, cell 9 SAME, cell 2 KNOWN-LIMIT), composed-mode-battery '3/3 PASS, 0 UNAVAILABLE'. (e) PUSH/PARITY FAILS: the landed fix commit b9abd50 ('fix(battery): parity battery accepts composed-host truths... Addresses QA-TERMINAL-JAIL-21') is NOT an ancestor of HEAD (`git merge-base --is-ancestor b9abd50 HEAD` -> NOT-ANCESTOR) and NOT in origin/main (`--is-ancestor b9abd50 origin/main` -> NOT-IN-ORIGIN). It exists only on branch wt/QA-TERMINAL-JAIL-21 (local + origin/wt/QA-TERMINAL-JAIL-21); `git rev-list --left-right --count origin/main...origin/wt/QA-TERMINAL-JAIL-21` = `1 1` (branch 1 ahead, 1 behind). HEAD...origin/main = `0 0` only because the work never landed on main \u2014 the working tree at HEAD still contains the OLD battery code (grep `_proc_view_pair_ok` in HEAD scripts/backend-parity-battery.py = 0 matches) and the OLD test file (grep `test_battery_cell9_verdict_accepts_composed_host_attribution` = 0 matches), while the branch worktree has both (2 and 1 matches). The task's own diff is only the .gitreins/tasks.yaml board row marking the task complete \u2014 no code change is on main. So the landed commit is not pushed to main and origin parity for the landed work is not zero.\nThe battery fix passes its test file, the full suite, ruff check/format and keeps honest KNOWN-LIMIT composed-host behavior, but the fix commit b9abd50 was never merged/pushed to main (it lives only on wt/QA-TERMINAL-JAIL-21, 1 ahead / 1 behind origin/main), so the push-and-zero-parity requirement fails.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "The private-proc demand battery changes must pass plugin/test_private_proc_demand.py, the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior for composed hosts; the landed commit must be pushed and origin parity must be zero.",
+                "status": "FAIL",
+                "detail": "Test/lint/KNOWN-LIMIT halves PASS, but the push/parity half FAILS. Evidence: (a) plugin/test_private_proc_demand.py \u2014 HEAD a96a355: `20 passed in 5.08s`; fix branch b9abd50: `22 passed in 6.04s`. (b) Full suite \u2014 HEAD: `2055 passed, 15 skipped in 183.54s`; branch b9abd50: `2057 passed, 15 skipped in 186.53s` (exit 0 both). (c) ruff \u2014 `.venv/bin/python -m ruff check .` -> CHECK_RC=0 'All checks passed!'; `ruff format --check .` -> FMT_RC=0 '154 files already formatted' (both trees). (d) KNOWN-LIMIT honesty preserved: b9abd50 adds scripts/backend-parity-battery.py `_proc_view_pair_ok` accepting `proc_view=platform-owned` on composed hosts while still rejecting `proc_view=none`/missing/rc!=0, cell 5b refusal -> KNOWN-LIMIT/UNMEASURED, cells 1-2 UNMEASURED must be KNOWN-LIMIT; pinned by new tests `test_battery_cell9_verdict_accepts_composed_host_attribution` and `test_battery_live_slice_refusal_is_known_limit_not_divergence`; live runs: backend-parity-battery rc=0 'zero unexplained divergences' with DIFFERS=[] (cell 8 FAIL-CLOSED-PROVEN, cell 9 SAME, cell 2 KNOWN-LIMIT), composed-mode-battery '3/3 PASS, 0 UNAVAILABLE'. (e) PUSH/PARITY FAILS: the landed fix commit b9abd50 ('fix(battery): parity battery accepts composed-host truths... Addresses QA-TERMINAL-JAIL-21') is NOT an ancestor of HEAD (`git merge-base --is-ancestor b9abd50 HEAD` -> NOT-ANCESTOR) and NOT in origin/main (`--is-ancestor b9abd50 origin/main` -> NOT-IN-ORIGIN). It exists only on branch wt/QA-TERMINAL-JAIL-21 (local + origin/wt/QA-TERMINAL-JAIL-21); `git rev-list --left-right --count origin/main...origin/wt/QA-TERMINAL-JAIL-21` = `1 1` (branch 1 ahead, 1 behind). HEAD...origin/main = `0 0` only because the work never landed on main \u2014 the working tree at HEAD still contains the OLD battery code (grep `_proc_view_pair_ok` in HEAD scripts/backend-parity-battery.py = 0 matches) and the OLD test file (grep `test_battery_cell9_verdict_accepts_composed_host_attribution` = 0 matches), while the branch worktree has both (2 and 1 matches). The task's own diff is only the .gitreins/tasks.yaml board row marking the task complete \u2014 no code change is on main. So the landed commit is not pushed to main and origin parity for the landed work is not zero.",
+                "resolution_probability": 0.26,
+                "cited_path": "plugin/test_private_proc_demand.py"
+              }
+            ],
+            "summary": "The battery fix passes its test file, the full suite, ruff check/format and keeps honest KNOWN-LIMIT composed-host behavior, but the fix commit b9abd50 was never merged/pushed to main (it lives only on wt/QA-TERMINAL-JAIL-21, 1 ahead / 1 behind origin/main), so the push-and-zero-parity requirement fails.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: QA-TERMINAL-JAIL-21\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 The private-proc demand battery changes must pass plugin/test_private_proc_demand.py, the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior for composed hosts; the landed commit must be pushed and origin parity must be zero.: Test/lint/KNOWN-LIMIT halves PASS, but the push/parity half FAILS. Evidence: (a) plugin/test_private_proc_demand.py \u2014 HEAD a96a355: `20 passed in 5.08s`; fix branch b9abd50: `22 passed in 6.04s`. (b) Full suite \u2014 HEAD: `2055 passed, 15 skipped in 183.54s`; branch b9abd50: `2057 passed, 15 skipped in 186.53s` (exit 0 both). (c) ruff \u2014 `.venv/bin/python -m ruff check .` -> CHECK_RC=0 'All checks passed!'; `ruff format --check .` -> FMT_RC=0 '154 files already formatted' (both trees). (d) KNOWN-LIMIT honesty preserved: b9abd50 adds scripts/backend-parity-battery.py `_proc_view_pair_ok` accepting `proc_view=platform-owned` on composed hosts while still rejecting `proc_view=none`/missing/rc!=0, cell 5b refusal -> KNOWN-LIMIT/UNMEASURED, cells 1-2 UNMEASURED must be KNOWN-LIMIT; pinned by new tests `test_battery_cell9_verdict_accepts_composed_host_attribution` and `test_battery_live_slice_refusal_is_known_limit_not_divergence`; live runs: backend-parity-battery rc=0 'zero unexplained divergences' with DIFFERS=[] (cell 8 FAIL-CLOSED-PROVEN, cell 9 SAME, cell 2 KNOWN-LIMIT), composed-mode-battery '3/3 PASS, 0 UNAVAILABLE'. (e) PUSH/PARITY FAILS: the landed fix commit b9abd50 ('fix(battery): parity battery accepts composed-host truths... Addresses QA-TERMINAL-JAIL-21') is NOT an ancestor of HEAD (`git merge-base --is-ancestor b9abd50 HEAD` -> NOT-ANCESTOR) and NOT in origin/main (`--is-ancestor b9abd50 origin/main` -> NOT-IN-ORIGIN). It exists only on branch wt/QA-TERMINAL-JAIL-21 (local + origin/wt/QA-TERMINAL-JAIL-21); `git rev-list --left-right --count origin/main...origin/wt/QA-TERMINAL-JAIL-21` = `1 1` (branch 1 ahead, 1 behind). HEAD...origin/main = `0 0` only because the work never landed on main \u2014 the working tree at HEAD still contains the OLD battery code (grep `_proc_view_pair_ok` in HEAD scripts/backend-parity-battery.py = 0 matches) and the OLD test file (grep `test_battery_cell9_verdict_accepts_composed_host_attribution` = 0 matches), while the branch worktree has both (2 and 1 matches). The task's own diff is only the .gitreins/tasks.yaml board row marking the task complete \u2014 no code change is on main. So the landed commit is not pushed to main and origin parity for the landed work is not zero.\nThe battery fix passes its test file, the full suite, ruff check/format and keeps honest KNOWN-LIMIT composed-host behavior, but the fix commit b9abd50 was never merged/pushed to main (it lives only on wt/QA-TERMINAL-JAIL-21, 1 ahead / 1 behind origin/main), so the push-and-zero-parity requirement fails.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-26T00:04:42.829842",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-26T00:04:42.862581+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 26440,
+        "truncated": false,
+        "source": "git show a96a3555dc8e"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 7147,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-21"
+  }
+}

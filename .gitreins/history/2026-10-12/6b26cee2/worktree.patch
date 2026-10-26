@@ -1,0 +1,22 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 9d0d1c7..ecb9301 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1700,3 +1700,17 @@ tasks:
+   status: complete
+   created_at: '2026-10-11T21:45:59.659677+00:00'
+   completed_at: '2026-10-11T22:45:08.903849+00:00'
++- id: QA-TJ19-UPG
++  title: 'Fix QA upgrade-cell PyPI premise: stream previous tag tree for unpublished
++    pip packages'
++  criteria:
++  - 'detect_upgrade_inputs sets DETECT_UP_PREV_DIR when the pip package is absent
++    from PyPI (terminal-jail measured: ~/qa-up-prev-pip) and leaves it empty for a
++    published package (gitreins measured: empty)'
++  - ship_prev_tag_tree streams the previous tag tree for the pip arm (agent dir qa-up-prev-pip,
++    verified by pyproject.toml)
++  - the agent-side upgrade cell consumes UP_PREV for pip before the registry arm;
++    bash -n on bunker-qa.sh is clean
++  status: complete
++  created_at: '2026-10-12T23:20:29.799751+00:00'
++  completed_at: '2026-10-12T23:26:04.320251+00:00'

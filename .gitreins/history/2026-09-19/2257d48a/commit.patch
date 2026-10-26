@@ -1,0 +1,784 @@
+commit 1b86e8794d7190404b0572615551e3dbb803af59
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Sep 19 14:12:53 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Sep 19 14:12:53 2026 -0500
+
+    fix(installer): DF-TERMINAL-JAIL-22 — prefix-scope rule packs skip instead of installing inert
+    
+    With a custom TERMINAL_JAIL_INSTALL_DIR and no rules-dir override, the
+    installer resolved <prefix>/config/terminal-jail/rules.d and --rule-pack
+    byte-copied the pack there with a success line and exit 0 — but the engine
+    loads only /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d
+    (or TERMINAL_JAIL_INTERRUPTOR_RULES_DIR / TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR),
+    so the pack was silently inert and psql destructive-command rules never fired.
+    
+    Two changes, preserving the default install, same-id precedence, the DF-21
+    skip contract, and the engine's documented rules-directory contract:
+    
+    - New resolver case (engine-env): with a custom prefix and an exported
+      TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR (the engine's own user-rules
+      variable, read verbatim at run time), the installer's single rules dir
+      resolves to exactly that directory — default rules AND packs land where
+      the engine actually loads. An explicit TERMINAL_JAIL_RULES_DIR still wins.
+    - Remaining prefix-local scope: every requested pack is SKIPPED before the
+      validator runs — one stderr reason naming the inert target and the exact
+      remediation (explicit TERMINAL_JAIL_RULES_DIR; TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR
+      exported for BOTH install and run; or the default install dir) — under the
+      DF-TERMINAL-JAIL-21 contract: nothing written for the pack, base install
+      always completes, end summary + exit 2. --unrule-pack is removal and stays
+      available in every scope. The prefix default-rules WARNING now also names
+      the engine-env channel and the pack skip.
+    
+    Tests: new DF-22 regressions pin the prefix skip (exit 2, remediation named,
+    no pack file, base install completes; two packs skip independently) and the
+    engine-loaded channels (pack byte-copied to the explicit / engine-env
+    directory and intercept() BLOCKs the DROP DATABASE vector through it — a
+    load proof, not a file-presence proof). The engine-loaded pack tests
+    (validation refusals, PyYAML/JSON/no-python3 preflights, collision oracle)
+    moved to the explicit-rules-dir scope, where an installed pack is really
+    loaded. RED-proven: the new prefix test fails against 808ff39's install.sh
+    (silent exit 0) and passes with the fix.
+    
+    Docs: README, docs/quickstart.md, specs/cli.md, CHANGELOG.md updated to
+    document the engine-env channel, the prefix pack skip, and the remediation.
+    
+    Gates: pytest 889 passed / 5 skipped (unchanged skips), uvx ruff check clean,
+    scripts/yaml-mirror-parity-probe.py ALL PROBES PASS (byte-identical mirror).
+    
+    Addresses DF-TERMINAL-JAIL-22.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ CHANGELOG.md           |  26 ++++
+ README.md              |  29 ++++-
+ docs/quickstart.md     |   7 +-
+ install.sh             |  29 ++++-
+ plugin/test_install.py | 316 ++++++++++++++++++++++++++++++++++++++++++-------
+ specs/cli.md           |  17 ++-
+ 6 files changed, 372 insertions(+), 52 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index e8beaed..c2df420 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,32 @@
+ 
+ ## [Unreleased]
+ 
++### Prefix-scope rule packs skip instead of installing inert (DF-TERMINAL-JAIL-22)
++
++- **`install.sh`**: with a custom `TERMINAL_JAIL_INSTALL_DIR` prefix and no
++  rules-dir override, the resolved rules dir (`<prefix>/config/terminal-jail/rules.d`)
++  is prefix-local config the engine never loads — yet `--rule-pack` reported the
++  pack installed there, silently inert. Two changes:
++  (1) a new resolver case — an exported `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`
++  (the engine's own user-rules variable, read verbatim at run time) resolves the
++  installer's single rules directory to exactly that value for custom-prefix
++  installs, so default rules AND packs land where the engine actually loads
++  (the default install's live scope and an explicit `TERMINAL_JAIL_RULES_DIR`
++  are unchanged and still win);
++  (2) in the remaining prefix-local scope every requested `--rule-pack` is
++  skipped before the validator runs — one stderr reason naming the inert
++  target and the exact remediation (explicit `TERMINAL_JAIL_RULES_DIR`;
++  `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` exported for install AND run;
++  or the default install dir) — under the DF-TERMINAL-JAIL-21 contract:
++  nothing written for the pack, base install always completes, summary +
++  exit `2`. `--unrule-pack` is removal and stays available in every scope.
++  The prefix default-rules WARNING now also names the engine-env channel and
++  the pack skip. Regression tests pin the prefix skip (nothing written,
++  remediation named), both engine-loaded channels (pack byte-copied +
++  `intercept()` verdicts BLOCK through the installed file), and the
++  no-PyYAML/plain-JSON/no-python3/validator-refusal pack tests moved to the
++  engine-loaded scope. README, docs/quickstart.md, and specs/cli.md updated.
++
+ ### Rule-pack failure skips instead of aborting the base install (DF-TERMINAL-JAIL-21)
+ 
+ - **`install.sh` + `scripts/rule-pack-tool.py`**: a fresh Debian host without
+diff --git a/README.md b/README.md
+index 4643eab..fd59251 100644
+--- a/README.md
++++ b/README.md
+@@ -442,7 +442,11 @@ file to `~/.config/terminal-jail/rules.d/00-builtins.yaml`, while a custom
+ `<prefix>/config/terminal-jail/rules.d/` instead (the engine only reads
+ `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`, so the
+ installer prints a warning for prefix installs). Set `TERMINAL_JAIL_RULES_DIR`
+-to target the live rules directory explicitly — it always wins.
++to target the live rules directory explicitly — it always wins — or export
++`TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and the installer resolves
++its rules directory to exactly that value (the engine reads the same variable
++verbatim at run time, so with a custom prefix this is the one channel that
++keeps prefix installs loading their rules).
+ 
+ ### Rule packs (opt-in)
+ 
+@@ -464,10 +468,25 @@ as an **opt-in rule pack**: a curated rule file in the repository under
+ 
+ A pack is byte-copied to `<rules dir>/terminal-jail-pack-<name>.yaml` — the SAME
+ rules directory the default rules file resolves to (`TERMINAL_JAIL_RULES_DIR`
+-explicit, else the live `~/.config/terminal-jail/rules.d`, else
+-`<prefix>/config/terminal-jail/rules.d`). Nothing else is written;
+-`--unrule-pack` deletes that one file and never touches `00-builtins.yaml` or
+-another pack.
++explicit, else the live `~/.config/terminal-jail/rules.d`, else — with a
++custom prefix — the engine's `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` when
++exported, else `<prefix>/config/terminal-jail/rules.d`). Nothing else is
++written; `--unrule-pack` deletes that one file and never touches
++`00-builtins.yaml` or another pack.
++
++**A pack is only installed where the engine will actually load it**
++(DF-TERMINAL-JAIL-22): in the prefix-local scope the resolved directory is
++config the engine never scans, so `--rule-pack` does NOT quietly write an
++inert file there — every requested pack is skipped with the
++DF-TERMINAL-JAIL-21 contract (one stderr reason naming the inert target and
++the exact remediation, base install completes, exit `2`). To install packs
++under a custom prefix, pick one: set `TERMINAL_JAIL_RULES_DIR` to an
++engine-loaded directory (explicit target, always wins), export
++`TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and run the CLI with the
++same variable exported (the engine reads it at run time), or use the default
++install dir so the live `~/.config/terminal-jail/rules.d` is targeted.
++`--unrule-pack` is removal, not installation, and stays available in every
++scope.
+ 
+ **Packs are validated before anything is written** (`scripts/rule-pack-tool.py`,
+ run by the installer — POSIX `sh` cannot parse YAML):
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index ae07c75..db18009 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -412,7 +412,12 @@ The file itself contains the full rollback procedure.
+ `~/.config/terminal-jail/rules.d/00-builtins.yaml` for a default install; with a custom
+ `TERMINAL_JAIL_INSTALL_DIR` prefix it lands under `<prefix>/config/terminal-jail/rules.d/`
+ instead (the engine won't read it there — the installer prints a WARNING). Set
+-`TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins.
++`TERMINAL_JAIL_RULES_DIR` to override the target (e.g. to the live directory) — it always wins —
++or export `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and the installer resolves its rules
++directory to exactly that value (the engine reads the same variable at run time, so prefix
++installs load their rules). Note for prefix installs: opt-in rule packs (`--rule-pack`) are
++SKIPPED in the prefix-local scope instead of being installed inert — the skip message names the
++remediation.
+ See `specs/interruptor.md`.
+ 
+ ## 5. Next steps
+diff --git a/install.sh b/install.sh
+index c1ec7db..8e9ebf6 100755
+--- a/install.sh
++++ b/install.sh
+@@ -303,14 +303,26 @@ resolve_user_rules_dir() {
+     #   live:     default install dir ($HOME/.local/bin) -> the live user rules
+     #             dir $HOME/.config/terminal-jail/rules.d (unchanged behavior;
+     #             the engine does NOT honor XDG_CONFIG_HOME)
++    #   engine:   custom prefix + the engine's own user-rules knob
++    #             TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR set -> that exact
++    #             directory (DF-TERMINAL-JAIL-22: the engine reads this env var
++    #             verbatim — interruptor/config.py — so rules installed there
++    #             are LOADED, and the installer's single rules dir IS the
++    #             engine's rules dir)
+     #   prefix:   anything else -> <install prefix>/config/terminal-jail/
+-    #             rules.d, with the parent resolved like LIB_DIR below
++    #             rules.d, with the parent resolved like LIB_DIR below. The
++    #             engine does not scan prefix-local config: requested packs
++    #             skip loudly in this scope (DF-TERMINAL-JAIL-22, below) and
++    #             the shipped default rules file carries its own WARNING.
+     if [ -n "$TERMINAL_JAIL_RULES_DIR" ]; then
+         RESOLVED_RULES_DIR="$TERMINAL_JAIL_RULES_DIR"
+         RULES_SCOPE="explicit"
+     elif [ "$TERMINAL_JAIL_INSTALL_DIR" = "$HOME/.local/bin" ]; then
+         RESOLVED_RULES_DIR="$HOME/.config/terminal-jail/rules.d"
+         RULES_SCOPE="live"
++    elif [ -n "${TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR:-}" ]; then
++        RESOLVED_RULES_DIR="$TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"
++        RULES_SCOPE="engine-env"
+     else
+         rules_prefix="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")"
+         RESOLVED_RULES_DIR="${rules_prefix}/config/terminal-jail/rules.d"
+@@ -358,6 +370,19 @@ if [ -n "$RULE_PACKS" ] || [ -n "$UNRULE_PACKS" ]; then
+     else
+     install_rule_pack() {
+         pack="$1"
++        # DF-TERMINAL-JAIL-22: a requested pack may only be reported as
++        # installed when the engine will actually LOAD it. The pack lands in
++        # the one resolved rules dir; in the prefix scope that directory is
++        # prefix-local config the engine never scans, so installing there
++        # would be silent inertness. Refuse the PACK — never the base install
++        # — with the exact remediation, reusing the DF-TERMINAL-JAIL-21
++        # skip/exit-2 contract. Every engine-loaded scope (live, explicit
++        # TERMINAL_JAIL_RULES_DIR, engine-env) installs normally.
++        if [ "$RULES_SCOPE" = "prefix" ]; then
++            echo "terminal-jail installer: rules target is ${RESOLVED_RULES_DIR} (prefix-local config, custom TERMINAL_JAIL_INSTALL_DIR) — the engine does not read prefix-local config, so installing '${pack}' there would be silently inert." >&2
++            skip_rule_pack "terminal-jail installer: skipped: pack '${pack}' — the resolved rules dir ${RESOLVED_RULES_DIR} is prefix-local config the engine does NOT load (it reads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only). Nothing was written for this pack. Remediation, pick one: (1) re-run with TERMINAL_JAIL_RULES_DIR=<engine-loaded dir> (explicit target, always wins); (2) re-run with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<engine-loaded dir> exported when BOTH installing and running the CLI (the engine reads this env var at run time); (3) re-run with the default install dir (no custom TERMINAL_JAIL_INSTALL_DIR) so the live ~/.config/terminal-jail/rules.d is targeted."
++            return 0
++        fi
+         pack_src="${PACKS_SOURCE_DIR}/${pack}.yaml"
+         pack_dest="${RESOLVED_RULES_DIR}/terminal-jail-pack-${pack}.yaml"
+         if [ -z "$PACKS_SOURCE_DIR" ] || [ ! -f "$pack_src" ]; then
+@@ -464,7 +489,7 @@ if [ -n "$LOCAL_WRAPPER" ]; then
+         user_rules_dir="$RESOLVED_RULES_DIR"
+         rules_scope="$RULES_SCOPE"
+         if [ "$rules_scope" = "prefix" ]; then
+-            echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory."
++            echo "terminal-jail installer: WARNING — non-default install prefix; installing default rules to ${user_rules_dir}. The engine loads /etc/terminal-jail/rules.d and ~/.config/terminal-jail/rules.d only; set TERMINAL_JAIL_RULES_DIR explicitly to target the live rules directory, or export TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=${user_rules_dir} when running the CLI to load this directory (DF-TERMINAL-JAIL-22: requested rule packs are NOT installed in this scope)."
+         fi
+         shipped_rules="$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml"
+         installed_rules="${user_rules_dir}/00-builtins.yaml"
+diff --git a/plugin/test_install.py b/plugin/test_install.py
+index 5f542a4..e0cc97b 100644
+--- a/plugin/test_install.py
++++ b/plugin/test_install.py
+@@ -9,6 +9,7 @@ import sys
+ from pathlib import Path
+ 
+ import pytest
++from terminal_jail.interruptor import Action, intercept
+ 
+ PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ INSTALL_SCRIPT = PROJECT_ROOT / "install.sh"
+@@ -1118,6 +1119,13 @@ def test_install_sh_never_downloads_or_vendors_bubblewrap(
+ 
+ DB_PACK = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "packs" / "db.yaml"
+ 
++# DF-TERMINAL-JAIL-22: the shipped pack's headline vector and benign control
++# (mirrored from plugin/test_rule_packs.py). Used to prove a pack the installer
++# wrote is LOADED by the live engine — an intercept verdict, not mere presence.
++DB_PACK_DROP_DATABASE = 'psql -h db.internal -c "DROP DATABASE prod_app"'
++DB_PACK_DROP_DATABASE_RULE = "pack-db-drop-database"
++DB_PACK_BENIGN_READ = 'psql -c "SELECT 1"'
++
+ # Fixture packs for the refusal paths. The shipped packs are valid by
+ # construction, so a bad pack must be seeded into a checkout of our own.
+ _SHADOW_BUILTIN_PACK = """rules:
+@@ -1179,10 +1187,37 @@ def _install_env(tmp_path: Path) -> dict[str, str]:
+     }
+ 
+ 
++# DF-TERMINAL-JAIL-22: run a test in a named install SCOPE.
++#   prefix: custom TERMINAL_JAIL_INSTALL_DIR, no rules-dir env -> the installer
++#           resolves prefix-local config the engine does NOT load (the DF-22
++#           subject: packs SKIP there — dedicated tests at the bottom).
++#   live:   custom install dir + explicit TERMINAL_JAIL_RULES_DIR -> the
++#           explicit engine target (always wins). Custom install dir keeps
++#           PATH-related writes out of scratch HOME (mirrors _install_env).
++#           Pack install/validation/removal tests run in THIS scope: it is
++#           engine-loaded, so a pack reported installed is really loaded.
++def _install_env_for_scope(
++    tmp_path: Path, scope: str
++) -> tuple[dict[str, str], Path]:
++    """(env, expected rules dir) for the named scope. Never mutates the real
++    HOME: both scopes live under tmp_path."""
++    env = _install_env(tmp_path)
++    if scope == "prefix":
++        return env, tmp_path / "config" / "terminal-jail" / "rules.d"
++    if scope == "live":
++        explicit = tmp_path / "live-rules.d"
++        env["TERMINAL_JAIL_RULES_DIR"] = str(explicit)
++        return env, explicit
++    raise ValueError(f"unknown install scope: {scope}")
++
++
+ def _run_repo_install(
+-    tmp_path: Path, *args: str
++    tmp_path: Path, *args: str, extra_env: dict[str, str] | None = None
+ ) -> subprocess.CompletedProcess[bytes]:
+     """Run the real checkout's installer (cwd=repo root => local mode)."""
++    env = _install_env(tmp_path)
++    if extra_env:
++        env.update(extra_env)
+     return subprocess.run(
+         ["sh", "install.sh", *args],
+         capture_output=True,
+@@ -1190,13 +1225,19 @@ def _run_repo_install(
+         check=False,
+         timeout=30,
+         cwd=str(PROJECT_ROOT),
+-        env=_install_env(tmp_path),
++        env=env,
+     )
+ 
+ 
+ def _run_checkout_install(
+-    checkout: Path, tmp_path: Path, *args: str
++    checkout: Path,
++    tmp_path: Path,
++    *args: str,
++    extra_env: dict[str, str] | None = None,
+ ) -> subprocess.CompletedProcess[bytes]:
++    env = _install_env(tmp_path)
++    if extra_env:
++        env.update(extra_env)
+     return subprocess.run(
+         ["sh", "install.sh", *args],
+         capture_output=True,
+@@ -1204,7 +1245,7 @@ def _run_checkout_install(
+         check=False,
+         timeout=30,
+         cwd=str(checkout),
+-        env=_install_env(tmp_path),
++        env=env,
+     )
+ 
+ 
+@@ -1221,27 +1262,39 @@ def _assert_nothing_written(tmp_path: Path) -> None:
+     assert not (tmp_path / "config").exists()
+ 
+ 
+-def _assert_base_install_completed(tmp_path: Path, out: str) -> None:
++def _assert_base_install_completed(
++    tmp_path: Path, out: str, rules_dir: Path | None = None
++) -> None:
+     """DF-TERMINAL-JAIL-21 invariant: no matter what happened to a requested
+     pack, the base install always completes — wrapper, lib tree, default
+-    rules file."""
++    rules file. DF-TERMINAL-JAIL-22: pass rules_dir for the engine-loaded
++    scopes (explicit / engine-env) whose default rules land OUTSIDE the
++    prefix config tree."""
+     install_dir = tmp_path / "bin"
+     assert (install_dir / "terminal-jail").exists(), out
+     lib_tree = install_dir.parent / "lib" / "terminal-jail" / "plugin"
+     assert lib_tree.is_dir(), out
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    if rules_dir is None:
++        rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     assert (rules_dir / "00-builtins.yaml").exists(), out
+ 
+ 
+ @pytest.mark.standalone_cli
+-def test_install_rule_pack_lands_in_the_resolved_rules_dir(tmp_path: Path) -> None:
++def test_install_rule_pack_lands_in_the_resolved_rules_dir(
++    tmp_path: Path,
++) -> None:
+     """--rule-pack db byte-copies the shipped pack next to the default rules
+-    file, in the directory the install scope resolves to."""
+-    result = _run_repo_install(tmp_path, "--rule-pack", "db")
++    file, in the directory the install scope resolves to.
++
++    DF-TERMINAL-JAIL-22: run in the ENGINE-LOADED scope (explicit
++    TERMINAL_JAIL_RULES_DIR). In the prefix scope the pack skips loudly
++    instead of installing (DF-TERMINAL-JAIL-22 tests below) — an installed
++    pack must always be an engine-loaded pack."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    result = _run_repo_install(tmp_path, "--rule-pack", "db", extra_env=env)
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 0, out
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     pack = rules_dir / "terminal-jail-pack-db.yaml"
+     assert pack.exists(), out
+     # byte-identical to the shipped pack, and beside the default rules file
+@@ -1255,17 +1308,18 @@ def test_install_rule_pack_lands_in_the_resolved_rules_dir(tmp_path: Path) -> No
+ @pytest.mark.standalone_cli
+ def test_unrule_pack_removes_only_that_pack(tmp_path: Path) -> None:
+     """--unrule-pack removes terminal-jail-pack-db.yaml and nothing else: a
+-    foreign file beside it and the default rules file both survive."""
+-    install = _run_repo_install(tmp_path, "--rule-pack", "db")
++    foreign file beside it and the default rules file both survive.
++    DF-TERMINAL-JAIL-22: engine-loaded scope (removal follows install)."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    install = _run_repo_install(tmp_path, "--rule-pack", "db", extra_env=env)
+     assert install.returncode == 0, install.stderr.decode("utf-8", "replace")
+ 
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     pack = rules_dir / "terminal-jail-pack-db.yaml"
+     foreign = rules_dir / "zz-foreign-user-rules.yaml"
+     foreign.write_text("rules: []\n", encoding="utf-8")
+     builtins_before = (rules_dir / "00-builtins.yaml").read_bytes()
+ 
+-    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
++    result = _run_repo_install(tmp_path, "--unrule-pack", "db", extra_env=env)
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 0, out
+@@ -1278,8 +1332,10 @@ def test_unrule_pack_removes_only_that_pack(tmp_path: Path) -> None:
+ 
+ @pytest.mark.standalone_cli
+ def test_unrule_pack_for_a_pack_that_is_not_installed(tmp_path: Path) -> None:
+-    """Removal is idempotent and says so — it never fails on a clean host."""
+-    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
++    """Removal is idempotent and says so — it never fails on a clean host.
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
++    env, _rules_dir = _install_env_for_scope(tmp_path, "live")
++    result = _run_repo_install(tmp_path, "--unrule-pack", "db", extra_env=env)
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 0, out
+@@ -1303,13 +1359,18 @@ def test_install_skips_a_bad_pack_but_still_installs_the_base(
+     'refusal aborts everything' semantics): schema-invalid, malformed, and
+     builtin-shadowing packs are refused by the validator and NOTHING is written
+     for the pack itself — but the base install (wrapper, lib tree, default
+-    rules) always completes, the skip is loud, and the run exits 2."""
++    rules) always completes, the skip is loud, and the run exits 2.
++    DF-TERMINAL-JAIL-22: engine-loaded scope — the prefix scope never reaches
++    the validator (packs skip there before any validation)."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+     checkout = _scratch_checkout(tmp_path)
+     (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / f"{fixture_name}.yaml").write_text(
+         body, encoding="utf-8"
+     )
+ 
+-    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", fixture_name)
++    result = _run_checkout_install(
++        checkout, tmp_path, "--rule-pack", fixture_name, extra_env=env
++    )
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 2, out
+@@ -1317,10 +1378,10 @@ def test_install_skips_a_bad_pack_but_still_installs_the_base(
+     assert f"skipped: pack '{fixture_name}' — REFUSED by the validator, nothing was written" in out, out
+     # the pack file itself was never written (fail-closed, validate-before-write)
+     assert not (
+-        tmp_path / "config" / "terminal-jail" / "rules.d" / f"terminal-jail-pack-{fixture_name}.yaml"
++        rules_dir / f"terminal-jail-pack-{fixture_name}.yaml"
+     ).exists(), out
+     # ...but the base install completed
+-    _assert_base_install_completed(tmp_path, out)
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+     # the end-of-run summary names what installed and what skipped
+     assert f"installed: wrapper at {tmp_path / 'bin' / 'terminal-jail'}" in out, out
+     assert "base install completed" in out, out
+@@ -1330,9 +1391,11 @@ def test_install_skips_a_bad_pack_but_still_installs_the_base(
+ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+     """An id another installed rule file already carries is refused — a pack
+     may never shadow a rule that is already live in the rules dir.
+-    DF-TERMINAL-JAIL-21: the refusal is a loud skip; the base install completes."""
++    DF-TERMINAL-JAIL-21: the refusal is a loud skip; the base install completes.
++    DF-TERMINAL-JAIL-22: engine-loaded scope — the prefix scope skips packs
++    before validation ever runs."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
+     checkout = _scratch_checkout(tmp_path)
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     rules_dir.mkdir(parents=True)
+     (rules_dir / "zz-handwritten.yaml").write_text(
+         "rules:\n"
+@@ -1345,7 +1408,9 @@ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+         encoding="utf-8",
+     )
+ 
+-    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "db")
++    result = _run_checkout_install(
++        checkout, tmp_path, "--rule-pack", "db", extra_env=env
++    )
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 2, out
+@@ -1355,7 +1420,7 @@ def test_install_refuses_an_already_installed_pack_id(tmp_path: Path) -> None:
+     # the seeded file is untouched
+     assert "pack-db-drop-database" in (rules_dir / "zz-handwritten.yaml").read_text()
+     # the base install completed despite the pack skip (DF-TERMINAL-JAIL-21)
+-    _assert_base_install_completed(tmp_path, out)
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+ 
+ 
+ @pytest.mark.standalone_cli
+@@ -1364,8 +1429,12 @@ def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
+ ) -> None:
+     """DF-TERMINAL-JAIL-21 (deliberate expectation change: previously exit 2
+     with nothing written) — an unknown pack name is a loud skip that suggests
+-    --list-rule-packs, and the base install completes (exit 2 at the end)."""
+-    result = _run_repo_install(tmp_path, "--rule-pack", "nope")
++    --list-rule-packs, and the base install completes (exit 2 at the end).
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    result = _run_repo_install(
++        tmp_path, "--rule-pack", "nope", extra_env=env
++    )
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 2, out
+@@ -1374,9 +1443,9 @@ def test_install_skips_an_unknown_rule_pack_but_still_installs_the_base(
+     assert "--list-rule-packs" in out, out
+     # the unknown pack wrote nothing, but the base install completed
+     assert not (
+-        tmp_path / "config" / "terminal-jail" / "rules.d" / "terminal-jail-pack-nope.yaml"
++        rules_dir / "terminal-jail-pack-nope.yaml"
+     ).exists(), out
+-    _assert_base_install_completed(tmp_path, out)
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+ 
+ 
+ @pytest.mark.standalone_cli
+@@ -1481,8 +1550,10 @@ def test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base(
+     """DF-TERMINAL-JAIL-21 regression lock (the dogfood scenario): a fresh host
+     WITHOUT PyYAML must still get the base install; the YAML pack is skipped
+     loudly, naming PyYAML and both remedies, and the run exits 2. Nothing is
+-    written for the skipped pack — not even the pack file."""
+-    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
++    written for the skipped pack — not even the pack file.
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    extra_env = _env_with_shadowed_pyyaml(env, tmp_path)
+     result = subprocess.run(
+         ["sh", "install.sh", "--rule-pack", "db"],
+         capture_output=True,
+@@ -1500,10 +1571,9 @@ def test_install_with_no_pyyaml_skips_yaml_pack_but_installs_the_base(
+     assert "pip install pyyaml" in out, out
+     assert "base install completed" in out, out
+     # the base install completed: wrapper, lib tree, default rules
+-    _assert_base_install_completed(tmp_path, out)
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+     # the skipped pack wrote NOTHING to the rules dir (fail-closed preflight:
+     # the validator never even ran, so no pack file exists)
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+     # the validator (whose JSONDecodeError caused the original dogfood failure)
+     # never produced a refusal for this pack
+@@ -1516,12 +1586,14 @@ def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
+ ) -> None:
+     """The PyYAML preflight must NOT refuse a pack the validator can actually
+     read: a pack that parses as plain JSON goes through the validator's stdlib
+-    json fallback and installs normally — exit 0, wrapper installed."""
++    json fallback and installs normally — exit 0, wrapper installed.
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
+     checkout = _scratch_checkout(tmp_path)
+     (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "json-pack.yaml").write_text(
+         _JQ_JSON_PACK_BODY, encoding="utf-8"
+     )
+-    extra_env = _env_with_shadowed_pyyaml(_install_env(tmp_path), tmp_path)
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    extra_env = _env_with_shadowed_pyyaml(env, tmp_path)
+     result = subprocess.run(
+         ["sh", "install.sh", "--rule-pack", "json-pack"],
+         capture_output=True,
+@@ -1534,7 +1606,6 @@ def test_install_with_no_pyyaml_still_installs_a_plain_json_pack(
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 0, out
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     pack = rules_dir / "terminal-jail-pack-json-pack.yaml"
+     assert pack.exists(), out
+     assert pack.read_bytes() == _JQ_JSON_PACK_BODY.encode("utf-8"), out
+@@ -1550,8 +1621,10 @@ def test_install_with_no_python3_skips_the_pack_but_installs_the_base(
+     """No python3 at all (bare distro host): the requested pack skips with a
+     specific message naming python3, and the base install completes (exit 2).
+     Validating before writing stays the invariant — the pack is never copied
+-    unvalidated (DF-TERMINAL-JAIL-21)."""
+-    extra_env = _env_with_no_python3(_install_env(tmp_path), tmp_path)
++    unvalidated (DF-TERMINAL-JAIL-21).
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    extra_env = _env_with_no_python3(env, tmp_path)
+     result = subprocess.run(
+         ["sh", "install.sh", "--rule-pack", "db"],
+         capture_output=True,
+@@ -1567,8 +1640,7 @@ def test_install_with_no_python3_skips_the_pack_but_installs_the_base(
+     assert "python3 is required to validate a pack BEFORE installing it" in out, out
+     assert "install python3" in out, out
+     assert "base install completed" in out, out
+-    _assert_base_install_completed(tmp_path, out)
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
+     assert not (rules_dir / "terminal-jail-pack-db.yaml").exists(), out
+ 
+ 
+@@ -1578,17 +1650,175 @@ def test_install_malformed_pack_with_pyyaml_present_refuses_but_installs_base(
+ ) -> None:
+     """PyYAML present but the pack is malformed: the validator refuses (nothing
+     written for the pack), but the base install completes (exit 2) — the
+-    same skip-not-abort semantics as the no-PyYAML path."""
++    same skip-not-abort semantics as the no-PyYAML path.
++    DF-TERMINAL-JAIL-22: engine-loaded scope."""
+     checkout = _scratch_checkout(tmp_path)
+     (checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "malformed.yaml").write_text(
+         _MALFORMED_PACK, encoding="utf-8"
+     )
+-    result = _run_checkout_install(checkout, tmp_path, "--rule-pack", "malformed")
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    result = _run_checkout_install(
++        checkout, tmp_path, "--rule-pack", "malformed", extra_env=env
++    )
+     out = (result.stdout + result.stderr).decode("utf-8", "replace")
+ 
+     assert result.returncode == 2, out
+     assert "cannot parse" in out, out
+     assert "skipped: pack 'malformed'" in out, out
+-    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
+     assert not (rules_dir / "terminal-jail-pack-malformed.yaml").exists(), out
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
++
++
++# ── DF-TERMINAL-JAIL-22: prefix-scope packs are skipped, never silently inert ──
++
++
++@pytest.mark.standalone_cli
++def test_prefix_install_skips_rule_pack_instead_of_inert_success(
++    tmp_path: Path,
++) -> None:
++    """DF-TERMINAL-JAIL-22: with a custom TERMINAL_JAIL_INSTALL_DIR and no
++    rules-dir env, the resolved rules dir is prefix-local config the engine
++    does NOT load. The pack is skipped loudly — naming the exact remediation,
++    per the DF-TERMINAL-JAIL-21 skip/exit-2 contract — instead of being
++    reported installed-and-inert. Nothing is written for the pack and the
++    base install always completes."""
++    result = _run_repo_install(tmp_path, "--rule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    pack = rules_dir / "terminal-jail-pack-db.yaml"
++
++    assert result.returncode == 2, out
++    assert "skipped: pack 'db'" in out, out
++    assert "prefix-local config the engine does NOT load" in out, out
++    assert str(rules_dir) in out, out
++    # exact remediation: every engine-loaded alternative is named
++    assert "TERMINAL_JAIL_RULES_DIR=" in out, out
++    assert "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=" in out, out
++    assert "default install dir" in out, out
++    # nothing was written for the pack (fail-closed before the validator)
++    assert not pack.exists(), out
++    assert not any(rules_dir.glob("terminal-jail-pack-*")), out
++    # ...but the base install completed, with the summary + exit 2
+     _assert_base_install_completed(tmp_path, out)
++    assert "base install completed" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_prefix_install_skips_every_requested_rule_pack(
++    tmp_path: Path,
++) -> None:
++    """DF-TERMINAL-JAIL-22: the prefix gate is per requested pack — two valid
++    packs under a custom prefix both skip loudly (the validator never runs,
++    so same-id content is irrelevant), nothing is written, exit 2."""
++    checkout = _scratch_checkout(tmp_path)
++    shutil.copy2(
++        DB_PACK, checkout / "plugin" / "terminal_jail" / "rules" / "packs" / "cache.yaml"
++    )
++    result = _run_checkout_install(
++        checkout, tmp_path, "--rule-pack", "db", "--rule-pack", "cache"
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    rules_dir = tmp_path / "config" / "terminal-jail" / "rules.d"
++    assert result.returncode == 2, out
++    assert "skipped: pack 'db'" in out, out
++    assert "skipped: pack 'cache'" in out, out
++    # each skip message prints twice: the immediate skip line AND the final
++    # summary (PACK_FAILURES is echoed verbatim) — 2 packs x 2 = 4
++    assert out.count("prefix-local config the engine does NOT load") == 4, out
++    assert not any(rules_dir.glob("terminal-jail-pack-*")), out
++    _assert_base_install_completed(tmp_path, out)
++
++
++@pytest.mark.standalone_cli
++def test_prefix_unrule_pack_keeps_idempotent_removal_contract(
++    tmp_path: Path,
++) -> None:
++    """--unrule-pack is not a pack install: it stays scope-agnostic and keeps
++    its idempotent not-installed message even in the prefix scope (DF-22
++    gates only packs the operator asks to ADD)."""
++    result = _run_repo_install(tmp_path, "--unrule-pack", "db")
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    assert "is not installed at" in out, out
++    assert "nothing was removed" in out, out
++
++
++@pytest.mark.standalone_cli
++def test_explicit_rules_dir_pack_is_loaded_by_the_engine(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """DF-TERMINAL-JAIL-22: an explicit TERMINAL_JAIL_RULES_DIR with a custom
++    prefix stays authoritative — the pack is written there byte-identical,
++    and the ENGINE loads it: with the scratch engine env pointing at exactly
++    that directory, intercept() BLOCKs the pack's DROP DATABASE vector and
++    leaves the benign read alone. This is the load-proof, not a
++    file-presence proof."""
++    env, rules_dir = _install_env_for_scope(tmp_path, "live")
++    result = _run_repo_install(tmp_path, "--rule-pack", "db", extra_env=env)
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    pack = rules_dir / "terminal-jail-pack-db.yaml"
++    assert pack.exists(), out
++    assert pack.read_bytes() == DB_PACK.read_bytes(), out
++    assert (rules_dir / "00-builtins.yaml").exists(), out
++    _assert_base_install_completed(tmp_path, out, rules_dir=rules_dir)
++
++    # the engine reads exactly this directory (scratch system + user rules)
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", str(rules_dir))
++    system_dir = tmp_path / "empty-system-rules.d"
++    system_dir.mkdir()
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", str(system_dir))
++
++    blocked = intercept(DB_PACK_DROP_DATABASE)
++    assert blocked.action == Action.BLOCK, blocked
++    assert blocked.rule_id == DB_PACK_DROP_DATABASE_RULE, blocked
++
++    benign = intercept(DB_PACK_BENIGN_READ)
++    assert benign.action == Action.ALLOW, benign
++    assert benign.rule_id is None, benign
++
++
++@pytest.mark.standalone_cli
++def test_engine_env_rules_dir_pack_is_loaded_by_the_engine(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """DF-TERMINAL-JAIL-22: a custom-prefix install with the ENGINE's own
++    user-rules knob (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR) exported
++    resolves the installer's single rules dir to that exact directory: the
++    pack installs there, the prefix-local config dir is never created, and
++    the engine loads the pack from it — the same path the CLI reads when run
++    with the variable exported."""
++    engine_dir = tmp_path / "engine-user-rules.d"
++    engine_dir.mkdir()
++    result = _run_repo_install(
++        tmp_path,
++        "--rule-pack",
++        "db",
++        extra_env={"TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(engine_dir)},
++    )
++    out = (result.stdout + result.stderr).decode("utf-8", "replace")
++
++    assert result.returncode == 0, out
++    pack = engine_dir / "terminal-jail-pack-db.yaml"
++    assert pack.exists(), out
++    assert pack.read_bytes() == DB_PACK.read_bytes(), out
++    assert (engine_dir / "00-builtins.yaml").exists(), out
++    assert not (tmp_path / "config").exists(), out
++    _assert_base_install_completed(tmp_path, out, rules_dir=engine_dir)
++
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", str(engine_dir))
++    system_dir = tmp_path / "empty-system-rules.d"
++    system_dir.mkdir()
++    monkeypatch.setenv("TERMINAL_JAIL_INTERRUPTOR_RULES_DIR", str(system_dir))
++
++    blocked = intercept(DB_PACK_DROP_DATABASE)
++    assert blocked.action == Action.BLOCK, blocked
++    assert blocked.rule_id == DB_PACK_DROP_DATABASE_RULE, blocked
++
++    benign = intercept(DB_PACK_BENIGN_READ)
++    assert benign.action == Action.ALLOW, benign
++    assert benign.rule_id is None, benign
+diff --git a/specs/cli.md b/specs/cli.md
+index cce75c5..3cb53cf 100644
+--- a/specs/cli.md
++++ b/specs/cli.md
+@@ -389,7 +389,7 @@ Flags are parsed before any `mkdir` or write, so a refused flag (or a refused
+ pack) leaves the filesystem untouched. Pack names are restricted to `[a-z0-9-]`
+ so the derived file name cannot escape the rules directory.
+ 
+-Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
++Scope rule (DF-TERMINAL-JAIL-8): the installer must not write user config outside the scope the caller selected. The default install (`$HOME/.local/bin`) targets the live user rules directory `$HOME/.config/terminal-jail/rules.d` unchanged. Any custom `TERMINAL_JAIL_INSTALL_DIR` prefix receives its default rules under `<prefix>/config/terminal-jail/rules.d` — the engine does not scan prefix-local config (it loads only `/etc/terminal-jail/rules.d` and `~/.config/terminal-jail/rules.d`), so the installer prints a WARNING naming the target and the override for prefix installs. With a custom prefix, an exported `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` (the engine's own user-rules variable, read verbatim at run time) resolves the installer's rules directory to exactly that value — the one prefix channel whose target the engine actually loads. An explicit `TERMINAL_JAIL_RULES_DIR` always wins.
+ 
+ ### Rule packs (`--rule-pack`, TJ-GAP-061)
+ 
+@@ -444,6 +444,21 @@ Installation is **fail-closed, validated before any write**:
+ 
+    and exits `2`. With all requested packs installed (or none requested), the
+    behavior and the `0` exit are unchanged from before this fix.
++7. DF-TERMINAL-JAIL-22 — **a pack is installed only where the engine loads
++   it:** the pack always lands in the one resolved rules dir, but the
++   engine-loaded property of that dir depends on the install scope (live,
++   explicit `TERMINAL_JAIL_RULES_DIR`, and engine-env
++   `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` are loaded; prefix-local
++   config is not). In the prefix-local scope `--rule-pack` therefore NEVER
++   reports an installed pack: each requested pack is skipped before the
++   validator runs, with one stderr line naming the inert target and the
++   exact remediation (explicit `TERMINAL_JAIL_RULES_DIR`; or export
++   `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<dir>` and run the CLI with the
++   same variable exported; or use the default install dir), the base install
++   completes, and the run exits `2` under the DF-TERMINAL-JAIL-21 summary
++   contract. Nothing is written for the pack — a "successful" pack file the
++   engine cannot read is the defect this rule forbids. `--unrule-pack` is
++   removal and stays available in every scope.
+ 
+ Precedence (`engine builtins < packs < user rules.d files`), the id-namespace
+ contract, and the rule-priorities convention (950 pack block / 650 pack sandbox)

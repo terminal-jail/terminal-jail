@@ -1,0 +1,53 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 8f60200..41b5f2c 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1672,3 +1672,24 @@ tasks:
+   status: complete
+   created_at: '2026-10-07T23:06:00.837848+00:00'
+   completed_at: '2026-10-07T23:16:59.709580+00:00'
++- id: TJ-DF-028
++  title: Scope README CI-green claim to proved kernel matrix
++  criteria:
++  - README 'CI green' claim scoped to kernels actually proved on (not universal);
++    HOST-DEGRADED-PIDNS skip marker present in test; docs/backend-parity.md has pinned
++    kernel-matrix note
++  status: complete
++  created_at: '2026-10-08T01:11:22.533422+00:00'
++  completed_at: '2026-10-08T01:13:43.746436+00:00'
++- id: TJ-GAP-090
++  title: 'Onboarding: zero-to-contained in five minutes on a FRESH machine'
++  criteria:
++  - 1) docs/quickstart.md exists and is executable verbatim by a stranger on a fresh
++    Ubuntu 22.04+ host; 2) every command in the quickstart is copy-pasteable with
++    no placeholders; 3) the quickstart states the host capability requirements (PID-NS
++    FULL, FS-isolation DEGRADED on AppArmor hosts) and what happens when they are
++    not met; 4) tests/test_quickstart_doc.py exists and passes; 5) commit carries
++    ch:trace row=TJ-GAP-090
++  status: complete
++  created_at: '2026-10-08T01:44:25.474981+00:00'
++  completed_at: '2026-10-08T02:25:00.571571+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index a23cc4f..dd11092 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -137,3 +137,5 @@
+ {"ts": 1791409577.908353, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791413551.8850965, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1791415215.734488, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791422158.4554396, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1791426403.4217985, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..30bc551 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,9 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:pathlib","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:re","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"tests/test_quickstart_doc.py","to":"pkg:subprocess","rel":"tested_by","provenance":"ast_exact","confidence":1.0}

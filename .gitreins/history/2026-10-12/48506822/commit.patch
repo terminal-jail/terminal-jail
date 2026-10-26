@@ -1,0 +1,19 @@
+commit a8c6b9dfda4ff3df88ba8763c37c6ae83b1be2c4
+Merge: 2d15158 a437fcc
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 11 22:27:18 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 11 22:27:18 2026 -0500
+
+    Merge TJ-GAP-023: activate zero-risk tier-2 systemd hardening directives
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ README.md                               |  8 +--
+ docs/threat-model.md                    |  4 +-
+ scripts/systemd-directive-probe.py      |  2 +-
+ skills/terminal-jail-usage/SKILL.md     |  2 +-
+ specs/integration.md                    |  8 +--
+ specs/systemd.md                        | 90 ++++++++++++++++++++++++++++-----
+ systemd/90-terminal-jail-hardening.conf | 46 +++++++++++++++--
+ 7 files changed, 130 insertions(+), 30 deletions(-)

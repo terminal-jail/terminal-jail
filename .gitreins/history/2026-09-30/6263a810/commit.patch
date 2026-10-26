@@ -1,0 +1,38 @@
+commit e3819ef2a1417db2796fd68501eee62ad14b4ad2
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Wed Sep 30 08:35:28 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Wed Sep 30 08:35:28 2026 -0500
+
+    docs: make audit tooling reachable from README (DOC-7)
+    
+    gtfobins-sweep.py (TJ-GAP-059 allow-surface posture matrix) and
+    e2e-battery-live-probe.py (TJ-GAP-074 live verdict-path battery) existed
+    only as scripts — a one-hop pointer table now sits under "Verifying a
+    deploy" with what each proves and its run command. Both scripts were
+    executed once to verify the documented commands work.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/README.md b/README.md
+index 68d9933..d6b463e 100644
+--- a/README.md
++++ b/README.md
+@@ -252,6 +252,14 @@ Three checks, cheapest first:
+ # 1. Host capability — PID namespace (FULL/DEGRADED + cause, always exit 0)
+ python3 scripts/pidns-capability-probe.py
+ python3 scripts/fs-isolation-probe.py          # filesystem isolation tier
++python3 scripts/fs-isolation-probe.py          # filesystem isolation tier
++
++### Audit tooling
++
++| Script | What it proves | Run |
++|---|---|---|
++| `scripts/gtfobins-sweep.py` | The deliberate GTFOBins allow-surface: sweeps a seed catalog of real GTFOBins invocation shapes through the live engine and reports the verdict matrix, posture coverage, POSTURE-DRIFT and unreviewed ALLOW verdicts (TJ-GAP-059). | `python3 scripts/gtfobins-sweep.py` |
++| `scripts/e2e-battery-live-probe.py` | Live-engine E2E battery for the interruptor firewall: every case exercises the real verdict path (JSON bridge subprocess) and asserts action AND provenance rule_id against a pinned matrix, with a positive control (TJ-GAP-074). | `python3 scripts/e2e-battery-live-probe.py` |
+ 
+ # 2. Containment — the jailed command must land in a NEW PID namespace
+ ./standalone/terminal-jail sh -c 'readlink /proc/self/ns/pid'

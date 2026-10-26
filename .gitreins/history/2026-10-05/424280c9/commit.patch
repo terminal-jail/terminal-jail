@@ -1,0 +1,41 @@
+commit 4f43984894f57be4152a24bd418bfe61690bcd4b
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Oct 4 19:41:43 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Oct 4 19:41:43 2026 -0500
+
+    feat(release): .github/release.yml categorizes auto-generated release notes (RELTOOL judge gap)
+    
+    ch:trace row=RELEASE-TJ-008 spec=.github/release.yml evidence=commit witness=none:categorized-notes-config
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .github/release.yml | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/.github/release.yml b/.github/release.yml
+new file mode 100644
+index 0000000..f0221f6
+--- /dev/null
++++ b/.github/release.yml
+@@ -0,0 +1,20 @@
++# GitHub's release-notes config: categorizes the auto-generated notes that
++# `.github/workflows/release.yml` produces with `--generate-notes`.
++# Used at cut time; see docs/releasing.md.
++changelog:
++  exclude:
++    labels: []
++    authors: []
++  categories:
++    - title: Features
++      labels: [feat, feature, enhancement]
++    - title: Bug fixes
++      labels: [fix, bug]
++    - title: Security
++      labels: [security]
++    - title: Documentation
++      labels: [docs, documentation]
++    - title: Tests and CI
++      labels: [test, tests, ci]
++    - title: Other changes
++      labels: ["*"]

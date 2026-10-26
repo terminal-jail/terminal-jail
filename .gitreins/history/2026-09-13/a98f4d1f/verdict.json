@@ -1,0 +1,83 @@
+{
+  "task_id": "DEPS-001",
+  "task_title": "Close false-premise dep-refresh row (host pip scan, not repo deps)",
+  "task_criteria": [
+    "Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only; uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned latest",
+    "tasks.jsonl DEPS-001 row closed status=completed with verification evidence; no code change required"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m7:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4035080 bytes (4.04 MB) in 330ms\u001b[0m\n\u001b[90m7:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m7:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4035080 bytes (4.04 MB) in 330ms\u001b[0m\n\u001b[90m7:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 323 items\n\nplugin/test_install.py .....................                             [  6%]\nplu",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only; uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned latest: Every sub-claim independently reproduced. pyproject.toml declares dependencies=[\"PyYAML>=6.0\"] and [dependency-groups] dev=[\"pytest>=8\"] (only two deps). uv.lock:51-52 pytest 9.1.1, uv.lock:67-68 pyyaml 6.0.3, uv.lock:135 requires-dist pyyaml>=6.0, uv.lock:138 dev pytest>=8. `uv lock --check` \u2192 exit_code 0, 'Resolved 8 packages in 1ms'. `.venv/bin/python -c 'import yaml'` \u2192 PyYAML 6.0.3, libyaml True; pytest 9.1.1. Host `python3 -m pip list --outdated` = 68 lines (66 packages) including anthropic 0.87.0->1.5.0, boto3 1.42.89->1.43.93, click 8.4.2->8.5.0. grep for anthropic|boto3|click|aiohttp|botocore imports across plugin/ standalone/ scripts/ install.sh = 0 hits; no requirements*.txt exists. .github/workflows/ci.yml:29-30 `pip install pytest` / `pip install pyyaml`, :48 `pip install ruff`, :65 `pip install pip-audit` \u2014 all unpinned. foreman_note at .coding-hermes/board/tasks.jsonl:126 contains this evidence verbatim.\n  \u2713 tasks.jsonl DEPS-001 row closed status=completed with verification evidence; no code change required: .coding-hermes/board/tasks.jsonl:126 \u2192 {\"status\": \"completed\", \"id\": \"DEPS-001\", ...} with worker_status \"complete\", guard_result \"skipped (no code change; board-only closure)\", ci_result \"n/a (no code change)\", completed_at 2026-09-13T00:25:00.000Z, plus populated foreman_note and reasoning fields documenting the premise-false analysis. .gitreins/tasks.yaml:560-572 shows DEPS-001 status: complete. The diff adds only the .gitreins/tasks.yaml board row \u2014 no source files touched, consistent with 'no code change required'. Suite run for regression safety: `.venv/bin/python -m pytest -x --tb=short -q` \u2192 exit_code 0, '310 passed, 13 skipped in 6.21s'.\nBoth criteria verified: the DEPS-001 row is closed as completed with full foreman_note evidence, and every factual claim (PyYAML>=6.0/pytest>=8 only, uv.lock pins 6.0.3/9.1.1 with uv lock --check rc=0, venv libyaml, host-python3 66-outdated misattribution, unpinned CI installs) was independently reproduced with no code change required.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only; uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned latest: Every sub-claim independently reproduced. pyproject.toml declares dependencies=[\"PyYAML>=6.0\"] and [dependency-groups] dev=[\"pytest>=8\"] (only two dep",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only; uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned latest",
+                "status": "PASS",
+                "detail": "Every sub-claim independently reproduced. pyproject.toml declares dependencies=[\"PyYAML>=6.0\"] and [dependency-groups] dev=[\"pytest>=8\"] (only two deps). uv.lock:51-52 pytest 9.1.1, uv.lock:67-68 pyyaml 6.0.3, uv.lock:135 requires-dist pyyaml>=6.0, uv.lock:138 dev pytest>=8. `uv lock --check` \u2192 exit_code 0, 'Resolved 8 packages in 1ms'. `.venv/bin/python -c 'import yaml'` \u2192 PyYAML 6.0.3, libyaml True; pytest 9.1.1. Host `python3 -m pip list --outdated` = 68 lines (66 packages) including anthropic 0.87.0->1.5.0, boto3 1.42.89->1.43.93, click 8.4.2->8.5.0. grep for anthropic|boto3|click|aiohttp|botocore imports across plugin/ standalone/ scripts/ install.sh = 0 hits; no requirements*.txt exists. .github/workflows/ci.yml:29-30 `pip install pytest` / `pip install pyyaml`, :48 `pip install ruff`, :65 `pip install pip-audit` \u2014 all unpinned. foreman_note at .coding-hermes/board/tasks.jsonl:126 contains this evidence verbatim."
+              },
+              {
+                "criterion": "tasks.jsonl DEPS-001 row closed status=completed with verification evidence; no code change required",
+                "status": "PASS",
+                "detail": ".coding-hermes/board/tasks.jsonl:126 \u2192 {\"status\": \"completed\", \"id\": \"DEPS-001\", ...} with worker_status \"complete\", guard_result \"skipped (no code change; board-only closure)\", ci_result \"n/a (no code change)\", completed_at 2026-09-13T00:25:00.000Z, plus populated foreman_note and reasoning fields documenting the premise-false analysis. .gitreins/tasks.yaml:560-572 shows DEPS-001 status: complete. The diff adds only the .gitreins/tasks.yaml board row \u2014 no source files touched, consistent with 'no code change required'. Suite run for regression safety: `.venv/bin/python -m pytest -x --tb=short -q` \u2192 exit_code 0, '310 passed, 13 skipped in 6.21s'."
+              }
+            ],
+            "summary": "Both criteria verified: the DEPS-001 row is closed as completed with full foreman_note evidence, and every factual claim (PyYAML>=6.0/pytest>=8 only, uv.lock pins 6.0.3/9.1.1 with uv lock --check rc=0, venv libyaml, host-python3 66-outdated misattribution, unpinned CI installs) was independently reproduced with no code change required."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DEPS-001\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m7:18PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4035080 bytes (4.04 MB) in 330ms\u001b[0m\n\u001b[90m7:18PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only; uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned latest: Every sub-claim independently reproduced. pyproject.toml declares dependencies=[\"PyYAML>=6.0\"] and [dependency-groups] dev=[\"pytest>=8\"] (only two deps). uv.lock:51-52 pytest 9.1.1, uv.lock:67-68 pyyaml 6.0.3, uv.lock:135 requires-dist pyyaml>=6.0, uv.lock:138 dev pytest>=8. `uv lock --check` \u2192 exit_code 0, 'Resolved 8 packages in 1ms'. `.venv/bin/python -c 'import yaml'` \u2192 PyYAML 6.0.3, libyaml True; pytest 9.1.1. Host `python3 -m pip list --outdated` = 68 lines (66 packages) including anthropic 0.87.0->1.5.0, boto3 1.42.89->1.43.93, click 8.4.2->8.5.0. grep for anthropic|boto3|click|aiohttp|botocore imports across plugin/ standalone/ scripts/ install.sh = 0 hits; no requirements*.txt exists. .github/workflows/ci.yml:29-30 `pip install pytest` / `pip install pyyaml`, :48 `pip install ruff`, :65 `pip install pip-audit` \u2014 all unpinned. foreman_note at .coding-hermes/board/tasks.jsonl:126 contains this evidence verbatim.\n  \u2713 tasks.jsonl DEPS-001 row closed status=completed with verification evidence; no code change required: .coding-hermes/board/tasks.jsonl:126 \u2192 {\"status\": \"completed\", \"id\": \"DEPS-001\", ...} with worker_status \"complete\", guard_result \"skipped (no code change; board-only closure)\", ci_result \"n/a (no code change)\", completed_at 2026-09-13T00:25:00.000Z, plus populated foreman_note and reasoning fields documenting the premise-false analysis. .gitreins/tasks.yaml:560-572 shows DEPS-001 status: complete. The diff adds only the .gitreins/tasks.yaml board row \u2014 no source files touched, consistent with 'no code change required'. Suite run for regression safety: `.venv/bin/python -m pytest -x --tb=short -q` \u2192 exit_code 0, '310 passed, 13 skipped in 6.21s'.\nBoth criteria verified: the DEPS-001 row is closed as completed with full foreman_note evidence, and every factual claim (PyYAML>=6.0/pytest>=8 only, uv.lock pins 6.0.3/9.1.1 with uv lock --check rc=0, venv libyaml, host-python3 66-outdated misattribution, unpinned CI installs) was independently reproduced with no code change required.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-13T00:21:00.829798"
+}

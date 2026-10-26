@@ -1,0 +1,89 @@
+{
+  "task_id": "E2E-001-GAP-07",
+  "task_title": "Warm-start benchmark regression: rules loader re-parses 11KB builtins YAML with pure-Python safe_load on every intercept",
+  "task_criteria": [
+    "plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available with safe_load fallback",
+    "warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the full shipped builtins file in the user rules dir",
+    "full suite passes (309+ passed, 13 skipped) and YAML/engine parity probe stays 30/30"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m6:47AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4025238 bytes (4.03 MB) in 301ms\u001b[0m\n\u001b[90m6:47AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m6:47AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4025238 bytes (4.03 MB) in 301ms\u001b[0m\n\u001b[90m6:47AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.4, pytest-9.0.2, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: anyio-4.13.0, asyncio-1.4.0, typeguard-4.4.4\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 323 items\n\nplugin/test_install.py .....................                             [  6%]\nplu",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available with safe_load fallback: rules.py:186-189: `if hasattr(yaml, \"CSafeLoader\"): data = yaml.load(content, Loader=yaml.CSafeLoader) else: data = yaml.safe_load(content)`. Verified CSafeLoader present (yaml 6.0.3) and fallback path works: after `del yaml.CSafeLoader`, RuleLoader.load_all() still loaded 30 rules.\n  \u2713 warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the full shipped builtins file in the user rules dir: Ran `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<tmp with 00-builtins.yaml (11243 bytes)> python3 scripts/benchmark-interruptor.py --json`: warm_start_ms=1.022, warm_start_pass=true, all_pass=true. Confirmed regression is real: pure yaml.safe_load=9.42ms vs CSafeLoader=0.89ms on the same file.\n  \u2713 full suite passes (309+ passed, 13 skipped) and YAML/engine parity probe stays 30/30: `.venv/bin/python -m pytest -q` -> `310 passed, 13 skipped in 5.98s` (exit 0). `scripts/yaml-mirror-parity-probe.py` -> `[totals] block=12/12 sandbox=8/8 allow=10/10 total=30/30 -> OK` and `ALL PROBES PASS` (exit 0).\nAll three criteria verified: CSafeLoader preference with working safe_load fallback, warm-start benchmark at 1.022ms (<5ms) with the full builtins file in the user rules dir, and 310 passed/13 skipped plus 30/30 parity probe.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available with safe_load fallback: rules.py:186-189: `if hasattr(yaml, \"CSafeLoader\"): data = yaml.load(content, Loader=yaml.CSafeLoader) else: data = yaml.safe_load(content)`. Verified CSafeLoader present (yaml 6.0.3) and fallback path works: after `del yaml.CSafeLoader`, RuleLoader.load_all() still loaded 30 rules.\n  \u2713 warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the full shipped b",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available with safe_load fallback",
+                "status": "PASS",
+                "detail": "rules.py:186-189: `if hasattr(yaml, \"CSafeLoader\"): data = yaml.load(content, Loader=yaml.CSafeLoader) else: data = yaml.safe_load(content)`. Verified CSafeLoader present (yaml 6.0.3) and fallback path works: after `del yaml.CSafeLoader`, RuleLoader.load_all() still loaded 30 rules."
+              },
+              {
+                "criterion": "warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the full shipped builtins file in the user rules dir",
+                "status": "PASS",
+                "detail": "Ran `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<tmp with 00-builtins.yaml (11243 bytes)> python3 scripts/benchmark-interruptor.py --json`: warm_start_ms=1.022, warm_start_pass=true, all_pass=true. Confirmed regression is real: pure yaml.safe_load=9.42ms vs CSafeLoader=0.89ms on the same file."
+              },
+              {
+                "criterion": "full suite passes (309+ passed, 13 skipped) and YAML/engine parity probe stays 30/30",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest -q` -> `310 passed, 13 skipped in 5.98s` (exit 0). `scripts/yaml-mirror-parity-probe.py` -> `[totals] block=12/12 sandbox=8/8 allow=10/10 total=30/30 -> OK` and `ALL PROBES PASS` (exit 0)."
+              }
+            ],
+            "summary": "All three criteria verified: CSafeLoader preference with working safe_load fallback, warm-start benchmark at 1.022ms (<5ms) with the full builtins file in the user rules dir, and 310 passed/13 skipped plus 30/30 parity probe."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: E2E-001-GAP-07\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m6:47AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~4025238 bytes (4.03 MB) in 301ms\u001b[0m\n\u001b[90m6:47AM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available with safe_load fallback: rules.py:186-189: `if hasattr(yaml, \"CSafeLoader\"): data = yaml.load(content, Loader=yaml.CSafeLoader) else: data = yaml.safe_load(content)`. Verified CSafeLoader present (yaml 6.0.3) and fallback path works: after `del yaml.CSafeLoader`, RuleLoader.load_all() still loaded 30 rules.\n  \u2713 warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the full shipped builtins file in the user rules dir: Ran `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=<tmp with 00-builtins.yaml (11243 bytes)> python3 scripts/benchmark-interruptor.py --json`: warm_start_ms=1.022, warm_start_pass=true, all_pass=true. Confirmed regression is real: pure yaml.safe_load=9.42ms vs CSafeLoader=0.89ms on the same file.\n  \u2713 full suite passes (309+ passed, 13 skipped) and YAML/engine parity probe stays 30/30: `.venv/bin/python -m pytest -q` -> `310 passed, 13 skipped in 5.98s` (exit 0). `scripts/yaml-mirror-parity-probe.py` -> `[totals] block=12/12 sandbox=8/8 allow=10/10 total=30/30 -> OK` and `ALL PROBES PASS` (exit 0).\nAll three criteria verified: CSafeLoader preference with working safe_load fallback, warm-start benchmark at 1.022ms (<5ms) with the full builtins file in the user rules dir, and 310 passed/13 skipped plus 30/30 parity probe.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-12T11:49:10.785474"
+}

@@ -1,0 +1,121 @@
+{
+  "task_id": "TJ-GAP-076",
+  "task_title": "threat-model.md correctness: drop-in claims, missing Interruptor/bwrap layers, stale residual-risk line",
+  "task_criteria": [
+    "docs/threat-model.md no longer claims PID-namespace/network containment for the systemd drop-in; the layer table includes the Interruptor firewall and the bwrap backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count metrics; header bumped to 1.2.0/2026-09-24"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "5229c2e3e373b8dcc464b72b50d177003e744a87",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n4:37PM INF scanned ~5468022 bytes (5.47 MB) in 443ms\n4:37PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 159 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1451 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 18%]\n........................................................................ [ 23%]\n.................................                                        [ 25%]\nplugin/test_gtfobins_sweep.py .......................................... [ 28%]\n.....................                                                    [ 30%]\nplugin/test_host_probes.py ......................                        [ 31%]\nplugin/test_install.py ................................................. [ 35%]\n.................                                                        [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 54%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................................................ [ 69%]\n...........................                                              [ 70%]\nplugin/test_interruptor_integration.py .................s............... [ 73%]\n.......                                                                  [ 73%]\nplugin/test_metrics_export.py .....................                      [ 75%]\nplugin/test_modify_preflight.py ......                                   [ 75%]\nplugin/test_packaging.py ..........                                      [ 76%]\nplugin/test_plugin.py ................                                   [ 77%]\nplugin/test_rule_pack_db.py ............................................ [ 80%]\n................................................................         [ 84%]\nplugin/test_rule_packs.py .............................................. [ 88%]\n.........                                                                [ 88%]\nplugin/test_rules_drift_probe.py .................                       [ 89%]\nplugin/test_seccomp.py .........................................sss..... [ 93%]\n.                                                                        [ 93%]\nplugin/test_standalone_cli.py .....................                      [ 94%]\nplugin/test_systemd_directive_probe.py ...........                       [ 95%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 96%]\nplugin/test_uninstall.py .............                                   [ 97%]\nplugin/test_userns.py .........................s..                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n======================= 1444 passed, 7 skipped in 48.88s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260924T212526.309224Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/threat-model.md no longer claims PID-namespace/network containment for the systemd drop-in; the layer table includes the Interruptor firewall and the bwrap backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count metrics; header bumped to 1.2.0/2026-09-24: docs/threat-model.md:3-4 header 'Version: 1.2.0' / 'Date: 2026-09-24'. Drop-in containment claim removed: line 11 'NOT a PID namespace boundary', line 23 'NOT a PID namespace or network boundary', line 297 'the drop-in is NOT the primary containment boundary'. Layer table (lines 23-27) includes '| **Interruptor firewall** |' (line 25) and '| **Standalone CLI \u2014 bwrap backend (v1.2)** |' (line 27); bubblewrap referenced at lines 11, 19, 27, 297. Residual risk line 219 now reads 'command-count metrics exist (`wrap_count` in the plugin, exported by `scripts/metrics-export.py`)' \u2014 grep for 'no command-count metrics' returns no matches. Docs-only change; no test suite applies to markdown content, verified by direct file inspection. [resolution 0.25; docs/threat-model.md]\nAll sub-claims verified in docs/threat-model.md: drop-in containment claim removed, Interruptor and bwrap layers added to the table, bubblewrap referenced, stale residual-risk line corrected, and header bumped to 1.2.0/2026-09-24.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/threat-model.md no longer claims PID-namespace/network containment for the systemd drop-in; the layer table includes the Interruptor firewall and the bwrap backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count metrics; header bumped to 1.2.0/2026-09-24: docs/threat-model.md:3-4 header 'Version: 1.2.0' / 'Date: 2026-09-24'. Drop-in containment claim removed: line 11 'NOT a PID namespace boundary', line 23 'NOT a PID namespace or network boundary', line 297 'the drop-in is NOT the primary containment boundary'. Layer table (lines 23-27) includes '| **Interruptor firewall** |' (line 25) and '| **Standalone CLI \u2014 bwrap backend (v1.2)** |' (line 27); bubblewrap referenced at lines 11, 19, 27, 297. Residual risk line 219 now reads 'command-count metrics exist (`wrap_count` in the plugin, exported by `scripts/metrics-export.py`)' \u2014 grep for 'no command-count metrics' returns no matches. Docs-only change; no test suite applies to markdown content, verified by direct file inspection. [resolution 0.25; docs/threat-model.md]\nAll sub-claims verified in docs/threat-model.md: drop-in containment claim removed, Interruptor and bwrap layers added to the table, bubblewrap referenced, stale residual-risk line corrected, and header bumped to 1.2.0/2026-09-24.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/threat-model.md no longer claims PID-namespace/network containment for the systemd drop-in; the layer table includes the Interruptor firewall and the bwrap backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count metrics; header bumped to 1.2.0/2026-09-24",
+                "status": "PASS",
+                "detail": "docs/threat-model.md:3-4 header 'Version: 1.2.0' / 'Date: 2026-09-24'. Drop-in containment claim removed: line 11 'NOT a PID namespace boundary', line 23 'NOT a PID namespace or network boundary', line 297 'the drop-in is NOT the primary containment boundary'. Layer table (lines 23-27) includes '| **Interruptor firewall** |' (line 25) and '| **Standalone CLI \u2014 bwrap backend (v1.2)** |' (line 27); bubblewrap referenced at lines 11, 19, 27, 297. Residual risk line 219 now reads 'command-count metrics exist (`wrap_count` in the plugin, exported by `scripts/metrics-export.py`)' \u2014 grep for 'no command-count metrics' returns no matches. Docs-only change; no test suite applies to markdown content, verified by direct file inspection. [resolution 0.25; docs/threat-model.md]",
+                "resolution_probability": 0.25,
+                "cited_path": "docs/threat-model.md"
+              }
+            ],
+            "summary": "All sub-claims verified in docs/threat-model.md: drop-in containment claim removed, Interruptor and bwrap layers added to the table, bubblewrap referenced, stale residual-risk line corrected, and header bumped to 1.2.0/2026-09-24."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-076\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/threat-model.md no longer claims PID-namespace/network containment for the systemd drop-in; the layer table includes the Interruptor firewall and the bwrap backend; bwrap/bubblewrap referenced; residual-risk no longer claims no command-count metrics; header bumped to 1.2.0/2026-09-24: docs/threat-model.md:3-4 header 'Version: 1.2.0' / 'Date: 2026-09-24'. Drop-in containment claim removed: line 11 'NOT a PID namespace boundary', line 23 'NOT a PID namespace or network boundary', line 297 'the drop-in is NOT the primary containment boundary'. Layer table (lines 23-27) includes '| **Interruptor firewall** |' (line 25) and '| **Standalone CLI \u2014 bwrap backend (v1.2)** |' (line 27); bubblewrap referenced at lines 11, 19, 27, 297. Residual risk line 219 now reads 'command-count metrics exist (`wrap_count` in the plugin, exported by `scripts/metrics-export.py`)' \u2014 grep for 'no command-count metrics' returns no matches. Docs-only change; no test suite applies to markdown content, verified by direct file inspection. [resolution 0.25; docs/threat-model.md]\nAll sub-claims verified in docs/threat-model.md: drop-in containment claim removed, Interruptor and bwrap layers added to the table, bubblewrap referenced, stale residual-risk line corrected, and header bumped to 1.2.0/2026-09-24.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-24T21:38:23.777861",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-24T21:38:23.800194+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 728,
+        "truncated": false,
+        "source": "git show 5229c2e3e373"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 53254,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-076"
+  }
+}

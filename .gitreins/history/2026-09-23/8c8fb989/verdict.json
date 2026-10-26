@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-020",
+  "task_title": "seccomp glibc-routed variant syscalls",
+  "task_criteria": [
+    "clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM for adjtimex under the filter"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-020",
+  "branch": "wt/TJ-DF-020",
+  "commit": "156815b8f82d9cc6abee694d48259f6184d50e35",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-020/.gitreins/logs/guard-20260923T121735.831386Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n7:19AM INF scanned ~3565414 bytes (3.57 MB) in 271ms\n7:19AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 144 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-020/.gitreins/logs/guard-20260923T121735.831386Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/worktrees/terminal-jail-TJ-DF-020\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1410 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .........................              [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 14%]\n........................................................................ [ 19%]\n........................................................................ [ 24%]\n.................................                                        [ 26%]\nplugin/test_gtfobins_sweep.py .......................................... [ 29%]\n.....................                                                    [ 31%]\nplugin/test_host_probes.py ......................                        [ 32%]\nplugin/test_install.py ................................................. [ 36%]\n.......                                                                  [ 36%]\nplugin/test_interruptor.py ............................................. [ 39%]\n........................................................................ [ 44%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 65%]\n........................................................................ [ 70%]\n...........................                                              [ 72%]\nplugin/test_interruptor_integration.py .................s............... [ 74%]\n.......                                                                  [ 75%]\nplugin/test_metrics_export.py .....................                      [ 76%]\nplugin/test_modify_preflight.py ......                                   [ 77%]\nplugin/test_packaging.py ..........                                      [ 77%]\nplugin/test_plugin.py ................                                   [ 78%]\nplugin/test_rule_pack_db.py ............................................ [ 82%]\n................................................................         [ 86%]\nplugin/test_rule_packs.py .............................................. [ 89%]\n.....                                                                    [ 90%]\nplugin/test_rules_drift_probe.py .................                       [ 91%]\nplugin/test_seccomp.py .........................................sss..... [ 94%]\n.                                                                        [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_uninstall.py .............                                   [ 98%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1403 passed, 7 skipped in 46.80s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-DF-020/.gitreins/logs/guard-20260923T121735.831386Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM for adjtimex under the filter: All three sub-requirements verified. (1) NR 305 in x86_64 deny list: plugin/terminal_jail/seccomp.py _DENY_EXTRA['x86_64'] contains `305,  # clock_adjtime \u2014 glibc routes adjtimex() here (TJ-DF-020)`; runtime check `305 in deny_set_for_arch('x86_64')` -> True. (2) BPF fall-through repaired: git diff HEAD~1 shows `jf = 1 if remaining else 0` replaced by `jf=0` in _build_filter (plugin/terminal_jail/seccomp.py:331-345). Independent BPF interpreter simulation of the built program: all 18 deny NRs return SECCOMP_RET_ERRNO|EPERM, getpid(39)->ALLOW, wrong-arch->KILL. Red-proof by re-installing the old buggy jf=1 logic: bypassed NRs = [159,164,167,174,176,246,249,305,320] (305 bypassed) \u2014 confirming the fix makes all deny NRs take effect. (3) libc-wrapper regression test: plugin/test_seccomp.py:547 TestGlibcVariantNrs::test_libc_adjtimex_returns_eperm_under_filter installs the filter via try_apply() in a subprocess and calls libc.adjtimex(), asserting 'errno=1'. Live reproduction of the exact probe: rc=0, stdout='errno=1'. Test run: `.venv/bin/python -m pytest plugin/test_seccomp.py -q` -> 47 passed, 3 skipped (skips are PT-004a/b/c requiring CAP_SYS_ADMIN, unrelated); GlibcVariantNrs subset -> 6 passed. No LSP diagnostics.\nNR 305 added to the x86_64 deny list, the BPF jf fall-through skip repaired (red-proofed: buggy version bypassed 305 and 8 other NRs), and the libc-wrapper adjtimex EPERM regression test passes live.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM for adjtimex under the filter: All three sub-requirements verified. (1) NR 305 in x86_64 deny list: plugin/terminal_jail/seccomp.py _DENY_EXTRA['x86_64'] contains `305,  # clock_adjtime \u2014 glibc routes adjtimex() here (TJ-DF-020)`; runtime check `305 in deny_set_for_arch('x86_64')` -> True. (2) BPF fall-through repaired: git diff HEAD~1 shows `jf = 1 if remaining else 0` replaced by `jf=0` in _build_filter (plugin/terminal_jail/seccomp.py:331-345). Independent BPF interpreter simulation of the built program: all 18 deny NRs return SECCOMP_RET_ERRNO|EPERM, getpid(39)->ALLOW, wrong-arch->KILL. Red-proof by re-installing the old buggy jf=1 logic: bypassed NRs = [159,164,167,174,176,246,249,305,320] (305 bypassed) \u2014 confirming the fix makes all deny NRs take effect. (3) libc-wrapper regression test: plugin/test_seccomp.py:547 TestGlibcVariantNrs::test_libc_adjtimex_returns_eperm_under_filter installs the filter via try_apply() in a subprocess and calls libc.adjtimex(), asserting 'errno=1'. Live reproduction of the exact probe: rc=0, stdout='errno=1'. Test run: `.venv/bin/python -m pytest plugin/test_seccomp.py -q` -> 47 passed, 3 skipped (skips are PT-004a/b/c requiring CAP_SYS_ADMIN, unrelated); GlibcVariantNrs subset -> 6 passed. No LSP diagnostics.\nNR 305 added to the x86_64 deny list, the BPF jf fall-through skip repaired (red-proofed: buggy version bypassed 305 and 8 other NRs), and the libc-wrapper adjtimex EPERM regression test passes live.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM for adjtimex under the filter",
+                "status": "PASS",
+                "detail": "All three sub-requirements verified. (1) NR 305 in x86_64 deny list: plugin/terminal_jail/seccomp.py _DENY_EXTRA['x86_64'] contains `305,  # clock_adjtime \u2014 glibc routes adjtimex() here (TJ-DF-020)`; runtime check `305 in deny_set_for_arch('x86_64')` -> True. (2) BPF fall-through repaired: git diff HEAD~1 shows `jf = 1 if remaining else 0` replaced by `jf=0` in _build_filter (plugin/terminal_jail/seccomp.py:331-345). Independent BPF interpreter simulation of the built program: all 18 deny NRs return SECCOMP_RET_ERRNO|EPERM, getpid(39)->ALLOW, wrong-arch->KILL. Red-proof by re-installing the old buggy jf=1 logic: bypassed NRs = [159,164,167,174,176,246,249,305,320] (305 bypassed) \u2014 confirming the fix makes all deny NRs take effect. (3) libc-wrapper regression test: plugin/test_seccomp.py:547 TestGlibcVariantNrs::test_libc_adjtimex_returns_eperm_under_filter installs the filter via try_apply() in a subprocess and calls libc.adjtimex(), asserting 'errno=1'. Live reproduction of the exact probe: rc=0, stdout='errno=1'. Test run: `.venv/bin/python -m pytest plugin/test_seccomp.py -q` -> 47 passed, 3 skipped (skips are PT-004a/b/c requiring CAP_SYS_ADMIN, unrelated); GlibcVariantNrs subset -> 6 passed. No LSP diagnostics.",
+                "resolution_probability": 0.59
+              }
+            ],
+            "summary": "NR 305 added to the x86_64 deny list, the BPF jf fall-through skip repaired (red-proofed: buggy version bypassed 305 and 8 other NRs), and the libc-wrapper adjtimex EPERM regression test passes live."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-020\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 clock_adjtime NR 305 is in the x86_64 deny list, BPF fall-through skips repaired so all deny NRs take effect, and a libc-wrapper regression test asserts EPERM for adjtimex under the filter: All three sub-requirements verified. (1) NR 305 in x86_64 deny list: plugin/terminal_jail/seccomp.py _DENY_EXTRA['x86_64'] contains `305,  # clock_adjtime \u2014 glibc routes adjtimex() here (TJ-DF-020)`; runtime check `305 in deny_set_for_arch('x86_64')` -> True. (2) BPF fall-through repaired: git diff HEAD~1 shows `jf = 1 if remaining else 0` replaced by `jf=0` in _build_filter (plugin/terminal_jail/seccomp.py:331-345). Independent BPF interpreter simulation of the built program: all 18 deny NRs return SECCOMP_RET_ERRNO|EPERM, getpid(39)->ALLOW, wrong-arch->KILL. Red-proof by re-installing the old buggy jf=1 logic: bypassed NRs = [159,164,167,174,176,246,249,305,320] (305 bypassed) \u2014 confirming the fix makes all deny NRs take effect. (3) libc-wrapper regression test: plugin/test_seccomp.py:547 TestGlibcVariantNrs::test_libc_adjtimex_returns_eperm_under_filter installs the filter via try_apply() in a subprocess and calls libc.adjtimex(), asserting 'errno=1'. Live reproduction of the exact probe: rc=0, stdout='errno=1'. Test run: `.venv/bin/python -m pytest plugin/test_seccomp.py -q` -> 47 passed, 3 skipped (skips are PT-004a/b/c requiring CAP_SYS_ADMIN, unrelated); GlibcVariantNrs subset -> 6 passed. No LSP diagnostics.\nNR 305 added to the x86_64 deny list, the BPF jf fall-through skip repaired (red-proofed: buggy version bypassed 305 and 8 other NRs), and the libc-wrapper adjtimex EPERM regression test passes live.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-23T12:21:45.421810",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-23T12:21:45.435551+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 15466,
+        "truncated": false,
+        "source": "git show 156815b8f82d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1342,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-020"
+  }
+}

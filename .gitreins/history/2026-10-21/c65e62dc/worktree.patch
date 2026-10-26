@@ -1,0 +1,92 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index e274e61..15af9ab 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1805,14 +1805,11 @@ tasks:
+   status: complete
+   created_at: '2026-10-20T04:00:30.529030+00:00'
+   completed_at: '2026-10-20T12:02:01.192509+00:00'
+-- id: INT-CI-011
+-  title: 'Fix CI test failures: broaden error message assertions for cross-environment
+-    compatibility'
+-  criteria:
+-  - 'CI Python 3.11/3.12/3.13 lanes fail on two assertions that hardcode environment-specific
+-    error messages (''cannot read'', ''not found'') instead of accepting the union
+-    of all valid degradation messages (also ''not reachable''). Fix: use the same
+-    multi-needle pattern from test_modify_path_unreadable_loader_degrades_before_composition
+-    in the two failing tests.'
+-  status: in_progress
+-  created_at: '2026-10-21T16:25:52.198599+00:00'
++- id: INT-CI-008
++  title: Fix test_open_chain_under_tmp_is_traversable failing when TMPDIR not world-traversable
++  criteria:
++  - 'The test must pass when TMPDIR is set to a non-world-traversable directory. Fix:
++    pin TMPDIR to a known-1777 ancestor path (child of /tmp) before assertions.'
++  status: complete
++  created_at: '2026-10-21T19:50:02.424206+00:00'
++  completed_at: '2026-10-21T20:10:03.293102+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 91c122f..a88e2cb 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -154,3 +154,5 @@
+ {"ts": 1792466859.2536936, "tokens_in": 125868, "tokens_out": 2647, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792532192.305947, "tokens_in": 1219960, "tokens_out": 5775, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792537338.337413, "tokens_in": 7665, "tokens_out": 580, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792600819.2451534, "tokens_in": 366876, "tokens_out": 3330, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792613618.5154588, "tokens_in": 166827, "tokens_out": 2376, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index 856da36..a41c4c9 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -190,3 +190,50 @@
+ {"from":"plugin/test_landlock.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_landlock.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:threading","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_plain_allow_degrade.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:threading","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf046_egress_allow_path.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:importlib.util","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/terminal_jail/interruptor/landlock_net.py","to":"pkg:plugin.terminal_jail.interruptor.landlock","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:socket","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:ctypes","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:contextlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:io","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.blocklist","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}

@@ -1,0 +1,33 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 93889e9..ea636ee 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2058,3 +2058,18 @@ tasks:
+   status: complete
+   created_at: '2026-10-25T01:32:58.241340+00:00'
+   completed_at: '2026-10-25T01:36:26.820931+00:00'
++- id: DOC-20
++  title: Document benchmark interruptor in README
++  criteria:
++  - README names scripts/benchmark-interruptor.py and the exact command exits 0
++  status: complete
++  created_at: '2026-10-25T16:26:24.910162+00:00'
++  completed_at: '2026-10-25T16:29:32.003083+00:00'
++- id: DOC-21
++  title: Refresh quickstart bridge transcript layer fields
++  criteria:
++  - The five later bridge envelopes include layer and a fresh malformed-input probe
++    returns exactly action, command, modified, rule_id, reason, layer
++  status: complete
++  created_at: '2026-10-25T16:36:08.414539+00:00'
++  completed_at: '2026-10-25T16:36:31.119399+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index adb7f1d..c6dccee 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -173,3 +173,5 @@
+ {"ts": 1792881038.926105, "tokens_in": 110148, "tokens_out": 2476, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792898446.5814989, "tokens_in": 11216162, "tokens_out": 23690, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792916370.2713249, "tokens_in": 17296, "tokens_out": 688, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1792945977.4801073, "tokens_in": 17377, "tokens_out": 539, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1792946447.3350654, "tokens_in": 271525, "tokens_out": 3242, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}

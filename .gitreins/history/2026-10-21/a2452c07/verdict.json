@@ -1,0 +1,121 @@
+{
+  "task_id": "INT-CI-011",
+  "task_title": "Fix duplicate Landlock egress degrade warning on unreadable loader",
+  "task_criteria": [
+    "The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition observe exactly one Landlock network degrade warning while the payload runs, preserve a named unreadable-loader cause, avoid composing the unreadable loader, and include repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression and the configured full unit suite."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "repair/tj-foreman-20261020",
+  "commit": "99221b25499fc638496bfe63b27c7ac2492fe1ad",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T011525.759089Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": false,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n2:28AM INF scanned ~6575030 bytes (6.58 MB) in 447ms\n2:28AM WRN leaks found: 1\nsecrets: gitleaks: findings found (exit 1)\nsecrets: builtin cross-check: Scanned 235 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T011525.759089Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2058 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py ................              [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2043 passed, 15 skipped in 180.86s (0:03:00) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261021T011525.759089Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition observe exactly one Landlock network degrade warning while the payload runs, preserve a named unreadable-loader cause, avoid composing the unreadable loader, and include repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression and the configured full unit suite.: Fix committed as d2fdf89 (HEAD 36454de differs only in board data). Mechanism: standalone/terminal-jail:449-453 creates a launch-private TERMINAL_JAIL_LANDLOCK_NET_MARK via mktemp when TJ_LANDLOCK_NET_ON=1; plugin/terminal_jail/interruptor/landlock_net.py:620-651 (_note_engine_degradation, called from _degrade) appends the cause best-effort; standalone/terminal-jail:1069-1106 (_tj_egress_engine_degradation_mark / _tj_egress_tier_decide) suppresses the wrapper's second warning when the mark is non-empty; mark removed at standalone/terminal-jail:1327-1328. Test asserts stderr.count('WARNING: Landlock network (egress) tier not applied') == 1 (plugin/test_tjdf046_egress_allow_path.py:487-490), a named cause from either layer (lines 492-503), 'SHAPE-OK' in stdout (line 486), and str(hidden) not in argv (lines 504-505). ch:trace row=INT-CI-011 present at plugin/test_tjdf046_egress_allow_path.py:463 (spec/doc/evidence/witness fields). Focused run: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition -x --tb=short -q` -> exit_code 0, '1 passed in 0.26s'. Whole file: '22 passed, 1 skipped in 6.58s'. Configured full suite (`.venv/bin/python -m pytest -x --tb=short -q` from .gitreins/config.yaml guards.test_command) -> exit_code 0, '2158 passed, 62 skipped, 3 warnings in 124.14s (0:02:04)'. Independent live probe reproducing the test body printed exactly one warning line: 'terminal-jail: WARNING: Landlock network (egress) tier not applied (the payload cannot read /var/tmp/.../landlock-net-loader.py in the launch that would run it)...' with COUNT 1 and stdout 'SHAPE-OK'. [resolution 0.11; plugin/test_tjdf046_egress_allow_path.py]\nThe committed fix (d2fdf89) deduplicates the egress degrade via a launch-private mark file; the focused regression passes (1 passed), the full configured suite is green (2158 passed, 62 skipped), and a live probe confirms exactly one named warning with the payload running and the unreadable loader absent from argv.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition observe exactly one Landlock network degrade warning while the payload runs, preserve a named unreadable-loader cause, avoid composing the unreadable loader, and include repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression and the configured full unit suite.: Fix committed as d2fdf89 (HEAD 36454de differs only in board data). Mechanism: standalone/terminal-jail:449-453 creates a launch-private TERMINAL_JAIL_LANDLOCK_NET_MARK via mktemp when TJ_LANDLOCK_NET_ON=1; plugin/terminal_jail/interruptor/landlock_net.py:620-651 (_note_engine_degradation, called from _degrade) appends the cause best-effort; standalone/terminal-jail:1069-1106 (_tj_egress_engine_degradation_mark / _tj_egress_tier_decide) suppresses the wrapper's second warning when the mark is non-empty; mark removed at standalone/terminal-jail:1327-1328. Test asserts stderr.count('WARNING: Landlock network (egress) tier not applied') == 1 (plugin/test_tjdf046_egress_allow_path.py:487-490), a named cause from either layer (lines 492-503), 'SHAPE-OK' in stdout (line 486), and str(hidden) not in argv (lines 504-505). ch:trace row=INT-CI-011 present at plugin/test_tjdf046_egress_allow_path.py:463 (spec/doc/evidence/witness fields). Focused run: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition -x --tb=short -q` -> exit_code 0, '1 passed in 0.26s'. Whole file: '22 passed, 1 skipped in 6.58s'. Configured full suite (`.venv/bin/python -m pytest -x --tb=short -q` from .gitreins/config.yaml guards.test_command) -> exit_code 0, '2158 passed, 62 skipped, 3 warnings in 124.14s (0:02:04)'. Independent live probe reproducing the test body printed exactly one warning line: 'terminal-jail: WARNING: Landlock network (egress) tier not applied (the payload cannot read /var/tmp/.../landlock-net-loader.py in the launch that would run it)...' with COUNT 1 and stdout 'SHAPE-OK'. [resolution 0.11; plugin/test_tjdf046_egress_allow_path.py]\nThe committed fix (d2fdf89) deduplicates the egress degrade via a launch-private mark file; the focused regression passes (1 passed), the full configured suite is green (2158 passed, 62 skipped), and a live probe confirms exactly one named warning with the payload running and the unreadable loader absent from argv.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition observe exactly one Landlock network degrade warning while the payload runs, preserve a named unreadable-loader cause, avoid composing the unreadable loader, and include repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression and the configured full unit suite.",
+                "status": "PASS",
+                "detail": "Fix committed as d2fdf89 (HEAD 36454de differs only in board data). Mechanism: standalone/terminal-jail:449-453 creates a launch-private TERMINAL_JAIL_LANDLOCK_NET_MARK via mktemp when TJ_LANDLOCK_NET_ON=1; plugin/terminal_jail/interruptor/landlock_net.py:620-651 (_note_engine_degradation, called from _degrade) appends the cause best-effort; standalone/terminal-jail:1069-1106 (_tj_egress_engine_degradation_mark / _tj_egress_tier_decide) suppresses the wrapper's second warning when the mark is non-empty; mark removed at standalone/terminal-jail:1327-1328. Test asserts stderr.count('WARNING: Landlock network (egress) tier not applied') == 1 (plugin/test_tjdf046_egress_allow_path.py:487-490), a named cause from either layer (lines 492-503), 'SHAPE-OK' in stdout (line 486), and str(hidden) not in argv (lines 504-505). ch:trace row=INT-CI-011 present at plugin/test_tjdf046_egress_allow_path.py:463 (spec/doc/evidence/witness fields). Focused run: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition -x --tb=short -q` -> exit_code 0, '1 passed in 0.26s'. Whole file: '22 passed, 1 skipped in 6.58s'. Configured full suite (`.venv/bin/python -m pytest -x --tb=short -q` from .gitreins/config.yaml guards.test_command) -> exit_code 0, '2158 passed, 62 skipped, 3 warnings in 124.14s (0:02:04)'. Independent live probe reproducing the test body printed exactly one warning line: 'terminal-jail: WARNING: Landlock network (egress) tier not applied (the payload cannot read /var/tmp/.../landlock-net-loader.py in the launch that would run it)...' with COUNT 1 and stdout 'SHAPE-OK'. [resolution 0.11; plugin/test_tjdf046_egress_allow_path.py]",
+                "resolution_probability": 0.11,
+                "cited_path": "plugin/test_tjdf046_egress_allow_path.py"
+              }
+            ],
+            "summary": "The committed fix (d2fdf89) deduplicates the egress degrade via a launch-private mark file; the focused regression passes (1 passed), the full configured suite is green (2158 passed, 62 skipped), and a live probe confirms exactly one named warning with the payload running and the unreadable loader absent from argv."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-011\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2717 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 The committed fix must make plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition observe exactly one Landlock network degrade warning while the payload runs, preserve a named unreadable-loader cause, avoid composing the unreadable loader, and include repository-local ch:trace evidence for row INT-CI-011. Verify the focused regression and the configured full unit suite.: Fix committed as d2fdf89 (HEAD 36454de differs only in board data). Mechanism: standalone/terminal-jail:449-453 creates a launch-private TERMINAL_JAIL_LANDLOCK_NET_MARK via mktemp when TJ_LANDLOCK_NET_ON=1; plugin/terminal_jail/interruptor/landlock_net.py:620-651 (_note_engine_degradation, called from _degrade) appends the cause best-effort; standalone/terminal-jail:1069-1106 (_tj_egress_engine_degradation_mark / _tj_egress_tier_decide) suppresses the wrapper's second warning when the mark is non-empty; mark removed at standalone/terminal-jail:1327-1328. Test asserts stderr.count('WARNING: Landlock network (egress) tier not applied') == 1 (plugin/test_tjdf046_egress_allow_path.py:487-490), a named cause from either layer (lines 492-503), 'SHAPE-OK' in stdout (line 486), and str(hidden) not in argv (lines 504-505). ch:trace row=INT-CI-011 present at plugin/test_tjdf046_egress_allow_path.py:463 (spec/doc/evidence/witness fields). Focused run: `.venv/bin/python -m pytest plugin/test_tjdf046_egress_allow_path.py::TestLaunchShape::test_modify_path_unreadable_loader_degrades_before_composition -x --tb=short -q` -> exit_code 0, '1 passed in 0.26s'. Whole file: '22 passed, 1 skipped in 6.58s'. Configured full suite (`.venv/bin/python -m pytest -x --tb=short -q` from .gitreins/config.yaml guards.test_command) -> exit_code 0, '2158 passed, 62 skipped, 3 warnings in 124.14s (0:02:04)'. Independent live probe reproducing the test body printed exactly one warning line: 'terminal-jail: WARNING: Landlock network (egress) tier not applied (the payload cannot read /var/tmp/.../landlock-net-loader.py in the launch that would run it)...' with COUNT 1 and stdout 'SHAPE-OK'. [resolution 0.11; plugin/test_tjdf046_egress_allow_path.py]\nThe committed fix (d2fdf89) deduplicates the egress degrade via a launch-private mark file; the focused regression passes (1 passed), the full configured suite is green (2158 passed, 62 skipped), and a live probe confirms exactly one named warning with the payload running and the unreadable loader absent from argv.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-21T07:46:08.215958",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-21T07:46:08.232782+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1742,
+        "truncated": false,
+        "source": "git show 99221b25499f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 646,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-011"
+  }
+}

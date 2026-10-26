@@ -1,0 +1,119 @@
+{
+  "task_id": "TJ-DF-043",
+  "task_title": "Resolve unshare orphan-teardown containment failure (kernel 6.12) or narrow+enforce the backend contract",
+  "task_criteria": [
+    "1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "7018c08210d73b3f73e023e0762c019d179a49f0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n7:14PM INF scanned ~5369952 bytes (5.37 MB) in 358ms\n7:14PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 185 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1582 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [ 10%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 59%]\n........................................................................ [ 64%]\n........................................                                 [ 66%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [320 chars omitted \u2014 4 line(s)] \u2026\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 86%]\nplugin/test_seccomp.py .........................................sss..... [ 89%]\n.                                                                        [ 89%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n..................                                                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1575 passed, 7 skipped in 333.08s (0:05:33) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T193601.955791Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.: Criterion 1 (root cause named w/ kernel citation or minimal reproducer):\n- Commit 7018c08 names root cause: util-linux arms --kill-child PR_SET_PDEATHSIG BEFORE -S/-G setgid/setuid; kernel clears pdeath_signal on cred change.\n- Citations: man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds() task->pdeath_signal=0; kernel/exit.c forget_original_parent; kernel/signal.c kill_ok_by_cred.\n- Reproducer: LD_PRELOAD syscall-order shim showed prctl(PDEATHSIG)->setgroups(0)->setgid(65534)->setuid(65534)->exec; measured orphan >5s 2/2 reps on Debian 13.7/kernel 6.12.107 (bunker-las-03).\n- Documented in docs/backend-parity.md known-limit (e) line 134; README; CHANGELOG; test docstrings.\n=> PASS\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.: Criterion 1 (root cause named w/ kernel citation or minimal reproducer):\n- Commit 7018c08 names root cause: util-linux arms --kill-child PR_SET_PDEATHSIG BEFORE -S/-G setgid/setuid; kernel clears pdeath_signal on cred change.\n- Citations: man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds() task->pdeath_signal=0; kernel/exit.c forget_original_parent; kernel/signal.c kill_ok_by_cred.\n- Reproducer: LD_PRELOAD syscall-order shim showed prctl(PDEATHSIG)->setgroups(0)->setgid(65534)->setuid(65534)->exec; measured orphan >5s 2/2 reps on Debian 13.7/kernel 6.12.107 (bunker-las-03).\n- Documented in docs/backend-parity.md known-limit (e) line 134; README; CHANGELOG; test docstrings.\n=> PASS\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.",
+                "status": "FAIL",
+                "detail": "Criterion 1 (root cause named w/ kernel citation or minimal reproducer):\n- Commit 7018c08 names root cause: util-linux arms --kill-child PR_SET_PDEATHSIG BEFORE -S/-G setgid/setuid; kernel clears pdeath_signal on cred change.\n- Citations: man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds() task->pdeath_signal=0; kernel/exit.c forget_original_parent; kernel/signal.c kill_ok_by_cred.\n- Reproducer: LD_PRELOAD syscall-order shim showed prctl(PDEATHSIG)->setgroups(0)->setgid(65534)->setuid(65534)->exec; measured orphan >5s 2/2 reps on Debian 13.7/kernel 6.12.107 (bunker-las-03).\n- Documented in docs/backend-parity.md known-limit (e) line 134; README; CHANGELOG; test docstrings.\n=> PASS"
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-043\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 1) Root cause named with kernel citation or minimal reproducer for 6.12 unshare teardown failure. 2) EITHER teardown holds across kernel matrix cells with recorded survival times OR guarantee narrowed+enforced: auto refuses backends whose teardown contract cannot hold, documented in README + --help + docs/backend-parity.md. 3) Regression pinned in matrix harness/CI. 4) No weakening of firewall or other containment layers.: Criterion 1 (root cause named w/ kernel citation or minimal reproducer):\n- Commit 7018c08 names root cause: util-linux arms --kill-child PR_SET_PDEATHSIG BEFORE -S/-G setgid/setuid; kernel clears pdeath_signal on cred change.\n- Citations: man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds() task->pdeath_signal=0; kernel/exit.c forget_original_parent; kernel/signal.c kill_ok_by_cred.\n- Reproducer: LD_PRELOAD syscall-order shim showed prctl(PDEATHSIG)->setgroups(0)->setgid(65534)->setuid(65534)->exec; measured orphan >5s 2/2 reps on Debian 13.7/kernel 6.12.107 (bunker-las-03).\n- Documented in docs/backend-parity.md known-limit (e) line 134; README; CHANGELOG; test docstrings.\n=> PASS\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-03T01:20:18.416614",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-03T01:20:18.470539+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 65217,
+        "truncated": false,
+        "source": "git show 7018c08210d7"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 18164,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-043"
+  }
+}

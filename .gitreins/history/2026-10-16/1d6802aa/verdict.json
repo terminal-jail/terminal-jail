@@ -1,0 +1,119 @@
+{
+  "task_id": "INT-CI-007",
+  "task_title": "Fix CI matrix failure: test env helpers inherit CI=true from GitHub Actions, causing --no-path auto-skip of PATH setup",
+  "task_criteria": [
+    "1. The fix (ccd6097) clears CI and SUDO_USER in _install_env, _env, and _home_env test helpers, matching _baseline_env_without_ci_sudo.\n2. 10 previously-failing tests now pass: test_default_install_keeps_classic_path_behavior, test_custom_install_dir_appends_despite_stale_default_block, test_tmp_prefix_skips_path_block, test_ci_env_skips_path_block, test_sudo_user_skips_path_block, test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_uninstall_still_removes_marked_block, test_uninstall_leaves_zero_terminal_jail_files, test_uninstall_custom_scope_removes_every_target, test_uninstall_then_reinstall_round_trip.\n3. Guard full: PASS 4/4 (secrets clean, lint ok, tests full pass, static_analysis skipped).\n4. Push verified: origin/main parity 0 ahead."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "34b2bf028c54de80765741020facbd55410826ad",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T193959.046456Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n2:40PM INF scanned ~6867187 bytes (6.87 MB) in 605ms\n2:40PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 229 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T193959.046456Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2003 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.....                                                                   [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 19%]\n.................................                                        [ 21%]\nplugin/test_gtfobins_sweep.py .......................................... [ 23%]\n.....................                                                    [ 24%]\nplugin/test_host_probes.py .......................                       [ 25%]\nplugin/test_install.py ................................................. [ 28%]\n.................................................                        [ 30%]\nplugin/test_interruptor.py ............................................. [ 32%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 47%]\n........................................................................ [ 50%]\n........................................................................ [ 54%]\n\n\u2026 [2080 chars omitted \u2014 26 line(s)] \u2026\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 88%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................ss.....                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 1992 passed, 11 skipped in 155.35s (0:02:35) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261016T193959.046456Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 1. The fix (ccd6097) clears CI and SUDO_USER in _install_env, _env, and _home_env test helpers, matching _baseline_env_without_ci_sudo.\n2. 10 previously-failing tests now pass: test_default_install_keeps_classic_path_behavior, test_custom_install_dir_appends_despite_stale_default_block, test_tmp_prefix_skips_path_block, test_ci_env_skips_path_block, test_sudo_user_skips_path_block, test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_uninstall_still_removes_marked_block, test_uninstall_leaves_zero_terminal_jail_files, test_uninstall_custom_scope_removes_every_target, test_uninstall_then_reinstall_round_trip.\n3. Guard full: PASS 4/4 (secrets clean, lint ok, tests full pass, static_analysis skipped).\n4. Push verified: origin/main parity 0 ahead.: PASS: ccd6097 adds \"CI\": \"\" and \"SUDO_USER\": \"\" to _install_env (plugin/test_install.py:1871-1875), _env (plugin/test_uninstall.py:33-37), _home_env (plugin/test_uninstall.py:49-53). _baseline_env_without_ci_sudo (plugin/test_install.py:2726-2733) does env=_install_env(tmp_path); env[\"CI\"]=\"\"; env[\"SUDO_USER\"]=\"\" \u2014 now redundant but consistent. install.sh:1356-1363 confirms SUDO_USER/CI trigger path_block_skip_reason.\nPartial verdict \u2014 all verified criteria passed",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 1. The fix (ccd6097) clears CI and SUDO_USER in _install_env, _env, and _home_env test helpers, matching _baseline_env_without_ci_sudo.\n2. 10 previously-failing tests now pass: test_default_install_keeps_classic_path_behavior, test_custom_install_dir_appends_despite_stale_default_block, test_tmp_prefix_skips_path_block, test_ci_env_skips_path_block, test_sudo_user_skips_path_block, test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_uninstall_still_removes_marked_block, test_uninstall_leaves_zero_terminal_jail_files, test_uninstall_custom_scope_removes_every_target, test_uninstall_then_reinstall_round_trip.\n3. Guard full: PASS 4/4 (secrets clean, lint ok, tests full pass, static_analysis skipped).\n4. Push verified: origin/main parity 0 ahead.: PASS: ccd6097 adds \"CI\": \"\" and \"SUDO_USER\": \"\" to _install_env (plugin/test_install.py:1871-1875), _env (plugin/test_uninstall.py:33-37), _home_env (plugin/test_uninstall.py:49-53). _baseline_env_without_ci_sudo (plugin/test_install.py:2726-2733) does env=_install_env(tmp_path); env[\"CI\"]=\"\"; env[\"SUDO_USER\"]=\"\" \u2014 now redundant but consistent. install.sh:1356-1363 confirms SUDO_USER/CI trigger path_block_skip_reason.\nPartial verdict \u2014 all verified criteria passed",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "1. The fix (ccd6097) clears CI and SUDO_USER in _install_env, _env, and _home_env test helpers, matching _baseline_env_without_ci_sudo.\n2. 10 previously-failing tests now pass: test_default_install_keeps_classic_path_behavior, test_custom_install_dir_appends_despite_stale_default_block, test_tmp_prefix_skips_path_block, test_ci_env_skips_path_block, test_sudo_user_skips_path_block, test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_uninstall_still_removes_marked_block, test_uninstall_leaves_zero_terminal_jail_files, test_uninstall_custom_scope_removes_every_target, test_uninstall_then_reinstall_round_trip.\n3. Guard full: PASS 4/4 (secrets clean, lint ok, tests full pass, static_analysis skipped).\n4. Push verified: origin/main parity 0 ahead.",
+                "status": "PASS",
+                "detail": "PASS: ccd6097 adds \"CI\": \"\" and \"SUDO_USER\": \"\" to _install_env (plugin/test_install.py:1871-1875), _env (plugin/test_uninstall.py:33-37), _home_env (plugin/test_uninstall.py:49-53). _baseline_env_without_ci_sudo (plugin/test_install.py:2726-2733) does env=_install_env(tmp_path); env[\"CI\"]=\"\"; env[\"SUDO_USER\"]=\"\" \u2014 now redundant but consistent. install.sh:1356-1363 confirms SUDO_USER/CI trigger path_block_skip_reason."
+              }
+            ],
+            "summary": "Partial verdict \u2014 all verified criteria passed"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-007\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 1. The fix (ccd6097) clears CI and SUDO_USER in _install_env, _env, and _home_env test helpers, matching _baseline_env_without_ci_sudo.\n2. 10 previously-failing tests now pass: test_default_install_keeps_classic_path_behavior, test_custom_install_dir_appends_despite_stale_default_block, test_tmp_prefix_skips_path_block, test_ci_env_skips_path_block, test_sudo_user_skips_path_block, test_custom_install_dir_path_entry_points_at_actual_dir, test_custom_install_dir_path_entry_is_idempotent, test_uninstall_still_removes_marked_block, test_uninstall_leaves_zero_terminal_jail_files, test_uninstall_custom_scope_removes_every_target, test_uninstall_then_reinstall_round_trip.\n3. Guard full: PASS 4/4 (secrets clean, lint ok, tests full pass, static_analysis skipped).\n4. Push verified: origin/main parity 0 ahead.: PASS: ccd6097 adds \"CI\": \"\" and \"SUDO_USER\": \"\" to _install_env (plugin/test_install.py:1871-1875), _env (plugin/test_uninstall.py:33-37), _home_env (plugin/test_uninstall.py:49-53). _baseline_env_without_ci_sudo (plugin/test_install.py:2726-2733) does env=_install_env(tmp_path); env[\"CI\"]=\"\"; env[\"SUDO_USER\"]=\"\" \u2014 now redundant but consistent. install.sh:1356-1363 confirms SUDO_USER/CI trigger path_block_skip_reason.\nPartial verdict \u2014 all verified criteria passed\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-16T21:56:28.657682",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-16T21:56:28.747804+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 13249,
+        "truncated": false,
+        "source": "git show 34b2bf028c54"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2231,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-007"
+  }
+}

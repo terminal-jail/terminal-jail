@@ -1,0 +1,110 @@
+{
+  "task_id": "TJ-DF-040",
+  "task_title": "PyYAML-less fresh host: rule files silently unload -> engine allows everything (fail-open)",
+  "task_criteria": [
+    "On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse must NOT contribute zero rules silently: the engine must fail closed (abort load -> blocking bridge-error verdict) and the bridge verdict must state the failure; yaml-only policy must block with PyYAML and refuse-to-allow without it; regression tests pin both arms"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "e3bfcb0c728deaee431a6cb9049bf12f68829afb",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T040731.304128Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n11:28PM INF scanned ~5812976 bytes (5.81 MB) in 378ms\n11:28PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 177 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261002T040731.304128Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "",
+          "error": "Command timed out",
+          "data": {}
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse must NOT contribute zero rules silently: the engine must fail closed (abort load -> blocking bridge-error verdict) and the bridge verdict must state the failure; yaml-only policy must block with PyYAML and refuse-to-allow without it; regression tests pin both arms: Fail-closed implemented: plugin/terminal_jail/interruptor/rules.py:152 defines RuleFallbackParseError(RuleParseError); _parse_file (rules.py:484-508) catches ImportError from `import yaml`, falls back to json.loads, and on failure writes one loud stderr note naming the file + cause ('PyYAML unavailable, JSON fallback failed') then raises RuleFallbackParseError; _load_file (rules.py:388-433) re-raises RuleFallbackParseError (abort) and RuleSchemaError, while only plain RuleParseError (real YAML parser syntax error) and OSError are skipped with loud notes. Bridge states the failure: plugin/terminal_jail/interruptor_bridge.py:82-99 wraps intercept() in `except Exception` -> _emit_fail_closed -> {\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"reason\":\"[bridge-error] RuleFallbackParseError: ... \u2014 fail-closed: blocking command (enforce mode)\"}; standalone/terminal-jail:381-390 forces block (exit 126) on any '[bridge-error]' reason. Both arms pinned by tests in plugin/test_bridge_fail_closed.py: TestPyYAMLLessParseFailureFailsClosed::test_control_yaml_only_rule_blocks_with_pyyaml (WITH PyYAML the yaml-only rule blocks via bridge, rule_id pack-testonly-yaml-rule), ::test_without_pyyaml_bridge_verdict_is_not_a_plain_allow (monkeypatch sys.modules['yaml']=None -> asserts action=='block', rule_id=='[bridge-error]', 'fail-closed' in reason, loud note names 99-df040.yaml), ::test_without_pyyaml_load_all_raises_rule_parse_error, ::test_without_pyyaml_installed_mirror_aborts_intercept (intercept() raises RuleFallbackParseError on the shipped 00-builtins.yaml mirror), plus TestLoaderPyYAMLLessMirrorIsLoud::test_mirror_fails_closed_loudly_without_pyyaml and the retained narrow fail-open arms (unreadable file, real-parser syntax error). Test evidence: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py -v` -> '35 passed in 2.38s' (all DF-040 tests PASSED); full suite `.venv/bin/python -m pytest -q --tb=short` -> '1564 passed, 7 skipped in 527.90s (0:08:47)'; LSP diagnostics: 0 findings. Real-world check: the shipped mirror plugin/terminal_jail/rules/00-builtins.yaml is not JSON-parseable (json.loads -> 'Expecting value: line 1 column 1 (char 0)'), so on a PyYAML-less host the installed mirror hits the abort path and the engine refuses to allow.\nThe PyYAML-less JSON-fallback parse failure now aborts the rule load (RuleFallbackParseError) and the bridge emits a blocking [bridge-error] verdict naming the failure, with regression tests pinning both the with-PyYAML block arm and the without-PyYAML refuse-to-allow arm \u2014 all 35 targeted tests and the full 1564-test suite pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse must NOT contribute zero rules silently: the engine must fail closed (abort load -> blocking bridge-error verdict) and the bridge verdict must state the failure; yaml-only policy must block with PyYAML and refuse-to-allow without it; regression tests pin both arms: Fail-closed implemented: plugin/terminal_jail/interruptor/rules.py:152 defines RuleFallbackParseError(RuleParseError); _parse_file (rules.py:484-508) catches ImportError from `import yaml`, falls back to json.loads, and on failure writes one loud stderr note naming the file + cause ('PyYAML unavailable, JSON fallback failed') then raises RuleFallbackParseError; _load_file (rules.py:388-433) re-raises RuleFallbackParseError (abort) and RuleSchemaError, while only plain RuleParseError (real YAML parser syntax error) and OSError are skipped with loud notes. Bridge states the failure: plugin/terminal_jail/interruptor_bridge.py:82-99 wraps intercept() in `except Exception` -> _emit_fail_closed -> {\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"reason\":\"[bridge-error] RuleFallbackParseError: ... \u2014 fail-closed: blocking command (enforce mode)\"}; standalone/terminal-jail:381-390 forces block (exit 126) on any '[bridge-error]' reason. Both arms pinned by tests in plugin/test_bridge_fail_closed.py: TestPyYAMLLessParseFailureFailsClosed::test_control_yaml_only_rule_blocks_with_pyyaml (WITH PyYAML the yaml-only rule blocks via bridge, rule_id pack-testonly-yaml-rule), ::test_without_pyyaml_bridge_verdict_is_not_a_plain_allow (monkeypatch sys.modules['yaml']=None -> asserts action=='block', rule_id=='[bridge-error]', 'fail-closed' in reason, loud note names 99-df040.yaml), ::test_without_pyyaml_load_all_raises_rule_parse_error, ::test_without_pyyaml_installed_mirror_aborts_intercept (intercept() raises RuleFallbackParseError on the shipped 00-builtins.yaml mirror), plus TestLoaderPyYAMLLessMirrorIsLoud::test_mirror_fails_closed_loudly_without_pyyaml and the retained narrow fail-open arms (unreadable file, real-parser syntax error). Test evidence: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py -v` -> '35 passed in 2.38s' (all DF-040 tests PASSED); full suite `.venv/bin/python -m pytest -q --tb=short` -> '1564 passed, 7 skipped in 527.90s (0:08:47)'; LSP diagnostics: 0 findings. Real-world check: the shipped mirror plugin/terminal_jail/rules/00-builtins.yaml is not JSON-parseable (json.loads -> 'Expecting value: line 1 column 1 (char 0)'), so on a PyYAML-less host the installed mirror hits the abort path and the engine refuses to allow.\nThe PyYAML-less JSON-fallback parse failure now aborts the rule load (RuleFallbackParseError) and the bridge emits a blocking [bridge-error] verdict naming the failure, with regression tests pinning both the with-PyYAML block arm and the without-PyYAML refuse-to-allow arm \u2014 all 35 targeted tests and the full 1564-test suite pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse must NOT contribute zero rules silently: the engine must fail closed (abort load -> blocking bridge-error verdict) and the bridge verdict must state the failure; yaml-only policy must block with PyYAML and refuse-to-allow without it; regression tests pin both arms",
+                "status": "PASS",
+                "detail": "Fail-closed implemented: plugin/terminal_jail/interruptor/rules.py:152 defines RuleFallbackParseError(RuleParseError); _parse_file (rules.py:484-508) catches ImportError from `import yaml`, falls back to json.loads, and on failure writes one loud stderr note naming the file + cause ('PyYAML unavailable, JSON fallback failed') then raises RuleFallbackParseError; _load_file (rules.py:388-433) re-raises RuleFallbackParseError (abort) and RuleSchemaError, while only plain RuleParseError (real YAML parser syntax error) and OSError are skipped with loud notes. Bridge states the failure: plugin/terminal_jail/interruptor_bridge.py:82-99 wraps intercept() in `except Exception` -> _emit_fail_closed -> {\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"reason\":\"[bridge-error] RuleFallbackParseError: ... \u2014 fail-closed: blocking command (enforce mode)\"}; standalone/terminal-jail:381-390 forces block (exit 126) on any '[bridge-error]' reason. Both arms pinned by tests in plugin/test_bridge_fail_closed.py: TestPyYAMLLessParseFailureFailsClosed::test_control_yaml_only_rule_blocks_with_pyyaml (WITH PyYAML the yaml-only rule blocks via bridge, rule_id pack-testonly-yaml-rule), ::test_without_pyyaml_bridge_verdict_is_not_a_plain_allow (monkeypatch sys.modules['yaml']=None -> asserts action=='block', rule_id=='[bridge-error]', 'fail-closed' in reason, loud note names 99-df040.yaml), ::test_without_pyyaml_load_all_raises_rule_parse_error, ::test_without_pyyaml_installed_mirror_aborts_intercept (intercept() raises RuleFallbackParseError on the shipped 00-builtins.yaml mirror), plus TestLoaderPyYAMLLessMirrorIsLoud::test_mirror_fails_closed_loudly_without_pyyaml and the retained narrow fail-open arms (unreadable file, real-parser syntax error). Test evidence: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py -v` -> '35 passed in 2.38s' (all DF-040 tests PASSED); full suite `.venv/bin/python -m pytest -q --tb=short` -> '1564 passed, 7 skipped in 527.90s (0:08:47)'; LSP diagnostics: 0 findings. Real-world check: the shipped mirror plugin/terminal_jail/rules/00-builtins.yaml is not JSON-parseable (json.loads -> 'Expecting value: line 1 column 1 (char 0)'), so on a PyYAML-less host the installed mirror hits the abort path and the engine refuses to allow.",
+                "resolution_probability": 0.12
+              }
+            ],
+            "summary": "The PyYAML-less JSON-fallback parse failure now aborts the rule load (RuleFallbackParseError) and the bridge emits a blocking [bridge-error] verdict naming the failure, with regression tests pinning both the with-PyYAML block arm and the without-PyYAML refuse-to-allow arm \u2014 all 35 targeted tests and the full 1564-test suite pass."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-040\n\nStage tier1: FAIL\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: Command timed out\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 On a host without PyYAML, any .yaml rule file that the JSON fallback cannot parse must NOT contribute zero rules silently: the engine must fail closed (abort load -> blocking bridge-error verdict) and the bridge verdict must state the failure; yaml-only policy must block with PyYAML and refuse-to-allow without it; regression tests pin both arms: Fail-closed implemented: plugin/terminal_jail/interruptor/rules.py:152 defines RuleFallbackParseError(RuleParseError); _parse_file (rules.py:484-508) catches ImportError from `import yaml`, falls back to json.loads, and on failure writes one loud stderr note naming the file + cause ('PyYAML unavailable, JSON fallback failed') then raises RuleFallbackParseError; _load_file (rules.py:388-433) re-raises RuleFallbackParseError (abort) and RuleSchemaError, while only plain RuleParseError (real YAML parser syntax error) and OSError are skipped with loud notes. Bridge states the failure: plugin/terminal_jail/interruptor_bridge.py:82-99 wraps intercept() in `except Exception` -> _emit_fail_closed -> {\"action\":\"block\",\"rule_id\":\"[bridge-error]\",\"reason\":\"[bridge-error] RuleFallbackParseError: ... \u2014 fail-closed: blocking command (enforce mode)\"}; standalone/terminal-jail:381-390 forces block (exit 126) on any '[bridge-error]' reason. Both arms pinned by tests in plugin/test_bridge_fail_closed.py: TestPyYAMLLessParseFailureFailsClosed::test_control_yaml_only_rule_blocks_with_pyyaml (WITH PyYAML the yaml-only rule blocks via bridge, rule_id pack-testonly-yaml-rule), ::test_without_pyyaml_bridge_verdict_is_not_a_plain_allow (monkeypatch sys.modules['yaml']=None -> asserts action=='block', rule_id=='[bridge-error]', 'fail-closed' in reason, loud note names 99-df040.yaml), ::test_without_pyyaml_load_all_raises_rule_parse_error, ::test_without_pyyaml_installed_mirror_aborts_intercept (intercept() raises RuleFallbackParseError on the shipped 00-builtins.yaml mirror), plus TestLoaderPyYAMLLessMirrorIsLoud::test_mirror_fails_closed_loudly_without_pyyaml and the retained narrow fail-open arms (unreadable file, real-parser syntax error). Test evidence: `.venv/bin/python -m pytest plugin/test_bridge_fail_closed.py -v` -> '35 passed in 2.38s' (all DF-040 tests PASSED); full suite `.venv/bin/python -m pytest -q --tb=short` -> '1564 passed, 7 skipped in 527.90s (0:08:47)'; LSP diagnostics: 0 findings. Real-world check: the shipped mirror plugin/terminal_jail/rules/00-builtins.yaml is not JSON-parseable (json.loads -> 'Expecting value: line 1 column 1 (char 0)'), so on a PyYAML-less host the installed mirror hits the abort path and the engine refuses to allow.\nThe PyYAML-less JSON-fallback parse failure now aborts the rule load (RuleFallbackParseError) and the bridge emits a blocking [bridge-error] verdict naming the failure, with regression tests pinning both the with-PyYAML block arm and the without-PyYAML refuse-to-allow arm \u2014 all 35 targeted tests and the full 1564-test suite pass.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-02T04:41:33.138242",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-02T04:41:33.161662+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 36932,
+        "truncated": false,
+        "source": "git show e3bfcb0c728d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 9402,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-040"
+  }
+}

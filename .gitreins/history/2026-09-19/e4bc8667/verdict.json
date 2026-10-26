@@ -1,0 +1,117 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-24",
+  "task_title": "Prefix install output clean and normalized",
+  "task_criteria": [
+    "install.sh with a custom TERMINAL_JAIL_INSTALL_DIR whose parent does not exist prints no raw cd error; every printed path is normalized (no embedded ..); default-install behavior unchanged; install tests cover the missing-parent prefix case"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "a0321c75095dd8971ad8aecaabfd0912e4f9de01",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T204647.150496Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n3:51PM INF scanned ~4019531 bytes (4.02 MB) in 266ms\n3:51PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 127 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T204647.150496Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 902 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  4%]\nplugin/test_egress_no_delivery.py ......                                 [  5%]\nplugin/test_escape_waves.py ............................................ [  9%]\n........................................................................ [ 17%]\n............................................................             [ 24%]\nplugin/test_install.py ................................................. [ 30%]\n.                                                                        [ 30%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 43%]\n........................................................................ [ 51%]\n........................................................................ [ 59%]\n........................................................................ [ 67%]\n........................................................................ [ 75%]\n.......                                                                  [ 75%]\nplugin/test_interruptor_integration.py .............s................... [ 79%]\n...                                                                      [ 79%]\nplugin/test_metrics_export.py .....................                      [ 82%]\nplugin/test_modify_preflight.py ......                                   [ 82%]\nplugin/test_packaging.py ..........                                      [ 83%]\nplugin/test_plugin.py ................                                   [ 85%]\nplugin/test_rule_packs.py ...........................                    [ 88%]\nplugin/test_seccomp.py .........................................sss      [ 93%]\nplugin/test_standalone_cli.py ...................                        [ 95%]\nplugin/test_systemd_directive_probe.py ...........                       [ 96%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 897 passed, 5 skipped in 26.23s ========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260919T204647.150496Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 install.sh with a custom TERMINAL_JAIL_INSTALL_DIR whose parent does not exist prints no raw cd error; every printed path is normalized (no embedded ..); default-install behavior unchanged; install tests cover the missing-parent prefix case: All four sub-claims verified live. (1) No raw cd error: install.sh:33-105 adds path_normalize() (readlink -m -> realpath -m -> pure-POSIX segment walk) replacing the old `cd <dir>/.. && pwd` idiom at install.sh:411 (rules prefix) and install.sh:552 (LIB_DIR). Live run `HOME=/tmp/tj24/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj24/opt/tj sh install.sh` (parent opt/ absent) -> rc=0, stderr EMPTY, no \"can't cd\". RED-proof: the pre-fix script (git show 4a34035^:install.sh) printed `install.sh: 327: cd: can't cd to /tmp/tj24red2/opt/tj/..` on stderr. (2) Normalized paths: grep '/\\.\\./' on the fixed run's stdout+stderr = no match; printed paths are /tmp/tj24/opt/config/terminal-jail/rules.d/00-builtins.yaml and /tmp/tj24/opt/lib/terminal-jail/seccomp-loader.py. Pre-fix leaked `/tmp/tj24red2/opt/tj/../config/terminal-jail/rules.d/...` in 2 output lines. (3) Default install unchanged: `TERMINAL_JAIL_INSTALL_DIR=$HOME/.local/bin sh install.sh` -> rc=0, rules at $HOME/.config/terminal-jail/rules.d/00-builtins.yaml, PATH entry appended to .profile, no prefix warning (live-rules branch, rules_prefix never derived). (4) Test coverage: plugin/test_install.py:595 test_prefix_install_missing_parent_no_cd_error_no_dotdot (added in commit 4a34035) asserts rc=0, no \"can't cd\" in stdout/stderr, no \"/../\" anywhere, and wrapper+rules+lib at the normalized prefix targets. Command output: `python -m pytest plugin/test_install.py::test_prefix_install_missing_parent_no_cd_error_no_dotdot -q` -> `1 passed in 0.16s`; `python -m pytest plugin/test_install.py -q` -> `50 passed in 3.18s`; full suite `python -m pytest -q` -> `897 passed, 5 skipped in 21.13s` (exit 0).\ninstall.sh now normalizes derived prefix paths via path_normalize (no raw cd error, no embedded ..), default install behavior is byte-for-byte unchanged, and the missing-parent prefix case is pinned by a passing regression test with the full 897-test suite green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 install.sh with a custom TERMINAL_JAIL_INSTALL_DIR whose parent does not exist prints no raw cd error; every printed path is normalized (no embedded ..); default-install behavior unchanged; install tests cover the missing-parent prefix case: All four sub-claims verified live. (1) No raw cd error: install.sh:33-105 adds path_normalize() (readlink -m -> realpath -m -> pure-POSIX segment walk) replacing the old `cd <dir>/.. && pwd` idiom at install.sh:411 (rules prefix) and install.sh:552 (LIB_DIR). Live run `HOME=/tmp/tj24/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj24/opt/tj sh install.sh` (parent opt/ absent) -> rc=0, stderr EMPTY, no \"can't cd\". RED-proof: the pre-fix script (git show 4a34035^:install.sh) printed `install.sh: 327: cd: can't cd to /tmp/tj24red2/opt/tj/..` on stderr. (2) Normalized paths: grep '/\\.\\./' on the fixed run's stdout+stderr = no match; printed paths are /tmp/tj24/opt/config/terminal-jail/rules.d/00-builtins.yaml and /tmp/tj24/opt/lib/terminal-jail/seccomp-loader.py. Pre-fix leaked `/tmp/tj24red2/opt/tj/../config/terminal-jail/rules.d/...` in 2 output lines. (3) Default install unchanged: `TERMINAL_JAIL_INSTALL_DIR=$HOME/.local/bin sh install.sh` -> rc=0, rules at $HOME/.config/terminal-jail/rules.d/00-builtins.yaml, PATH entry appended to .profile, no prefix warning (live-rules branch, rules_prefix never derived). (4) Test coverage: plugin/test_install.py:595 test_prefix_install_missing_parent_no_cd_error_no_dotdot (added in commit 4a34035) asserts rc=0, no \"can't cd\" in stdout/stderr, no \"/../\" anywhere, and wrapper+rules+lib at the normalized prefix targets. Command output: `python -m pytest plugin/test_install.py::test_prefix_install_missing_parent_no_cd_error_no_dotdot -q` -> `1 passed in 0.16s`; `python -m pytest plugin/test_install.py -q` -> `50 passed in 3.18s`; full suite `python -m pytest -q` -> `897 passed, 5 skipped in 21.13s` (exit 0).\ninstall.sh now normalizes derived prefix paths via path_normalize (no raw cd error, no embedded ..), default install behavior is byte-for-byte unchanged, and the missing-parent prefix case is pinned by a passing regression test with the full 897-test suite green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "install.sh with a custom TERMINAL_JAIL_INSTALL_DIR whose parent does not exist prints no raw cd error; every printed path is normalized (no embedded ..); default-install behavior unchanged; install tests cover the missing-parent prefix case",
+                "status": "PASS",
+                "detail": "All four sub-claims verified live. (1) No raw cd error: install.sh:33-105 adds path_normalize() (readlink -m -> realpath -m -> pure-POSIX segment walk) replacing the old `cd <dir>/.. && pwd` idiom at install.sh:411 (rules prefix) and install.sh:552 (LIB_DIR). Live run `HOME=/tmp/tj24/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj24/opt/tj sh install.sh` (parent opt/ absent) -> rc=0, stderr EMPTY, no \"can't cd\". RED-proof: the pre-fix script (git show 4a34035^:install.sh) printed `install.sh: 327: cd: can't cd to /tmp/tj24red2/opt/tj/..` on stderr. (2) Normalized paths: grep '/\\.\\./' on the fixed run's stdout+stderr = no match; printed paths are /tmp/tj24/opt/config/terminal-jail/rules.d/00-builtins.yaml and /tmp/tj24/opt/lib/terminal-jail/seccomp-loader.py. Pre-fix leaked `/tmp/tj24red2/opt/tj/../config/terminal-jail/rules.d/...` in 2 output lines. (3) Default install unchanged: `TERMINAL_JAIL_INSTALL_DIR=$HOME/.local/bin sh install.sh` -> rc=0, rules at $HOME/.config/terminal-jail/rules.d/00-builtins.yaml, PATH entry appended to .profile, no prefix warning (live-rules branch, rules_prefix never derived). (4) Test coverage: plugin/test_install.py:595 test_prefix_install_missing_parent_no_cd_error_no_dotdot (added in commit 4a34035) asserts rc=0, no \"can't cd\" in stdout/stderr, no \"/../\" anywhere, and wrapper+rules+lib at the normalized prefix targets. Command output: `python -m pytest plugin/test_install.py::test_prefix_install_missing_parent_no_cd_error_no_dotdot -q` -> `1 passed in 0.16s`; `python -m pytest plugin/test_install.py -q` -> `50 passed in 3.18s`; full suite `python -m pytest -q` -> `897 passed, 5 skipped in 21.13s` (exit 0)."
+              }
+            ],
+            "summary": "install.sh now normalizes derived prefix paths via path_normalize (no raw cd error, no embedded ..), default install behavior is byte-for-byte unchanged, and the missing-parent prefix case is pinned by a passing regression test with the full 897-test suite green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-24\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 install.sh with a custom TERMINAL_JAIL_INSTALL_DIR whose parent does not exist prints no raw cd error; every printed path is normalized (no embedded ..); default-install behavior unchanged; install tests cover the missing-parent prefix case: All four sub-claims verified live. (1) No raw cd error: install.sh:33-105 adds path_normalize() (readlink -m -> realpath -m -> pure-POSIX segment walk) replacing the old `cd <dir>/.. && pwd` idiom at install.sh:411 (rules prefix) and install.sh:552 (LIB_DIR). Live run `HOME=/tmp/tj24/home TERMINAL_JAIL_INSTALL_DIR=/tmp/tj24/opt/tj sh install.sh` (parent opt/ absent) -> rc=0, stderr EMPTY, no \"can't cd\". RED-proof: the pre-fix script (git show 4a34035^:install.sh) printed `install.sh: 327: cd: can't cd to /tmp/tj24red2/opt/tj/..` on stderr. (2) Normalized paths: grep '/\\.\\./' on the fixed run's stdout+stderr = no match; printed paths are /tmp/tj24/opt/config/terminal-jail/rules.d/00-builtins.yaml and /tmp/tj24/opt/lib/terminal-jail/seccomp-loader.py. Pre-fix leaked `/tmp/tj24red2/opt/tj/../config/terminal-jail/rules.d/...` in 2 output lines. (3) Default install unchanged: `TERMINAL_JAIL_INSTALL_DIR=$HOME/.local/bin sh install.sh` -> rc=0, rules at $HOME/.config/terminal-jail/rules.d/00-builtins.yaml, PATH entry appended to .profile, no prefix warning (live-rules branch, rules_prefix never derived). (4) Test coverage: plugin/test_install.py:595 test_prefix_install_missing_parent_no_cd_error_no_dotdot (added in commit 4a34035) asserts rc=0, no \"can't cd\" in stdout/stderr, no \"/../\" anywhere, and wrapper+rules+lib at the normalized prefix targets. Command output: `python -m pytest plugin/test_install.py::test_prefix_install_missing_parent_no_cd_error_no_dotdot -q` -> `1 passed in 0.16s`; `python -m pytest plugin/test_install.py -q` -> `50 passed in 3.18s`; full suite `python -m pytest -q` -> `897 passed, 5 skipped in 21.13s` (exit 0).\ninstall.sh now normalizes derived prefix paths via path_normalize (no raw cd error, no embedded ..), default install behavior is byte-for-byte unchanged, and the missing-parent prefix case is pinned by a passing regression test with the full 897-test suite green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-09-19T20:53:52.427134",
+  "evidence": {
+    "collected_at": "2026-09-19T20:53:52.439825+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 645,
+        "truncated": false,
+        "source": "git show a0321c75095d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 4779,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-24"
+  }
+}

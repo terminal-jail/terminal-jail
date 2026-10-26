@@ -1,0 +1,101 @@
+{
+  "task_id": "TJ-DF-014",
+  "task_title": "P3 --user jail inherits host identity env (TJ-DF-014)",
+  "task_criteria": [
+    "standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports scrubbed identity env before exec \u2014 running ./standalone/terminal-jail --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent",
+    "Bare mode (no --user) leaves caller identity env untouched \u2014 USER/LOGNAME/HOME pass through unchanged",
+    "plugin/test_standalone_cli.py gains tests asserting the scrub (--user env shows scrubbed values; bare env keeps caller values), following the existing _host_denied_namespaces host-capability guard pattern",
+    "Full suite green: .venv/bin/python -m pytest -q passes with 4 skipped (no new skips); uvx ruff check plugin/ clean; gitreins guard 4/4 PASS",
+    "README.md documents the --user identity-env scrub in the --user section"
+  ],
+  "passed": true,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: \n  \u2713 secrets: \u001b[90m6:00PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9701380 bytes (9.70 MB) in 942ms\u001b[0m\n\u001b[90m6:00PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\u001b[90m6:00PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9701380 bytes (9.70 MB) in 942ms\u001b[0m\n\u001b[90m6:00PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\nplugins: xdist-3.8.0, timeout-2.4.0, anyio-4.14.2\ncollected 307 items\n\nplugin/test_install.py ....................                              [  6%]\nplugin/test_interruptor.py ............................................. [ 21%]\n................................................",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports scrubbed identity env before exec \u2014 running ./standalone/terminal-jail --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent: standalone/terminal-jail:296 `export USER=nobody LOGNAME=nobody HOME=/nonexistent` inside `if [ \"$USE_USER_NS\" -eq 1 ]` block (line 288), before the exec unshare calls. Runtime verified: `./standalone/terminal-jail --user env` grep shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent.\n  \u2713 Bare mode (no --user) leaves caller identity env untouched \u2014 USER/LOGNAME/HOME pass through unchanged: The else branch (USE_USER_NS=0, terminal-jail:298-299) performs no export of USER/LOGNAME/HOME, so caller identity passes through. Runtime bare mode fails on this host (mount-proc requires CAP_SYS_ADMIN) = documented degradation; test_bare_mode_keeps_identity_env handles this via the _host_denied_namespaces guard.\n  \u2713 plugin/test_standalone_cli.py gains tests asserting the scrub (--user env shows scrubbed values; bare env keeps caller values), following the existing _host_denied_namespaces host-capability guard pattern: plugin/test_standalone_cli.py:237 test_user_jail_scrubs_identity_env asserts USER=nobody/LOGNAME=nobody/HOME=/nonexistent; :253 test_bare_mode_keeps_identity_env asserts USER=tester/HOME=/home/tester pass through. Both use the _host_denied_namespaces guard pattern. Verified: `pytest -k identity_env` = 2 passed.\n  \u2713 Full suite green: .venv/bin/python -m pytest -q passes with 4 skipped (no new skips); uvx ruff check plugin/ clean; gitreins guard 4/4 PASS: `.venv/bin/python -m pytest -q` = 303 passed, 4 skipped (all 4 pre-existing: test_interruptor_integration:427, test_seccomp:417/438/458 \u2014 no new skips). `uvx ruff check plugin/` = All checks passed. LSP diagnostics clean (0 findings), no hardcoded secrets in changed files. Guard 4/4 (secrets/lint/tests/static_analysis) PASS.\n  \u2713 README.md documents the --user identity-env scrub in the --user section: README.md:27-28 in the --user section: \"# --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent) so jailed tools can't read/write the caller's home.\"\nAll 5 criteria verified: the --user jail scrubs identity env (USER=nobody/LOGNAME=nobody/HOME=/nonexistent) before exec, bare mode passes env through, tests follow the _host_denied_namespaces guard pattern and pass, full suite green (303 passed/4 skipped, ruff clean, guard 4/4), and README documents the scrub.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports scrubbed identity env before exec \u2014 running ./standalone/terminal-jail --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent: standalone/terminal-jail:296 `export USER=nobody LOGNAME=nobody HOME=/nonexistent` inside `if [ \"$USE_USER_NS\" -eq 1 ]` block (line 288), before the exec unshare calls. Runtime verified: `./standalone/terminal-jail --user env` grep shows USER=nobody, LOGNAME=nobody, ",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports scrubbed identity env before exec \u2014 running ./standalone/terminal-jail --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent",
+                "status": "PASS",
+                "detail": "standalone/terminal-jail:296 `export USER=nobody LOGNAME=nobody HOME=/nonexistent` inside `if [ \"$USE_USER_NS\" -eq 1 ]` block (line 288), before the exec unshare calls. Runtime verified: `./standalone/terminal-jail --user env` grep shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent."
+              },
+              {
+                "criterion": "Bare mode (no --user) leaves caller identity env untouched \u2014 USER/LOGNAME/HOME pass through unchanged",
+                "status": "PASS",
+                "detail": "The else branch (USE_USER_NS=0, terminal-jail:298-299) performs no export of USER/LOGNAME/HOME, so caller identity passes through. Runtime bare mode fails on this host (mount-proc requires CAP_SYS_ADMIN) = documented degradation; test_bare_mode_keeps_identity_env handles this via the _host_denied_namespaces guard."
+              },
+              {
+                "criterion": "plugin/test_standalone_cli.py gains tests asserting the scrub (--user env shows scrubbed values; bare env keeps caller values), following the existing _host_denied_namespaces host-capability guard pattern",
+                "status": "PASS",
+                "detail": "plugin/test_standalone_cli.py:237 test_user_jail_scrubs_identity_env asserts USER=nobody/LOGNAME=nobody/HOME=/nonexistent; :253 test_bare_mode_keeps_identity_env asserts USER=tester/HOME=/home/tester pass through. Both use the _host_denied_namespaces guard pattern. Verified: `pytest -k identity_env` = 2 passed."
+              },
+              {
+                "criterion": "Full suite green: .venv/bin/python -m pytest -q passes with 4 skipped (no new skips); uvx ruff check plugin/ clean; gitreins guard 4/4 PASS",
+                "status": "PASS",
+                "detail": "`.venv/bin/python -m pytest -q` = 303 passed, 4 skipped (all 4 pre-existing: test_interruptor_integration:427, test_seccomp:417/438/458 \u2014 no new skips). `uvx ruff check plugin/` = All checks passed. LSP diagnostics clean (0 findings), no hardcoded secrets in changed files. Guard 4/4 (secrets/lint/tests/static_analysis) PASS."
+              },
+              {
+                "criterion": "README.md documents the --user identity-env scrub in the --user section",
+                "status": "PASS",
+                "detail": "README.md:27-28 in the --user section: \"# --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent) so jailed tools can't read/write the caller's home.\""
+              }
+            ],
+            "summary": "All 5 criteria verified: the --user jail scrubs identity env (USER=nobody/LOGNAME=nobody/HOME=/nonexistent) before exec, bare mode passes env through, tests follow the _host_denied_namespaces guard pattern and pass, full suite green (303 passed/4 skipped, ruff clean, guard 4/4), and README documents the scrub."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-014\n\nStage tier1: PASS\n    \u2713 lint: \n  \u2713 secrets: \u001b[90m6:00PM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~9701380 bytes (9.70 MB) in 942ms\u001b[0m\n\u001b[90m6:00PM\u001b[0m \u001b[32m\n  \u2713 tests: ============================= test session starts ==============================\nplatform linux -- P\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports scrubbed identity env before exec \u2014 running ./standalone/terminal-jail --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent: standalone/terminal-jail:296 `export USER=nobody LOGNAME=nobody HOME=/nonexistent` inside `if [ \"$USE_USER_NS\" -eq 1 ]` block (line 288), before the exec unshare calls. Runtime verified: `./standalone/terminal-jail --user env` grep shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent.\n  \u2713 Bare mode (no --user) leaves caller identity env untouched \u2014 USER/LOGNAME/HOME pass through unchanged: The else branch (USE_USER_NS=0, terminal-jail:298-299) performs no export of USER/LOGNAME/HOME, so caller identity passes through. Runtime bare mode fails on this host (mount-proc requires CAP_SYS_ADMIN) = documented degradation; test_bare_mode_keeps_identity_env handles this via the _host_denied_namespaces guard.\n  \u2713 plugin/test_standalone_cli.py gains tests asserting the scrub (--user env shows scrubbed values; bare env keeps caller values), following the existing _host_denied_namespaces host-capability guard pattern: plugin/test_standalone_cli.py:237 test_user_jail_scrubs_identity_env asserts USER=nobody/LOGNAME=nobody/HOME=/nonexistent; :253 test_bare_mode_keeps_identity_env asserts USER=tester/HOME=/home/tester pass through. Both use the _host_denied_namespaces guard pattern. Verified: `pytest -k identity_env` = 2 passed.\n  \u2713 Full suite green: .venv/bin/python -m pytest -q passes with 4 skipped (no new skips); uvx ruff check plugin/ clean; gitreins guard 4/4 PASS: `.venv/bin/python -m pytest -q` = 303 passed, 4 skipped (all 4 pre-existing: test_interruptor_integration:427, test_seccomp:417/438/458 \u2014 no new skips). `uvx ruff check plugin/` = All checks passed. LSP diagnostics clean (0 findings), no hardcoded secrets in changed files. Guard 4/4 (secrets/lint/tests/static_analysis) PASS.\n  \u2713 README.md documents the --user identity-env scrub in the --user section: README.md:27-28 in the --user section: \"# --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent) so jailed tools can't read/write the caller's home.\"\nAll 5 criteria verified: the --user jail scrubs identity env (USER=nobody/LOGNAME=nobody/HOME=/nonexistent) before exec, bare mode passes env through, tests follow the _host_denied_namespaces guard pattern and pass, full suite green (303 passed/4 skipped, ruff clean, guard 4/4), and README documents the scrub.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-08-19T23:02:09.209070"
+}

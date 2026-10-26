@@ -1,0 +1,24 @@
+commit 6847c9b3b206a5ec9f8a63e90b94da5d69a03c35
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Fri Oct 23 20:13:54 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Fri Oct 23 20:13:54 2026 -0500
+
+    docs(readme): document resident bridge single-client serialization
+---
+ README.md | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/README.md b/README.md
+index f8c376b..99afbd7 100644
+--- a/README.md
++++ b/README.md
+@@ -354,6 +354,8 @@ The same verdict contract is served by two transports:
+ | Cost per verdict | ~2 ms engine + full interpreter start | ~2 ms engine + socket round-trip |
+ | Deployment | Zero setup — every host | Optional; a host must keep the daemon alive (systemd unit, supervisor) |
+ 
++**Single-client serialization.** The resident daemon serves one client at a time; concurrent clients queue behind each other (no parallelism).
++
+ **Measured on this repo's reference host** (`karaHermes-mde-7840hs`, Linux x86_64,
+ Python 3.14.5, 2026-10-07, `scripts/bench_bridge.py --n 50`, wall-clock per verdict;
+ one-shot includes interpreter start; resident measured against a warm daemon, same

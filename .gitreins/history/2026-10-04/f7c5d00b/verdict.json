@@ -1,0 +1,113 @@
+{
+  "task_id": "INT-CI-2",
+  "task_title": "Coverage tooling: pytest-cov in dev group, CI coverage job with measured floor",
+  "task_criteria": [
+    "pytest-cov present in dev dependency group; documented command produces a coverage number recorded in README with measured baseline; CI runs --cov with --cov-fail-under floor at or below measured baseline; honest caveats published"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "9ee4da81280ad488be27e922e549e5e0b9832cda",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n11:19PM INF scanned ~5473737 bytes (5.47 MB) in 389ms\n11:19PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 194 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1638 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 27%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n............................                                             [ 33%]\nplugin/test_interruptor.py ............................................. [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 53%]\n........................................................................ [ 58%]\n........................................................................ [ 62%]\n........................................                                 [ 64%]\nplugin/test_interruptor_integration.py .................s............... [ 66%]\n\n\u2026 [640 chars omitted \u2014 8 line(s)] \u2026\n................................................................         [ 80%]\nplugin/test_rule_packs.py .............................................. [ 82%]\n..............                                                           [ 83%]\nplugin/test_rules_drift_probe.py .......................                 [ 85%]\nplugin/test_seccomp.py .........................................sss..... [ 88%]\n.                                                                        [ 88%]\nplugin/test_standalone_cli.py ......................                     [ 89%]\nplugin/test_systemd_directive_probe.py .................                 [ 90%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 91%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 92%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 92%]\nplugin/test_uninstall.py .............                                   [ 93%]\nplugin/test_userns.py .........................s..                       [ 94%]\ntests/test_composed_doc.py .......                                       [ 95%]\ntests/test_composed_mode.py .........sss.....                            [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n..................                                                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1628 passed, 10 skipped in 101.60s (0:01:41) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [],
+            "summary": "Cap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: INT-CI-2\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n\nCap exceeded: Time cap (1h) exceeded (1h elapsed). Increase max_time or simplify criteria.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-04T05:20:56.398911",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-04T05:20:56.450086+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 568,
+        "truncated": false,
+        "source": "git show 9ee4da81280a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 42444,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-2"
+  }
+}

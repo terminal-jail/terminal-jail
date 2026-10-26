@@ -1,0 +1,16 @@
+commit 5229c2e3e373b8dcc464b72b50d177003e744a87
+Merge: 441dedb 2f536ed
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Thu Sep 24 16:22:36 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Thu Sep 24 16:22:36 2026 -0500
+
+    merge: TJ-DF-022 install.sh --hermes-plugin deploy/refresh mode from wt/TJ-DF-022
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ README.md              |   9 +++
+ docs/quickstart.md     |  21 ++++--
+ install.sh             | 154 +++++++++++++++++++++++++++++++++++++++-
+ plugin/test_install.py | 189 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 366 insertions(+), 7 deletions(-)

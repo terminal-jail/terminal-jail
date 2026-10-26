@@ -1,0 +1,36 @@
+diff --git a/.coding-hermes/board/events.jsonl b/.coding-hermes/board/events.jsonl
+index 2cd4868..844f2dd 100644
+--- a/.coding-hermes/board/events.jsonl
++++ b/.coding-hermes/board/events.jsonl
+@@ -764,3 +764,4 @@
+ {"id":763,"timestamp":"2026-10-25 03:25:17.000000","event_type":"task_completed","task_id":"REVIEW-TJ-012","actor":"foreman","detail":"{\"tick\": \"terminal-jail-foreman-2026-10-25-08-08-42\", \"tick_number\": 372, \"tick_type\": \"premise-verification\", \"task_id\": \"REVIEW-TJ-012\", \"summary\": \"Selected REVIEW-TJ-012 after live board census. The README count correction was already published in 9933184, so no worker or new source commit was needed. Fresh collection and README both report 2070; GitReins independently judged the existing published commit PASS.\", \"git\": {\"pre_tick_head\": \"9933184\", \"content_commit\": \"9933184 (pre-existing)\", \"board_commit\": \"pending\", \"origin_parity\": \"0 ahead / 0 behind\"}, \"worker\": {\"result\": \"none:premise-already-landed\", \"dispatch\": \"none:existing published fix\"}, \"verification\": {\"acceptance\": \"PASS: .venv/bin/python -m pytest plugin tests --collect-only -q -> 2070 tests collected; grep -oE '[0-9]+ collected' README.md -> 2070 collected\", \"board_guard\": \"309 rows / 309 unique ids\", \"gitreins\": \"tier1 PASS + tier2 PASS, verdict 71baae53; task complete lifecycle finished and task deleted\", \"ci\": \"GitHub Actions run 40156598240 success on origin/main\", \"off_by_one\": \"discovery readme-collect-count-drift not_found; corpus hit 0864-docs-test-count-drift-gitreins-criterion; no debugging performed and no submission\"}, \"ch:trace\": \"row=REVIEW-TJ-012 spec=README.md#test-count wave=none:foreman-direct test=.venv/bin/python -m pytest plugin tests --collect-only -q doc=README.md prompt=none:premise-already-landed evidence=.gitreins/history/2026-10-25/71baae53/verdict.json witness=live:pytest+gitreins verdict=71baae53 commit=9933184 memory=none:foreman-writes-memory\", \"verdict\": \"OK — premise already satisfied; row closed with published evidence\"}","tick_number":372}
+ {"id":764,"timestamp":"2026-10-25 03:26:03.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"task\": \"REVIEW-TJ-012\", \"commit\": \"9933184\", \"judge\": \"71baae53\", \"suite\": \"2070 collected; README 2070 collected\", \"ci\": \"40156598240 success\", \"guard\": \"tier1+tier2 PASS\", \"trace\": \"ch:trace row=REVIEW-TJ-012 spec=README.md#test-count wave=none:foreman-direct test=.venv/bin/python -m pytest plugin tests --collect-only -q evidence=.gitreins/history/2026-10-25/71baae53/verdict.json witness=live:pytest+gitreins verdict=71baae53 commit=9933184 memory=none:foreman-writes-memory\"}","tick_number":372}
+ {"id":765,"timestamp":"2026-10-25 11:46:27.000000","event_type":"audit","task_id":null,"actor":"foreman","detail":"{\"tick\": 373, \"tick_type\": \"wave-closeout\", \"task_ids\": [\"DOC-20\", \"DOC-21\"], \"summary\": \"Composed and closed the inherited two-task documentation wave. DOC-20 documented the shipped interruptor benchmark in README; DOC-21 refreshed five later quickstart bridge transcripts with the layer field. Both worker commits were merged serially, independently verified, and GitReins tier-2 passed.\", \"git\": {\"pre_tick_head\": \"a978694\", \"content_commits\": [\"2aa1351\", \"9faca6b\"], \"merge_commits\": [\"8e366b3\", \"ff61a06\"], \"board_commit\": \"pending\", \"origin_parity\": \"0 ahead / 0 behind before board closeout\"}, \"worker\": {\"result\": \"wave-complete\", \"manifest\": \".coding-hermes/waves/terminal-jail-foreman-2026-10-25-09-22-05.json\", \"workers\": 2, \"worktrees\": [\"/home/kara/worktrees/terminal-jail-DOC-20\", \"/home/kara/worktrees/terminal-jail-DOC-21\"], \"dispatch\": \"inherited wave; no new workers spawned\"}, \"verification\": {\"DOC-20\": \"README grep=1; python3 scripts/benchmark-interruptor.py --help rc=0; gitreins tier1+tier2 PASS f5261602; CI 40212078285 SUCCESS\", \"DOC-21\": \"five layer fields; targeted suite 27 passed/3 skipped; gitreins tier1+tier2 PASS a6322f94; CI 40213093767 in progress\", \"board\": \"310 rows / 310 unique ids; target rows updated line-wise; diff 2 lines\"}, \"ci\": \"Recent pre-tick CI had one board-ID failure on 8e9d7f1, fixed by a978694; DOC-20 CI success; DOC-21 CI in progress.\", \"off_by_one\": \"discover gitreins-tier2-stalled -> not_found; no debugging performed and no submission.\", \"ch:trace\": \"row=DOC-20+DOC-21 spec=README.md#audit-tooling+docs/quickstart.md#bridge-transcripts wave=terminal-jail-foreman-2026-10-25-09-22-05 test=benchmark-help+targeted-doc-bridge-suite doc=README.md+docs/quickstart.md evidence=.gitreins/history/2026-10-25/f5261602/verdict.json+.gitreins/history/2026-10-25/a6322f94/verdict.json witness=live:worker-commits+acceptance+gitreins+ci verdict=f5261602+a6322f94 commit=8e366b3+ff61a06 memory=/project/terminal-jail/tick-373\", \"verdict\": \"OK — two inherited wave tasks landed and passed independent acceptance and GitReins verification\"}","tick_number":373}
++{"id":766,"timestamp":"2026-10-25 17:04:03.090507","event_type":"task_updated","task_id":"QA-TERMINAL-JAIL-21","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ea636ee..2d25671 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2073,3 +2073,13 @@ tasks:
+   status: complete
+   created_at: '2026-10-25T16:36:08.414539+00:00'
+   completed_at: '2026-10-25T16:36:31.119399+00:00'
++- id: QA-TERMINAL-JAIL-21
++  title: Fix private-proc demand battery divergence
++  criteria:
++  - The private-proc demand battery changes must pass plugin/test_private_proc_demand.py,
++    the full suite, ruff check and format, and preserve honest KNOWN-LIMIT behavior
++    for composed hosts; the landed commit must be pushed and origin parity must be
++    zero.
++  status: complete
++  created_at: '2026-10-25T23:53:41.125875+00:00'
++  completed_at: '2026-10-25T23:53:46.900393+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index c6dccee..28553a1 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -175,3 +175,4 @@
+ {"ts": 1792916370.2713249, "tokens_in": 17296, "tokens_out": 688, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792945977.4801073, "tokens_in": 17377, "tokens_out": 539, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1792946447.3350654, "tokens_in": 271525, "tokens_out": 3242, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1792973082.8112535, "tokens_in": 2184287, "tokens_out": 8932, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}

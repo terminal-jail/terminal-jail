@@ -1,0 +1,14 @@
+commit a0321c75095dd8971ad8aecaabfd0912e4f9de01
+Merge: f46a169 4a34035
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sat Sep 19 15:48:47 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sat Sep 19 15:48:47 2026 -0500
+
+    merge: DF-TERMINAL-JAIL-24 — clean normalized prefix-install output (4a34035)
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+ install.sh             | 88 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ plugin/test_install.py | 54 +++++++++++++++++++++++++++++++
+ 2 files changed, 140 insertions(+), 2 deletions(-)

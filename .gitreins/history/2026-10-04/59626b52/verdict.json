@@ -1,0 +1,121 @@
+{
+  "task_id": "DOC-8",
+  "task_title": "Per-host capability matrix doc + probes",
+  "task_criteria": [
+    "docs/capability-matrix.md exists with full layer-by-backend matrix (enforced/degraded/unavailable + reasons); probe commands pidns-capability-probe.py and fs-isolation-probe.py named with real output; README cross-links the matrix; pin test tests/test_capability_matrix_doc.py passes and plugin suite green"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "d19a60b328eefa84db93e0e73e29274fbb03d4ac",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n11:37PM INF scanned ~6152839 bytes (6.15 MB) in 392ms\n11:37PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 197 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1648 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 25%]\n.....................                                                    [ 27%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n............................                                             [ 33%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................................................ [ 62%]\n........................................                                 [ 64%]\nplugin/test_interruptor_integration.py .................s............... [ 66%]\n\n\u2026 [720 chars omitted \u2014 9 line(s)] \u2026\nplugin/test_rule_packs.py .............................................. [ 82%]\n..............                                                           [ 83%]\nplugin/test_rules_drift_probe.py .......................                 [ 84%]\nplugin/test_seccomp.py .........................................sss..... [ 87%]\n.                                                                        [ 87%]\nplugin/test_standalone_cli.py ......................                     [ 89%]\nplugin/test_systemd_directive_probe.py .................                 [ 90%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 91%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 91%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 91%]\nplugin/test_uninstall.py .............                                   [ 92%]\nplugin/test_userns.py .........................s..                       [ 94%]\ntests/test_capability_matrix_doc.py ..........                           [ 94%]\ntests/test_composed_doc.py .......                                       [ 95%]\ntests/test_composed_mode.py .........sss.....                            [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n..................                                                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1638 passed, 10 skipped in 95.90s (0:01:35) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T002251.193261Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/capability-matrix.md exists with full layer-by-backend matrix (enforced/degraded/unavailable + reasons); probe commands pidns-capability-probe.py and fs-isolation-probe.py named with real output; README cross-links the matrix; pin test tests/test_capability_matrix_doc.py passes and plugin suite green: docs/capability-matrix.md exists (118 lines): \u00a72 matrix has all 6 layer rows (PID namespace, Identity/env scrub, Private `/proc`, Filesystem isolation, seccomp, egress) \u00d7 4 backend columns (bwrap, unshare (bare), unshare --user, composed), every cell marked **enforced**/**degraded**/**unavailable** with a stated reason, and unmeasured cells explicitly say 'unknown (not measured on this host)'. \u00a71 names both probes with real invocation (`python3 scripts/pidns-capability-probe.py`, `python3 scripts/fs-isolation-probe.py`) and quotes verbatim real output; I re-ran both live: pidns -> 'FULL' (exit 0), fs -> 'DEGRADED: mapped launch failed (rc=1, stderr=...setgroups failed: Operation not permitted)...' (exit 0), matching the doc exactly. README cross-links: README.md:272 links docs/capability-matrix.md inside section '### What containment do I get on MY host?' (README.md:269) and names both probes at README.md:257-258. Pin test: `.venv/bin/python -m pytest tests/test_capability_matrix_doc.py -q` -> '10 passed in 0.01s' (exit 0). Plugin suite: `.venv/bin/python -m pytest plugin -q` -> '1547 passed, 7 skipped in 128.89s' (exit 0). [resolution 0.35; docs/capability-matrix.md, pidns-capability-probe.py, fs-isolation-probe.py, tests/test_capability_matrix_doc.py]\ndocs/capability-matrix.md fully covers all layers \u00d7 backends with enforced/degraded/unavailable states and reasons, names both probes with verbatim real output reproduced live, is cross-linked from README, and both the pin test (10 passed) and plugin suite (1547 passed, 7 skipped) are green.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/capability-matrix.md exists with full layer-by-backend matrix (enforced/degraded/unavailable + reasons); probe commands pidns-capability-probe.py and fs-isolation-probe.py named with real output; README cross-links the matrix; pin test tests/test_capability_matrix_doc.py passes and plugin suite green: docs/capability-matrix.md exists (118 lines): \u00a72 matrix has all 6 layer rows (PID namespace, Identity/env scrub, Private `/proc`, Filesystem isolation, seccomp, egress) \u00d7 4 backend columns (bwrap, unshare (bare), unshare --user, composed), every cell marked **enforced**/**degraded**/**unavailable** with a stated reason, and unmeasured cells explicitly say 'unknown (not measured on this host)'. \u00a71 names both probes with real invocation (`python3 scripts/pidns-capability-probe.py`, `python3 scripts/fs-isolation-probe.py`) and quotes verbatim real output; I re-ran both live: pidns -> 'FULL' (exit 0), fs -> 'DEGRADED: mapped launch failed (rc=1, stderr=...setgroups failed: Operation not permitted)...' (exit 0), matching the doc exactly. README cross-links: README.md:272 links docs/capability-matrix.md inside section '### What containment do I get on MY host?' (README.md:269) and names both probes at README.md:257-258. Pin test: `.venv/bin/python -m pytest tests/test_capability_matrix_doc.py -q` -> '10 passed in 0.01s' (exit 0). Plugin suite: `.venv/bin/python -m pytest plugin -q` -> '1547 passed, 7 skipped in 128.89s' (exit 0). [resolution 0.35; docs/capability-matrix.md, pidns-capability-probe.py, fs-isolation-probe.py, tests/test_capability_matrix_doc.py]\ndocs/capability-matrix.md fully covers all layers \u00d7 backends with enforced/degraded/unavailable states and reasons, names both probes with verbatim real output reproduced live, is cross-linked from README, and both the pin test (10 passed) and plugin suite (1547 passed, 7 skipped) are green.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/capability-matrix.md exists with full layer-by-backend matrix (enforced/degraded/unavailable + reasons); probe commands pidns-capability-probe.py and fs-isolation-probe.py named with real output; README cross-links the matrix; pin test tests/test_capability_matrix_doc.py passes and plugin suite green",
+                "status": "PASS",
+                "detail": "docs/capability-matrix.md exists (118 lines): \u00a72 matrix has all 6 layer rows (PID namespace, Identity/env scrub, Private `/proc`, Filesystem isolation, seccomp, egress) \u00d7 4 backend columns (bwrap, unshare (bare), unshare --user, composed), every cell marked **enforced**/**degraded**/**unavailable** with a stated reason, and unmeasured cells explicitly say 'unknown (not measured on this host)'. \u00a71 names both probes with real invocation (`python3 scripts/pidns-capability-probe.py`, `python3 scripts/fs-isolation-probe.py`) and quotes verbatim real output; I re-ran both live: pidns -> 'FULL' (exit 0), fs -> 'DEGRADED: mapped launch failed (rc=1, stderr=...setgroups failed: Operation not permitted)...' (exit 0), matching the doc exactly. README cross-links: README.md:272 links docs/capability-matrix.md inside section '### What containment do I get on MY host?' (README.md:269) and names both probes at README.md:257-258. Pin test: `.venv/bin/python -m pytest tests/test_capability_matrix_doc.py -q` -> '10 passed in 0.01s' (exit 0). Plugin suite: `.venv/bin/python -m pytest plugin -q` -> '1547 passed, 7 skipped in 128.89s' (exit 0). [resolution 0.35; docs/capability-matrix.md, pidns-capability-probe.py, fs-isolation-probe.py, tests/test_capability_matrix_doc.py]",
+                "resolution_probability": 0.35,
+                "cited_path": "docs/capability-matrix.md, pidns-capability-probe.py, fs-isolation-probe.py, tests/test_capability_matrix_doc.py"
+              }
+            ],
+            "summary": "docs/capability-matrix.md fully covers all layers \u00d7 backends with enforced/degraded/unavailable states and reasons, names both probes with verbatim real output reproduced live, is cross-linked from README, and both the pin test (10 passed) and plugin suite (1547 passed, 7 skipped) are green."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-8\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/capability-matrix.md exists with full layer-by-backend matrix (enforced/degraded/unavailable + reasons); probe commands pidns-capability-probe.py and fs-isolation-probe.py named with real output; README cross-links the matrix; pin test tests/test_capability_matrix_doc.py passes and plugin suite green: docs/capability-matrix.md exists (118 lines): \u00a72 matrix has all 6 layer rows (PID namespace, Identity/env scrub, Private `/proc`, Filesystem isolation, seccomp, egress) \u00d7 4 backend columns (bwrap, unshare (bare), unshare --user, composed), every cell marked **enforced**/**degraded**/**unavailable** with a stated reason, and unmeasured cells explicitly say 'unknown (not measured on this host)'. \u00a71 names both probes with real invocation (`python3 scripts/pidns-capability-probe.py`, `python3 scripts/fs-isolation-probe.py`) and quotes verbatim real output; I re-ran both live: pidns -> 'FULL' (exit 0), fs -> 'DEGRADED: mapped launch failed (rc=1, stderr=...setgroups failed: Operation not permitted)...' (exit 0), matching the doc exactly. README cross-links: README.md:272 links docs/capability-matrix.md inside section '### What containment do I get on MY host?' (README.md:269) and names both probes at README.md:257-258. Pin test: `.venv/bin/python -m pytest tests/test_capability_matrix_doc.py -q` -> '10 passed in 0.01s' (exit 0). Plugin suite: `.venv/bin/python -m pytest plugin -q` -> '1547 passed, 7 skipped in 128.89s' (exit 0). [resolution 0.35; docs/capability-matrix.md, pidns-capability-probe.py, fs-isolation-probe.py, tests/test_capability_matrix_doc.py]\ndocs/capability-matrix.md fully covers all layers \u00d7 backends with enforced/degraded/unavailable states and reasons, names both probes with verbatim real output reproduced live, is cross-linked from README, and both the pin test (10 passed) and plugin suite (1547 passed, 7 skipped) are green.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-04T04:43:37.297844",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-04T04:43:37.327814+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 21691,
+        "truncated": false,
+        "source": "git show d19a60b328ee"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 95817,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-8"
+  }
+}

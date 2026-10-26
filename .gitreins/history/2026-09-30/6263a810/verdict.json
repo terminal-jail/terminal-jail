@@ -1,0 +1,121 @@
+{
+  "task_id": "DOC-7",
+  "task_title": "audit tooling doc pointer",
+  "task_criteria": [
+    "gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "e3819ef2a1417db2796fd68501eee62ad14b4ad2",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133529.084851Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n8:35AM INF scanned ~5760074 bytes (5.76 MB) in 348ms\n8:35AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 176 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133529.084851Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\ncollected 1565 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py .............................          [  4%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [ 10%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 17%]\n........................................................................ [ 22%]\n.................................                                        [ 24%]\nplugin/test_gtfobins_sweep.py .......................................... [ 26%]\n.....................                                                    [ 28%]\nplugin/test_host_probes.py ......................                        [ 29%]\nplugin/test_install.py ................................................. [ 32%]\n.......................                                                  [ 34%]\nplugin/test_interruptor.py ............................................. [ 37%]\n........................................................................ [ 41%]\n........................................................................ [ 46%]\n........................................................................ [ 50%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 64%]\n......................................                                   [ 67%]\nplugin/test_interruptor_integration.py .................s............... [ 69%]\n\n\u2026 [240 chars omitted \u2014 3 line(s)] \u2026\nplugin/test_modify_preflight.py ......                                   [ 73%]\nplugin/test_packaging.py ..........                                      [ 73%]\nplugin/test_plugin.py ................                                   [ 74%]\nplugin/test_rule_pack_db.py ............................................ [ 77%]\n................................................................         [ 81%]\nplugin/test_rule_packs.py .............................................. [ 84%]\n..............                                                           [ 85%]\nplugin/test_rules_drift_probe.py .......................                 [ 87%]\nplugin/test_seccomp.py .........................................sss..... [ 90%]\n.                                                                        [ 90%]\nplugin/test_standalone_cli.py ......................                     [ 91%]\nplugin/test_systemd_directive_probe.py .................                 [ 92%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 93%]\nplugin/test_uninstall.py .............                                   [ 94%]\nplugin/test_userns.py .........................s..                       [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n............                                                             [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================== 1558 passed, 7 skipped in 62.40s (0:01:02) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260930T133529.084851Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:261-262 do name both scripts, but the pointer table is trapped inside an UNCLOSED bash code fence: the fence opens at README.md:251 (```bash) and closes at README.md:271, so the '### Audit tooling' heading (line 257) and the table (lines 259-262) sit inside the code block. CommonMark/GFM render (markdown-it-py, matching GitHub) confirms: the rendered <h3> list jumps from 'Verifying a deploy' straight to 'Scripting the firewall' with NO 'Audit tooling' heading, no rendered <table> contains 'gtfobins', and the whole section renders as literal text inside <pre><code class=\"language-bash\">; 'audit-tooling anchor present: False'. The section is also absent from the README Contents TOC (README.md:24-31). Root cause: commit e3819ef inserted the section mid-code-block (diff hunk @@ -252,6 +252,14 @@ added lines after the fs-isolation-probe.py line, before the fence close). The scripts exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py) but are not reachable as navigable pointers from the README. No test suite applies (docs-only change); verified via markdown render + fence analysis.\nThe DOC-7 fix inserted the 'Audit tooling' pointer table inside an unclosed bash code fence, so it renders as literal code text with no heading/anchor/table and the two scripts are not reachable from the README in one hop.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:261-262 do name both scripts, but the pointer table is trapped inside an UNCLOSED bash code fence: the fence opens at README.md:251 (```bash) and closes at README.md:271, so the '### Audit tooling' heading (line 257) and the table (lines 259-262) sit inside the code block. CommonMark/GFM render (markdown-it-py, matching GitHub) confirms: the rendered <h3> list jumps from 'Verifying a deploy' straight to 'Scripting the firewall' with NO 'Audit tooling' heading, no rendered <table> contains 'gtfobins', and the whole section renders as literal text inside <pre><code class=\"language-bash\">; 'audit-tooling anchor present: False'. The section is also absent from the README Contents TOC (README.md:24-31). Root cause: commit e3819ef inserted the section mid-code-block (diff hunk @@ -252,6 +252,14 @@ added lines after the fs-isolation-probe.py line, before the fence close). The scripts exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py) but are not reachable as navigable pointers from the README. No test suite applies (docs-only change); verified via markdown render + fence analysis.\nThe DOC-7 fix inserted the 'Audit tooling' pointer table inside an unclosed bash code fence, so it renders as literal code text with no heading/anchor/table and the two scripts are not reachable from the README in one hop.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop",
+                "status": "FAIL",
+                "detail": "README.md:261-262 do name both scripts, but the pointer table is trapped inside an UNCLOSED bash code fence: the fence opens at README.md:251 (```bash) and closes at README.md:271, so the '### Audit tooling' heading (line 257) and the table (lines 259-262) sit inside the code block. CommonMark/GFM render (markdown-it-py, matching GitHub) confirms: the rendered <h3> list jumps from 'Verifying a deploy' straight to 'Scripting the firewall' with NO 'Audit tooling' heading, no rendered <table> contains 'gtfobins', and the whole section renders as literal text inside <pre><code class=\"language-bash\">; 'audit-tooling anchor present: False'. The section is also absent from the README Contents TOC (README.md:24-31). Root cause: commit e3819ef inserted the section mid-code-block (diff hunk @@ -252,6 +252,14 @@ added lines after the fs-isolation-probe.py line, before the fence close). The scripts exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py) but are not reachable as navigable pointers from the README. No test suite applies (docs-only change); verified via markdown render + fence analysis.",
+                "resolution_probability": 0.22,
+                "cited_path": "gtfobins-sweep.py, e2e-battery-live-probe.py"
+              }
+            ],
+            "summary": "The DOC-7 fix inserted the 'Audit tooling' pointer table inside an unclosed bash code fence, so it renders as literal code text with no heading/anchor/table and the two scripts are not reachable from the README in one hop."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: DOC-7\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 gtfobins-sweep.py and e2e-battery-live-probe.py are reachable from README in one hop: README.md:261-262 do name both scripts, but the pointer table is trapped inside an UNCLOSED bash code fence: the fence opens at README.md:251 (```bash) and closes at README.md:271, so the '### Audit tooling' heading (line 257) and the table (lines 259-262) sit inside the code block. CommonMark/GFM render (markdown-it-py, matching GitHub) confirms: the rendered <h3> list jumps from 'Verifying a deploy' straight to 'Scripting the firewall' with NO 'Audit tooling' heading, no rendered <table> contains 'gtfobins', and the whole section renders as literal text inside <pre><code class=\"language-bash\">; 'audit-tooling anchor present: False'. The section is also absent from the README Contents TOC (README.md:24-31). Root cause: commit e3819ef inserted the section mid-code-block (diff hunk @@ -252,6 +252,14 @@ added lines after the fs-isolation-probe.py line, before the fence close). The scripts exist (scripts/gtfobins-sweep.py, scripts/e2e-battery-live-probe.py) but are not reachable as navigable pointers from the README. No test suite applies (docs-only change); verified via markdown render + fence analysis.\nThe DOC-7 fix inserted the 'Audit tooling' pointer table inside an unclosed bash code fence, so it renders as literal code text with no heading/anchor/table and the two scripts are not reachable from the README in one hop.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-30T13:37:24.546688",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-09-30T13:37:24.560501+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 2073,
+        "truncated": false,
+        "source": "git show e3819ef2a141"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 11981,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-7"
+  }
+}

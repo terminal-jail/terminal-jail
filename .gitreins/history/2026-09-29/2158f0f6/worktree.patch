@@ -1,0 +1,52 @@
+diff --git a/.coding-hermes/board/tasks.jsonl b/.coding-hermes/board/tasks.jsonl
+index efa5740..0470da1 100644
+--- a/.coding-hermes/board/tasks.jsonl
++++ b/.coding-hermes/board/tasks.jsonl
+@@ -226,3 +226,4 @@
+ {"id":"REVIEW-TJ-005","type":null,"priority":"P2","status":"pending","title":"[P2] Live Hermes plugin is stale at 0.2.0 vs repo 1.2.0 — observability layer runs a 5-month-old snapshot","description":null,"acceptance_criteria":null,"created_at":"2026-09-28T21:58:25+00:00","created_by":null,"worker_status":"pending","foreman_note":null,"reasoning":"Hands-on review 2026-09-28 @ 14a6f46: ~/.hermes/plugins/terminal-jail/plugin.yaml reports version 0.2.0 (installed Sep 18) while the repo ships 1.2.0. The containment layer IS current (live ~/.local/bin/terminal-jail + ~/.local/lib/terminal-jail carry the TJ-DF-024 prefilter, drift=0 vs engine), but the Hermes observability plugin lags. Fix: ./install.sh --hermes-plugin && restart gateway. quickstart 3d documents the lag but no board row tracks the actual reinstall.","complexity":3,"updated_at":"2026-09-28T21:58:25+00:00","detail":{"fingerprint":"91718bb0f387a491c06a94fb2ff223f9d9f53eefa0b3f6966ce3c93ca624e826"}}
+ {"id":"REVIEW-TJ-006","type":null,"priority":"P3","status":"pending","title":"[P3] FAQ 4 '--user id shows 65534' is backend-dependent — on a bwrap host (default auto) --user keeps uid 1000","description":null,"acceptance_criteria":null,"created_at":"2026-09-28T21:58:29+00:00","created_by":null,"worker_status":"pending","foreman_note":null,"reasoning":"Measured 2026-09-28 @ 14a6f46: TERMINAL_JAIL_JAIL_BACKEND=unshare ./terminal-jail --user sh -c id -> uid 65534 (unmapped overflow); default auto (bwrap 0.11.1 installed + probe green) -> uid 1000(kara) WITH private /proc (5 PIDs, /proc/1/comm=bwrap). FAQ 4 states mapping-less --user 'id shows 65534' without naming the backend; misleading on bwrap hosts. README 3a backend table DOES cover the unshare-vs-bwrap /proc split, but the FAQ uid claim conflates them. Suggest one line in FAQ 4: under bwrap backend the uid stays the caller's.","complexity":3,"updated_at":"2026-09-28T21:58:29+00:00","detail":{"fingerprint":"775b7bf297d3bcd8802598e0323a6aaa1daa58413308351f16305beae1ab1355"}}
+ {"id": "TJ-DF-039", "type": null, "priority": "P2", "status": "complete", "title": "[P2] PyYAML-less fresh host: user rules mirror fails open silently and rules-drift-probe reports drift=0 exit 0 on an unparseable mirror", "description": null, "acceptance_criteria": null, "created_at": "2026-09-28T23:01:14+00:00", "created_by": null, "worker_status": "pending", "foreman_note": null, "reasoning": "Fresh Debian bunker agent (no python3-yaml, PEP 668 blocks pip), HEAD 14a6f46: the engine reads ~/.config/terminal-jail/rules.d/00-builtins.yaml via PyYAML; without it the mirror is unparseable and fails open - built-ins keep working but any user-authored rule in the mirror never loads, with no verdict-time message. scripts/rules-drift-probe.py prints exactly one line 'WARNING: unparseable rule file (engine fails open)' and then 'RESULT: drift=0', exit 0 - the tool whose job is catching a stale/broken mirror calls the broken mirror clean. The install-time pack skip is honest now (TJ-DF-024/025 fixed, verified live this run); the gap is only the runtime mirror path and the probe exit policy. Fix direction: --fail-on-drift classifies an unparseable mirror as a drift-class condition with a named remediation (install the distro python3-yaml package), or the wrapper warns once at verdict time when the mirror cannot be parsed. Evidence: docs/dogfood/2026-09-28-fresh-install-smoke.md; repro on bunker-las-03 agent 875dedf2 (destroyed).", "complexity": 3, "updated_at": "2026-09-28T23:01:14+00:00", "detail": {"fingerprint": "2746f9ac9983031d7ad56b5c7c7a13b98b2116e3e739165810218f4443404561"}, "commit_hash": "bee7b65", "worker_summary": "rules.py JSON-fallback now emits a loud stderr note naming file+cause on PyYAML-less parse failure (parse_notes, fail-open action unchanged); rules-drift-probe counts corrupt mirror files as first-class (RESULT carries corrupt=N, --fail-on-drift exits 1 on drift or corrupt, bare run still 0). 10 tests added, RED proven on reverted tree. Full suite 1507 passed / 7 skipped."}
++{"id": "RELEASE-TJ-005", "priority": "P0", "status": "pending", "created_by": "releng-satellite", "created_at": "2026-09-29T12:10:00-05:00", "type": "task", "title": "[P0] Releng 2026-09-29: hold v1.3.0 candidate — CD31F7B/TJ-DF-038 landed; CI green at 702d791; QA-TERMINAL-JAIL-13 still failed, no artifact channel, no cut authorization", "description": "Re-verified 2026-09-29 ~12:05-05 against terminal-jail/terminal-jail v1.2.0..origin/main (HEAD 702d791; prior sweep 44e21e2). Delta: 2 commits — cd31f7b fix (preflight uname diagnostic, TJ-DF-038 CLOSED, board close 702d791). Cumulative range now 92 commits: 8 fix, 1 feat, 10 docs, 2 test, 0 BREAKING CHANGE / 0 '!'. Candidate semver proposal remains v1.3.0 minor. CI truth: run 36554304190 on HEAD 702d791 SUCCESS (2026-09-29T10:14Z); 8/8 recent runs success back through 44e21e2. Blocker re-derivation: RELEASE-TJ-002 P0 pending (no published artifact channel: v1.2.0 Release object exists with assets=[], pyproject still 1.2.0, no tag-triggered release workflow, no Makefile/goreleaser/Dockerfile/release script/release docs); QA-TERMINAL-JAIL-13 P1 failed unchanged (fresh Debian 13.7/kernel 6.12.107 unshare --kill-child orphan survives wrapper SIGKILL >15s; bwrap control passes; two worker attempts produced no diff, tick nudge2 withhold); TJ-DF-037 complete with harness committed but external-kernel matrix cells still unverified beyond dev host; TJ-DF-028 companion open. No RELEASE-cut authorization exists on the thread. NO CUT: red P1 QA + no artifact channel + no release-cut authorization. Unblock path unchanged from RELEASE-TJ-004: fix/disposition QA-TERMINAL-JAIL-13, publish-channel decision (Bane), release tooling per Bane doctrine, v1.3.0 version-prep commit, explicit RELEASE-cut row, tag + gh release create.", "acceptance_criteria": "1) QA-TERMINAL-JAIL-13 closed or explicitly dispositioned; 2) TJ-DF-028 closed; 3) package/artifact channel documented and working; 4) v1.3.0 version-prep commit landed if minor proposal accepted; 5) separate RELEASE-cut authorization obtained; 6) exact-SHA CI, local gates, artifact verification on the proposed tag SHA.", "worker_status": "pending"}
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index ae54b0e..a73432e 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1498,3 +1498,19 @@ tasks:
+   status: complete
+   created_at: '2026-09-28T23:14:09.953642+00:00'
+   completed_at: '2026-09-28T23:26:09.028435+00:00'
++- id: TJ-DF-038
++  title: Preflight misdiagnoses missing uname as non-Linux
++  criteria:
++  - preflight names missing tool, /proc/version fallback, fail-closed exit 2, regression
++    tests green
++  status: complete
++  created_at: '2026-09-29T10:06:22.709758+00:00'
++  completed_at: '2026-09-29T10:13:12.980928+00:00'
++- id: REVIEW-TJ-006
++  title: FAQ 4 uid 65534 claim is backend-dependent
++  criteria:
++  - docs/quickstart.md FAQ states under which backend --user id shows 65534 vs caller
++    uid
++  status: complete
++  created_at: '2026-09-29T13:41:51.222625+00:00'
++  completed_at: '2026-09-29T13:42:29.432018+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 6d1748b..a08c87e 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -107,3 +107,5 @@
+ {"ts": 1790640549.4721463, "tokens_in": 62504, "tokens_out": 3027, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640665.6416888, "tokens_in": 103346, "tokens_out": 3509, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1790640843.1897862, "tokens_in": 142904, "tokens_out": 4984, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790676942.0635762, "tokens_in": 181459, "tokens_out": 2146, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1790689451.1087914, "tokens_in": 201531, "tokens_out": 2472, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index b9c1393..7811c36 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -140,3 +140,4 @@
+ {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_standalone_cli.py","to":"pkg:functools","rel":"imports","provenance":"ast_exact","confidence":1.0}

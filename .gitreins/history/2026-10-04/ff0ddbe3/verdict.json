@@ -1,0 +1,120 @@
+{
+  "task_id": "TJ-DF-029",
+  "task_title": "Add host-baseline negative control to systemd-directive-probe RestrictNamespaces judge",
+  "task_criteria": [
+    "Host control runs unshare outside transient unit; verdict ENFORCED only when host rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover both branches; no regression to other directives"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "1bdf5ba6002d85162efc83c6a40b96eaddb9273b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T124648.636824Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n8:25AM INF scanned ~5510296 bytes (5.51 MB) in 331ms\n8:25AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 195 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T124648.636824Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1660 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 25%]\n.....................                                                    [ 27%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n.....................................                                    [ 33%]\nplugin/test_interruptor.py ............................................. [ 36%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................................................ [ 62%]\n........................................                                 [ 64%]\nplugin/test_interruptor_integration.py .................s............... [ 66%]\n\n\u2026 [720 chars omitted \u2014 9 line(s)] \u2026\nplugin/test_rule_packs.py .............................................. [ 82%]\n..............                                                           [ 83%]\nplugin/test_rules_drift_probe.py .......................                 [ 84%]\nplugin/test_seccomp.py .........................................sss..... [ 87%]\n.                                                                        [ 87%]\nplugin/test_standalone_cli.py ......................                     [ 89%]\nplugin/test_systemd_directive_probe.py .................                 [ 90%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 91%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 91%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 91%]\nplugin/test_uninstall.py .............                                   [ 92%]\nplugin/test_userns.py .........................s..                       [ 94%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 95%]\ntests/test_composed_mode.py .........sss.....                            [ 96%]\ntests/test_kernel_matrix_teardown.py ................................... [ 98%]\n..................                                                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1650 passed, 10 skipped in 99.59s (0:01:39) ==================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T124648.636824Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 Host control runs unshare outside transient unit; verdict ENFORCED only when host rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover both branches; no regression to other directives: Criterion 1 (host control outside unit; ENFORCED only host rc==0 & unit rc!=0; UNKNOWN when host denies; tests both branches; no regression):\n- _host_unshare_baseline (scripts/systemd-directive-probe.py:264-296) runs [unshare,\"--user\",\"--pid\",\"true\"] via subprocess.run directly, no unit switches, bounded timeout 10s. Returns (None,reason) on missing/exec-error/timeout.\n- _judge_restrict_namespaces (lines 303-331): baseline_rc None -> UNKNOWN; baseline_rc!=0 -> UNKNOWN \"host denies unprivileged user namespaces\"; observed!=0 -> ENFORCED (only when host rc==0); else NOT_ENFORCED.\n- Tests: plugin/test_systemd_directive_probe.py test_rns_host_denies_is_unknown_despite_inunit_denial (UNKNOWN branch), test_rns_host_allows_and_unit_denies_is_enforced (ENFORCED branch), test_rns_host_allows_and_unit_allows_is_not_enforced, test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown.\n- Targeted run: 17 passed in 10.98s (incl live host test).\n- Commit 108bc78 diff touches only _host_unshare_baseline + _judge_restrict_namespaces; grep for def _judge/_JUDGES/_PAYLOADS in diff = no matches -> no other directive judges changed.\n- Full suite: RUNNING (pending).\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 Host control runs unshare outside transient unit; verdict ENFORCED only when host rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover both branches; no regression to other directives: Criterion 1 (host control outside unit; ENFORCED only host rc==0 & unit rc!=0; UNKNOWN when host denies; tests both branches; no regression):\n- _host_unshare_baseline (scripts/systemd-directive-probe.py:264-296) runs [unshare,\"--user\",\"--pid\",\"true\"] via subprocess.run directly, no unit switches, bounded timeout 10s. Returns (None,reason) on missing/exec-error/timeout.\n- _judge_restrict_namespaces (lines 303-331): baseline_rc None -> UNKNOWN; baseline_rc!=0 -> UNKNOWN \"host denies unprivileged user namespaces\"; observed!=0 -> ENFORCED (only when host rc==0); else NOT_ENFORCED.\n- Tests: plugin/test_systemd_directive_probe.py test_rns_host_denies_is_unknown_despite_inunit_denial (UNKNOWN branch), test_rns_host_allows_and_unit_denies_is_enforced (ENFORCED branch), test_rns_host_allows_and_unit_allows_is_not_enforced, test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown.\n- Targeted run: 17 passed in 10.98s (incl live host test).\n- Commit 108bc78 diff touches only _host_unshare_baseline + _judge_restrict_namespaces; grep for def _judge/_JUDGES/_PAYLOADS in diff = no matches -> no other directive judges changed.\n- Full suite: RUNNING (pending).\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "Host control runs unshare outside transient unit; verdict ENFORCED only when host rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover both branches; no regression to other directives",
+                "status": "FAIL",
+                "detail": "Criterion 1 (host control outside unit; ENFORCED only host rc==0 & unit rc!=0; UNKNOWN when host denies; tests both branches; no regression):\n- _host_unshare_baseline (scripts/systemd-directive-probe.py:264-296) runs [unshare,\"--user\",\"--pid\",\"true\"] via subprocess.run directly, no unit switches, bounded timeout 10s. Returns (None,reason) on missing/exec-error/timeout.\n- _judge_restrict_namespaces (lines 303-331): baseline_rc None -> UNKNOWN; baseline_rc!=0 -> UNKNOWN \"host denies unprivileged user namespaces\"; observed!=0 -> ENFORCED (only when host rc==0); else NOT_ENFORCED.\n- Tests: plugin/test_systemd_directive_probe.py test_rns_host_denies_is_unknown_despite_inunit_denial (UNKNOWN branch), test_rns_host_allows_and_unit_denies_is_enforced (ENFORCED branch), test_rns_host_allows_and_unit_allows_is_not_enforced, test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown.\n- Targeted run: 17 passed in 10.98s (incl live host test).\n- Commit 108bc78 diff touches only _host_unshare_baseline + _judge_restrict_namespaces; grep for def _judge/_JUDGES/_PAYLOADS in diff = no matches -> no other directive judges changed.\n- Full suite: RUNNING (pending).\n",
+                "resolution_probability": 0.41
+              }
+            ],
+            "summary": "Partial verdict \u2014 evaluation hit resource cap before all criteria verified"
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: TJ-DF-029\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 Host control runs unshare outside transient unit; verdict ENFORCED only when host rc==0 and unit rc!=0; UNKNOWN when host denies unprivileged userns; tests cover both branches; no regression to other directives: Criterion 1 (host control outside unit; ENFORCED only host rc==0 & unit rc!=0; UNKNOWN when host denies; tests both branches; no regression):\n- _host_unshare_baseline (scripts/systemd-directive-probe.py:264-296) runs [unshare,\"--user\",\"--pid\",\"true\"] via subprocess.run directly, no unit switches, bounded timeout 10s. Returns (None,reason) on missing/exec-error/timeout.\n- _judge_restrict_namespaces (lines 303-331): baseline_rc None -> UNKNOWN; baseline_rc!=0 -> UNKNOWN \"host denies unprivileged user namespaces\"; observed!=0 -> ENFORCED (only when host rc==0); else NOT_ENFORCED.\n- Tests: plugin/test_systemd_directive_probe.py test_rns_host_denies_is_unknown_despite_inunit_denial (UNKNOWN branch), test_rns_host_allows_and_unit_denies_is_enforced (ENFORCED branch), test_rns_host_allows_and_unit_allows_is_not_enforced, test_rns_host_baseline_timeout_is_unknown, test_host_baseline_missing_executable_is_unknown, test_host_baseline_executable_error_is_unknown.\n- Targeted run: 17 passed in 10.98s (incl live host test).\n- Commit 108bc78 diff touches only _host_unshare_baseline + _judge_restrict_namespaces; grep for def _judge/_JUDGES/_PAYLOADS in diff = no matches -> no other directive judges changed.\n- Full suite: RUNNING (pending).\n\nPartial verdict \u2014 evaluation hit resource cap before all criteria verified\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-04T14:27:23.315441",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-04T14:27:23.341734+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 15327,
+        "truncated": false,
+        "source": "git show 1bdf5ba6002d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5038,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-029"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "task_id": "RELTOOL-1791152794779715762",
+  "task_title": "Release tooling: tag-triggered release workflow (artifact channel gate 1/RELEASE-TJ-008)",
+  "task_criteria": [
+    "On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "4ef6eedee52485577de9b2ab7ec37482dae2920a",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T235814.920101Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n7:08PM INF scanned ~6066889 bytes (6.07 MB) in 465ms\n7:08PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 199 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T235814.920101Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 1675 items\n\nplugin/test_backend_parity.py .........                                  [  0%]\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  2%]\nplugin/test_bridge_fail_closed.py ...................................    [  5%]\nplugin/test_egress_no_delivery.py ............................           [  6%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 16%]\n........................................................................ [ 21%]\n.................................                                        [ 23%]\nplugin/test_gtfobins_sweep.py .......................................... [ 25%]\n.....................                                                    [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 31%]\n.....................................                                    [ 33%]\nplugin/test_interruptor.py ............................................. [ 35%]\n........................................................................ [ 40%]\n........................................................................ [ 44%]\n........................................................................ [ 48%]\n........................................................................ [ 53%]\n........................................................................ [ 57%]\n........................................................................ [ 61%]\n........................................                                 [ 64%]\nplugin/test_interruptor_integration.py .................s............... [ 66%]\n\n\u2026 [800 chars omitted \u2014 10 line(s)] \u2026\n..............                                                           [ 82%]\nplugin/test_rules_drift_probe.py .......................                 [ 83%]\nplugin/test_seccomp.py .........................................sss..... [ 86%]\n.                                                                        [ 86%]\nplugin/test_standalone_cli.py ......................                     [ 88%]\nplugin/test_systemd_directive_probe.py .................                 [ 89%]\nplugin/test_tjdf024_prefilter.py ..................                      [ 90%]\nplugin/test_tjdf042_warn_docs_pin.py .......                             [ 90%]\nplugin/test_tjdf043_pdeathsig_rearm.py ...                               [ 90%]\nplugin/test_uninstall.py .............                                   [ 91%]\nplugin/test_userns.py .........................s..                       [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss.....                            [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 97%]\n..................                                                       [ 98%]\ntests/test_release_workflow.py ...............                           [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [100%]\n\n================= 1665 passed, 10 skipped in 135.16s (0:02:15) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261004T235814.920101Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: Partial. PRESENT: .github/workflows/release.yml triggers on push tags [\"v*\"] (lines 20-21), builds with `python -m build` (line ~113), writes+verifies checksums (`sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`), creates the Release via `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes`, and never bumps pyproject (the 'Verify pyproject version matches the tag' step is read-only; tests/test_release_workflow.py::test_release_workflow_never_bumps_version_or_creates_tags asserts no 'git tag'/'git push'/'sed -i'/'> pyproject.toml'). Validation exists as scripts/release-cut-check.sh (read-only pre-cut check) plus tests/test_release_workflow.py \u2014 I ran `.venv/bin/python -m pytest tests/test_release_workflow.py -v` \u2192 exit_code 0, '15 passed in 3.09s'. MISSING (three sub-requirements): (1) CATEGORIZED NOTES \u2014 the workflow uses `--generate-notes` (release.yml:130), GitHub's auto-generated notes; grep for 'categor'/'categoriz' across .github/, docs/releasing.md, scripts/, tests/ returns zero hits, and the board row RELEASE-TJ-008's own unblock path explicitly requires 'gh release create with categorized notes'. (2) WORKFLOW LINT / ACT-STYLE VALIDATION OR DOCUMENTED DRY-RUN PROOF \u2014 grep -i for 'actionlint|nektos|act |dry-run|dry run|yamllint' across .github/, docs/releasing.md, scripts/release-cut-check.sh, tests/test_release_workflow.py and CONTRIBUTING.md returns zero hits; ci.yml has no actionlint/yamllint step and no `act` run is documented anywhere; the only validation is PyYAML parsing + string-presence assertions in the test file. (3) CI GREEN ON THE PUSHED SHA \u2014 not satisfied: CI run 37243382640 on the pushed release commit b6c12c7 FAILED on Python 3.12 and 3.13 ('FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_nonexistent_tag - AssertionError: v1.2.0 expected to exist for this test / assert 1 == 0'), recorded in board row QA-TERMINAL-JAIL-16 (P1, status still 'pending', acceptance criterion 1 'CI run on a commit touching tests/test_release_workflow.py is green on all matrix Pythons' unmet). Follow-up fixes a23ccf7 and 4ef6eed landed on main, but the final fix 1393899 ('fix(release-check): tag probe falls back to ls-remote; CI leg fails closed when gh is unauthenticated', 2026-10-04 19:08:21) exists ONLY on branch task/RELTOOL-RELEASE-TJ-008 \u2014 `git branch -a --contains 1393899` returns only task/RELTOOL-RELEASE-TJ-008, and main's tip is 4ef6eed. No green CI run on any pushed SHA is recorded in the repo, so the 'CI remains green on the pushed SHA' leg is unproven and the last known pushed SHA was red.\nThe tag-triggered build/checksum/gh-release/no-bump machinery and its 15 passing pins are real, but the criterion fails on three legs: notes are auto-generated rather than categorized, there is no actionlint/act/dry-run validation or proof, and CI was red on the pushed SHA (b6c12c7, QA-TERMINAL-JAIL-16 still pending) with the final fix left unpushed on task/RELTOOL-RELEASE-TJ-008.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: Partial. PRESENT: .github/workflows/release.yml triggers on push tags [\"v*\"] (lines 20-21), builds with `python -m build` (line ~113), writes+verifies checksums (`sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`), creates the Release via `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes`, and never bumps pyproject (the 'Verify pyproject version matches the tag' step is read-only; tests/test_release_workflow.py::test_release_workflow_never_bumps_version_or_creates_tags asserts no 'git tag'/'git push'/'sed -i'/'> pyproject.toml'). Validation exists as scripts/release-cut-check.sh (read-only pre-cut check) plus tests/test_release_workflow.py \u2014 I ran `.venv/bin/python -m pytest tests/test_release_workflow.py -v` \u2192 exit_code 0, '15 passed in 3.09s'. MISSING (three sub-requirements): (1) CATEGORIZED NOTES \u2014 the workflow uses `--generate-notes` (release.yml:130), GitHub's auto-generated notes; grep for 'categor'/'categoriz' across .github/, docs/releasing.md, scripts/, tests/ returns zero hits, and the board row RELEASE-TJ-008's own unblock path explicitly requires 'gh release create with categorized notes'. (2) WORKFLOW LINT / ACT-STYLE VALIDATION OR DOCUMENTED DRY-RUN PROOF \u2014 grep -i for 'actionlint|nektos|act |dry-run|dry run|yamllint' across .github/, docs/releasing.md, scripts/release-cut-check.sh, tests/test_release_workflow.py and CONTRIBUTING.md returns zero hits; ci.yml has no actionlint/yamllint step and no `act` run is documented anywhere; the only validation is PyYAML parsing + string-presence assertions in the test file. (3) CI GREEN ON THE PUSHED SHA \u2014 not satisfied: CI run 37243382640 on the pushed release commit b6c12c7 FAILED on Python 3.12 and 3.13 ('FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_nonexistent_tag - AssertionError: v1.2.0 expected to exist for this test / assert 1 == 0'), recorded in board row QA-TERMINAL-JAIL-16 (P1, status still 'pending', acceptance criterion 1 'CI run on a commit touching tests/test_release_workflow.py is green on all matrix Pythons' unmet). Follow-up fixes a23ccf7 and 4ef6eed landed on main, but the final fix 1393899 ('fix(release-check): tag probe falls back to ls-remote; CI leg fails closed when gh is unauthenticated', 2026-10-04 19:08:21) exists ONLY on branch task/RELTOOL-RELEASE-TJ-008 \u2014 `git branch -a --contains 1393899` returns only task/RELTOOL-RELEASE-TJ-008, and main's tip is 4ef6eed. No green CI run on any pushed SHA is recorded in the repo, so the 'CI remains green on the pushed SHA' leg is unproven and the last known pushed SHA was red.\nThe tag-triggered build/checksum/gh-release/no-bump machinery and its 15 passing pins are real, but the criterion fails on three legs: notes are auto-generated rather than categorized, there is no actionlint/act/dry-run validation or proof, and CI was red on the pushed SHA (b6c12c7, QA-TERMINAL-JAIL-16 still pending) with the final fix left unpushed on task/RELTOOL-RELEASE-TJ-008.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.",
+                "status": "FAIL",
+                "detail": "Partial. PRESENT: .github/workflows/release.yml triggers on push tags [\"v*\"] (lines 20-21), builds with `python -m build` (line ~113), writes+verifies checksums (`sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`), creates the Release via `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes`, and never bumps pyproject (the 'Verify pyproject version matches the tag' step is read-only; tests/test_release_workflow.py::test_release_workflow_never_bumps_version_or_creates_tags asserts no 'git tag'/'git push'/'sed -i'/'> pyproject.toml'). Validation exists as scripts/release-cut-check.sh (read-only pre-cut check) plus tests/test_release_workflow.py \u2014 I ran `.venv/bin/python -m pytest tests/test_release_workflow.py -v` \u2192 exit_code 0, '15 passed in 3.09s'. MISSING (three sub-requirements): (1) CATEGORIZED NOTES \u2014 the workflow uses `--generate-notes` (release.yml:130), GitHub's auto-generated notes; grep for 'categor'/'categoriz' across .github/, docs/releasing.md, scripts/, tests/ returns zero hits, and the board row RELEASE-TJ-008's own unblock path explicitly requires 'gh release create with categorized notes'. (2) WORKFLOW LINT / ACT-STYLE VALIDATION OR DOCUMENTED DRY-RUN PROOF \u2014 grep -i for 'actionlint|nektos|act |dry-run|dry run|yamllint' across .github/, docs/releasing.md, scripts/release-cut-check.sh, tests/test_release_workflow.py and CONTRIBUTING.md returns zero hits; ci.yml has no actionlint/yamllint step and no `act` run is documented anywhere; the only validation is PyYAML parsing + string-presence assertions in the test file. (3) CI GREEN ON THE PUSHED SHA \u2014 not satisfied: CI run 37243382640 on the pushed release commit b6c12c7 FAILED on Python 3.12 and 3.13 ('FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_nonexistent_tag - AssertionError: v1.2.0 expected to exist for this test / assert 1 == 0'), recorded in board row QA-TERMINAL-JAIL-16 (P1, status still 'pending', acceptance criterion 1 'CI run on a commit touching tests/test_release_workflow.py is green on all matrix Pythons' unmet). Follow-up fixes a23ccf7 and 4ef6eed landed on main, but the final fix 1393899 ('fix(release-check): tag probe falls back to ls-remote; CI leg fails closed when gh is unauthenticated', 2026-10-04 19:08:21) exists ONLY on branch task/RELTOOL-RELEASE-TJ-008 \u2014 `git branch -a --contains 1393899` returns only task/RELTOOL-RELEASE-TJ-008, and main's tip is 4ef6eed. No green CI run on any pushed SHA is recorded in the repo, so the 'CI remains green on the pushed SHA' leg is unproven and the last known pushed SHA was red.",
+                "resolution_probability": 0.39
+              }
+            ],
+            "summary": "The tag-triggered build/checksum/gh-release/no-bump machinery and its 15 passing pins are real, but the criterion fails on three legs: notes are auto-generated rather than categorized, there is no actionlint/act/dry-run validation or proof, and CI was red on the pushed SHA (b6c12c7, QA-TERMINAL-JAIL-16 still pending) with the final fix left unpushed on task/RELTOOL-RELEASE-TJ-008."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: RELTOOL-1791152794779715762\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 On tag push v*: workflow builds sdist+wheel (python -m build), generates artifacts with sha256sums, creates a GitHub Release with categorized notes via gh; does NOT auto-bump pyproject; includes a workflow lint/act-style validation or a documented dry-run proof; CI remains green on the pushed SHA.: Partial. PRESENT: .github/workflows/release.yml triggers on push tags [\"v*\"] (lines 20-21), builds with `python -m build` (line ~113), writes+verifies checksums (`sha256sum -- *.tar.gz *.whl > SHA256SUMS; sha256sum -c SHA256SUMS`), creates the Release via `gh release create \"${RELEASE_TAG}\" dist/* --verify-tag --title ... --generate-notes`, and never bumps pyproject (the 'Verify pyproject version matches the tag' step is read-only; tests/test_release_workflow.py::test_release_workflow_never_bumps_version_or_creates_tags asserts no 'git tag'/'git push'/'sed -i'/'> pyproject.toml'). Validation exists as scripts/release-cut-check.sh (read-only pre-cut check) plus tests/test_release_workflow.py \u2014 I ran `.venv/bin/python -m pytest tests/test_release_workflow.py -v` \u2192 exit_code 0, '15 passed in 3.09s'. MISSING (three sub-requirements): (1) CATEGORIZED NOTES \u2014 the workflow uses `--generate-notes` (release.yml:130), GitHub's auto-generated notes; grep for 'categor'/'categoriz' across .github/, docs/releasing.md, scripts/, tests/ returns zero hits, and the board row RELEASE-TJ-008's own unblock path explicitly requires 'gh release create with categorized notes'. (2) WORKFLOW LINT / ACT-STYLE VALIDATION OR DOCUMENTED DRY-RUN PROOF \u2014 grep -i for 'actionlint|nektos|act |dry-run|dry run|yamllint' across .github/, docs/releasing.md, scripts/release-cut-check.sh, tests/test_release_workflow.py and CONTRIBUTING.md returns zero hits; ci.yml has no actionlint/yamllint step and no `act` run is documented anywhere; the only validation is PyYAML parsing + string-presence assertions in the test file. (3) CI GREEN ON THE PUSHED SHA \u2014 not satisfied: CI run 37243382640 on the pushed release commit b6c12c7 FAILED on Python 3.12 and 3.13 ('FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_nonexistent_tag - AssertionError: v1.2.0 expected to exist for this test / assert 1 == 0'), recorded in board row QA-TERMINAL-JAIL-16 (P1, status still 'pending', acceptance criterion 1 'CI run on a commit touching tests/test_release_workflow.py is green on all matrix Pythons' unmet). Follow-up fixes a23ccf7 and 4ef6eed landed on main, but the final fix 1393899 ('fix(release-check): tag probe falls back to ls-remote; CI leg fails closed when gh is unauthenticated', 2026-10-04 19:08:21) exists ONLY on branch task/RELTOOL-RELEASE-TJ-008 \u2014 `git branch -a --contains 1393899` returns only task/RELTOOL-RELEASE-TJ-008, and main's tip is 4ef6eed. No green CI run on any pushed SHA is recorded in the repo, so the 'CI remains green on the pushed SHA' leg is unproven and the last known pushed SHA was red.\nThe tag-triggered build/checksum/gh-release/no-bump machinery and its 15 passing pins are real, but the criterion fails on three legs: notes are auto-generated rather than categorized, there is no actionlint/act/dry-run validation or proof, and CI was red on the pushed SHA (b6c12c7, QA-TERMINAL-JAIL-16 still pending) with the final fix left unpushed on task/RELTOOL-RELEASE-TJ-008.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-05T00:14:14.955666",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-05T00:14:14.972234+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3503,
+        "truncated": false,
+        "source": "git show 4ef6eedee524"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 5762,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "RELTOOL-1791152794779715762"
+  }
+}

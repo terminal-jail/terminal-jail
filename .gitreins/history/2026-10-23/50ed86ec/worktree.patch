@@ -1,0 +1,18 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index aa8af65..f3f7158 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1937,3 +1937,13 @@ tasks:
+   status: complete
+   created_at: '2026-10-23T03:27:36.457856+00:00'
+   completed_at: '2026-10-23T03:52:08.381243+00:00'
++- id: TJ-DF-047
++  title: Make plain-allow Landlock degradation observable
++  criteria:
++  - 'Commit 45cb434 implements TJ-DF-047: plain-allow and installed wrappers emit
++    one named egress warning when TERMINAL_JAIL_LANDLOCK_NET=1 cannot attach; installer
++    reports fs/net capability honestly; regression tests cover installed and opt-out
++    paths.'
++  status: complete
++  created_at: '2026-10-23T19:21:59.755390+00:00'
++  completed_at: '2026-10-23T19:22:00.402599+00:00'

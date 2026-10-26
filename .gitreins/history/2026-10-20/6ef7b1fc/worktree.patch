@@ -1,0 +1,53 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 47f01f3..96b4d4b 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -1791,3 +1791,27 @@ tasks:
+   status: complete
+   created_at: '2026-10-15T21:01:59.859442+00:00'
+   completed_at: '2026-10-15T21:02:49.581747+00:00'
++- id: INT-CI-008
++  title: Fix test_open_chain_under_tmp_is_traversable harness premise
++  criteria:
++  - 'Test inherits harness TMPDIR (~0750-ancestor) making ''anchored at /tmp'' premise
++    false. Fix: relax premise or skip when TMPDIR != /tmp, ensure CI passes on bunker
++    QA harness.'
++  status: in_progress
++  created_at: '2026-10-20T02:17:48.629699+00:00'
++- id: int-ci-009
++  title: 'Restore main CI green: INT-CI-009 board evidence backfill + ruff format
++    gate (docs dogfood fence)'
++  criteria:
++  - "1) scripts/board_id_guard.py exits 0 \u2014 the pending P1 row INT-CI-009 carries\
++    \ a string evidence body and created_by, so the CI 'Validate canonical board task\
++    \ IDs' lane is green on 3.11/3.12/3.13. 2) ruff format --check . exits 0 (the\
++    \ python fence in docs/dogfood/2026-10-20-composed-mode-egress-reporting.md is\
++    \ formatted), so the CI 'Lint (ruff)' lane is green. 3) The bunker-qa.sh battery\
++    \ render is verified empirically (__gen-remote hook) and the row states honestly\
++    \ what remains open. 4) Commit carries the Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>\
++    \ trailer and is pushed to origin/main with 0 unpushed. 5) The exact-SHA CI run\
++    \ for the pushed commit is terminal and green."
++  status: complete
++  created_at: '2026-10-20T03:13:58.896603+00:00'
++  completed_at: '2026-10-20T03:24:16.953907+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 6a57613..8bf0555 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -151,3 +151,4 @@
+ {"ts": 1792076112.55684, "tokens_in": 12233169, "tokens_out": 25232, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792098482.4608371, "tokens_in": 179400, "tokens_out": 2988, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+ {"ts": 1792153193.2670262, "tokens_in": 188523, "tokens_out": 2317, "cache_read": 0, "cache_write": 0, "step": "tier2"}
++{"ts": 1792466859.2536936, "tokens_in": 125868, "tokens_out": 2647, "cache_read": 0, "cache_write": 0, "step": "tier2"}
+diff --git a/.vfs/graph/edges.jsonl b/.vfs/graph/edges.jsonl
+index cc3ab18..3694b87 100644
+--- a/.vfs/graph/edges.jsonl
++++ b/.vfs/graph/edges.jsonl
+@@ -175,3 +175,7 @@
+ {"from":"plugin/test_install.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_install.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
+ {"from":"plugin/test_install.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_fs_degrade_plain_allow.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_fs_degrade_plain_allow.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_fs_degrade_plain_allow.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
++{"from":"plugin/test_tjdf047_fs_degrade_plain_allow.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}

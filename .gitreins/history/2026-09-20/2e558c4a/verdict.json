@@ -1,0 +1,141 @@
+{
+  "task_id": "VERSION-002",
+  "task_title": "Load-hygiene: bridge integration tests run in-process, real-exec parity seam kept",
+  "task_criteria": [
+    "In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs",
+    "Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow",
+    "Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests)",
+    "ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645",
+    "CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "ec3e645b14d23e5060c245b4c62a01e32d1cfd31",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T101717.082147Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\n5:18AM INF scanned ~4896680 bytes (4.90 MB) in 850ms\n5:18AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 132 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T101717.082147Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin\ncollected 1025 items\n\nplugin/test_backend_selection.py ................                        [  1%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_egress_no_delivery.py ......                                 [  4%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns.s..                                                                    [  9%]\nplugin/test_escape_waves.py ............................................ [ 13%]\n........................................................................ [ 20%]\n............................................................             [ 26%]\nplugin/test_host_probes.py ......................                        [ 28%]\nplugin/test_install.py ................................................. [ 33%]\n.                                                                        [ 33%]\nplugin/test_interruptor.py ............................................. [ 38%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 59%]\n........................................................................ [ 66%]\n........................................................................ [ 73%]\n..............................................                           [ 77%]\nplugin/test_interruptor_integration.py ...............s................. [ 80%]\n.....                                                                    [ 81%]\nplugin/test_metrics_export.py .....................                      [ 83%]\nplugin/test_modify_preflight.py ......                                   [ 84%]\nplugin/test_packaging.py ..........                                      [ 85%]\nplugin/test_plugin.py ................                                   [ 86%]\nplugin/test_rule_packs.py ...................................            [ 90%]\nplugin/test_seccomp.py .........................................sss      [ 94%]\nplugin/test_standalone_cli.py ...................                        [ 96%]\nplugin/test_systemd_directive_probe.py ...........                       [ 97%]\nplugin/test_userns.py .........................s..                       [100%]\n\n======================= 1018 passed, 7 skipped in 52.70s =======================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20260920T101717.082147Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: grep -c subprocess.run = 3 (lines 70, 329, 357-comment). Line 329 is inside test_bridge_real_exec_parity (line 317), which spawns [sys.executable, str(BRIDGE_SCRIPT)] and asserts proc.returncode == inproc.returncode == 0 and proc.stdout == inproc.stdout. BRIDGE_PARITY_INPUTS (line 307) = allow/block/modify/{}/null; I ran each through _bridge_main_inproc and confirmed verdicts allow, block, modify, allow([bridge-error] missing 'command' key), allow([bridge-error] payload must be a JSON object). _bridge_main_inproc defined at line 85 and used throughout.\n  \u2717 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: The test exists (line 352) and passes in the canonical full-file run (37 passed) and full suite (1018 passed), but it FAILS whenever the engine module is not already imported: `pytest plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process` -> 1 failed (AssertionError: spawned a process), and `-k never_spawns` -> 1 failed, 37 deselected. Root cause: decider.py:36 `_UNSHARE_PREFIX = unshare_prefix()` calls subprocess.run at MODULE IMPORT time (userns.py:117), so the test's mock.patch.object(subprocess,'run') intercepts that import-time probe unless terminal_jail.interruptor is already in sys.modules. It passes only by import-caching accident from earlier tests, so it does not structurally pin the seam as its docstring claims \u2014 a future edit reintroducing a spawn would not be caught when the test runs in isolation or under a -k filter.\n  \u2713 Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests): Re-measured: pre-change file (git show 6f6c2e6^) = 35 passed, 1 skipped in 7.48s; current file = 37 passed, 1 skipped in 3.98-4.12s (matches 7.8s -> 4.1s). Collected 36 before -> 38 after. Test defs 23 -> 25; diff of sorted test names shows exactly +2 (test_bridge_in_process_path_never_spawns_a_process, test_bridge_real_exec_parity) and zero deletions. pytest.mark.skip count: 1 before, 1 after (unchanged). Full suite: `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s.\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. HEAD = ec3e645b14d23e5060c245b4c62a01e32d1cfd31 (matches). Full suite `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s, exit 0.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md lines 1-13: [Unreleased] first section '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)' contains 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' and describes the in-process conversion plus test_bridge_real_exec_parity and the structural no-spawn guard test.\nFour criteria pass with strong measured evidence, but criterion 2 fails: the seam test only passes by import-caching accident and fails in isolation and under -k filtering, so it does not structurally pin the no-spawn seam as claimed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: grep -c subprocess.run = 3 (lines 70, 329, 357-comment). Line 329 is inside test_bridge_real_exec_parity (line 317), which spawns [sys.executable, str(BRIDGE_SCRIPT)] and asserts proc.returncode == inproc.returncode == 0 and proc.stdout == inproc.stdout. BRIDGE_PARITY_INPUTS (line 307) = allow/block/modify/{}/null; I ran each through _bridge_main_inproc and confirmed verdicts allow, block, modify, allow([bridge-error] missing 'command' key), allow([bridge-error] payload must be a JSON object). _bridge_main_inproc defined at line 85 and used throughout.\n  \u2717 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: The test exists (line 352) and passes in the canonical full-file run (37 passed) and full suite (1018 passed), but it FAILS whenever the engine module is not already imported: `pytest plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process` -> 1 failed (AssertionError: spawned a process), and `-k never_spawns` -> 1 failed, 37 deselected. Root cause: decider.py:36 `_UNSHARE_PREFIX = unshare_prefix()` calls subprocess.run at MODULE IMPORT time (userns.py:117), so the test's mock.patch.object(subprocess,'run') intercepts that import-time probe unless terminal_jail.interruptor is already in sys.modules. It passes only by import-caching accident from earlier tests, so it does not structurally pin the seam as its docstring claims \u2014 a future edit reintroducing a spawn would not be caught when the test runs in isolation or under a -k filter.\n  \u2713 Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests): Re-measured: pre-change file (git show 6f6c2e6^) = 35 passed, 1 skipped in 7.48s; current file = 37 passed, 1 skipped in 3.98-4.12s (matches 7.8s -> 4.1s). Collected 36 before -> 38 after. Test defs 23 -> 25; diff of sorted test names shows exactly +2 (test_bridge_in_process_path_never_spawns_a_process, test_bridge_real_exec_parity) and zero deletions. pytest.mark.skip count: 1 before, 1 after (unchanged). Full suite: `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s.\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. HEAD = ec3e645b14d23e5060c245b4c62a01e32d1cfd31 (matches). Full suite `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s, exit 0.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md lines 1-13: [Unreleased] first section '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)' contains 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' and describes the in-process conversion plus test_bridge_real_exec_parity and the structural no-spawn guard test.\nFour criteria pass with strong measured evidence, but criterion 2 fails: the seam test only passes by import-caching accident and fails in isolation and under -k filtering, so it does not structurally pin the no-spawn seam as claimed.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs",
+                "status": "PASS",
+                "detail": "grep -c subprocess.run = 3 (lines 70, 329, 357-comment). Line 329 is inside test_bridge_real_exec_parity (line 317), which spawns [sys.executable, str(BRIDGE_SCRIPT)] and asserts proc.returncode == inproc.returncode == 0 and proc.stdout == inproc.stdout. BRIDGE_PARITY_INPUTS (line 307) = allow/block/modify/{}/null; I ran each through _bridge_main_inproc and confirmed verdicts allow, block, modify, allow([bridge-error] missing 'command' key), allow([bridge-error] payload must be a JSON object). _bridge_main_inproc defined at line 85 and used throughout."
+              },
+              {
+                "criterion": "Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow",
+                "status": "FAIL",
+                "detail": "The test exists (line 352) and passes in the canonical full-file run (37 passed) and full suite (1018 passed), but it FAILS whenever the engine module is not already imported: `pytest plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process` -> 1 failed (AssertionError: spawned a process), and `-k never_spawns` -> 1 failed, 37 deselected. Root cause: decider.py:36 `_UNSHARE_PREFIX = unshare_prefix()` calls subprocess.run at MODULE IMPORT time (userns.py:117), so the test's mock.patch.object(subprocess,'run') intercepts that import-time probe unless terminal_jail.interruptor is already in sys.modules. It passes only by import-caching accident from earlier tests, so it does not structurally pin the seam as its docstring claims \u2014 a future edit reintroducing a spawn would not be caught when the test runs in isolation or under a -k filter."
+              },
+              {
+                "criterion": "Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests)",
+                "status": "PASS",
+                "detail": "Re-measured: pre-change file (git show 6f6c2e6^) = 35 passed, 1 skipped in 7.48s; current file = 37 passed, 1 skipped in 3.98-4.12s (matches 7.8s -> 4.1s). Collected 36 before -> 38 after. Test defs 23 -> 25; diff of sorted test names shows exactly +2 (test_bridge_in_process_path_never_spawns_a_process, test_bridge_real_exec_parity) and zero deletions. pytest.mark.skip count: 1 before, 1 after (unchanged). Full suite: `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s."
+              },
+              {
+                "criterion": "ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645",
+                "status": "PASS",
+                "detail": "`uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. HEAD = ec3e645b14d23e5060c245b4c62a01e32d1cfd31 (matches). Full suite `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s, exit 0."
+              },
+              {
+                "criterion": "CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers",
+                "status": "PASS",
+                "detail": "CHANGELOG.md lines 1-13: [Unreleased] first section '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)' contains 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' and describes the in-process conversion plus test_bridge_real_exec_parity and the structural no-spawn guard test."
+              }
+            ],
+            "summary": "Four criteria pass with strong measured evidence, but criterion 2 fails: the seam test only passes by import-caching accident and fails in isolation and under -k filtering, so it does not structurally pin the no-spawn seam as claimed."
+          }
+        }
+      ]
+    }
+  },
+  "summary": "Judge Result: VERSION-002\n\nStage tier1: PASS\n    \u2713 lint: ok (no output)\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: ============================= test session starts ==============================\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 In-process conversion: plugin/test_interruptor_integration.py drives interruptor_bridge.main() via _bridge_main_inproc for bridge verdict assertions; grep shows exactly 3 subprocess.run sites remaining, all inside test_bridge_real_exec_parity which spawns the real python3 interruptor_bridge.py and asserts byte-identical stdout and rc against the in-process path across allow/block/modify/empty-schema/null inputs: grep -c subprocess.run = 3 (lines 70, 329, 357-comment). Line 329 is inside test_bridge_real_exec_parity (line 317), which spawns [sys.executable, str(BRIDGE_SCRIPT)] and asserts proc.returncode == inproc.returncode == 0 and proc.stdout == inproc.stdout. BRIDGE_PARITY_INPUTS (line 307) = allow/block/modify/{}/null; I ran each through _bridge_main_inproc and confirmed verdicts allow, block, modify, allow([bridge-error] missing 'command' key), allow([bridge-error] payload must be a JSON object). _bridge_main_inproc defined at line 85 and used throughout.\n  \u2717 Structural seam test test_bridge_in_process_path_never_spawns_a_process patches subprocess.run to raise and the in-process path still answers allow: The test exists (line 352) and passes in the canonical full-file run (37 passed) and full suite (1018 passed), but it FAILS whenever the engine module is not already imported: `pytest plugin/test_interruptor_integration.py::test_bridge_in_process_path_never_spawns_a_process` -> 1 failed (AssertionError: spawned a process), and `-k never_spawns` -> 1 failed, 37 deselected. Root cause: decider.py:36 `_UNSHARE_PREFIX = unshare_prefix()` calls subprocess.run at MODULE IMPORT time (userns.py:117), so the test's mock.patch.object(subprocess,'run') intercepts that import-time probe unless terminal_jail.interruptor is already in sys.modules. It passes only by import-caching accident from earlier tests, so it does not structurally pin the seam as its docstring claims \u2014 a future edit reintroducing a spawn would not be caught when the test runs in isolation or under a -k filter.\n  \u2713 Measured: file wall time 7.8s before vs 4.1s after (main checkout baseline re-measured this tick); full suite on merged main reports 1018 passed, 7 skipped; zero tests deleted, zero skip marks added (35 to 37 tests in the file, +2 seam tests): Re-measured: pre-change file (git show 6f6c2e6^) = 35 passed, 1 skipped in 7.48s; current file = 37 passed, 1 skipped in 3.98-4.12s (matches 7.8s -> 4.1s). Collected 36 before -> 38 after. Test defs 23 -> 25; diff of sorted test names shows exactly +2 (test_bridge_in_process_path_never_spawns_a_process, test_bridge_real_exec_parity) and zero deletions. pytest.mark.skip count: 1 before, 1 after (unchanged). Full suite: `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s.\n  \u2713 ruff check clean on the changed file (uvx ruff check plugin/test_interruptor_integration.py) and full suite green on merged main at HEAD ec3e645: `uvx ruff check plugin/test_interruptor_integration.py` -> 'All checks passed!' EXIT=0. HEAD = ec3e645b14d23e5060c245b4c62a01e32d1cfd31 (matches). Full suite `.venv/bin/python -m pytest plugin -q` -> 1018 passed, 7 skipped in 35.35s, exit 0.\n  \u2713 CHANGELOG.md [Unreleased] carries the VERSION-002 entry with the before/after numbers: CHANGELOG.md lines 1-13: [Unreleased] first section '### Bridge-level integration tests run in-process; one real-exec parity test keeps the wire contract (VERSION-002)' contains 'File wall time 7.8s \u2192 4.1s; suite total -3.7s' and describes the in-process conversion plus test_bridge_real_exec_parity and the structural no-spawn guard test.\nFour criteria pass with strong measured evidence, but criterion 2 fails: the seam test only passes by import-caching accident and fails in isolation and under -k filtering, so it does not structurally pin the no-spawn seam as claimed.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-09-20T10:23:52.670925",
+  "evidence": {
+    "collected_at": "2026-09-20T10:23:52.695140+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 4443,
+        "truncated": false,
+        "source": "git show ec3e645b14d2"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 43428,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "VERSION-002"
+  }
+}
