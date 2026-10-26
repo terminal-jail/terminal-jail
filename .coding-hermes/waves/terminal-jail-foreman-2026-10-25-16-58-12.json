@@ -1,0 +1,18 @@
+{
+  "tick": "terminal-jail-foreman-2026-10-25-16-58-12",
+  "project": "terminal-jail",
+  "mode": "serial",
+  "wave_budget": 12,
+  "reason": "Only one repository-actionable pending task; remaining pending rows are recurring fixtures or externally/owner-gated.",
+  "base": "8421db27eab3f006b2a04c2059080adfd90edbe6",
+  "tasks": [],
+  "dispatch": {
+    "task_id": "QA-TERMINAL-JAIL-21",
+    "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-21",
+    "branch": "wt/QA-TERMINAL-JAIL-21",
+    "base_sha": "8421db2",
+    "model": "glm-5.3-flash",
+    "provider": "zai-glm-default",
+    "lane_probe": "LANE_OK; requested lane not independently proven from response alone"
+  }
+}
