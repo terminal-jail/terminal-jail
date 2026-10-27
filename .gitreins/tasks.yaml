@@ -1966,15 +1966,6 @@ tasks:
   status: complete
   created_at: '2026-10-24T01:35:26.243898+00:00'
   completed_at: '2026-10-24T01:35:56.129636+00:00'
-- id: INT-CI-3
-  title: Fix test assertions for TERMINAL_JAIL_VERBOSE_WARN single-line default
-  criteria:
-  - plugin/test_backend_selection.py::test_auto_uses_bwrap_for_user_when_mapping_unavailable
-    passes AND plugin/test_userns.py::TestDegradedFallback::test_degraded_host_warns_and_keeps_working
-    passes AND CI green on main
-  status: complete
-  created_at: '2026-10-24T01:50:33.776671+00:00'
-  completed_at: '2026-10-24T09:14:31.055489+00:00'
 - id: TJ-REVIEW-074
   title: Fix auto-sandbox modify preflight diagnostic
   criteria:
