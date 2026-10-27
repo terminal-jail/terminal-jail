@@ -1,0 +1,143 @@
+{
+  "task_id": "DF-TERMINAL-JAIL-19",
+  "task_title": "[dogfood] restore + verify bunker-las-03 install leg",
+  "task_criteria": [
+    "bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate for dispatching the install leg",
+    "A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note records the agent id and port range returned by bunker spawn --server bunker-las-03 --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn count \u2014 the row's named acceptance",
+    "The previously SKIPPED install leg ran on the spawned agent: the foreman_note records the clone result, ./install.sh rc=0, terminal-jail --version matching pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed PID-ns inode differing from the host inode, and the destructive-command block (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "65458a260031328d1fc165ae8eff86c507348653",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261027T094927.139330Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n4:49AM INF scanned ~5213383 bytes (5.21 MB) in 384ms\n4:49AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 241 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261027T094927.139330Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2072 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2057 passed, 15 skipped in 180.33s (0:03:00) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261027T094927.139330Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate for dispatching the install leg: Live re-run: `bunker status --server bunker-las-03` -> 'Version: 0.1.4 / Status: ONLINE', rc=0. foreman_note in .coding-hermes/board/tasks.jsonl:145 records 'bunker status --server bunker-las-03 reported ONLINE (v0.1.4)'; corroborated by .coding-hermes/board/events.jsonl:807 (tick 411) bunker_las03='ONLINE v0.1.4'.\n  \u2713 A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note records the agent id and port range returned by bunker spawn --server bunker-las-03 --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn count \u2014 the row's named acceptance: tasks.jsonl:145 foreman_note: 'Pre-spawn bunker list on las-03 had 0 agents. `bunker spawn --server bunker-las-03 --ttl 20m` returned agent dad5334f with port range 30200-30299 ... `bunker destroy dad5334f` succeeded; post-destroy las-03 list returned No agents found (baseline restored).' Live `bunker list --server bunker-las-03` -> 'No agents found.' (0 agents = pre-spawn count). events.jsonl:807 repeats 'spawn dad5334f ports 30200-30299 ... destroy OK; list restored'.\n  \u2713 The previously SKIPPED install leg ran on the spawned agent: the foreman_note records the clone result, ./install.sh rc=0, terminal-jail --version matching pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed PID-ns inode differing from the host inode, and the destructive-command block (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail: tasks.jsonl:145 foreman_note records all named items: 'public clone rc=0 (4s, HEAD 7287ddd), ./install.sh rc=0 (1s), terminal-jail 1.3.0 (matches pyproject), pidns-capability-probe FULL (backend: bwrap), fs-isolation-probe FULL ..., host PID ns pid:[4026531836] differed from jailed pid ns pid:[4026532724], `terminal-jail rm -rf /` rc=126 COMMAND BLOCKED builtin-rm-rf-root'. Version match verified against pyproject.toml:7 version = \"1.3.0\"; checklist mirrors docs/dogfood/2026-09-18-integration.md:175-183 las-02 table; probes exist at scripts/pidns-capability-probe.py and scripts/fs-isolation-probe.py. The one las-02 item not re-verified (bwrap private /proc) is explicitly disclosed as a residual and is not among the criterion's named items. Corroborated by events.jsonl:807 tick-411 verification block. [resolution 0.06; ./install.sh]\nAll three criteria are satisfied: bunker-las-03 is live-verified ONLINE, the spawn/destroy cycle (agent dad5334f, ports 30200-30299, list restored to 0) is recorded in the row's foreman_note, and the previously SKIPPED install leg is recorded with every named las-02 checklist item including version 1.3.0 matching pyproject.toml.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate for dispatching the install leg: Live re-run: `bunker status --server bunker-las-03` -> 'Version: 0.1.4 / Status: ONLINE', rc=0. foreman_note in .coding-hermes/board/tasks.jsonl:145 records 'bunker status --server bunker-las-03 reported ONLINE (v0.1.4)'; corroborated by .coding-hermes/board/events.jsonl:807 (tick 411) bunker_las03='ONLINE v0.1.4'.\n  \u2713 A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note records the agent id and port range returned by bunker spawn --server bunker-las-03 --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn count \u2014 the row's named acceptance: tasks.jsonl:145 foreman_note: 'Pre-spawn bunker list on las-03 had 0 agents. `bunker spawn --server bunker-las-03 --ttl 20m` returned agent dad5334f with port range 30200-30299 ... `bunker destroy dad5334f` succeeded; post-destroy las-03 list returned No agents found (baseline restored).' Live `bunker list --server bunker-las-03` -> 'No agents found.' (0 agents = pre-spawn count). events.jsonl:807 repeats 'spawn dad5334f ports 30200-30299 ... destroy OK; list restored'.\n  \u2713 The previously SKIPPED install leg ran on the spawned agent: the foreman_note records the clone result, ./install.sh rc=0, terminal-jail --version matching pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed PID-ns inode differing from the host inode, and the destructive-command block (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail: tasks.jsonl:145 foreman_note records all named items: 'public clone rc=0 (4s, HEAD 7287ddd), ./install.sh rc=0 (1s), terminal-jail 1.3.0 (matches pyproject), pidns-capability-probe FULL (backend: bwrap), fs-isolation-probe FULL ..., host PID ns pid:[4026531836] differed from jailed pid ns pid:[4026532724], `terminal-jail rm -rf /` rc=126 COMMAND BLOCKED builtin-rm-rf-root'. Version match verified against pyproject.toml:7 version = \"1.3.0\"; checklist mirrors docs/dogfood/2026-09-18-integration.md:175-183 las-02 table; probes exist at scripts/pidns-capability-probe.py and scripts/fs-isolation-probe.py. The one las-02 item not re-verified (bwrap private /proc) is explicitly disclosed as a residual and is not among the criterion's named items. Corroborated by events.jsonl:807 tick-411 verification block. [resolution 0.06; ./install.sh]\nAll three criteria are satisfied: bunker-las-03 is live-verified ONLINE, the spawn/destroy cycle (agent dad5334f, ports 30200-30299, list restored to 0) is recorded in the row's foreman_note, and the previously SKIPPED install leg is recorded with every named las-02 checklist item including version 1.3.0 matching pyproject.toml.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate for dispatching the install leg",
+                "status": "PASS",
+                "detail": "Live re-run: `bunker status --server bunker-las-03` -> 'Version: 0.1.4 / Status: ONLINE', rc=0. foreman_note in .coding-hermes/board/tasks.jsonl:145 records 'bunker status --server bunker-las-03 reported ONLINE (v0.1.4)'; corroborated by .coding-hermes/board/events.jsonl:807 (tick 411) bunker_las03='ONLINE v0.1.4'.",
+                "resolution_probability": 0.06
+              },
+              {
+                "criterion": "A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note records the agent id and port range returned by bunker spawn --server bunker-las-03 --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn count \u2014 the row's named acceptance",
+                "status": "PASS",
+                "detail": "tasks.jsonl:145 foreman_note: 'Pre-spawn bunker list on las-03 had 0 agents. `bunker spawn --server bunker-las-03 --ttl 20m` returned agent dad5334f with port range 30200-30299 ... `bunker destroy dad5334f` succeeded; post-destroy las-03 list returned No agents found (baseline restored).' Live `bunker list --server bunker-las-03` -> 'No agents found.' (0 agents = pre-spawn count). events.jsonl:807 repeats 'spawn dad5334f ports 30200-30299 ... destroy OK; list restored'.",
+                "resolution_probability": 0.06
+              },
+              {
+                "criterion": "The previously SKIPPED install leg ran on the spawned agent: the foreman_note records the clone result, ./install.sh rc=0, terminal-jail --version matching pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed PID-ns inode differing from the host inode, and the destructive-command block (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail",
+                "status": "PASS",
+                "detail": "tasks.jsonl:145 foreman_note records all named items: 'public clone rc=0 (4s, HEAD 7287ddd), ./install.sh rc=0 (1s), terminal-jail 1.3.0 (matches pyproject), pidns-capability-probe FULL (backend: bwrap), fs-isolation-probe FULL ..., host PID ns pid:[4026531836] differed from jailed pid ns pid:[4026532724], `terminal-jail rm -rf /` rc=126 COMMAND BLOCKED builtin-rm-rf-root'. Version match verified against pyproject.toml:7 version = \"1.3.0\"; checklist mirrors docs/dogfood/2026-09-18-integration.md:175-183 las-02 table; probes exist at scripts/pidns-capability-probe.py and scripts/fs-isolation-probe.py. The one las-02 item not re-verified (bwrap private /proc) is explicitly disclosed as a residual and is not among the criterion's named items. Corroborated by events.jsonl:807 tick-411 verification block. [resolution 0.06; ./install.sh]",
+                "resolution_probability": 0.06,
+                "cited_path": "./install.sh"
+              }
+            ],
+            "summary": "All three criteria are satisfied: bunker-las-03 is live-verified ONLINE, the spawn/destroy cycle (agent dad5334f, ports 30200-30299, list restored to 0) is recorded in the row's foreman_note, and the previously SKIPPED install leg is recorded with every named las-02 checklist item including version 1.3.0 matching pyproject.toml.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: DF-TERMINAL-JAIL-19\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate for dispatching the install leg: Live re-run: `bunker status --server bunker-las-03` -> 'Version: 0.1.4 / Status: ONLINE', rc=0. foreman_note in .coding-hermes/board/tasks.jsonl:145 records 'bunker status --server bunker-las-03 reported ONLINE (v0.1.4)'; corroborated by .coding-hermes/board/events.jsonl:807 (tick 411) bunker_las03='ONLINE v0.1.4'.\n  \u2713 A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note records the agent id and port range returned by bunker spawn --server bunker-las-03 --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn count \u2014 the row's named acceptance: tasks.jsonl:145 foreman_note: 'Pre-spawn bunker list on las-03 had 0 agents. `bunker spawn --server bunker-las-03 --ttl 20m` returned agent dad5334f with port range 30200-30299 ... `bunker destroy dad5334f` succeeded; post-destroy las-03 list returned No agents found (baseline restored).' Live `bunker list --server bunker-las-03` -> 'No agents found.' (0 agents = pre-spawn count). events.jsonl:807 repeats 'spawn dad5334f ports 30200-30299 ... destroy OK; list restored'.\n  \u2713 The previously SKIPPED install leg ran on the spawned agent: the foreman_note records the clone result, ./install.sh rc=0, terminal-jail --version matching pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed PID-ns inode differing from the host inode, and the destructive-command block (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail: tasks.jsonl:145 foreman_note records all named items: 'public clone rc=0 (4s, HEAD 7287ddd), ./install.sh rc=0 (1s), terminal-jail 1.3.0 (matches pyproject), pidns-capability-probe FULL (backend: bwrap), fs-isolation-probe FULL ..., host PID ns pid:[4026531836] differed from jailed pid ns pid:[4026532724], `terminal-jail rm -rf /` rc=126 COMMAND BLOCKED builtin-rm-rf-root'. Version match verified against pyproject.toml:7 version = \"1.3.0\"; checklist mirrors docs/dogfood/2026-09-18-integration.md:175-183 las-02 table; probes exist at scripts/pidns-capability-probe.py and scripts/fs-isolation-probe.py. The one las-02 item not re-verified (bwrap private /proc) is explicitly disclosed as a residual and is not among the criterion's named items. Corroborated by events.jsonl:807 tick-411 verification block. [resolution 0.06; ./install.sh]\nAll three criteria are satisfied: bunker-las-03 is live-verified ONLINE, the spawn/destroy cycle (agent dad5334f, ports 30200-30299, list restored to 0) is recorded in the row's foreman_note, and the previously SKIPPED install leg is recorded with every named las-02 checklist item including version 1.3.0 matching pyproject.toml.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-27T09:53:38.642212",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-27T09:53:38.682401+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 74565,
+        "truncated": false,
+        "source": "git show 65458a260031"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2508,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DF-TERMINAL-JAIL-19"
+  }
+}

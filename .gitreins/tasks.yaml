@@ -2044,3 +2044,20 @@ tasks:
   status: complete
   created_at: '2026-10-25T16:36:08.414539+00:00'
   completed_at: '2026-10-25T16:36:31.119399+00:00'
+- id: DF-TERMINAL-JAIL-19
+  title: '[dogfood] restore + verify bunker-las-03 install leg'
+  criteria:
+  - "bunker status --server bunker-las-03 reports ONLINE \u2014 the row's stated gate\
+    \ for dispatching the install leg"
+  - "A spawn-and-destroy cycle on bunker-las-03 succeeded: the row's foreman_note\
+    \ records the agent id and port range returned by bunker spawn --server bunker-las-03\
+    \ --ttl 20m, a successful bunker destroy, and bunker list returning to the pre-spawn\
+    \ count \u2014 the row's named acceptance"
+  - "The previously SKIPPED install leg ran on the spawned agent: the foreman_note\
+    \ records the clone result, ./install.sh rc=0, terminal-jail --version matching\
+    \ pyproject, the pidns-capability-probe and fs-isolation-probe verdicts, a jailed\
+    \ PID-ns inode differing from the host inode, and the destructive-command block\
+    \ (builtin-rm-rf-root) \u2014 mirroring the las-02 checklist in the row detail"
+  status: complete
+  created_at: '2026-10-27T09:24:45.742137+00:00'
+  completed_at: '2026-10-27T09:49:50.020748+00:00'
