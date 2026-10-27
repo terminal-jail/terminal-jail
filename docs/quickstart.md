@@ -21,7 +21,7 @@ specific property, and no single layer is a complete security boundary (see
 | Block dangerous patterns before they run (firewall) | **Interruptor** (built into the CLI, on by default) | `terminal-jail rm -rf /` → blocked, exit 126 |
 | Add privilege dropping + syscall filtering | **CLI flags** | `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` |
 | Observe + log Hermes terminal commands (byte budget reserved — not implemented) | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
-| Harden the Hermes gateway service itself | **systemd drop-in** (`systemd/90-terminal-jail-hardening.conf`) | See §5 — lightweight (4 directives), NOT a PID namespace boundary |
+| Harden the Hermes gateway service itself | **systemd drop-in** (`systemd/90-terminal-jail-hardening.conf`) | See §5 — lightweight (14 active directives), NOT a PID namespace boundary |
 | Replace the Hermes gateway shell with a jailed shell | **Deploy shim** (`standalone/terminal-jail-sh` + `docs/deploy-to-karahermes.md`) | Host-specific; hardcoded paths must be adjusted |
 
 **TL;DR:** individual commands → standalone CLI. Firewall → interruptor
@@ -763,12 +763,17 @@ sudo systemctl restart hermes-gateway
 sudo systemd-analyze security hermes-gateway.service   # see the score
 ```
 
-**Note:** the shipped drop-in activates only 4 directives
-(`ProtectProc=invisible`, `NoNewPrivileges=true`,
-`ProtectControlGroups=true`, `TasksMax=256`). It is lightweight hardening,
-**not** a PID namespace boundary. The stronger directives
-(`PrivateUsers=true`, `RestrictNamespaces=true`, network/fs hardening) are
-commented out pending per-host verification — follow
+**Note:** the shipped drop-in has 14 active directives (hardening only). It is
+lightweight hardening, **not** a PID namespace boundary. The active set is:
+`ProtectProc=invisible`, `NoNewPrivileges=true`,
+`ProtectControlGroups=true`, `TasksMax=256`, `RestrictSUIDSGID=true`,
+`RestrictRealtime=true`, `ProtectClock=true`, `ProtectHostname=true`,
+`ProtectKernelLogs=true`, `ProtectKernelModules=true`,
+`ProtectKernelTunables=true`, `LockPersonality=true`,
+`MemoryDenyWriteExecute=true`, `SystemCallArchitectures=native`. The
+stronger directives (`PrivateUsers=true`, `RestrictNamespaces=true`,
+capability/fs/network hardening) are commented out pending per-host
+verification — follow
 [docs/deploy-to-karahermes.md](deploy-to-karahermes.md) to stage them.
 
 Verify the drop-in is loaded (fail-loud: `systemctl show` prints default
