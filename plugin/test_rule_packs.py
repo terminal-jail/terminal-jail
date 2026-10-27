@@ -968,7 +968,7 @@ class TestValidatorSchema:
         assert "schema" in result.stdout, result.stdout
 
     def test_shipped_example_pack_validates_first_try(self) -> None:
-        result = _run_tool("validate", str(EXAMPLE_PACK), "--pack-name", "example")
+        result = _run_tool("validate", str(EXAMPLE_PACK), "--pack-name", "example-pack")
 
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "pack 'example' valid" in result.stdout, result.stdout
+        assert "pack 'example-pack' valid" in result.stdout, result.stdout

@@ -168,13 +168,13 @@ Two practical notes: installing a pack requires `python3`, and parsing a YAML pa
 
 #### Authoring a pack
 
-`scripts/rule-pack-tool.py schema` prints the whole authoring schema — every rule field, every valid `match.type` with the fields each expects, a minimal valid example, and a pointer to `specs/interruptor.md` §3.4. The shipped `plugin/terminal_jail/rules/packs/example-pack.yaml` is that minimal example, commented, and it passes the tool's own `validate` command first try.
+`scripts/rule-pack-tool.py schema` prints the whole authoring schema — every rule field, every valid `match.type` with the fields each expects, a minimal valid example, and a pointer to `specs/interruptor.md` §3.4. The shipped `plugin/terminal_jail/rules/packs/example-pack.yaml` is that minimal example, commented, and it passes `validate --pack-name example-pack` first try (its file name derives the namespace `pack-example-pack-*`, and its rule id lives inside it).
 
-The minimal shape:
+The minimal shape (swap `<name>` for your pack's name — with `--rule-pack <name>` the name IS the pack file's basename, and every id must live in `pack-<name>-*`):
 
 ```yaml
 rules:
-  - id: "pack-example-block-demo"
+  - id: "pack-<name>-block-demo"
     action: block
     priority: 950
     block_message: "Blocked by the example pack."

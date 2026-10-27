@@ -10,7 +10,7 @@
 #
 #     python3 scripts/rule-pack-tool.py validate \
 #         plugin/terminal_jail/rules/packs/example-pack.yaml \
-#         --pack-name example
+#         --pack-name example-pack
 #
 # THE ONE MISTAKE THAT COSTS A PACK (TJ-DF-035): writing `match.type: regex`.
 # `regex` is NOT a match type — the valid types are
@@ -21,7 +21,7 @@
 # `pattern:` (or `regex:`). Full contract: specs/interruptor.md §3.4.
 
 rules:
-  - id: "pack-example-block-demo"
+  - id: "pack-example-pack-block-demo"
     description: "A minimal demonstration rule — a pattern match that blocks."
     priority: 950
     action: block
