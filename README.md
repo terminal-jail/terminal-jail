@@ -304,7 +304,6 @@ user namespace and no privileges needed: credential surfaces (`~/.ssh`,
 are confined to the working tree + temp dirs, enforced by the kernel and
 inherited by the payload after exec. `TERMINAL_JAIL_LANDLOCK=0` disables it.
 The tier composes with (never replaces) the unshare/bwrap namespace path.
-```
 
 Since TJ-GAP-083 there is also an **opt-in kernel-enforced TCP-connect (network
 egress) tier** (Landlock ABI v4 `LANDLOCK_ACCESS_NET_CONNECT_TCP`): with
