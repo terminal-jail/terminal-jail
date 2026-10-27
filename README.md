@@ -532,7 +532,7 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE`, or `--no-interruptor` on the CLI.
 
 ```bash
 USE_INTERRUPTOR=1 ./standalone/terminal-jail echo "hello"
-TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail rm -rf /
+TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail sudo true
 TERMINAL_JAIL_INTERRUPTOR_MODE=disabled ./standalone/terminal-jail --no-interruptor echo "test"
 ```
 
