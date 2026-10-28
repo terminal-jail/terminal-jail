@@ -269,7 +269,20 @@ def test_check_script_fails_clearly_on_existing_tag() -> None:
     own local tag, asserts the refusal, and removes it. The tag-existence
     check runs BEFORE any network access in the script, so this is hermetic.
     """
-    tmp_tag = "v9.9.9-test-existing-refusal"
+    # Process-unique patch number: parallel worktree judges share one .git
+    # ref store, so a fixed-name tag collides across concurrent pytest
+    # processes (v9.9.9 itself must stay untouched for the wrong-version
+    # test, hence the 100000 floor).
+    tmp_tag = f"v9.9.{100000 + (os.getpid() % 800000)}"
+    # Clear our own stale leftover first; a stray hit (delete fails with
+    # "not found") is harmless either way.
+    subprocess.run(
+        ["git", "tag", "-d", tmp_tag],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
     make = subprocess.run(
         ["git", "tag", tmp_tag],
         cwd=PROJECT_ROOT,
@@ -278,7 +291,9 @@ def test_check_script_fails_clearly_on_existing_tag() -> None:
         text=True,
         timeout=30,
     )
-    assert make.returncode == 0, f"failed to create temp tag: {make.stderr}"
+    assert make.returncode == 0 or "already exists" in make.stderr, (
+        f"failed to create temp tag: {make.stderr}"
+    )
     try:
         proc = _run_script(PROJECT_ROOT, tmp_tag)
         assert proc.returncode == 1
