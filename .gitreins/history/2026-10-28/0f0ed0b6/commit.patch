@@ -1,0 +1,57 @@
+commit cf904da88bf923736213f615c64325d1de4d480d
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Tue Oct 27 21:18:22 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Tue Oct 27 21:18:22 2026 -0500
+
+    docs: document TERMINAL_JAIL_HERMES_PLUGIN_DIR. Addresses DOC-24.
+    
+    Reader-facing docs never mentioned the --hermes-plugin environment
+    override. README.md "Install or refresh" block gains the env-var example
+    and the precedence chain (explicit --hermes-plugin <dir> /
+    --hermes-plugin-dir=<dir> argument > TERMINAL_JAIL_HERMES_PLUGIN_DIR >
+    $HOME/.hermes/plugins/terminal-jail default, per the first-non-empty-wins
+    chain at install.sh:668-676); docs/quickstart.md section 3d now names the
+    variable in the same sentence as the explicit-target flags.
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ README.md          | 6 ++++++
+ docs/quickstart.md | 5 ++++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index ccad5f9..d414528 100644
+--- a/README.md
++++ b/README.md
+@@ -446,8 +446,14 @@ The plugin registers two hooks for observability:
+ ```bash
+ ./install.sh --hermes-plugin               # -> ~/.hermes/plugins/terminal-jail
+ ./install.sh --hermes-plugin /custom/dir   # explicit target
++TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)
+ ```
+ 
++No explicit target given? The installer picks the first non-empty of: the
++`--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the
++`TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default
++`~/.hermes/plugins/terminal-jail` (derived from `$HOME`).
++
+ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update, and it prints the deployed version and target path. Then enable it (`hermes plugins enable terminal-jail`) and restart Hermes — discovery and verification steps are in [docs/quickstart.md](docs/quickstart.md) **§3d**.
+ 
+ | Variable | Default | Purpose |
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index 84b1075..c3bb8ed 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -662,7 +662,10 @@ This deploys the checkout's `plugin/` tree (`plugin.yaml`, `__init__.py`, the
+ `terminal_jail/` package — everything the copy must contain) to
+ `~/.hermes/plugins/terminal-jail` and prints the deployed version. Pass an
+ explicit target as an argument (`./install.sh --hermes-plugin /custom/dir`) or
+-via `--hermes-plugin-dir=/custom/dir`; the default is derived from `$HOME`.
++via `--hermes-plugin-dir=/custom/dir`; with no explicit target the installer
++falls back to the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, and,
++only when that is unset too, to the default derived from `$HOME`
++(`~/.hermes/plugins/terminal-jail`).
+ 
+ **Enable it** in `~/.hermes/config.yaml`:
+ 

@@ -1,0 +1,129 @@
+{
+  "task_id": "DOC-24",
+  "task_title": "Document TERMINAL_JAIL_HERMES_PLUGIN_DIR for Hermes plugin deployment",
+  "task_criteria": [
+    "Add TERMINAL_JAIL_HERMES_PLUGIN_DIR to the maintained plugin-install reference with its default, target precedence, and a safe example; rerun bash install.sh --help and grep the reader-facing docs to verify both surfaces."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-DOC-24",
+  "branch": "wt/DOC-24",
+  "commit": "cf904da88bf923736213f615c64325d1de4d480d",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-24/.gitreins/logs/guard-20261028T021822.792926Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:24PM INF scanned ~3749978 bytes (3.75 MB) in 436ms\n9:24PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 221 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-24/.gitreins/logs/guard-20261028T021822.792926Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/worktrees/terminal-jail-DOC-24\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2072 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2057 passed, 15 skipped in 188.80s (0:03:08) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-24/.gitreins/logs/guard-20261028T021822.792926Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Add TERMINAL_JAIL_HERMES_PLUGIN_DIR to the maintained plugin-install reference with its default, target precedence, and a safe example; rerun bash install.sh --help and grep the reader-facing docs to verify both surfaces.: Commit cf904da adds the variable to the maintained plugin-install reference (README.md '### Plugin (Hermes)' section) with all three required elements: (1) SAFE EXAMPLE at README.md:449 \u2014 `TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)` (concrete path, no placeholder tokens); (2) TARGET PRECEDENCE at README.md:452-455 \u2014 'first non-empty of: the `--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default', which matches the code chain at install.sh:668-676 exactly (HERMES_PLUGIN_ARG -> TERMINAL_JAIL_HERMES_PLUGIN_DIR -> $HOME/.hermes/plugins/terminal-jail); (3) DEFAULT at README.md:455 \u2014 '`~/.hermes/plugins/terminal-jail` (derived from `$HOME`)', also stated at docs/quickstart.md:667-668. Both surfaces verified: `bash install.sh --help` returned EXIT=0 and its help text documents the var with default at install.sh:322 and install.sh:98; grep of reader-facing docs confirms README.md:449,454 and docs/quickstart.md:666. Tests run fresh: full suite `.venv/bin/python -m pytest -q` -> '2057 passed, 15 skipped in 176.11s' (zero failures); tests/test_quickstart_doc.py -> '8 passed', EXIT=0. Minor nit only: the 13-row '| Variable | Default | Purpose |' table at README.md:460-472 does not list the var (it is documented in the install block and precedence prose instead), which the criterion does not require. [resolution 0.19; install.sh]\nTERMINAL_JAIL_HERMES_PLUGIN_DIR is documented in the README plugin-install reference with its default, exact target precedence matching install.sh:668-676, and a safe copy-pasteable example, with both surfaces verified (install.sh --help exit 0, docs grep) and the full suite green at 2057 passed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Add TERMINAL_JAIL_HERMES_PLUGIN_DIR to the maintained plugin-install reference with its default, target precedence, and a safe example; rerun bash install.sh --help and grep the reader-facing docs to verify both surfaces.: Commit cf904da adds the variable to the maintained plugin-install reference (README.md '### Plugin (Hermes)' section) with all three required elements: (1) SAFE EXAMPLE at README.md:449 \u2014 `TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)` (concrete path, no placeholder tokens); (2) TARGET PRECEDENCE at README.md:452-455 \u2014 'first non-empty of: the `--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default', which matches the code chain at install.sh:668-676 exactly (HERMES_PLUGIN_ARG -> TERMINAL_JAIL_HERMES_PLUGIN_DIR -> $HOME/.hermes/plugins/terminal-jail); (3) DEFAULT at README.md:455 \u2014 '`~/.hermes/plugins/terminal-jail` (derived from `$HOME`)', also stated at docs/quickstart.md:667-668. Both surfaces verified: `bash install.sh --help` returned EXIT=0 and its help text documents the var with default at install.sh:322 and install.sh:98; grep of reader-facing docs confirms README.md:449,454 and docs/quickstart.md:666. Tests run fresh: full suite `.venv/bin/python -m pytest -q` -> '2057 passed, 15 skipped in 176.11s' (zero failures); tests/test_quickstart_doc.py -> '8 passed', EXIT=0. Minor nit only: the 13-row '| Variable | Default | Purpose |' table at README.md:460-472 does not list the var (it is documented in the install block and precedence prose instead), which the criterion does not require. [resolution 0.19; install.sh]\nTERMINAL_JAIL_HERMES_PLUGIN_DIR is documented in the README plugin-install reference with its default, exact target precedence matching install.sh:668-676, and a safe copy-pasteable example, with both surfaces verified (install.sh --help exit 0, docs grep) and the full suite green at 2057 passed.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Add TERMINAL_JAIL_HERMES_PLUGIN_DIR to the maintained plugin-install reference with its default, target precedence, and a safe example; rerun bash install.sh --help and grep the reader-facing docs to verify both surfaces.",
+                "status": "PASS",
+                "detail": "Commit cf904da adds the variable to the maintained plugin-install reference (README.md '### Plugin (Hermes)' section) with all three required elements: (1) SAFE EXAMPLE at README.md:449 \u2014 `TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)` (concrete path, no placeholder tokens); (2) TARGET PRECEDENCE at README.md:452-455 \u2014 'first non-empty of: the `--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default', which matches the code chain at install.sh:668-676 exactly (HERMES_PLUGIN_ARG -> TERMINAL_JAIL_HERMES_PLUGIN_DIR -> $HOME/.hermes/plugins/terminal-jail); (3) DEFAULT at README.md:455 \u2014 '`~/.hermes/plugins/terminal-jail` (derived from `$HOME`)', also stated at docs/quickstart.md:667-668. Both surfaces verified: `bash install.sh --help` returned EXIT=0 and its help text documents the var with default at install.sh:322 and install.sh:98; grep of reader-facing docs confirms README.md:449,454 and docs/quickstart.md:666. Tests run fresh: full suite `.venv/bin/python -m pytest -q` -> '2057 passed, 15 skipped in 176.11s' (zero failures); tests/test_quickstart_doc.py -> '8 passed', EXIT=0. Minor nit only: the 13-row '| Variable | Default | Purpose |' table at README.md:460-472 does not list the var (it is documented in the install block and precedence prose instead), which the criterion does not require. [resolution 0.19; install.sh]",
+                "resolution_probability": 0.19,
+                "cited_path": "install.sh"
+              }
+            ],
+            "summary": "TERMINAL_JAIL_HERMES_PLUGIN_DIR is documented in the README plugin-install reference with its default, exact target precedence matching install.sh:668-676, and a safe copy-pasteable example, with both surfaces verified (install.sh --help exit 0, docs grep) and the full suite green at 2057 passed.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: DOC-24\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Add TERMINAL_JAIL_HERMES_PLUGIN_DIR to the maintained plugin-install reference with its default, target precedence, and a safe example; rerun bash install.sh --help and grep the reader-facing docs to verify both surfaces.: Commit cf904da adds the variable to the maintained plugin-install reference (README.md '### Plugin (Hermes)' section) with all three required elements: (1) SAFE EXAMPLE at README.md:449 \u2014 `TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)` (concrete path, no placeholder tokens); (2) TARGET PRECEDENCE at README.md:452-455 \u2014 'first non-empty of: the `--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default', which matches the code chain at install.sh:668-676 exactly (HERMES_PLUGIN_ARG -> TERMINAL_JAIL_HERMES_PLUGIN_DIR -> $HOME/.hermes/plugins/terminal-jail); (3) DEFAULT at README.md:455 \u2014 '`~/.hermes/plugins/terminal-jail` (derived from `$HOME`)', also stated at docs/quickstart.md:667-668. Both surfaces verified: `bash install.sh --help` returned EXIT=0 and its help text documents the var with default at install.sh:322 and install.sh:98; grep of reader-facing docs confirms README.md:449,454 and docs/quickstart.md:666. Tests run fresh: full suite `.venv/bin/python -m pytest -q` -> '2057 passed, 15 skipped in 176.11s' (zero failures); tests/test_quickstart_doc.py -> '8 passed', EXIT=0. Minor nit only: the 13-row '| Variable | Default | Purpose |' table at README.md:460-472 does not list the var (it is documented in the install block and precedence prose instead), which the criterion does not require. [resolution 0.19; install.sh]\nTERMINAL_JAIL_HERMES_PLUGIN_DIR is documented in the README plugin-install reference with its default, exact target precedence matching install.sh:668-676, and a safe copy-pasteable example, with both surfaces verified (install.sh --help exit 0, docs grep) and the full suite green at 2057 passed.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-10-28T02:32:23.995925",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-28T02:32:24.018321+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3046,
+        "truncated": false,
+        "source": "git show cf904da88bf9"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 80167,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-24"
+  }
+}

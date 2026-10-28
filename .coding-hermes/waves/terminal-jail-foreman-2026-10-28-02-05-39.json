@@ -1,0 +1,66 @@
+{
+  "tick_id": "terminal-jail-foreman-2026-10-28-02-05-39",
+  "created_at": "2026-10-28T02:05:39-05:00",
+  "wave_budget": 3,
+  "dispatched": 3,
+  "finished_at": "2026-10-28T21:50:00-05:00",
+  "outcome": "complete",
+  "base_sha": "ab93eb2",
+  "merge_head": "c354296",
+  "reason": "three mutually independent P4 docs rows with disjoint file surfaces (depends_on empty on all three)",
+  "independence_check": {
+    "DOC-24": ["README.md", "docs/quickstart.md"],
+    "DOC-25": ["docs/traceability-doctrine.md", "CONTRIBUTING.md"],
+    "DOC-26": ["specs/integration.md"],
+    "collision": "none — no shared path"
+  },
+  "incident": {
+    "id": "TJ-DF-056",
+    "summary": "Three concurrent 'gitreins task complete' judges in worktrees sharing one .git raced on the fixed-name tag created by tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag. The loser got 'fatal: tag v9.9.9-test-existing-refusal already exists' and reported tier-1 FAIL while tier-2 PASSed. Re-run SERIALLY both tasks passed tier-1; the race is reproducible by pre-creating the tag. Filed as board row TJ-DF-056.",
+    "lesson": "Serialise tier-1 judge runs when the suite mutates shared git refs, or isolate the scan."
+  },
+  "tasks": [
+    {
+      "task_id": "DOC-24",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-24",
+      "branch": "wt/DOC-24",
+      "base_sha": "ab93eb2",
+      "brief_file": "/tmp/tj-brief-DOC-24.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave-DOC-24.log",
+      "worker_commit": "cf904da",
+      "merged_sha": "b17373e",
+      "judge": "d0e3e422 tier1 PASS / tier2 PASS",
+      "board_status": "complete"
+    },
+    {
+      "task_id": "DOC-25",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-25",
+      "branch": "wt/DOC-25",
+      "base_sha": "ab93eb2",
+      "brief_file": "/tmp/tj-brief-DOC-25.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave-DOC-25.log",
+      "worker_commit": "b56831b",
+      "merged_sha": "f4f8862",
+      "judge": "60ff61f2 tier1 PASS / tier2 PASS (first run bb0b441e tier1 FAIL = tag race, tier2 PASS)",
+      "board_status": "complete"
+    },
+    {
+      "task_id": "DOC-26",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-26",
+      "branch": "wt/DOC-26",
+      "base_sha": "ab93eb2",
+      "brief_file": "/tmp/tj-brief-DOC-26.txt",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm-default",
+      "log": "/tmp/tj-wave-DOC-26.log",
+      "worker_commit": "05d65fa",
+      "merged_sha": "c354296",
+      "judge": "350d68ea tier1 PASS / tier2 PASS (first run 6eb63599 tier1 FAIL = tag race, tier2 PASS)",
+      "board_status": "complete"
+    }
+  ]
+}

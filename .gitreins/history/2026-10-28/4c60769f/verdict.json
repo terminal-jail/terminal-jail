@@ -1,0 +1,129 @@
+{
+  "task_id": "DOC-25",
+  "task_title": "Add repository-local traceability doctrine contract",
+  "task_criteria": [
+    "Create docs/traceability-doctrine.md with marker, evidence/witness, and close-out rules; test -e docs/traceability-doctrine.md must exit 0 and maintained contributor/audit documentation must link it."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/worktrees/terminal-jail-DOC-25",
+  "branch": "wt/DOC-25",
+  "commit": "b56831b0c56a41da05b45db22a82eb2243fc2d7e",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag [first failing",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-25/.gitreins/logs/guard-20261028T022116.920648Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:24PM INF scanned ~3749928 bytes (3.75 MB) in 512ms\n9:24PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 222 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-25/.gitreins/logs/guard-20261028T022116.920648Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/worktrees/terminal-jail-DOC-25\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2072 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 19%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 49%]\n........................................................................ [ 52%]\n\n\u2026 [2960 chars omitted \u2014 37 line(s)] \u2026\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ............F\n\n=================================== FAILURES ===================================\n_______________ test_check_script_fails_clearly_on_existing_tag ________________\ntests/test_release_workflow.py:281: in test_check_script_fails_clearly_on_existing_tag\n    assert make.returncode == 0, f\"failed to create temp tag: {make.stderr}\"\nE   AssertionError: failed to create temp tag: fatal: tag 'v9.9.9-test-existing-refusal' already exists\nE     \nE   assert 128 == 0\nE    +  where 128 = CompletedProcess(args=['git', 'tag', 'v9.9.9-test-existing-refusal'], returncode=128, stdout='', stderr=\"fatal: tag 'v9.9.9-test-existing-refusal' already exists\\n\").returncode\n=========================== short test summary info ============================\nFAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n============ 1 failed, 2038 passed, 15 skipped in 182.34s (0:03:02) ============\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag",
+              "first_failing_test": "tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-DOC-25/.gitreins/logs/guard-20261028T022116.920648Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 Create docs/traceability-doctrine.md with marker, evidence/witness, and close-out rules; test -e docs/traceability-doctrine.md must exit 0 and maintained contributor/audit documentation must link it.: docs/traceability-doctrine.md exists (150 lines, 7830 bytes); `test -e docs/traceability-doctrine.md` returned exit=0. Content covers all three required elements: \u00a71 'The `ch:trace` marker' (line 18) with full field table incl. evidence=/witness= (lines 36-37) and the `none:<reason>` rule; \u00a72 'Evidence and witness rules' (2.1 evidence line 64, 2.2 one-verdict-one-commit, 2.3 witness line 86); \u00a73 'Close-out sequence for a board row' (line 107) with 7 ordered steps; \u00a74 quick reference. Maintained contributor documentation links it: CONTRIBUTING.md:105-109 adds a '## Traceability' section with `[docs/traceability-doctrine.md](docs/traceability-doctrine.md)` \u2014 valid relative path, target confirmed to exist. Commit b56831b ('docs: add repository traceability doctrine. Addresses DOC-25.') added both files (CONTRIBUTING.md +8, docs/traceability-doctrine.md +150). Test run: `.venv/bin/python -m pytest -x --tb=short -q` -> '31 passed, 6 skipped in 3.14s', exit_code 0. [resolution 0.23; docs/traceability-doctrine.md]\ndocs/traceability-doctrine.md exists with marker, evidence/witness, and close-out rules, is linked from CONTRIBUTING.md, and the test suite passes (31 passed, 6 skipped, exit 0).",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 Create docs/traceability-doctrine.md with marker, evidence/witness, and close-out rules; test -e docs/traceability-doctrine.md must exit 0 and maintained contributor/audit documentation must link it.: docs/traceability-doctrine.md exists (150 lines, 7830 bytes); `test -e docs/traceability-doctrine.md` returned exit=0. Content covers all three required elements: \u00a71 'The `ch:trace` marker' (line 18) with full field table incl. evidence=/witness= (lines 36-37) and the `none:<reason>` rule; \u00a72 'Evidence and witness rules' (2.1 evidence line 64, 2.2 one-verdict-one-commit, 2.3 witness line 86); \u00a73 'Close-out sequence for a board row' (line 107) with 7 ordered steps; \u00a74 quick reference. Maintained contributor documentation links it: CONTRIBUTING.md:105-109 adds a '## Traceability' section with `[docs/traceability-doctrine.md](docs/traceability-doctrine.md)` \u2014 valid relative path, target confirmed to exist. Commit b56831b ('docs: add repository traceability doctrine. Addresses DOC-25.') added both files (CONTRIBUTING.md +8, docs/traceability-doctrine.md +150). Test run: `.venv/bin/python -m pytest -x --tb=short -q` -> '31 passed, 6 skipped in 3.14s', exit_code 0. [resolution 0.23; docs/traceability-doctrine.md]\ndocs/traceability-doctrine.md exists with marker, evidence/witness, and close-out rules, is linked from CONTRIBUTING.md, and the test suite passes (31 passed, 6 skipped, exit 0).",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "Create docs/traceability-doctrine.md with marker, evidence/witness, and close-out rules; test -e docs/traceability-doctrine.md must exit 0 and maintained contributor/audit documentation must link it.",
+                "status": "PASS",
+                "detail": "docs/traceability-doctrine.md exists (150 lines, 7830 bytes); `test -e docs/traceability-doctrine.md` returned exit=0. Content covers all three required elements: \u00a71 'The `ch:trace` marker' (line 18) with full field table incl. evidence=/witness= (lines 36-37) and the `none:<reason>` rule; \u00a72 'Evidence and witness rules' (2.1 evidence line 64, 2.2 one-verdict-one-commit, 2.3 witness line 86); \u00a73 'Close-out sequence for a board row' (line 107) with 7 ordered steps; \u00a74 quick reference. Maintained contributor documentation links it: CONTRIBUTING.md:105-109 adds a '## Traceability' section with `[docs/traceability-doctrine.md](docs/traceability-doctrine.md)` \u2014 valid relative path, target confirmed to exist. Commit b56831b ('docs: add repository traceability doctrine. Addresses DOC-25.') added both files (CONTRIBUTING.md +8, docs/traceability-doctrine.md +150). Test run: `.venv/bin/python -m pytest -x --tb=short -q` -> '31 passed, 6 skipped in 3.14s', exit_code 0. [resolution 0.23; docs/traceability-doctrine.md]",
+                "resolution_probability": 0.23,
+                "cited_path": "docs/traceability-doctrine.md"
+              }
+            ],
+            "summary": "docs/traceability-doctrine.md exists with marker, evidence/witness, and close-out rules, is linked from CONTRIBUTING.md, and the test suite passes (31 passed, 6 skipped, exit 0).",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: DOC-25\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag [first failing\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 Create docs/traceability-doctrine.md with marker, evidence/witness, and close-out rules; test -e docs/traceability-doctrine.md must exit 0 and maintained contributor/audit documentation must link it.: docs/traceability-doctrine.md exists (150 lines, 7830 bytes); `test -e docs/traceability-doctrine.md` returned exit=0. Content covers all three required elements: \u00a71 'The `ch:trace` marker' (line 18) with full field table incl. evidence=/witness= (lines 36-37) and the `none:<reason>` rule; \u00a72 'Evidence and witness rules' (2.1 evidence line 64, 2.2 one-verdict-one-commit, 2.3 witness line 86); \u00a73 'Close-out sequence for a board row' (line 107) with 7 ordered steps; \u00a74 quick reference. Maintained contributor documentation links it: CONTRIBUTING.md:105-109 adds a '## Traceability' section with `[docs/traceability-doctrine.md](docs/traceability-doctrine.md)` \u2014 valid relative path, target confirmed to exist. Commit b56831b ('docs: add repository traceability doctrine. Addresses DOC-25.') added both files (CONTRIBUTING.md +8, docs/traceability-doctrine.md +150). Test run: `.venv/bin/python -m pytest -x --tb=short -q` -> '31 passed, 6 skipped in 3.14s', exit_code 0. [resolution 0.23; docs/traceability-doctrine.md]\ndocs/traceability-doctrine.md exists with marker, evidence/witness, and close-out rules, is linked from CONTRIBUTING.md, and the test suite passes (31 passed, 6 skipped, exit 0).\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-28T02:28:05.462135",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-28T02:28:05.483588+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 10733,
+        "truncated": false,
+        "source": "git show b56831b0c56a"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 80126,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "DOC-25"
+  }
+}
