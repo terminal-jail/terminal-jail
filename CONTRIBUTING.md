@@ -102,6 +102,14 @@ DirectiveName=true
 6. **Update the board** — if your PR addresses an item in `.coding-hermes/board/tasks.jsonl`, mark it complete.
 7. **Signed commits** — all commits must include `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>`.
 
+## Traceability
+
+Work that closes a board row must stay traceable. The repository's marker
+fields (`ch:trace`), evidence/witness rules, and the close-out sequence are
+defined in [docs/traceability-doctrine.md](docs/traceability-doctrine.md).
+Read it before appending to `.coding-hermes/board/events.jsonl` or writing a
+worker report.
+
 ## Security Considerations
 
 This project handles process isolation. Changes to any of these areas require extra scrutiny:
