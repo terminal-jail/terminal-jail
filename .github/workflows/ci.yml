@@ -114,6 +114,9 @@ jobs:
       - name: Installed-rules drift probe (CI gate mode)
         run: python scripts/rules-drift-probe.py --fail-on-drift
 
+      - name: README docs check (fence balance + pinned commands)
+        run: python scripts/docs-check.py
+
       - name: Backend parity battery (evidence collection, always exits 0)
         run: python scripts/backend-parity-battery.py --json
 
