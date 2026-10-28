@@ -346,7 +346,7 @@ With bubblewrap installed, compare the `/proc` view (`TERMINAL_JAIL_JAIL_BACKEND
 
 ### Scripting the firewall
 
-The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (error envelopes are mode-aware since REVIEW-TJ-008: transport-level failures fail closed in enforce mode and fail open with a warning in warn mode; engine failures always fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3a2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024).
+The verdicts above are produced by a line protocol you can script directly — one JSON line in, one JSON line out (error envelopes are mode-aware since REVIEW-TJ-008: transport-level failures fail closed in enforce mode and fail open with a warning in warn mode; engine failures always fail closed): see [docs/quickstart.md](docs/quickstart.md) **§3a2 "Scripting the firewall (the JSON bridge)"** for the schema, `rule_id` semantics, error envelopes, and the documented length limitation (TJ-DF-024). By default the bridge also emits one per-verdict JSON log line on **stderr** (`{"ts": ..., "event": "verdict", "action": ..., "rule_id": ..., "layer": ..., "command_sha256": ...}`, emitted right before the stdout verdict line); stdout still carries exactly one JSON verdict line. Silence it with `TERMINAL_JAIL_VERDICT_LOG=0`/`off`/`false` — see the `TERMINAL_JAIL_VERDICT_LOG` row under *Environment variables and limits* below.
 
 ### Choosing a bridge transport: one-shot vs resident (TJ-GAP-084)
 
@@ -425,6 +425,7 @@ bench ceiling; resident adds ~2 ms of socket round-trip on top of engine evaluat
 | Variable | Default | Purpose |
 |---|---|---|
 | `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` | `262144` | **Enforced maximum argument size (TJ-GAP-086).** Any command whose UTF-8 size exceeds this is refused with a clean BLOCK (`rule_id: builtin-max-arg-bytes`) that names the knob and the limit — checked before parsing, so an oversize input costs O(len), never evaluation time. Positive integers only; unset/invalid/zero falls back to the 262144 default (a typo can never re-enable unbounded evaluation). Warn mode degrades the refusal to allow-with-warning (warn never blocks); disabled mode passes through. Distinct from `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` (below), which bounds the engine's *wrapped output*, not its input. |
+| `TERMINAL_JAIL_VERDICT_LOG` | ON | **Per-verdict stderr log line (REVIEW-TJ-015).** By default the bridge emits one compact JSON log line on **stderr** for every verdict (the command appears only as the first 16 hex chars of its sha256 — commands can carry secrets). Setting this to `0`, `off`, or `false` (any case) suppresses that stderr line entirely. The stdout verdict protocol is unchanged either way: always exactly one JSON verdict line. Pinned by `plugin/test_verdict_log.py`. |
 
 Cost statement (measured, not vibes): below the limit, engine cost grows
 linearly with argument size — ~2.2 ms p50 for an ordinary command, ~21.8 ms
