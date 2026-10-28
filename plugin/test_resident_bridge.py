@@ -18,15 +18,18 @@ ch:trace row=TJ-GAP-084 evidence=plugin/test_resident_bridge.py witness=none:loc
 
 from __future__ import annotations
 
+import atexit
 import errno
 import json
 import os
 import select
+import shutil
 import signal
 import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -40,6 +43,43 @@ _RESIDENT = _PLUGIN_DIR / "terminal_jail" / "interruptor_resident.py"
 # --cov=terminal_jail tracked tree, leaving 0% coverage and failing the CI gate).
 import terminal_jail.interruptor_resident as resident  # noqa: E402
 
+# QA-TERMINAL-JAIL-22: unix(7) sockaddr_un.sun_path is 108 bytes INCLUDING
+# the NUL terminator. Paths under this margin bind anywhere; longer ones
+# make every daemon startup die with "AF_UNIX path too long".
+_SUN_PATH_LIMIT = 100
+
+# Fallback sockets created by _daemon_sock_path; their parent dirs are
+# removed at interpreter exit. _start_daemon checks this set for its
+# last-resort skip guard (skip ONLY when even the /tmp fallback cannot
+# bind — default CI never hits it).
+_DAEMON_SOCK_FALLBACKS: set[Path] = set()
+
+
+def _cleanup_daemon_sock_dirs() -> None:
+    for sock in _DAEMON_SOCK_FALLBACKS:
+        shutil.rmtree(sock.parent, ignore_errors=True)
+
+
+def _daemon_sock_path(requested: Path) -> Path:
+    """Socket path for daemon tests; falls back to /tmp when deep.
+
+    On hosts where pytest's basetemp is deep, tmp_path/"s.sock" exceeds the
+    unix(7) sun_path limit and the resident daemon dies at startup
+    (QA-TERMINAL-JAIL-22). Short paths are returned unchanged so normal
+    hosts exercise exactly the pre-fix layout; deep ones get a unique
+    directory created DIRECTLY under /tmp — NOT under TMPDIR, which is
+    precisely what is deep on the affected hosts. Callers must start the
+    daemon from, and assert against, the RETURNED path (this keeps the
+    0o600 cell meaningful).
+    """
+    if len(os.fsencode(str(requested))) < _SUN_PATH_LIMIT:
+        return requested
+    fallback = Path(tempfile.mkdtemp(prefix="tjr-", dir="/tmp")) / requested.name
+    if not _DAEMON_SOCK_FALLBACKS:
+        atexit.register(_cleanup_daemon_sock_dirs)
+    _DAEMON_SOCK_FALLBACKS.add(fallback)
+    return fallback
+
 
 def _start_daemon(sock_path: Path, mode: str | None = None) -> subprocess.Popen:
     env = dict(__import__("os").environ)
@@ -48,6 +88,24 @@ def _start_daemon(sock_path: Path, mode: str | None = None) -> subprocess.Popen:
         env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = mode
     else:
         env.pop("TERMINAL_JAIL_INTERRUPTOR_MODE", None)
+    # QA-TERMINAL-JAIL-22 last-resort guard: only a bind failure on the
+    # /tmp FALLBACK path (not the deep requested path) is environmental —
+    # with the fallback available, default CI never skips.
+    if (
+        sock_path in _DAEMON_SOCK_FALLBACKS
+        and len(os.fsencode(str(sock_path))) <= _SUN_PATH_LIMIT
+    ):
+        probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            probe.bind(str(sock_path))
+        except OSError as exc:
+            pytest.skip(
+                f"cannot bind even the short /tmp fallback socket "
+                f"{sock_path}: {exc} (unix(7) sun_path limit is 108 bytes)"
+            )
+        finally:
+            probe.close()
+        Path(sock_path).unlink(missing_ok=True)
     proc = subprocess.Popen(
         [sys.executable, str(_RESIDENT), "--serve", "--sock", str(sock_path)],
         env=env,
@@ -170,7 +228,7 @@ class TestVerdictParity:
 
     @pytest.mark.parametrize("command", ALLOWABLE)
     def test_allow_parity(self, tmp_path: Path, command: str) -> None:
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock)
         try:
             resident_verdict = _ask(sock, command)
@@ -190,7 +248,7 @@ class TestVerdictParity:
         ],
     )
     def test_block_parity(self, tmp_path: Path, command: str) -> None:
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock)
         try:
             resident_verdict = _ask(sock, command)
@@ -202,7 +260,7 @@ class TestVerdictParity:
 
     def test_transport_envelope_parity_bad_json(self, tmp_path: Path) -> None:
         """Invalid JSON request line -> same [bridge-error] block as one-shot."""
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock)
         try:
             client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -229,7 +287,7 @@ class TestVerdictParity:
 
 class TestSocketPermissions:
     def test_socket_is_0600(self, tmp_path: Path) -> None:
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock)
         try:
             mode = stat.S_IMODE(sock.stat().st_mode)
@@ -240,7 +298,11 @@ class TestSocketPermissions:
     def test_chmod_failure_fails_closed(self, tmp_path: Path) -> None:
         """chmod cannot fail on a tmp dir — prove the fail-closed branch
         directly at the unit level (monkeypatched os.chmod)."""
-        sock = tmp_path / "s.sock"
+        # QA-TERMINAL-JAIL-22: route through the helper so a deep basetemp
+        # cannot make serve() exit 1 BEFORE the chmod branch (stale-socket
+        # probe/bind) — that also satisfies exit-code-1 + no-socket and
+        # silently tests the wrong branch.
+        sock = _daemon_sock_path(tmp_path / "s.sock")
 
         def boom(path, mode):  # noqa: ARG001
             raise PermissionError("simulated chmod failure")
@@ -347,7 +409,7 @@ class TestWarnMode:
     def test_warn_transport_envelope_is_fail_open(self, tmp_path: Path) -> None:
         """In warn mode a malformed request gets the allow-with-warning
         envelope (warn never blocks) — same shape as the one-shot."""
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock, mode="warn")
         try:
             client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -438,7 +500,7 @@ class TestWarnMode:
     def test_stale_socket_cleaned_live_socket_refused(self, tmp_path: Path) -> None:
         """Live socket owned by another daemon -> refuse to start; dead path
         -> safely unlinked and rebound."""
-        sock = tmp_path / "s.sock"
+        sock = _daemon_sock_path(tmp_path / "s.sock")
         proc = _start_daemon(sock)
         try:
             # Live socket: second daemon must refuse.
@@ -547,13 +609,17 @@ class TestSignalShutdown:
         satisfy the caller's unconditional assertions.
         """
         try:
-            rc, clean = self._sigterm_once(tmp_path / "s.sock", mid_stream=mid_stream)
+            rc, clean = self._sigterm_once(
+                _daemon_sock_path(tmp_path / "s.sock"), mid_stream=mid_stream
+            )
         except subprocess.TimeoutExpired:
-            rc, clean = self._sigterm_once(tmp_path / "s2.sock", mid_stream=mid_stream)
+            rc, clean = self._sigterm_once(
+                _daemon_sock_path(tmp_path / "s2.sock"), mid_stream=mid_stream
+            )
         else:
             if rc != 128 + signal.SIGTERM or not clean:
                 rc, clean = self._sigterm_once(
-                    tmp_path / "s2.sock", mid_stream=mid_stream
+                    _daemon_sock_path(tmp_path / "s2.sock"), mid_stream=mid_stream
                 )
         return rc, clean
 
@@ -615,9 +681,9 @@ class TestSignalShutdown:
         weakens nothing — it only absorbs the stall that even 30s proved
         too tight on the runner.
         """
-        rc, clean = self._sigint_once(tmp_path / "s.sock")
+        rc, clean = self._sigint_once(_daemon_sock_path(tmp_path / "s.sock"))
         if rc != 128 + signal.SIGINT or not clean:
-            rc, clean = self._sigint_once(tmp_path / "s2.sock")
+            rc, clean = self._sigint_once(_daemon_sock_path(tmp_path / "s2.sock"))
         assert rc == 128 + signal.SIGINT, (
             f"daemon exited {rc} instead of the signal-handler exit code"
         )
@@ -639,6 +705,40 @@ class TestSignalShutdown:
             f"daemon exited {rc} instead of the signal-handler exit code"
         )
         assert clean, "SIGTERM mid-request left the socket behind — cleanup did not run"
+
+
+class TestDaemonSockPathHelper:
+    """QA-TERMINAL-JAIL-22: the helper pins the sun_path determinism fix.
+
+    A short requested path is returned unchanged (normal hosts keep the
+    pre-fix layout); a >108-byte requested path gets a short fallback
+    DIRECTLY under /tmp (never TMPDIR, which is what is deep on the
+    affected hosts), with cleanup registered.
+    """
+
+    def test_short_path_returned_unchanged(self, tmp_path: Path) -> None:
+        # A RELATIVE path is deterministic: short in every environment,
+        # even hosts whose tmp_path itself approaches the limit.
+        requested = Path("s.sock")
+        assert len(os.fsencode(str(requested))) < _SUN_PATH_LIMIT
+        before = set(_DAEMON_SOCK_FALLBACKS)
+        assert _daemon_sock_path(requested) is requested
+        assert _DAEMON_SOCK_FALLBACKS == before
+
+    def test_deep_path_gets_short_tmp_fallback(self, tmp_path: Path) -> None:
+        requested = tmp_path / ("deep" * 60) / "s.sock"
+        assert len(os.fsencode(str(requested))) > 108
+        try:
+            sock = _daemon_sock_path(requested)
+            assert sock.name == "s.sock"
+            assert len(os.fsencode(str(sock))) < 108
+            # DIRECTLY under /tmp — not TMPDIR (TMPDIR is the deep root).
+            assert str(sock.parent).startswith("/tmp/")
+            assert sock.parent.is_dir()
+            assert sock in _DAEMON_SOCK_FALLBACKS
+        finally:
+            _cleanup_daemon_sock_dirs()
+            assert not any(sock.parent.exists() for sock in _DAEMON_SOCK_FALLBACKS)
 
 
 _ACCEPT_LOOP_CALL_BOUND = 50

@@ -266,7 +266,18 @@ def serve(sock_path: Path) -> None:
     try:
         server.bind(str(sock_path))
     except OSError as exc:
-        print(f"[resident-bridge] bind failed: {exc}", file=sys.stderr)
+        # QA-TERMINAL-JAIL-22: name the unix(7) sun_path limit (108 bytes
+        # including the NUL) so a deep socket path is diagnosable from the
+        # startup error alone. Fail-closed either way (exit 1, no serve).
+        if exc.errno == errno.ENAMETOOLONG:
+            print(
+                f"[resident-bridge] bind failed: AF_UNIX path too long: "
+                f"{sock_path} ({len(os.fsencode(str(sock_path)))} bytes; "
+                f"sun_path limit is 108 bytes) — use a shorter socket path",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[resident-bridge] bind failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from None
 
     # FAIL-CLOSED permission fix (pre-verified mechanism): a bare bind
