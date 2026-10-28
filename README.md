@@ -446,7 +446,13 @@ The plugin registers two hooks for observability:
 ```bash
 ./install.sh --hermes-plugin               # -> ~/.hermes/plugins/terminal-jail
 ./install.sh --hermes-plugin /custom/dir   # explicit target
+TERMINAL_JAIL_HERMES_PLUGIN_DIR=/custom/dir ./install.sh --hermes-plugin   # env override (no explicit target)
 ```
+
+No explicit target given? The installer picks the first non-empty of: the
+`--hermes-plugin <dir>` / `--hermes-plugin-dir=<dir>` argument, the
+`TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, then the default
+`~/.hermes/plugins/terminal-jail` (derived from `$HOME`).
 
 Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empties the deployed package and re-copies the current tree, so stale v0.2-era files cannot survive the update, and it prints the deployed version and target path. Then enable it (`hermes plugins enable terminal-jail`) and restart Hermes — discovery and verification steps are in [docs/quickstart.md](docs/quickstart.md) **§3d**.
 
