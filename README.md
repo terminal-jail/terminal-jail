@@ -566,15 +566,15 @@ The bridge is a single-command JSON endpoint expecting one JSON object with a `c
 **Malformed *input* is mode-aware (REVIEW-TJ-008).** Invalid JSON, empty stdin, a payload that is not a JSON object (`null`, an array, a number, a boolean, a quoted string), a **missing or misnamed `command` key** (`{}`, `{"Command": …}`, `{"cmd": …}`), or a **non-string `command` value** (`{"command": 123}`) all make the bridge answer the `[bridge-error]` envelope and exit 0. What the envelope says depends on `TERMINAL_JAIL_INTERRUPTOR_MODE`:
 
 ```json
-{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <cause> — fail-closed: blocking command (enforce mode)"}
+{"action":"block","command":"","modified":null,"rule_id":"[bridge-error]","reason":"[bridge-error] <cause> — fail-closed: blocking command (enforce mode)","layer":null}
 ```
 
-In **enforce** mode (the default) that envelope is a BLOCK, exactly like an engine failure — a broken bridge can no longer silently allow every command. In **warn** mode it stays the fail-open allow — `{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command (warn mode)"}` — because warn means you explicitly accepted unguarded execution and warn never blocks. Either way it is a deliberate **error report**: every schema error is named in `reason` (missing key, non-object payload, non-string command, transport cause), and an explicit empty command (`{"command": ""}`) is valid input, not a schema error.
+In **enforce** mode (the default) that envelope is a BLOCK, exactly like an engine failure — a broken bridge can no longer silently allow every command. In **warn** mode it stays the fail-open allow — `{"action":"allow","command":"","modified":null,"rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command (warn mode)","layer":null}` — because warn means you explicitly accepted unguarded execution and warn never blocks. Either way it is a deliberate **error report**: every schema error is named in `reason` (missing key, non-object payload, non-string command, transport cause), and an explicit empty command (`{"command": ""}`) is valid input, not a schema error.
 
 **Engine failure fails CLOSED (TJ-GAP-070).** If the engine raises while evaluating — a rule file that loads but carries a bad field type (e.g. `priority: not-a-number`) is refused at load with a one-line stderr note naming it — the bridge answers
 
 ```json
-{"action":"block","rule_id":"[bridge-error]","reason":"[bridge-error] <detail> — fail-closed: blocking command (enforce mode)"}
+{"action":"block","command":"","modified":null,"rule_id":"[bridge-error]","reason":"[bridge-error] <detail> — fail-closed: blocking command (enforce mode)","layer":null}
 ```
 
 and the wrapper exits 126 with a `COMMAND BLOCKED` box. The same holds for a bridge whose stdout is empty or not a JSON object. The wrapper decides this itself: **any** verdict whose `reason` begins `[bridge-error]` is treated as a denial in enforce mode, and as a loud `WARNING` — with the command running UNGUARDED — in warn mode. Fail-closed also covers a **missing bridge** (exit 126).
