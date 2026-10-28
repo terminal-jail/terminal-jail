@@ -97,8 +97,27 @@ def _start_daemon(sock_path: Path, mode: str | None = None) -> subprocess.Popen:
     ):
         probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            probe.bind(str(sock_path))
+            try:
+                probe.bind(str(sock_path))
+            except OSError as exc:
+                if exc.errno != errno.EADDRINUSE:
+                    raise
+                # QA-TERMINAL-JAIL-22 (tier-2 round 2): EADDRINUSE on this
+                # fallback path is a STALE socket file left by a daemon
+                # that died without cleanup (e.g. the SIGKILLed first
+                # daemon in test_stale_socket_cleaned_live_socket_refused),
+                # not a host limitation — serve() would unlink and rebind
+                # the same way. Mirror that here before declaring the host
+                # unable to bind a short socket.
+                Path(sock_path).unlink(missing_ok=True)
+                probe.bind(str(sock_path))
         except OSError as exc:
+            if exc.errno == errno.EADDRINUSE:
+                pytest.skip(
+                    f"cannot bind even the short /tmp fallback socket "
+                    f"{sock_path}: address still in use after unlinking "
+                    f"a stale socket file ({exc})"
+                )
             pytest.skip(
                 f"cannot bind even the short /tmp fallback socket "
                 f"{sock_path}: {exc} (unix(7) sun_path limit is 108 bytes)"
