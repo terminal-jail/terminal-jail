@@ -4,35 +4,11 @@
   "type": "wave",
   "budget": 10,
   "wave_size": 2,
-  "budget_math": "WAVE_BUDGET=10 injected, so a wave is permitted. Wave sized to 2 workers (under the reference cap of 3) by wall-clock: this repo's tier-1 guard runs the pinned full-suite lane (test_timeout 900s) and `gitreins task complete` fires a tier-2 judge that must run SERIALLY (concurrent judges on a shared .git false-FAIL — see TJ-DF-056). 2 worker judgements + 1 foreman-direct doc row filled the tick.",
+  "budget_math": "WAVE_BUDGET=10 injected, so a wave is permitted. Wave sized to 2 workers (under the reference cap of 3) by wall-clock: this repo's tier-1 guard runs the pinned full-suite lane (test_timeout 900s) and `gitreins task complete` fires a tier-2 judge that must run SERIALLY (concurrent judges on a shared .git false-FAIL — the defect TJ-DF-056 fixes). 2 worker judgements + 1 foreman-direct doc row filled the tick.",
   "picks": [
-    {
-      "id": "TJ-DF-056",
-      "priority": "P3",
-      "kind": "worker",
-      "files": ["tests/test_release_workflow.py"],
-      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-056",
-      "branch": "wt/TJ-DF-056",
-      "base": "origin/main @ f29d08a"
-    },
-    {
-      "id": "README-5",
-      "priority": "P5",
-      "kind": "worker",
-      "files": ["scripts/docs-check.py", ".github/workflows/ci.yml"],
-      "worktree": "/home/kara/worktrees/terminal-jail-README-5",
-      "branch": "wt/README-5",
-      "base": "origin/main @ f29d08a"
-    },
-    {
-      "id": "README-4",
-      "priority": "P4",
-      "kind": "foreman-direct-doc-only",
-      "files": ["README.md"],
-      "worktree": "/home/kara/terminal-jail",
-      "branch": "main",
-      "base": "origin/main @ f29d08a"
-    }
+    {"id": "TJ-DF-056", "priority": "P3", "kind": "worker", "files": ["tests/test_release_workflow.py"], "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-056", "branch": "wt/TJ-DF-056", "base": "origin/main @ f29d08a"},
+    {"id": "README-5", "priority": "P5", "kind": "worker", "files": ["scripts/docs-check.py", ".github/workflows/ci.yml"], "worktree": "/home/kara/worktrees/terminal-jail-README-5", "branch": "wt/README-5", "base": "origin/main @ f29d08a"},
+    {"id": "README-4", "priority": "P4", "kind": "foreman-direct-doc-only", "files": ["README.md"], "worktree": "/home/kara/terminal-jail", "branch": "main", "base": "origin/main @ f29d08a"}
   ],
   "independence": {
     "depends_on_edges": "none between the three rows (depends_on null/[] on all three)",
@@ -46,7 +22,7 @@
   ],
   "status": "closed",
   "started_at": "2026-10-27T22:14:00-05:00",
-  "finished_at": "2026-10-27T22:58:00-05:00",
+  "finished_at": "2026-10-27T23:20:00-05:00",
   "workers": {
     "TJ-DF-056": {
       "model": "glm-5.3-flash @ zai-glm-default",
@@ -55,7 +31,7 @@
       "merge_commit": "0d0746f",
       "gitreins_task": "TJ-DF-056 (created+started+completed in the worker worktree)",
       "verdict_tier1": ".gitreins/history/2026-10-28/3969097c/verdict.json (tier-1 PASS, commit-bound 779db9b, passed=true)",
-      "verdict_tier2": "launched serially post-push; recorded in the follow-up board event / closeout note",
+      "verdict_tier2": ".gitreins/history/2026-10-28/302858ff/verdict.json (tier-1 PASS + tier-2 PASS, passed=true). The judge reproduced every AC independently, including its own pre-fix red-proof (779db9b^) and a full-suite run (260 passed, 104 subtests).",
       "foreman_verification": "16 passed; legacy-tag pre-created control PASSES (old code red at the assert); two simultaneous suite runs rc1=0/rc2=0; 0 leftover v9.9.* tags; ruff clean",
       "outcome": "merged"
     },
@@ -66,7 +42,7 @@
       "merge_commit": "50c7f98",
       "gitreins_task": "README-5 (created+started+completed in the worker worktree)",
       "verdict_tier1": ".gitreins/history/2026-10-28/19670a1a/verdict.json (tier-1 PASS, commit-bound 9b6a48d, passed=true)",
-      "verdict_tier2": "launched serially post-push; recorded in the follow-up board event / closeout note",
+      "verdict_tier2": ".gitreins/history/2026-10-28/8f8194fd/verdict.json (tier-1 PASS + tier-2 PASS, passed=true). The judge re-ran docs-check at HEAD (exit 0, 4/4 pins), both negative controls (stray fence exit 1; failing pin FAIL) and confirmed README.md untouched.",
       "foreman_verification": "docs-check exit 0 (4/4 pins) in worktree AND on the merged tree; control A stray fence exit 1 (line 956); control B ['false'] runner FAIL; ci.yml YAML parses with exactly one docs-check step; ruff check+format clean; README.md untouched by the branch",
       "outcome": "merged"
     },
@@ -76,7 +52,7 @@
       "merge_commit": "n/a (committed directly on main)",
       "gitreins_task": "README-4 (created+started+completed in the main checkout)",
       "verdict_tier1": ".gitreins/history/2026-10-28/f1d35eb7/verdict.json (tier-1 DEGRADED PASS for a docs-only diff, commit-bound b5dc6bf, passed=true)",
-      "verdict_tier2": "launched serially post-push; recorded in the follow-up board event / closeout note",
+      "verdict_tier2": ".gitreins/history/2026-10-28/cd311e2e/verdict.json (tier-1 PASS + tier-2 PASS, passed=true). The judge verified byte-identity with od -c and ran the fs-isolation warning tests plus the doc suites.",
       "foreman_verification": "grep TERMINAL_JAIL_VERBOSE_WARN README.md docs exit 0 (7 hits, was 0); quoted warning byte-identical to the live default stderr line; verbose form reproduced with the knob; fence count 44; doc-contract tests 54 passed",
       "outcome": "landed on main"
     }
@@ -93,13 +69,17 @@
   },
   "push": {
     "remote": "origin/main",
-    "final_implementation_head": "50c7f98",
+    "final_sha": "6d9c406 (closeout a562168 -> CI bind 6d9c406)",
     "parity": "0 ahead / 0 behind",
-    "ci": "implementation runs 40627137543 (b5dc6bf) and 40627689989 (0d0746f) success; merge-head run 40629192358 (50c7f98, first run executing the new docs-check step) was in_progress at closeout and is not claimed green here"
+    "ci": "run 40629498542 success on a562168; run 40629192358 success on 50c7f98 (first hosted execution of scripts/docs-check.py); run 40627137543 success on b5dc6bf; run 40627689989 success on 0d0746f"
   },
   "cleanup": {
     "worktrees_removed": [],
-    "worktrees_retained": ["/home/kara/worktrees/terminal-jail-TJ-DF-056", "/home/kara/worktrees/terminal-jail-README-5"],
-    "reason": "reap deferred: verdicts copied into the canonical checkout first, and `git branch -d` for merged wt/* refs is approval-gated on this unattended surface. Both branches are merged into main (0d0746f, 50c7f98); refs and worktrees are retained as evidence and disclosed in the tick report."
-  }
+    "worktrees_retained": ["/home/kara/worktrees/terminal-jail-TJ-DF-056 (merged)", "/home/kara/worktrees/terminal-jail-README-5 (merged)"],
+    "reason": "'worktree.sh reap terminal-jail' reported SKIP for all seven terminal-jail worktrees ('uncommitted file(s) - worker output, never auto-discard'); in this repo the dirt is TRACKED harness state (.gitreins/tasks.yaml, .vfs/graph/edges.jsonl), not worker output, and the documented mv-recipe covers untracked litter only. All verdict artifacts were copied into the canonical checkout first. Branch refs (wt/TJ-DF-056, wt/README-5) also remain — `git branch -d` is approval-gated on this surface — and are disclosed in the tick report.",
+    "new_row": "TJ-DF-057 (P5) filed for the accumulated worktree litter that makes reap a permanent no-op"
+  },
+  "off_by_one": "discover run before dispatch: POST /api/v1/problems/discover problem_class='git-tag-test-not-concurrency-safe' -> not_found; problem_class='readme-docs-check-ci-target' -> not_found; no cached answer in data/answers matched either class, so both premises were verified directly against source and live probes. not_found is a no-solution answer, not an API failure.",
+  "ch_trace": "row=README-4,TJ-DF-056,README-5 spec=none:no-spec-governs-readme-prose-or-test-isolation wave=terminal-jail-foreman-2026-10-28-03-06-35 test=pytest-full-suite+docs-check+release-workflow-concurrency-controls doc=README.md+scripts/docs-check.py+.github/workflows/ci.yml+tests/test_release_workflow.py evidence=.gitreins/history/2026-10-28/{f1d35eb7,cd311e2e,3969097c,302858ff,19670a1a,8f8194fd}/verdict.json witness=live:standalone-wrapper-stderr+bridge-verdict+concurrent-pytest-runs+merged-tree-full-suite+hosted-ci verdict=f1d35eb7+cd311e2e+3969097c+302858ff+19670a1a+8f8194fd commit=b5dc6bf+779db9b+9b6a48d merge=0d0746f+50c7f98 memory=written:duckbrain/terminal-jail#/project/terminal-jail/tick-420",
+  "verdict": "OK - 3/3 rows landed (2 wave workers + 1 foreman-direct doc), merged serially, merged-tree gates green, tier-1 + tier-2 PASS on all three, pushed, CI GREEN on the exact closeout SHA."
 }
