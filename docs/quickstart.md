@@ -662,7 +662,10 @@ This deploys the checkout's `plugin/` tree (`plugin.yaml`, `__init__.py`, the
 `terminal_jail/` package — everything the copy must contain) to
 `~/.hermes/plugins/terminal-jail` and prints the deployed version. Pass an
 explicit target as an argument (`./install.sh --hermes-plugin /custom/dir`) or
-via `--hermes-plugin-dir=/custom/dir`; the default is derived from `$HOME`.
+via `--hermes-plugin-dir=/custom/dir`; with no explicit target the installer
+falls back to the `TERMINAL_JAIL_HERMES_PLUGIN_DIR` environment variable, and,
+only when that is unset too, to the default derived from `$HOME`
+(`~/.hermes/plugins/terminal-jail`).
 
 **Enable it** in `~/.hermes/config.yaml`:
 
