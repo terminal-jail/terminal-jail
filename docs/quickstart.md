@@ -978,14 +978,36 @@ Start with the copy-paste-safe minimal example from `python3 scripts/rule-pack-t
 For a file named `my-team-pack.yaml`, rule IDs must use the derived `pack-my-team-pack-*`
 namespace, and a pattern rule must use `match.type: pattern` with its regex in `match.pattern`
 (or the accepted `match.regex` field). `command_prefix` and `regex` are not match types.
+The schema's minimal example uses `printf SECRET`, which is not claimed by a builtin
+allowlist rule and therefore makes the installed pack's verdict directly observable:
 
-Iterating on an externally-authored pack is one command. `--rule-pack-file`
-refuses to overwrite an installed pack by design (fail-closed); the
-`--replace-rule-packs` modifier is the explicit opt-in that makes replacement
-safe and first-class:
+```yaml
+rules:
+  - id: "pack-my-pack-demo"
+    action: block
+    priority: 950
+    block_message: "Blocked by the example pack."
+    match:
+      type: pattern
+      pattern: "^printf SECRET$"
+```
+
+Save that as `my-pack.yaml`, then validate and install it:
 
 ```bash
-./install.sh --rule-pack-file ~/policy/my-team-pack.yaml --replace-rule-packs
+python3 scripts/rule-pack-tool.py validate my-pack.yaml --pack-name my-pack
+./install.sh --no-path --rule-pack-file my-pack.yaml
+```
+
+For a non-default install prefix, set
+`TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` to the engine-loaded rules directory
+for both installation and runtime; the installer and installed bridge use that
+same directory. `--rule-pack-file` refuses to overwrite an installed pack by
+design (fail-closed); the `--replace-rule-packs` modifier is the explicit opt-in
+that makes replacement safe and first-class:
+
+```bash
+./install.sh --no-path --rule-pack-file ~/policy/my-team-pack.yaml --replace-rule-packs
 ```
 
 What the modifier does, in order:

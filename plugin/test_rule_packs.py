@@ -13,6 +13,7 @@ Two surfaces:
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -96,9 +97,13 @@ DB_PACK_BENIGN_CONTROLS = ('psql -c "SELECT 1"', 'mysql -e "SELECT 1"')
 # ---------------------------------------------------------------------------
 
 
-def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_tool(
+    *args: str, extra_env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Invoke the installer's validator exactly as install.sh does."""
     env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     # TJ-GAP-082: the refusal contract pins the exact stderr line set;
     # the Landlock tier's degradation warning is not part of it.
     env["TERMINAL_JAIL_LANDLOCK"] = "0"
@@ -975,6 +980,146 @@ class TestValidatorSchema:
 
 
 class TestExternalPackSchemaExample:
+    def test_documented_external_pack_installs_replaces_and_uninstalls_end_to_end(
+        self, tmp_path: Path
+    ) -> None:
+        """Exercise the documented pack workflow through install.sh and the
+        installed bridge, not just the in-process validator.
+
+        A custom prefix selects the installer's ``engine-env`` rules scope:
+        ``TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`` is therefore set for both
+        install and bridge subprocesses. All three paths are under tmp_path, so
+        this cannot modify the invoking user's HOME or rules directory.
+        """
+        home = tmp_path / "home"
+        install_dir = tmp_path / "prefix" / "bin"
+        rules_dir = tmp_path / "rules.d"
+        system_rules_dir = tmp_path / "empty-system-rules.d"
+        for directory in (home, install_dir, rules_dir, system_rules_dir):
+            directory.mkdir(parents=True, exist_ok=True)
+
+        pack = tmp_path / "my-pack.yaml"
+        installed_pack = rules_dir / "terminal-jail-pack-my-pack.yaml"
+        initial_pack = (
+            "rules:\n"
+            '  - id: "pack-my-pack-demo"\n'
+            "    action: block\n"
+            "    priority: 950\n"
+            '    block_message: "Blocked by the example pack."\n'
+            "    match:\n"
+            "      type: pattern\n"
+            '      pattern: "^printf SECRET$"\n'
+        )
+        pack.write_text(initial_pack, encoding="utf-8")
+
+        base_env = os.environ.copy()
+        # An inherited explicit rules-dir would override the engine-env scope
+        # and could make this test write outside tmp_path.
+        base_env.pop("TERMINAL_JAIL_RULES_DIR", None)
+        base_env.update(
+            {
+                "HOME": str(home),
+                "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(system_rules_dir),
+                "TERMINAL_JAIL_LANDLOCK": "0",
+            }
+        )
+
+        validated = _run_tool(
+            "validate",
+            str(pack),
+            "--pack-name",
+            "my-pack",
+            "--rules-dir",
+            str(rules_dir),
+            extra_env={
+                "HOME": str(home),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(system_rules_dir),
+            },
+        )
+        assert validated.returncode == 0, validated.stdout + validated.stderr
+
+        def run_install(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [str(PROJECT_ROOT / "install.sh"), "--no-path", *args],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(PROJECT_ROOT),
+                env=base_env,
+                timeout=180,
+            )
+
+        installed = run_install("--rule-pack-file", str(pack))
+        assert installed.returncode == 0, installed.stdout + installed.stderr
+        assert installed_pack.is_file()
+        assert installed_pack.read_text(encoding="utf-8") == initial_pack
+
+        bridge = (
+            install_dir.parent
+            / "lib"
+            / "terminal-jail"
+            / "plugin"
+            / "terminal_jail"
+            / "interruptor_bridge.py"
+        )
+        assert bridge.is_file()
+
+        def bridge_verdict(command: str) -> dict[str, object]:
+            result = subprocess.run(
+                [str(bridge)],
+                input=json.dumps({"command": command}) + "\n",
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(PROJECT_ROOT),
+                env=base_env,
+                timeout=60,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+            return json.loads(result.stdout)
+
+        first_verdict = bridge_verdict("printf SECRET")
+        assert first_verdict["action"] == "block", first_verdict
+        assert first_verdict["rule_id"] == "pack-my-pack-demo", first_verdict
+
+        replacement_pack = (
+            "rules:\n"
+            '  - id: "pack-my-pack-replacement"\n'
+            "    action: block\n"
+            "    priority: 950\n"
+            '    block_message: "Blocked by the replacement pack."\n'
+            "    match:\n"
+            "      type: pattern\n"
+            '      pattern: "^printf OTHER$"\n'
+        )
+        pack.write_text(replacement_pack, encoding="utf-8")
+        replaced = run_install("--rule-pack-file", str(pack), "--replace-rule-packs")
+        assert replaced.returncode == 0, replaced.stdout + replaced.stderr
+        assert installed_pack.read_text(encoding="utf-8") == replacement_pack
+
+        old_after_replace = bridge_verdict("printf SECRET")
+        assert old_after_replace["action"] == "allow", old_after_replace
+        assert not str(old_after_replace["rule_id"] or "").startswith("pack-"), (
+            old_after_replace
+        )
+        replacement_verdict = bridge_verdict("printf OTHER")
+        assert replacement_verdict["action"] == "block", replacement_verdict
+        assert replacement_verdict["rule_id"] == "pack-my-pack-replacement", (
+            replacement_verdict
+        )
+
+        uninstalled = run_install("--uninstall-rule-pack-file", str(pack))
+        assert uninstalled.returncode == 0, uninstalled.stdout + uninstalled.stderr
+        assert not installed_pack.exists()
+        after_uninstall = bridge_verdict("printf OTHER")
+        assert after_uninstall["action"] == "allow", after_uninstall
+        assert not str(after_uninstall["rule_id"] or "").startswith("pack-"), (
+            after_uninstall
+        )
+
     def test_schema_example_is_copy_paste_valid(self, tmp_path: Path) -> None:
         result = _run_tool("schema")
         assert result.returncode == 0, result.stderr
