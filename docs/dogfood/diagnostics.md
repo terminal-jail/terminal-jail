@@ -816,3 +816,14 @@ the same conclusion independently (`rc=0`, cells 6 and 8 `FAIL-CLOSED-PROVEN` wi
 The isolated local install passed: `install.sh --no-path` returned rc=0 in 0.67s and installed v1.3.0 plus the fs/net/seccomp loaders. The first real custom-pack authoring attempt followed the shortest schema path but used `match.type: command_prefix`; the validator refused it with the supported type list. The repository's full authoring note explains that `pattern` is the correct type, so TJ-DF-058 is onboarding friction: the shortest authoring path is not copy-paste safe, although the validator is loud and precise.
 
 The fresh-machine leg was explicitly not a pass. `bunker-qa.sh launch` spawned `dbccd074` on bunker-las-03, then repo sync failed because the helper tried SSH port 2223 and received connection refused. The agent was destroyed and `bunker list --server bunker-las-03 --status all` verified no agents remained. This is recorded as SKIPPED-install-bunker and filed as TJ-DF-059 against the install helper/transport boundary, not as terminal-jail product behavior.
+
+
+## 19. Errors and lessons from the 2026-10-29 dogfood run
+
+The local scratch-prefix install followed the documented `./install.sh --no-path` path with `CI=true`, an isolated HOME, `TERMINAL_JAIL_INSTALL_DIR`, and `TERMINAL_JAIL_RULES_DIR`. It returned rc=0 in 483ms and installed terminal-jail 1.3.0. The installed bridge preserved allow, block, enforce-mode malformed-input block, and warn-mode malformed-input allow-with-warning behavior. The installed `--user` CLI scrubbed USER/HOME and reported the private bubblewrap proc view.
+
+The resident bridge worked with an explicit short AF_UNIX socket: mode 0600, ten concurrent clients all rc=0, and SIGTERM to the Python daemon removed the socket. A deeply nested HOME/XDG runtime path made the default socket fail rc=1 with `[resident-bridge] bind failed: AF_UNIX path too long`. This is a shipped runtime usability gap distinct from test-only deep-path coverage.
+
+The same `echo hello` request measured one-shot cold 85.43ms and warm median 88.34ms, versus resident cold 49.62ms and warm median 34.32ms across ten samples. These are not user-noticeable at low documented cadence, so no PERF row was filed.
+
+The fresh-machine battery launched on bunker-mvp agent f02af844 at the exact HEAD. Its evidence showed repo-head OK, toolchains OK, and fresh-install OK with PyYAML 6.0.3 and terminal-jail 1.3.0. Collection found the battery still running in ci-pass, correctly kept the agent, and did not claim PASS. Destroy initially refused because nine agent-owned processes remained; after those processes were stopped, destroy succeeded and a later info read returned not_found. A partial running battery remains PARTIAL/UNPROVEN, never a full install PASS.

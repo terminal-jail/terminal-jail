@@ -657,3 +657,10 @@ unchanged` — the payload still runs, so a degraded leg is not a failed command
 The shortest schema path is not a substitute for a real pack smoke. Author a pack, run `python3 scripts/rule-pack-tool.py validate`, then install it with `./install.sh --no-path --rule-pack-file`. Use an engine-dispatchable matcher (`pattern`, not guessed names such as `command_prefix`); the validator will refuse unsupported types with rc=2. Treat that refusal as authoring friction and verify that the installer still leaves the base install in the documented state.
 
 A fresh-machine install is unverified when `bunker-qa.sh` cannot sync the spawned agent. On 2026-10-29 the helper spawned `dbccd074` on bunker-las-03 but its SSH port 2223 refused; the agent was explicitly destroyed and the server list confirmed no residue. Report `SKIPPED-install-bunker`, never PASS, until a clone/install/smoke sequence runs on the agent.
+
+
+## 2026-10-29 resident bridge and install notes
+
+Use a short explicit `TERMINAL_JAIL_BRIDGE_SOCK` path when starting the resident bridge. The daemon creates a 0600 AF_UNIX socket, serves the same six-field verdict contract as the one-shot bridge, serializes concurrent clients, and removes the socket on SIGTERM to the Python daemon. A deeply nested HOME/XDG runtime path can fail the default socket with `[resident-bridge] bind failed: AF_UNIX path too long`; this is a runtime path limitation, not a policy verdict.
+
+The resident path measured 34.32ms warm median for `echo hello` over ten samples, compared with 88.34ms for the one-shot bridge. Neither is user-noticeable at low documented cadence.
