@@ -809,3 +809,10 @@ the same conclusion independently (`rc=0`, cells 6 and 8 `FAIL-CLOSED-PROVEN` wi
    agent), or the leg measures the plain path while claiming to test composed mode.
  - Simulate an unusable optional dependency by stubbing it early on `PATH` (a `bwrap` that
    exits 1) instead of trying to uninstall it; simulate an ABSENT one by a curated PATH.
+
+
+## 20. Run 2026-10-29 — external pack authoring and install-plane boundary
+
+The isolated local install passed: `install.sh --no-path` returned rc=0 in 0.67s and installed v1.3.0 plus the fs/net/seccomp loaders. The first real custom-pack authoring attempt followed the shortest schema path but used `match.type: command_prefix`; the validator refused it with the supported type list. The repository's full authoring note explains that `pattern` is the correct type, so TJ-DF-058 is onboarding friction: the shortest authoring path is not copy-paste safe, although the validator is loud and precise.
+
+The fresh-machine leg was explicitly not a pass. `bunker-qa.sh launch` spawned `dbccd074` on bunker-las-03, then repo sync failed because the helper tried SSH port 2223 and received connection refused. The agent was destroyed and `bunker list --server bunker-las-03 --status all` verified no agents remained. This is recorded as SKIPPED-install-bunker and filed as TJ-DF-059 against the install helper/transport boundary, not as terminal-jail product behavior.

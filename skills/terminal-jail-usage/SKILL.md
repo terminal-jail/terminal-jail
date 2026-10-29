@@ -650,3 +650,10 @@ unless you pass `TERMINAL_JAIL_BRIDGE`; drive loader-reachability arms with
 home → `… not reachable by the launch's payload uid (a parent … lacks o+x — e.g.
 a 0700/0750 home)`. Each is followed by `commands run with network egress
 unchanged` — the payload still runs, so a degraded leg is not a failed command.
+
+
+## Dogfood 2026-10-29 — external pack and bunker boundary
+
+The shortest schema path is not a substitute for a real pack smoke. Author a pack, run `python3 scripts/rule-pack-tool.py validate`, then install it with `./install.sh --no-path --rule-pack-file`. Use an engine-dispatchable matcher (`pattern`, not guessed names such as `command_prefix`); the validator will refuse unsupported types with rc=2. Treat that refusal as authoring friction and verify that the installer still leaves the base install in the documented state.
+
+A fresh-machine install is unverified when `bunker-qa.sh` cannot sync the spawned agent. On 2026-10-29 the helper spawned `dbccd074` on bunker-las-03 but its SSH port 2223 refused; the agent was explicitly destroyed and the server list confirmed no residue. Report `SKIPPED-install-bunker`, never PASS, until a clone/install/smoke sequence runs on the agent.
