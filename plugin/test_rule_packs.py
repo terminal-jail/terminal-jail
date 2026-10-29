@@ -972,3 +972,36 @@ class TestValidatorSchema:
 
         assert result.returncode == 0, result.stdout + result.stderr
         assert "pack 'example-pack' valid" in result.stdout, result.stdout
+
+
+class TestExternalPackSchemaExample:
+    def test_schema_example_is_copy_paste_valid(self, tmp_path: Path) -> None:
+        result = _run_tool("schema")
+        assert result.returncode == 0, result.stderr
+        assert "type: pattern" in result.stdout
+        assert "pattern:" in result.stdout
+        pack = tmp_path / "my-pack.yaml"
+        pack.write_text(
+            "rules:\n"
+            "  - id: pack-my-pack-demo\n"
+            "    action: block\n"
+            "    priority: 950\n"
+            "    match:\n"
+            "      type: pattern\n"
+            "      pattern: '^echo SECRET$'\n",
+            encoding="utf-8",
+        )
+        checked = _run_tool("validate", str(pack), "--pack-name", "my-pack")
+        assert checked.returncode == 0, checked.stdout + checked.stderr
+        assert "pack 'my-pack' valid" in checked.stdout
+
+    def test_non_dispatchable_match_type_remains_refused(self, tmp_path: Path) -> None:
+        pack = tmp_path / "my-pack.yaml"
+        pack.write_text(
+            "rules:\n  - id: pack-my-pack-demo\n    action: block\n"
+            "    match:\n      type: command_prefix\n      command: echo\n",
+            encoding="utf-8",
+        )
+        result = _run_tool("validate", str(pack), "--pack-name", "my-pack")
+        assert result.returncode == 2
+        assert "not dispatchable" in result.stderr

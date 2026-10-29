@@ -536,8 +536,9 @@ def cmd_schema(args: list[str]) -> int:
                 lines.append(f"{prefix}{field}")
     lines += [
         "",
-        "Minimal valid pack (save as my-pack.yaml, then validate with",
+        "Minimal valid pack (copy this exact example to my-pack.yaml, then validate with",
         "`python3 scripts/rule-pack-tool.py validate my-pack.yaml --pack-name my-pack`):",
+        "The id prefix must be `pack-my-pack-*` when the file is named `my-pack.yaml`.",
         "",
         "  rules:",
         '    - id: "pack-my-pack-demo"',

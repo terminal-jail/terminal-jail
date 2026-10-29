@@ -974,6 +974,11 @@ See `specs/interruptor.md`.
 
 ## The pack edit-iterate loop (`--rule-pack-file --replace-rule-packs`)
 
+Start with the copy-paste-safe minimal example from `python3 scripts/rule-pack-tool.py schema`.
+For a file named `my-team-pack.yaml`, rule IDs must use the derived `pack-my-team-pack-*`
+namespace, and a pattern rule must use `match.type: pattern` with its regex in `match.pattern`
+(or the accepted `match.regex` field). `command_prefix` and `regex` are not match types.
+
 Iterating on an externally-authored pack is one command. `--rule-pack-file`
 refuses to overwrite an installed pack by design (fail-closed); the
 `--replace-rule-packs` modifier is the explicit opt-in that makes replacement
