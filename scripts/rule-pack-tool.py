@@ -536,8 +536,11 @@ def cmd_schema(args: list[str]) -> int:
                 lines.append(f"{prefix}{field}")
     lines += [
         "",
-        "Minimal valid pack (save as my-pack.yaml, then validate with",
+        "Minimal valid pack (copy this exact example to my-pack.yaml, then validate with",
         "`python3 scripts/rule-pack-tool.py validate my-pack.yaml --pack-name my-pack`):",
+        "The id prefix must be `pack-my-pack-*` when the file is named `my-pack.yaml`.",
+        "The example command is `printf SECRET`; it is not claimed by a builtin",
+        "allowlist rule, so the installed bridge can demonstrate the pack verdict.",
         "",
         "  rules:",
         '    - id: "pack-my-pack-demo"',
@@ -546,7 +549,7 @@ def cmd_schema(args: list[str]) -> int:
         '      block_message: "Blocked by the example pack."',
         "      match:",
         "        type: pattern",
-        '        pattern: "^rm -rf /"',
+        '        pattern: "^printf SECRET$"',
         "",
         "Full precedence and validation contract: specs/interruptor.md §3.4.",
     ]
