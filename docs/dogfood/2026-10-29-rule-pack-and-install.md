@@ -26,3 +26,9 @@ The local installer and CLI are useful and fast enough for the measured operatio
 ## Findings
 - TJ-DF-058 — external pack authoring needed source-level correction after the literal schema attempt.
 - TJ-DF-059 — bunker fresh-install launch could not sync the spawned agent on the configured SSH port; teardown was verified.
+
+## Follow-up verification — TJ-DF-058
+
+The corrected copy-paste example was re-run from the repository checkout through the full local workflow. `scripts/rule-pack-tool.py validate` returned rc=0; `install.sh --no-path --rule-pack-file` returned rc=0 and wrote the derived pack; the installed bridge returned `action=block` with `rule_id=pack-my-pack-demo`; `--replace-rule-packs` changed both the installed file and the bridge verdict; and `--uninstall-rule-pack-file` removed the file and restored the example command to `action=allow`. The regression is permanently covered by `plugin/test_rule_packs.py::TestExternalPackSchemaExample::test_documented_external_pack_installs_replaces_and_uninstalls_end_to_end`.
+
+Verification witnesses: targeted test 3 passed; plugin suite 1907 passed/12 skipped; ruff passed; GitReins Tier 1 passed. The tests use only temporary HOME, install, and rules directories, so the host installation was not modified by the regression.
