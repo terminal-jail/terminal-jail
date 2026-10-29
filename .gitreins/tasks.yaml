@@ -2135,12 +2135,3 @@ tasks:
     SKIPs attributable to harness state'
   status: in_progress
   created_at: '2026-10-29T00:55:36.839836+00:00'
-- id: TJ-DF-058
-  title: External custom rule-pack authoring example is copy-paste installable
-  criteria:
-  - The documented minimal custom rule-pack example validates and installs successfully,
-    the installed bridge blocks the example command with the pack rule_id, replacement
-    succeeds, and uninstall removes the derived pack; add regression coverage for
-    the complete flow.
-  status: pending
-  created_at: '2026-10-29T14:40:54.365571+00:00'
