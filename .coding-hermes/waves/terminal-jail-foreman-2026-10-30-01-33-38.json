@@ -1,0 +1,43 @@
+{
+  "tick": "terminal-jail-foreman-2026-10-30-01-33-38",
+  "tick_number": 425,
+  "type": "no-dispatch",
+  "budget": 7,
+  "wave_size": 0,
+  "eligible_independent": 0,
+  "selected_row": "none:all pending rows are blocked external/infrastructure or owner-gated work",
+  "status": "no-dispatch",
+  "blockers": [
+    {
+      "ids": ["TJ-DF-018"],
+      "reason": "upstream coding-hermes-dogfood skill repository; not repairable in terminal-jail"
+    },
+    {
+      "ids": ["QA-TERMINAL-JAIL-11", "QA-TERMINAL-JAIL-14", "TJ-DF-059"],
+      "reason": "bunker/QA harness or external infrastructure; no in-repo implementation target"
+    },
+    {
+      "ids": ["RELEASE-TJ-009", "RELEASE-TJ-010"],
+      "reason": "explicit owner authorization required before irreversible v1.3.0 release"
+    },
+    {
+      "ids": ["TJ-DF-057"],
+      "reason": "P5 worktree-hygiene row is a harness-level reap behavior and is not safe to dispatch without a repository-owned implementation target; current reap already removes merged worktrees and retains only unmerged evidence"
+    }
+  ],
+  "verification": {
+    "head": "726189879ce4748d61489dcf853a985e9823b1e9",
+    "origin_parity": "0 ahead / 0 behind",
+    "version": "terminal-jail 1.3.0",
+    "compileall": "COMPILE_OK",
+    "board_id_guard": "333 rows / 333 unique ids; advisory evidence warnings only",
+    "rule_catalog": "OK 55 rules (36 block / 9 sandbox / 10 allow)",
+    "rules_drift": "drift=0 overridden=55 corrupt=0",
+    "yaml_mirror_parity": "55/55 ALL PROBES PASS",
+    "reap": "removed merged TJ-DF-058 and TJ-DF-058-seccomp; retained unmerged QA-TERMINAL-JAIL-18 as evidence",
+    "ci": "recent 5/5 GitHub Actions runs success; no failure to flag"
+  },
+  "off_by_one": "discover problem classes worktree-reap-blocked-by-tracked-harness-state and bunker-qa-ssh-port-discovery; both returned not_found; no non-trivial source debugging performed, so no post-debug submission",
+  "ch_trace": "row=none:blocked-only-board spec=none:blocked-only-board wave=terminal-jail-foreman-2026-10-30-01-33-38 test=standalone/terminal-jail--version+compileall+board-id-guard+rule-catalog+rules-drift+yaml-parity doc=.coding-hermes/waves/terminal-jail-foreman-2026-10-30-01-33-38.json evidence=live:local-gates+gh-run-list witness=git:7261898+origin-parity verdict=none:no-dispatch commit=none:board-closeout-pending memory=none:duckbrain-token-unavailable",
+  "verdict": "IDLE — no dispatchable repository-owned task; all pending rows have external or owner-gated blockers"
+}
