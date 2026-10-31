@@ -1,0 +1,53 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 74bdf05..ae51430 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2122,3 +2122,37 @@ tasks:
+   status: complete
+   created_at: '2026-10-28T10:23:07.185828+00:00'
+   completed_at: '2026-10-31T16:32:14.892262+00:00'
++- id: TJ-DF-057
++  title: 'worktree reap tracked harness-state litter: document the recipe and close
++    the stale 7-worktree premise'
++  criteria:
++  - 'grep -n ''tracked harness'' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md
++    finds a documented recipe for reap-blocking TRACKED harness-state litter: verify
++    the branch is merged, confirm the tracked dirt is only harness state, restore
++    the files to HEAD (or move them aside), then re-run reap; the recipe also requires
++    an explicit recorded retention decision for a worktree deliberately kept as evidence'
++  - bash /home/kara/.hermes/scripts/worktree.sh reap terminal-jail exits 0 and reports
++    no SKIP attributable to tracked or untracked harness-state litter; the only terminal-jail
++    worktree under /home/kara/worktrees/ is QA-TERMINAL-JAIL-18, retained as unmerged
++    evidence (superseded alternative implementation; main landed 208287f)
++  - cd /home/kara/terminal-jail && python3 scripts/board_id_guard.py exits rc=0 with
++    row_count == unique_id_count
++  status: complete
++  created_at: '2026-10-31T19:02:39.499377+00:00'
++  completed_at: '2026-10-31T19:06:28.695562+00:00'
++- id: TJ-DF-057-VERIFY
++  title: 'TJ-DF-057 narrow verification: tracked-litter reap recipe documented at
++    the project skill (path-corrected; supersedes the stale-path grade in runs adfc5d40/e03b08d6)'
++  criteria:
++  - test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md
++    && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md
++    && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md;
++    every command must exit 0, proving the reap recipe for tracked harness-state litter
++    (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only
++    confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision
++    rule are documented at the project skill. The single path in this criterion is
++    authoritative; earlier runs graded a stale typo'd sibling path and are superseded
++    on this point
++  status: complete
++  created_at: '2026-10-31T19:23:33.286525+00:00'
++  completed_at: '2026-10-31T19:23:55.907200+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index af39219..503fe99 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -194,3 +194,6 @@
+ {"ts": 1793189014.2512112, "tokens_in": 6181832, "tokens_out": 16722, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1793193311.2976205, "tokens_in": 11088349, "tokens_out": 21714, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1793464575.0049102, "tokens_in": 488649, "tokens_out": 5527, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1793473649.950771, "tokens_in": 173552, "tokens_out": 4353, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1793474173.4897428, "tokens_in": 226176, "tokens_out": 4982, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1793474698.7293377, "tokens_in": 78291, "tokens_out": 2476, "cache_read": 0, "cache_write": 0, "step": "tier2", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}

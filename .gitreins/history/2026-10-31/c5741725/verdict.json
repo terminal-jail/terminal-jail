@@ -1,0 +1,129 @@
+{
+  "task_id": "TJ-DF-057-VERIFY",
+  "task_title": "TJ-DF-057 narrow verification: tracked-litter reap recipe documented at the project skill (path-corrected; supersedes the stale-path grade in runs adfc5d40/e03b08d6)",
+  "task_criteria": [
+    "test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md; every command must exit 0, proving the reap recipe for tracked harness-state litter (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision rule are documented at the project skill. The single path in this criterion is authoritative; earlier runs graded a stale typo'd sibling path and are superseded on this point"
+  ],
+  "passed": false,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "ff5c18c979393c27968c022415463a0d2a32dac0",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": false,
+      "any_failed": true,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_backend_parity.py::test_live_unshare_orphan_teardown [first failing id])",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261031T114345.399174Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: harness state excluded from gitleaks scope (.gitreins/**)\nsecrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n2:23PM INF scanned ~5767792 bytes (5.77 MB) in 1.6s\n2:23PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 249 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261031T114345.399174Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": false,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2077 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py ........F\n\n=================================== FAILURES ===================================\n______________________ test_live_unshare_orphan_teardown _______________________\nplugin/test_backend_parity.py:411: in test_live_unshare_orphan_teardown\n    latency = _orphan_teardown(\"unshare\")\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nplugin/test_backend_parity.py:386: in _orphan_teardown\n    pytest.fail(\nE   Failed: orphan: unshare payload 222090 survived the wrapper's death for 15s\n=========================== short test summary info ============================\nFAILED plugin/test_backend_parity.py::test_live_unshare_orphan_teardown - Fai...\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n======================== 1 failed, 33 passed in 41.78s =========================\n",
+          "error": "",
+          "data": {
+            "exit_code": 1,
+            "pytest_outcome": {
+              "kind": "failed",
+              "detail": "1 failure(s); first: plugin/test_backend_parity.py::test_live_unshare_orphan_teardown",
+              "first_failing_test": "plugin/test_backend_parity.py::test_live_unshare_orphan_teardown",
+              "failures": 1,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261031T114345.399174Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2717 test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md; every command must exit 0, proving the reap recipe for tracked harness-state litter (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision rule are documented at the project skill. The single path in this criterion is authoritative; earlier runs graded a stale typo'd sibling path and are superseded on this point: Ran the exact criterion command: `test -f ... && grep -q 'restore the files to HEAD' ... && grep -q 'explicit recorded retention decision' ...` -> CRITERION_EXIT=1 (not 0). Isolating the parts: `test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md` -> exit 0 (file exists, 239 lines); `grep -q 'explicit recorded retention decision'` -> exit 0 (1 match at line 229); but `grep -q 'restore the files to HEAD'` -> exit 1 (grep -c = 0; also 'restore the files' = 0 and 'to HEAD' = 0 anywhere in the file). The substantive recipe IS documented at SKILL.md:229 (merge-base --is-ancestor + `git rev-list --count origin/main..<branch>` > 0, harness-state-only confirmation, and step (3) `git -C <wt> checkout -- <those files>` (or move them aside) then re-run `reap`, plus the explicit recorded retention decision rule), but the doc uses 'checkout --' wording rather than the literal phrase 'restore the files to HEAD' the criterion greps for. Since the criterion is a literal-command gate requiring every command to exit 0, it fails as written.\nThe project skill file exists and documents the tracked-litter reap recipe and retention rule at line 229, but the criterion's mandated grep for the literal phrase 'restore the files to HEAD' returns no match, so the compound command exits 1 instead of 0.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2717 test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md; every command must exit 0, proving the reap recipe for tracked harness-state litter (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision rule are documented at the project skill. The single path in this criterion is authoritative; earlier runs graded a stale typo'd sibling path and are superseded on this point: Ran the exact criterion command: `test -f ... && grep -q 'restore the files to HEAD' ... && grep -q 'explicit recorded retention decision' ...` -> CRITERION_EXIT=1 (not 0). Isolating the parts: `test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md` -> exit 0 (file exists, 239 lines); `grep -q 'explicit recorded retention decision'` -> exit 0 (1 match at line 229); but `grep -q 'restore the files to HEAD'` -> exit 1 (grep -c = 0; also 'restore the files' = 0 and 'to HEAD' = 0 anywhere in the file). The substantive recipe IS documented at SKILL.md:229 (merge-base --is-ancestor + `git rev-list --count origin/main..<branch>` > 0, harness-state-only confirmation, and step (3) `git -C <wt> checkout -- <those files>` (or move them aside) then re-run `reap`, plus the explicit recorded retention decision rule), but the doc uses 'checkout --' wording rather than the literal phrase 'restore the files to HEAD' the criterion greps for. Since the criterion is a literal-command gate requiring every command to exit 0, it fails as written.\nThe project skill file exists and documents the tracked-litter reap recipe and retention rule at line 229, but the criterion's mandated grep for the literal phrase 'restore the files to HEAD' returns no match, so the compound command exits 1 instead of 0.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md; every command must exit 0, proving the reap recipe for tracked harness-state litter (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision rule are documented at the project skill. The single path in this criterion is authoritative; earlier runs graded a stale typo'd sibling path and are superseded on this point",
+                "status": "FAIL",
+                "detail": "Ran the exact criterion command: `test -f ... && grep -q 'restore the files to HEAD' ... && grep -q 'explicit recorded retention decision' ...` -> CRITERION_EXIT=1 (not 0). Isolating the parts: `test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md` -> exit 0 (file exists, 239 lines); `grep -q 'explicit recorded retention decision'` -> exit 0 (1 match at line 229); but `grep -q 'restore the files to HEAD'` -> exit 1 (grep -c = 0; also 'restore the files' = 0 and 'to HEAD' = 0 anywhere in the file). The substantive recipe IS documented at SKILL.md:229 (merge-base --is-ancestor + `git rev-list --count origin/main..<branch>` > 0, harness-state-only confirmation, and step (3) `git -C <wt> checkout -- <those files>` (or move them aside) then re-run `reap`, plus the explicit recorded retention decision rule), but the doc uses 'checkout --' wording rather than the literal phrase 'restore the files to HEAD' the criterion greps for. Since the criterion is a literal-command gate requiring every command to exit 0, it fails as written.",
+                "resolution_probability": 0.1,
+                "cited_path": "/home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md"
+              }
+            ],
+            "summary": "The project skill file exists and documents the tracked-litter reap recipe and retention rule at line 229, but the criterion's mandated grep for the literal phrase 'restore the files to HEAD' returns no match, so the compound command exits 1 instead of 0.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: TJ-DF-057-VERIFY\n\nStage tier1: FAIL\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: harness state excluded from gitleaks scope (.gitreins/**)\n  \u2717 tests: FAIL (plugin/test_backend_parity.py::test_live_unshare_orphan_teardown [first failing id])\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2717 test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'restore the files to HEAD' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md && grep -q 'explicit recorded retention decision' /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md; every command must exit 0, proving the reap recipe for tracked harness-state litter (merged-branch proof via merge-base --is-ancestor plus ahead>0, harness-state-only confirmation, restore-or-move-aside then re-run reap) and the explicit-retention-decision rule are documented at the project skill. The single path in this criterion is authoritative; earlier runs graded a stale typo'd sibling path and are superseded on this point: Ran the exact criterion command: `test -f ... && grep -q 'restore the files to HEAD' ... && grep -q 'explicit recorded retention decision' ...` -> CRITERION_EXIT=1 (not 0). Isolating the parts: `test -f /home/kara/.hermes/skills/coding-hermes/coding-hermes-foreman-terminal-jail/SKILL.md` -> exit 0 (file exists, 239 lines); `grep -q 'explicit recorded retention decision'` -> exit 0 (1 match at line 229); but `grep -q 'restore the files to HEAD'` -> exit 1 (grep -c = 0; also 'restore the files' = 0 and 'to HEAD' = 0 anywhere in the file). The substantive recipe IS documented at SKILL.md:229 (merge-base --is-ancestor + `git rev-list --count origin/main..<branch>` > 0, harness-state-only confirmation, and step (3) `git -C <wt> checkout -- <those files>` (or move them aside) then re-run `reap`, plus the explicit recorded retention decision rule), but the doc uses 'checkout --' wording rather than the literal phrase 'restore the files to HEAD' the criterion greps for. Since the criterion is a literal-command gate requiring every command to exit 0, it fails as written.\nThe project skill file exists and documents the tracked-litter reap recipe and retention rule at line 229, but the criterion's mandated grep for the literal phrase 'restore the files to HEAD' returns no match, so the compound command exits 1 instead of 0.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-10-31T19:24:58.923545",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-10-31T19:24:58.965762+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 16511,
+        "truncated": false,
+        "source": "git show ff5c18c97939"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 4259,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-057-VERIFY"
+  }
+}
