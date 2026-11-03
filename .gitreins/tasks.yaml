@@ -2156,3 +2156,101 @@ tasks:
   status: complete
   created_at: '2026-10-31T19:23:33.286525+00:00'
   completed_at: '2026-10-31T19:23:55.907200+00:00'
+- id: TJ-GAP-096-R1
+  title: 'Verify TJ-GAP-096 acceptance: foreign core.hooksPath shadow and /var/tmp/foreign-hooks
+    residue both cleared'
+  criteria:
+  - "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath`\
+    \ and `git config --global --get core.hooksPath` from the repository root \u2014\
+    \ both must print no value and exit non-zero, proving no local, global or effective\
+    \ core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak\
+    \ was core.hooksPath=/var/tmp/foreign-hooks)."
+  - "Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named\
+    \ in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits\
+    \ 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22\
+    \ 15:48:33 -0500, contents [pre-commit]) must be gone from the host."
+  - 'The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries
+    a foreman_note recording the exact probe commands and observed results for clauses
+    1-2, the executable .git/hooks/prepare-commit-msg trailer hook, and the trailer
+    audit of the last three commits (3/3 carry exactly one Co-authored-by: Alexis
+    Okuwa <wojonstech@gmail.com> trailer).'
+  - 'Live trailer check at the judged commit: `git log -3 --format=%b <judged-commit>`
+    shows each of the three most recent commits carries exactly one Co-authored-by:
+    Alexis Okuwa <wojonstech@gmail.com> line, and `test -x .git/hooks/prepare-commit-msg`
+    exits 0.'
+  status: complete
+  created_at: '2026-11-03T02:41:11.735466+00:00'
+  completed_at: '2026-11-03T02:43:08.309062+00:00'
+- id: TJ-GAP-096-R2
+  title: Re-verify TJ-GAP-096 acceptance after judge verdict 635713ba criterion defects
+    (R2)
+  criteria:
+  - "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath`\
+    \ and `git config --global --get core.hooksPath` from the repository root \u2014\
+    \ both must print no value and exit non-zero, proving no local, global or effective\
+    \ core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak\
+    \ was core.hooksPath=/var/tmp/foreign-hooks)."
+  - "Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named\
+    \ in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits\
+    \ 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22\
+    \ 15:48:33 -0500, contents [pre-commit]) must be gone from the host."
+  - "The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries\
+    \ a foreman_note recording the exact probe commands and observed results for clauses\
+    \ 1-2, the executable prepare-commit-msg trailer hook (resolved via `git rev-parse\
+    \ --git-path hooks`, the common hooks dir shared by linked worktrees \u2014 NOT\
+    \ a literal .git/hooks path test, which misreads linked worktrees where .git is\
+    \ a file), and the trailer audit of the three commits 02682ae, 6a3e9d6 and 390fcaf\
+    \ (3/3 carry exactly one standalone co-author trailer line)."
+  - "Disclosed-defect verification (verdict 635713ba finding, tracked as board row\
+    \ TJ-GAP-098): `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b\
+    \ | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0\
+    \ \u2014 the published evidence commit is trailer-less, its message prose contained\
+    \ the substring that the hook's grep -q idempotence check treats as already-present.\
+    \ The staged remedy exists and is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended`\
+    \ returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical\
+    \ to af8caf3's (same evidence content) and its message yields exactly one standalone\
+    \ trailer line (`git log -1 --format=%B 699735d | grep -cxE 'Co-authored-by: Alexis\
+    \ Okuwa <wojonstech@gmail.com>'` == 1). The history rewrite to land it on main\
+    \ is owner-gated (force-push consent refused on the unattended surface) and tracked\
+    \ by TJ-GAP-098's acceptance clause 2. This criterion must PASS on the disclosure\
+    \ being exact; it must FAIL if af8caf3 unexpectedly carries a trailer or the remedy\
+    \ branch/commit is missing."
+  status: in_progress
+  created_at: '2026-11-03T03:06:44.210867+00:00'
+- id: TJ-GAP-096-R3
+  title: Re-verify TJ-GAP-096 acceptance (R3, fact-only criteria after R1/R2 wording-trap
+    failures)
+  criteria:
+  - "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath`\
+    \ and `git config --global --get core.hooksPath` from the repository root \u2014\
+    \ both must print no value and exit non-zero (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks)."
+  - "Clause 2 of the TJ-GAP-096 written acceptance: `test ! -e /var/tmp/foreign-hooks/pre-commit`\
+    \ exits 0 \u2014 the leftover foreign hook directory recorded 2026-10-22 must\
+    \ be gone from the host."
+  - "The TJ-GAP-096 row in the COMMITTED board at the judged commit \u2014 read it\
+    \ via `git show HEAD:.coding-hermes/board/tasks.jsonl` and select the row with\
+    \ id TJ-GAP-096 (do NOT grade working-tree state) \u2014 carries a foreman_note\
+    \ whose text FACTUALLY records: (a) the clause-1 probe pair `git config core.hooksPath`\
+    \ -> no value (exit 1) and `git config --global --get core.hooksPath` -> no value\
+    \ (exit 1); (b) the clause-2 probe `test ! -e /var/tmp/foreign-hooks/pre-commit`\
+    \ -> exit 0; (c) a prepare-commit-msg hook presence and executability observation\
+    \ (the note's literal '.git/hooks/prepare-commit-msg present and executable (-rwxr-xr-x)'\
+    \ was probed at the canonical root /home/kara/terminal-jail where .git is a directory\
+    \ \u2014 its linked-worktree equivalent `test -x $(git rev-parse --git-path hooks)/prepare-commit-msg`\
+    \ must also exit 0 when you verify it); and (d) the trailer audit naming commits\
+    \ 02682ae, 6a3e9d6 and 390fcaf as 3/3 each carrying exactly one standalone co-author\
+    \ trailer line. Pass this criterion if the note records those four facts; do not\
+    \ fail it over the note's phrasing choices."
+  - "Disclosed-defect verification (verdict 635713ba finding, board row TJ-GAP-098):\
+    \ `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b | grep -cxE\
+    \ 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0 \u2014 the\
+    \ published evidence commit is trailer-less exactly as disclosed (its prose contained\
+    \ the substring the hook's grep -q idempotence check treats as already-present).\
+    \ The staged remedy is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended`\
+    \ returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical\
+    \ to af8caf3's, and its message yields exactly one standalone trailer line. The\
+    \ history rewrite is owner-gated (force-push consent refused on the unattended\
+    \ surface) and tracked by TJ-GAP-098. FAIL this criterion only if af8caf3 unexpectedly\
+    \ carries a trailer or the remedy branch/commit is missing."
+  status: in_progress
+  created_at: '2026-11-03T03:14:28.875475+00:00'

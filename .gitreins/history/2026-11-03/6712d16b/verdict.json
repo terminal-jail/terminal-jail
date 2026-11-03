@@ -1,0 +1,96 @@
+{
+  "task_id": "TJ-GAP-096-R1",
+  "task_title": "Verify TJ-GAP-096 acceptance: foreign core.hooksPath shadow and /var/tmp/foreign-hooks residue both cleared",
+  "task_criteria": [
+    "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).",
+    "Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.",
+    "The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries a foreman_note recording the exact probe commands and observed results for clauses 1-2, the executable .git/hooks/prepare-commit-msg trailer hook, and the trailer audit of the last three commits (3/3 carry exactly one Co-authored-by: Alexis Okuwa <wojonstech@gmail.com> trailer).",
+    "Live trailer check at the judged commit: `git log -3 --format=%b <judged-commit>` shows each of the three most recent commits carries exactly one Co-authored-by: Alexis Okuwa <wojonstech@gmail.com> line, and `test -x .git/hooks/prepare-commit-msg` exits 0."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1",
+  "branch": "wt/TJ-GAP-096-R1",
+  "commit": "af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T024226.453444Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:43PM INF scanned ~3882675 bytes (3.88 MB) in 283ms\n9:43PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 234 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T024226.453444Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2077 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 18%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 41%]\n........................................................................ [ 45%]\n........................................................................ [ 48%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2062 passed, 15 skipped in 172.89s (0:02:52) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T024226.453444Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-096-R1\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-03T02:46:05.085816",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-03T02:46:05.119211+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 29487,
+        "truncated": false,
+        "source": "git show af8caf396e2f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 81515,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-096-R1"
+  }
+}

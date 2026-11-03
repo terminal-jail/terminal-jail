@@ -1,0 +1,149 @@
+{
+  "task_id": "TJ-GAP-096-R2",
+  "task_title": "Re-verify TJ-GAP-096 acceptance after judge verdict 635713ba criterion defects (R2)",
+  "task_criteria": [
+    "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).",
+    "Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.",
+    "The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries a foreman_note recording the exact probe commands and observed results for clauses 1-2, the executable prepare-commit-msg trailer hook (resolved via `git rev-parse --git-path hooks`, the common hooks dir shared by linked worktrees \u2014 NOT a literal .git/hooks path test, which misreads linked worktrees where .git is a file), and the trailer audit of the three commits 02682ae, 6a3e9d6 and 390fcaf (3/3 carry exactly one standalone co-author trailer line).",
+    "Disclosed-defect verification (verdict 635713ba finding, tracked as board row TJ-GAP-098): `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0 \u2014 the published evidence commit is trailer-less, its message prose contained the substring that the hook's grep -q idempotence check treats as already-present. The staged remedy exists and is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended` returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical to af8caf3's (same evidence content) and its message yields exactly one standalone trailer line (`git log -1 --format=%B 699735d | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` == 1). The history rewrite to land it on main is owner-gated (force-push consent refused on the unattended surface) and tracked by TJ-GAP-098's acceptance clause 2. This criterion must PASS on the disclosure being exact; it must FAIL if af8caf3 unexpectedly carries a trailer or the remedy branch/commit is missing."
+  ],
+  "passed": false,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1",
+  "branch": "wt/TJ-GAP-096-R1",
+  "commit": "af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b",
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T025450.333231Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n10:08PM INF scanned ~4018884 bytes (4.02 MB) in 297ms\n10:08PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 234 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T025450.333231Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2077 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 12%]\n........................................................................ [ 15%]\n........................................................................ [ 18%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 27%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 35%]\n........................................................................ [ 38%]\n........................................................................ [ 41%]\n........................................................................ [ 45%]\n........................................................................ [ 48%]\n........................................................................ [ 52%]\n\n\u2026 [2320 chars omitted \u2014 29 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 89%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2062 passed, 15 skipped in 167.80s (0:02:47) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/worktrees/terminal-jail-TJ-GAP-096-R1/.gitreins/logs/guard-20261103T025450.333231Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": false,
+      "any_failed": true,
+      "summary": "INCOMPLETE\n  \u2713 Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).: Ran from repo root /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1: `git config core.hooksPath` -> no output, exit=1; `git config --global --get core.hooksPath` -> no output, exit=1; effective `git config --get core.hooksPath` -> no output, exit=1. No local, global or effective core.hooksPath shadows the repo hooks. Test evidence: `plugin/test_board_id_guard.py` -> '24 passed in 2.09s', exit_code=0 (full suite exceeds the 30s tool cap; config documents 511-848s).\n  \u2713 Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.: `test ! -e /var/tmp/foreign-hooks/pre-commit` -> gate_exit=0. `ls -la /var/tmp/foreign-hooks` -> 'ls: cannot access /var/tmp/foreign-hooks: No such file or directory'. The entire foreign-hook directory is gone from the host, not just the pre-commit file.\n  \u2717 The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries a foreman_note recording the exact probe commands and observed results for clauses 1-2, the executable prepare-commit-msg trailer hook (resolved via `git rev-parse --git-path hooks`, the common hooks dir shared by linked worktrees \u2014 NOT a literal .git/hooks path test, which misreads linked worktrees where .git is a file), and the trailer audit of the three commits 02682ae, 6a3e9d6 and 390fcaf (3/3 carry exactly one standalone co-author trailer line).: The foreman_note at HEAD (af8caf3) does record clause 1/2 probes and the 02682ae/6a3e9d6/390fcaf audit, but it cites the hook via the LITERAL path the criterion explicitly forbids: 'Supporting evidence: .git/hooks/prepare-commit-msg present and executable (-rwxr-xr-x)'. A substring check confirms the note does NOT contain 'git rev-parse --git-path hooks' (False). That cited probe is demonstrably FALSE in this worktree: `.git` is a FILE (76 bytes, linked worktree), so `test -x .git/hooks/prepare-commit-msg` -> exit=1 (fails), while `test -x \"$(git rev-parse --git-path hooks)/prepare-commit-msg\"` -> exit=0 (resolves to /home/kara/terminal-jail/.git/hooks/prepare-commit-msg). Additionally the working-tree (uncommitted) version of the TJ-GAP-096 row has foreman_note=null, so the note is not present in the current board state either.\n  \u2713 Disclosed-defect verification (verdict 635713ba finding, tracked as board row TJ-GAP-098): `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0 \u2014 the published evidence commit is trailer-less, its message prose contained the substring that the hook's grep -q idempotence check treats as already-present. The staged remedy exists and is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended` returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical to af8caf3's (same evidence content) and its message yields exactly one standalone trailer line (`git log -1 --format=%B 699735d | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` == 1). The history rewrite to land it on main is owner-gated (force-push consent refused on the unattended surface) and tracked by TJ-GAP-098's acceptance clause 2. This criterion must PASS on the disclosure being exact; it must FAIL if af8caf3 unexpectedly carries a trailer or the remedy branch/commit is missing.: af8caf3 trailer count = 0 (grep -cxE exit=1) \u2014 trailer-less exactly as disclosed; its message prose does contain the literal trailer string, confirming the grep -q substring idempotence defect in the hook source (`if grep -q \"Co-authored-by: Alexis Okuwa\" \"$MSG_FILE\"`). `git rev-parse wt/TJ-GAP-096-evidence-amended` -> 699735d97fb4993d32c15fd013c9ed221bf9e600, exit=0. 699735d trailer count = 1. Trees identical: af8caf3 tree 86502772df99dd309fe83286112847455f6d3475 == 699735d tree 86502772df99dd309fe83286112847455f6d3475. TJ-GAP-098 row exists in the worktree with acceptance clause 2 recording the owner-gated af8caf3 disposition (note: the row is not yet committed to HEAD).\nClauses 1, 2 and the disclosed-defect verification all pass on live probes, but criterion 3 fails because the TJ-GAP-096 foreman_note cites the literal `.git/hooks/prepare-commit-msg` path instead of `git rev-parse --git-path hooks`, and that literal probe actually fails (exit=1) in this linked worktree where .git is a file.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": false,
+          "output": "INCOMPLETE\n  \u2713 Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).: Ran from repo root /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1: `git config core.hooksPath` -> no output, exit=1; `git config --global --get core.hooksPath` -> no output, exit=1; effective `git config --get core.hooksPath` -> no output, exit=1. No local, global or effective core.hooksPath shadows the repo hooks. Test evidence: `plugin/test_board_id_guard.py` -> '24 passed in 2.09s', exit_code=0 (full suite exceeds the 30s tool cap; config documents 511-848s).\n  \u2713 Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.: `test ! -e /var/tmp/foreign-hooks/pre-commit` -> gate_exit=0. `ls -la /var/tmp/foreign-hooks` -> 'ls: cannot access /var/tmp/foreign-hooks: No such file or directory'. The entire foreign-hook directory is gone from the host, not just the pre-commit file.\n\n\u2026 [3149 chars omitted \u2014 2 line(s)] \u2026\nClauses 1, 2 and the disclosed-defect verification all pass on live probes, but criterion 3 fails because the TJ-GAP-096 foreman_note cites the literal `.git/hooks/prepare-commit-msg` path instead of `git rev-parse --git-path hooks`, and that literal probe actually fails (exit=1) in this linked worktree where .git is a file.",
+          "error": "",
+          "data": {
+            "verdict": "INCOMPLETE",
+            "items": [
+              {
+                "criterion": "Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).",
+                "status": "PASS",
+                "detail": "Ran from repo root /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1: `git config core.hooksPath` -> no output, exit=1; `git config --global --get core.hooksPath` -> no output, exit=1; effective `git config --get core.hooksPath` -> no output, exit=1. No local, global or effective core.hooksPath shadows the repo hooks. Test evidence: `plugin/test_board_id_guard.py` -> '24 passed in 2.09s', exit_code=0 (full suite exceeds the 30s tool cap; config documents 511-848s).",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.",
+                "status": "PASS",
+                "detail": "`test ! -e /var/tmp/foreign-hooks/pre-commit` -> gate_exit=0. `ls -la /var/tmp/foreign-hooks` -> 'ls: cannot access /var/tmp/foreign-hooks: No such file or directory'. The entire foreign-hook directory is gone from the host, not just the pre-commit file.",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries a foreman_note recording the exact probe commands and observed results for clauses 1-2, the executable prepare-commit-msg trailer hook (resolved via `git rev-parse --git-path hooks`, the common hooks dir shared by linked worktrees \u2014 NOT a literal .git/hooks path test, which misreads linked worktrees where .git is a file), and the trailer audit of the three commits 02682ae, 6a3e9d6 and 390fcaf (3/3 carry exactly one standalone co-author trailer line).",
+                "status": "FAIL",
+                "detail": "The foreman_note at HEAD (af8caf3) does record clause 1/2 probes and the 02682ae/6a3e9d6/390fcaf audit, but it cites the hook via the LITERAL path the criterion explicitly forbids: 'Supporting evidence: .git/hooks/prepare-commit-msg present and executable (-rwxr-xr-x)'. A substring check confirms the note does NOT contain 'git rev-parse --git-path hooks' (False). That cited probe is demonstrably FALSE in this worktree: `.git` is a FILE (76 bytes, linked worktree), so `test -x .git/hooks/prepare-commit-msg` -> exit=1 (fails), while `test -x \"$(git rev-parse --git-path hooks)/prepare-commit-msg\"` -> exit=0 (resolves to /home/kara/terminal-jail/.git/hooks/prepare-commit-msg). Additionally the working-tree (uncommitted) version of the TJ-GAP-096 row has foreman_note=null, so the note is not present in the current board state either.",
+                "resolution_probability": 0.0
+              },
+              {
+                "criterion": "Disclosed-defect verification (verdict 635713ba finding, tracked as board row TJ-GAP-098): `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0 \u2014 the published evidence commit is trailer-less, its message prose contained the substring that the hook's grep -q idempotence check treats as already-present. The staged remedy exists and is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended` returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical to af8caf3's (same evidence content) and its message yields exactly one standalone trailer line (`git log -1 --format=%B 699735d | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` == 1). The history rewrite to land it on main is owner-gated (force-push consent refused on the unattended surface) and tracked by TJ-GAP-098's acceptance clause 2. This criterion must PASS on the disclosure being exact; it must FAIL if af8caf3 unexpectedly carries a trailer or the remedy branch/commit is missing.",
+                "status": "PASS",
+                "detail": "af8caf3 trailer count = 0 (grep -cxE exit=1) \u2014 trailer-less exactly as disclosed; its message prose does contain the literal trailer string, confirming the grep -q substring idempotence defect in the hook source (`if grep -q \"Co-authored-by: Alexis Okuwa\" \"$MSG_FILE\"`). `git rev-parse wt/TJ-GAP-096-evidence-amended` -> 699735d97fb4993d32c15fd013c9ed221bf9e600, exit=0. 699735d trailer count = 1. Trees identical: af8caf3 tree 86502772df99dd309fe83286112847455f6d3475 == 699735d tree 86502772df99dd309fe83286112847455f6d3475. TJ-GAP-098 row exists in the worktree with acceptance clause 2 recording the owner-gated af8caf3 disposition (note: the row is not yet committed to HEAD).",
+                "resolution_probability": 0.0
+              }
+            ],
+            "summary": "Clauses 1, 2 and the disclosed-defect verification all pass on live probes, but criterion 3 fails because the TJ-GAP-096 foreman_note cites the literal `.git/hooks/prepare-commit-msg` path instead of `git rev-parse --git-path hooks`, and that literal probe actually fails (exit=1) in this linked worktree where .git is a file.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: TJ-GAP-096-R2\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: FAIL\n  INCOMPLETE\n  \u2713 Clause 1 of the TJ-GAP-096 written acceptance: run `git config core.hooksPath` and `git config --global --get core.hooksPath` from the repository root \u2014 both must print no value and exit non-zero, proving no local, global or effective core.hooksPath shadows the repository's own .git/hooks (the 2026-10-22 leak was core.hooksPath=/var/tmp/foreign-hooks).: Ran from repo root /home/kara/worktrees/terminal-jail-TJ-GAP-096-R1: `git config core.hooksPath` -> no output, exit=1; `git config --global --get core.hooksPath` -> no output, exit=1; effective `git config --get core.hooksPath` -> no output, exit=1. No local, global or effective core.hooksPath shadows the repo hooks. Test evidence: `plugin/test_board_id_guard.py` -> '24 passed in 2.09s', exit_code=0 (full suite exceeds the 30s tool cap; config documents 511-848s).\n  \u2713 Clause 2 of the TJ-GAP-096 written acceptance \u2014 the surviving gate named in the row's blocked_reason: `test ! -e /var/tmp/foreign-hooks/pre-commit` exits 0. The leftover foreign hook directory recorded 2026-10-22 (dir mtime 2026-10-22 15:48:33 -0500, contents [pre-commit]) must be gone from the host.: `test ! -e /var/tmp/foreign-hooks/pre-commit` -> gate_exit=0. `ls -la /var/tmp/foreign-hooks` -> 'ls: cannot access /var/tmp/foreign-hooks: No such file or directory'. The entire foreign-hook directory is gone from the host, not just the pre-commit file.\n  \u2717 The TJ-GAP-096 row in .coding-hermes/board/tasks.jsonl at the judged commit carries a foreman_note recording the exact probe commands and observed results for clauses 1-2, the executable prepare-commit-msg trailer hook (resolved via `git rev-parse --git-path hooks`, the common hooks dir shared by linked worktrees \u2014 NOT a literal .git/hooks path test, which misreads linked worktrees where .git is a file), and the trailer audit of the three commits 02682ae, 6a3e9d6 and 390fcaf (3/3 carry exactly one standalone co-author trailer line).: The foreman_note at HEAD (af8caf3) does record clause 1/2 probes and the 02682ae/6a3e9d6/390fcaf audit, but it cites the hook via the LITERAL path the criterion explicitly forbids: 'Supporting evidence: .git/hooks/prepare-commit-msg present and executable (-rwxr-xr-x)'. A substring check confirms the note does NOT contain 'git rev-parse --git-path hooks' (False). That cited probe is demonstrably FALSE in this worktree: `.git` is a FILE (76 bytes, linked worktree), so `test -x .git/hooks/prepare-commit-msg` -> exit=1 (fails), while `test -x \"$(git rev-parse --git-path hooks)/prepare-commit-msg\"` -> exit=0 (resolves to /home/kara/terminal-jail/.git/hooks/prepare-commit-msg). Additionally the working-tree (uncommitted) version of the TJ-GAP-096 row has foreman_note=null, so the note is not present in the current board state either.\n  \u2713 Disclosed-defect verification (verdict 635713ba finding, tracked as board row TJ-GAP-098): `git log -1 --format=%B af8caf396e2ffa6f2beb20a2a74b1296cc1b0f9b | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` returns 0 \u2014 the published evidence commit is trailer-less, its message prose contained the substring that the hook's grep -q idempotence check treats as already-present. The staged remedy exists and is reachable: `git rev-parse wt/TJ-GAP-096-evidence-amended` returns 699735d97fb4993d32c15fd013c9ed221bf9e600, that commit's tree is identical to af8caf3's (same evidence content) and its message yields exactly one standalone trailer line (`git log -1 --format=%B 699735d | grep -cxE 'Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>'` == 1). The history rewrite to land it on main is owner-gated (force-push consent refused on the unattended surface) and tracked by TJ-GAP-098's acceptance clause 2. This criterion must PASS on the disclosure being exact; it must FAIL if af8caf3 unexpectedly carries a trailer or the remedy branch/commit is missing.: af8caf3 trailer count = 0 (grep -cxE exit=1) \u2014 trailer-less exactly as disclosed; its message prose does contain the literal trailer string, confirming the grep -q substring idempotence defect in the hook source (`if grep -q \"Co-authored-by: Alexis Okuwa\" \"$MSG_FILE\"`). `git rev-parse wt/TJ-GAP-096-evidence-amended` -> 699735d97fb4993d32c15fd013c9ed221bf9e600, exit=0. 699735d trailer count = 1. Trees identical: af8caf3 tree 86502772df99dd309fe83286112847455f6d3475 == 699735d tree 86502772df99dd309fe83286112847455f6d3475. TJ-GAP-098 row exists in the worktree with acceptance clause 2 recording the owner-gated af8caf3 disposition (note: the row is not yet committed to HEAD).\nClauses 1, 2 and the disclosed-defect verification all pass on live probes, but criterion 3 fails because the TJ-GAP-096 foreman_note cites the literal `.git/hooks/prepare-commit-msg` path instead of `git rev-parse --git-path hooks`, and that literal probe actually fails (exit=1) in this linked worktree where .git is a file.\n\nOverall: FAIL \u2717",
+  "evaluated_at": "2026-11-03T03:12:34.815223",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-03T03:12:34.862126+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 29487,
+        "truncated": false,
+        "source": "git show af8caf396e2f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 103569,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-GAP-096-R2"
+  }
+}
