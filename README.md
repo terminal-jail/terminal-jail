@@ -372,9 +372,11 @@ engine and payloads):
 | 20 KB argument | 185.6 ms | 224.0 ms | 74.1 ms | 85.7 ms | ~2.5x |
 | **Landlock fs-tier ON** | ~1036 ms | — | — | — | ~6.7× |
 
-> **Landlock tier overhead.** Interleaved 12-run measurement (`TERMINAL_JAIL_LANDLOCK_FS=1` vs
+> **Landlock tier overhead.** Interleaved 12-run measurement (`TERMINAL_JAIL_LANDLOCK=1` vs
 > `=0`, payload `python3` sleep-equivalent) on the dev host (current load 29–42): tier-ON median
-> 1036 ms vs tier-OFF 915 ms, delta **~121 ms per invocation** (~13% overhead). The wrapper's ~650–1000 ms
+> 1036 ms vs tier-OFF 915 ms, delta **~121 ms per invocation** (~13% overhead). The filesystem tier
+> is **on by default** — unset `TERMINAL_JAIL_LANDLOCK` leaves it attached to every eligible
+> launch; `0`/`off`/`false` opts that launch out. The wrapper's ~650–1000 ms
 > base floor at this load already swamps the tier's cost for a human, but on an agent loop the
 > per-invocation 12% overhead is measurable. See **TJ-DF-048** for the full dogfood record.
 
@@ -408,8 +410,10 @@ the one-shot bridge; with `--fallback` it evaluates through the one-shot path
 in-process.
 
 **Socket security property (verified).** The daemon binds an **AF_UNIX** socket only —
-there is no TCP listener anywhere in the codebase (grep for `AF_INET`/`bind(` in
-`plugin/terminal_jail/interruptor_resident.py` finds none). A bare `socket.bind` on a
+`AF_INET` appears nowhere in `plugin/terminal_jail/interruptor_resident.py`, whose only
+socket is the AF_UNIX server socket bound at line 267; that AF_UNIX-only property is
+pinned by `plugin/test_resident_bridge.py::TestNoTcpListener` — so there is no TCP
+listener in the resident module. A bare `socket.bind` on a
 filesystem socket creates the inode as `0o777 & ~umask` — under common umasks that is
 group/world-writable, i.e. an unauthenticated verdict surface for other local users.
 The daemon therefore `os.chmod(sock_path, 0o600)` **immediately after bind, before the
@@ -465,7 +469,7 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
 |---|---|---|
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Enable/disable plugin (`true`/`false`/`1`/`0`) |
 | `HERMES_TERMINAL_JAIL_COMMAND` | `unshare` | Path to `unshare` binary |
-| `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Reserved — not yet read by the plugin |
+| `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Read and enforced by the plugin: bounds the **wrapped command the engine produces** — UTF-8 bytes of the wrapped output, not its input (input size is `TERMINAL_JAIL_INTERRUPTOR_MAX_ARG_BYTES` above). Parsed by `_max_command_bytes_from_environment()` (`plugin/terminal_jail/plugin.py:165`) and enforced at `intercept()` (`plugin/terminal_jail/interruptor/__init__.py:42`): the wrap is recorded via `_record_wrap`/`_check_byte_budget` (`plugin/terminal_jail/plugin.py:232`), an over-budget wrap is skipped with reason "Auto-sandbox skipped: wrapped command exceeds the configured byte budget" and bumps `byte_budget_rejections`; missing/empty/invalid/non-positive values log one warning and use the default in the Default column |
 | `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Reserved — not yet read by the plugin (logging is fixed; no level knob exists) |
 | `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Reserved — not yet read by the plugin (namespace isolation comes from the CLI `--user` / `TERMINAL_JAIL_UID_MAP`) |
 | `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable the seccomp BPF filter (`1`/`true`/`yes`/`on`) — **only honored when the CLI is also invoked with `--seccomp`; the env var alone does not activate the filter.** Note: no `HERMES_TERMINAL_JAIL_` prefix — legacy naming from the pre-plugin seccomp module |
@@ -476,7 +480,7 @@ Already installed (e.g. still on v0.2.0)? Refresh with the same command: it empt
 | `TERMINAL_JAIL_PRIVATE_PROC` | unset | Standalone wrapper (TJ-GAP-088). `required` (or the `--private-proc` CLI flag) demands a private `/proc`: backend selection refuses — exit 2, command not run — unless the resolved backend can deliver one (private procfs is bwrap-only on this host class; the `unshare` `--user` path exposes the host `/proc`). Any other value is rejected with exit 2 before any namespace work. Unset, the historical behavior is unchanged. Every launch states the delivered view on stderr as `proc_view=private\|host\|platform-owned\|none` |
 | `TERMINAL_JAIL_LANDLOCK_NET` | unset (off) | **Opt-in** kernel-enforced TCP-connect (network egress) tier, Landlock ABI v4 `LANDLOCK_ACCESS_NET_CONNECT_TCP` (TJ-GAP-083). `1`/`true`/`yes`/`on` enables; unset/`0`/`false`/`no`/`off` (and any unrecognised value) keeps it off — unlike `TERMINAL_JAIL_LANDLOCK` (fs tier, default on) this one changes payload-visible network behavior, so it ships disabled. When enabled, the auto-sandbox/modify wrap's payload gains a second loader (`… python3 <landlock-net-loader.py> -- <command>`): every `connect(2)` to a TCP port outside the allowlist fails EPERM/EACCES at the kernel, in the payload and every descendant, regex or not. Hosts with Landlock ABI < 4 refuse the tier with a named cause on stderr (fail-closed, never a silent no-op); a proven apply prints one `kernel egress tier APPLIED` notice so a kernel denial is distinguishable from an interruptor rule verdict. Read by `plugin/terminal_jail/interruptor/landlock_net.py` (`net_enabled_from_environment`); applied by `standalone/landlock-net-loader.py` |
 | `TERMINAL_JAIL_LANDLOCK_NET_ALLOW` | `22,53,80,443` | Connect allowlist for the egress tier (read only when `TERMINAL_JAIL_LANDLOCK_NET` is truthy): comma/space/semicolon-separated ports and service names — `443`, `https`, `ssh`, `domain`, `53/tcp`, `80/http`. The default covers git push/fetch (22/443), plain HTTP mirrors (80), DNS-over-TCP (53), and package registries (pypi = 443). Landlock v4 rules are port-granular (no host selector); deny is fail-closed — every port not listed is denied by the kernel. An invalid token REFUSES the tier (never a silently different policy); an explicitly empty value is a deliberate deny-ALL TCP connect. Parsed by `landlock_net.parse_allowlist` |
-| `TERMINAL_JAIL_REQUIRE_TIER` | unset | **Installer only** (`install.sh`, read at `install.sh:298`/`:492`). Fail-closed containment gate: demand a containment tier from the host probes instead of the default advisory report — `pidns` requires the PID-namespace probe (`pidns-capability-probe.py`) to report FULL, `fs` the filesystem-isolation probe, `full` both. Unset (default): the probes run as an **advisory report** — each verdict is printed, a missing or failing probe degrades to one honest line, and the install is never blocked. Set: an invalid value is rejected with exit 1 before anything is installed, and an unmet demand (probe missing, could not run, or does not classify FULL) fails the install with **exit 1 before the final `done.` line**, quoting the probe's own diagnosis. Enforced after the base install completes (`install.sh:1449-1560`) |
+| `TERMINAL_JAIL_REQUIRE_TIER` | unset | **Installer only** (`install.sh`, read at `install.sh:519` and `install.sh:1496`). Fail-closed containment gate: demand a containment tier from the host probes instead of the default advisory report — `pidns` requires the PID-namespace probe (`pidns-capability-probe.py`) to report FULL, `fs` the filesystem-isolation probe, `full` both. Unset (default): the probes run as an **advisory report** — each verdict is printed, a missing or failing probe degrades to one honest line, and the install is never blocked. Set: an invalid value is rejected with exit 1 before anything is installed, and an unmet demand (probe missing, could not run, or does not classify FULL) fails the install with **exit 1 before the final `done.` line**, quoting the probe's own diagnosis. Enforced after the base install completes (`install.sh:1449-1560`) |
 
 ### systemd hardening (lightweight — 14 active directives)
 
