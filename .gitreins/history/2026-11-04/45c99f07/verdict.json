@@ -1,0 +1,167 @@
+{
+  "task_id": "RELPKG-001",
+  "task_title": "Ship the standalone CLI and the landlock loaders in the published wheel (pip users get a library with no jail command and an inert Landlock tier)",
+  "task_criteria": [
+    ".venv/bin/python -m pytest plugin tests -q -m \"not integration\" exits 0 in the working tree",
+    "ruff check plugin/ exits 0 and ruff format --check . exits 0",
+    "Building a wheel from the working tree with uv build --wheel produces a wheel that contains terminal_jail-*.dist-info/entry_points.txt, and that file names a console script entry point called terminal-jail",
+    "Installing ONLY the built wheel (no source tree, no editable install) into a fresh venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0",
+    "The built wheel contains a file named landlock-loader.py, and in that fresh venv an import of terminal_jail.interruptor plus a landlock tier probe reports a loader path instead of \"landlock-loader.py not found\"",
+    "python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits 0"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "4843ffb4255556d53c3a4d3c6e386f4806d9c317",
+  "working_tree_content_fingerprint": "ba06345ad41ed9a0f4ec156a8abb2e0222f5badf4183583b6957bfdf59ce84df",
+  "working_tree_dirty_path_count": 3,
+  "items": [],
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261104T141749.723818Z.log"
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:17AM INF scanned ~5261714 bytes (5.26 MB) in 439ms\n9:17AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 253 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261104T141749.723818Z.log",
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2084 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  5%]\n.............                                                            [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 15%]\n........................................................................ [ 18%]\n.................................                                        [ 20%]\nplugin/test_gtfobins_sweep.py .......................................... [ 22%]\n.....................                                                    [ 23%]\nplugin/test_host_probes.py .......................                       [ 24%]\nplugin/test_install.py .......................s......................... [ 26%]\n.................................................                        [ 29%]\nplugin/test_interruptor.py ............................................. [ 31%]\n........................................................................ [ 34%]\n........................................................................ [ 38%]\n........................................................................ [ 41%]\n........................................................................ [ 45%]\n........................................................................ [ 48%]\n........................................................................ [ 52%]\n\n\u2026 [2400 chars omitted \u2014 30 line(s)] \u2026\nplugin/test_tjdf047_fs_degrade_plain_allow.py ............s              [ 88%]\nplugin/test_tjdf047_plain_allow_degrade.py .................             [ 89%]\nplugin/test_uninstall.py .............                                   [ 90%]\nplugin/test_userns.py .....................s...s..                       [ 91%]\nplugin/test_verdict_log.py ......................                        [ 92%]\ntests/test_arg_size_ceiling.py ....                                      [ 92%]\ntests/test_board_schema_guard.py ...................                     [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 94%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss......                           [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n..................                                                       [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ................                          [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2069 passed, 15 skipped in 204.55s (0:03:24) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "guard_log": "/home/kara/terminal-jail/.gitreins/logs/guard-20261104T141749.723818Z.log"
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 .venv/bin/python -m pytest plugin tests -q -m \"not integration\" exits 0 in the working tree: Fresh run (cache disabled): `.venv/bin/python -m pytest plugin tests -q -m \"not integration\" -p no:cacheprovider --tb=no` -> \"2000 passed, 12 skipped, 72 deselected in 410.38s (0:06:50)\", no F/E markers; collection-only run rc=0. Targeted subset (plugin/test_packaging_wheel.py, test_packaging.py, test_landlock.py, test_standalone_cli.py) -> SUBSET_RC=0, \"169 passed, 1 skipped\".\n  \u2713 ruff check plugin/ exits 0 and ruff format --check . exits 0: `ruff check plugin/` -> \"All checks passed!\" RUFF_CHECK_EXIT=0; `ruff format --check .` -> \"100 files already formatted\" RUFF_FMT_EXIT=0.\n  \u2713 Building a wheel from the working tree with uv build --wheel produces a wheel that contains terminal_jail-*.dist-info/entry_points.txt, and that file names a console script entry point called terminal-jail: `uv build --wheel --out-dir /tmp/wheelout` -> \"Successfully built /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl\". Zip listing contains terminal_jail-1.3.0.dist-info/entry_points.txt whose content is \"[console_scripts]\\nterminal-jail = terminal_jail.cli:main\" (declared in pyproject.toml [project.scripts]).\n  \u2713 Installing ONLY the built wheel (no source tree, no editable install) into a fresh venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0: Fresh venv /tmp/freshvenv; `pip install /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl` -> \"Successfully installed PyYAML-6.0.3 terminal-jail-1.3.0\"; pip list shows only pip/PyYAML/terminal-jail (no editable/source install). Run from /tmp (outside repo): `/tmp/freshvenv/bin/terminal-jail --version` -> \"terminal-jail 1.3.0\", VERSION_EXIT=0; --help exit 0.\n  \u2713 The built wheel contains a file named landlock-loader.py, and in that fresh venv an import of terminal_jail.interruptor plus a landlock tier probe reports a loader path instead of \"landlock-loader.py not found\": Wheel zip contains terminal_jail/_bundled/landlock-loader.py (plus landlock-net-loader.py, seccomp-loader.py, terminal-jail). In the fresh venv from /tmp: `import terminal_jail.interruptor` OK (/tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/interruptor/__init__.py); landlock.loader_path() -> /tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/_bundled/landlock-loader.py; landlock_net.loader_path() -> .../_bundled/landlock-net-loader.py; exit 0, no \"not found\". [resolution 0.08; landlock-loader.py]\n  \u2713 python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits 0: `python scripts/board_id_guard.py` -> \"OK: 347 rows, 347 unique ids\", BOARD_EXIT=0; `python scripts/docs-check.py` -> \"docs-check: overall PASS\" (all checks PASS incl. ./standalone/terminal-jail --version -> terminal-jail 1.3.0), DOCS_EXIT=0. [resolution 0.08; scripts/board_id_guard.py, scripts/docs-check.py]\nAll six criteria verified with live command output: full non-integration suite green (2000 passed), ruff clean, wheel built with a terminal-jail console script, fresh-venv wheel-only install prints 1.3.0, bundled landlock-loader.py resolves via loader_path(), and both repo guard scripts exit 0.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 .venv/bin/python -m pytest plugin tests -q -m \"not integration\" exits 0 in the working tree: Fresh run (cache disabled): `.venv/bin/python -m pytest plugin tests -q -m \"not integration\" -p no:cacheprovider --tb=no` -> \"2000 passed, 12 skipped, 72 deselected in 410.38s (0:06:50)\", no F/E markers; collection-only run rc=0. Targeted subset (plugin/test_packaging_wheel.py, test_packaging.py, test_landlock.py, test_standalone_cli.py) -> SUBSET_RC=0, \"169 passed, 1 skipped\".\n  \u2713 ruff check plugin/ exits 0 and ruff format --check . exits 0: `ruff check plugin/` -> \"All checks passed!\" RUFF_CHECK_EXIT=0; `ruff format --check .` -> \"100 files already formatted\" RUFF_FMT_EXIT=0.\n  \u2713 Building a wheel from the working tree with uv build --wheel produces a wheel that contains terminal_jail-*.dist-info/entry_points.txt, and that file names a console script entry point called terminal-jail: `uv build --wheel --out-dir /tmp/wheelout` -> \"Successfully built /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl\". Zip listing contains terminal_jail-1.3.0.dist-info/entry_points.txt whose content is \"[console_scripts]\\nterminal-jail = terminal_jail.cli:main\" (declared in pyproject.toml [project.scripts]).\n  \u2713 Installing ONLY the built wheel (no source tree, no editable install) into a fresh venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0: Fresh venv /tmp/freshvenv; `pip install /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl` -> \"Successfully installed PyYAML-6.0.3 terminal-jail-1.3.0\"; pip list shows only pip/PyYAML/terminal-jail (no editable/source install). Run from /tmp (outside repo): `/tmp/freshvenv/bin/terminal-jail --version` -> \"terminal-jail 1.3.0\", VERSION_EXIT=0; --help exit 0.\n  \u2713 The built wheel contains a file named landlock-loader.py, and in that fresh venv an import of terminal_jail.interruptor plus a landlock tier probe reports a loader path instead of \"landlock-loader.py not found\": Wheel zip contains terminal_jail/_bundled/landlock-loader.py (plus landlock-net-loader.py, seccomp-loader.py, terminal-jail). In the fresh venv from /tmp: `import terminal_jail.interruptor` OK (/tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/interruptor/__init__.py); landlock.loader_path() -> /tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/_bundled/landlock-loader.py; landlock_net.loader_path() -> .../_bundled/landlock-net-loader.py; exit 0, no \"not found\". [resolution 0.08; landlock-loader.py]\n  \u2713 python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits 0: `python scripts/board_id_guard.py` -> \"OK: 347 rows, 347 unique ids\", BOARD_EXIT=0; `python scripts/docs-check.py` -> \"docs-check: overall PASS\" (all checks PASS incl. ./standalone/terminal-jail --version -> terminal-jail 1.3.0), DOCS_EXIT=0. [resolution 0.08; scripts/board_id_guard.py, scripts/docs-check.py]\nAll six criteria verified with live command output: full non-integration suite green (2000 passed), ruff clean, wheel built with a terminal-jail console script, fresh-venv wheel-only install prints 1.3.0, bundled landlock-loader.py resolves via loader_path(), and both repo guard scripts exit 0.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": ".venv/bin/python -m pytest plugin tests -q -m \"not integration\" exits 0 in the working tree",
+                "status": "PASS",
+                "detail": "Fresh run (cache disabled): `.venv/bin/python -m pytest plugin tests -q -m \"not integration\" -p no:cacheprovider --tb=no` -> \"2000 passed, 12 skipped, 72 deselected in 410.38s (0:06:50)\", no F/E markers; collection-only run rc=0. Targeted subset (plugin/test_packaging_wheel.py, test_packaging.py, test_landlock.py, test_standalone_cli.py) -> SUBSET_RC=0, \"169 passed, 1 skipped\".",
+                "resolution_probability": 0.08
+              },
+              {
+                "criterion": "ruff check plugin/ exits 0 and ruff format --check . exits 0",
+                "status": "PASS",
+                "detail": "`ruff check plugin/` -> \"All checks passed!\" RUFF_CHECK_EXIT=0; `ruff format --check .` -> \"100 files already formatted\" RUFF_FMT_EXIT=0.",
+                "resolution_probability": 0.08
+              },
+              {
+                "criterion": "Building a wheel from the working tree with uv build --wheel produces a wheel that contains terminal_jail-*.dist-info/entry_points.txt, and that file names a console script entry point called terminal-jail",
+                "status": "PASS",
+                "detail": "`uv build --wheel --out-dir /tmp/wheelout` -> \"Successfully built /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl\". Zip listing contains terminal_jail-1.3.0.dist-info/entry_points.txt whose content is \"[console_scripts]\\nterminal-jail = terminal_jail.cli:main\" (declared in pyproject.toml [project.scripts]).",
+                "resolution_probability": 0.08
+              },
+              {
+                "criterion": "Installing ONLY the built wheel (no source tree, no editable install) into a fresh venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0",
+                "status": "PASS",
+                "detail": "Fresh venv /tmp/freshvenv; `pip install /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl` -> \"Successfully installed PyYAML-6.0.3 terminal-jail-1.3.0\"; pip list shows only pip/PyYAML/terminal-jail (no editable/source install). Run from /tmp (outside repo): `/tmp/freshvenv/bin/terminal-jail --version` -> \"terminal-jail 1.3.0\", VERSION_EXIT=0; --help exit 0.",
+                "resolution_probability": 0.08
+              },
+              {
+                "criterion": "The built wheel contains a file named landlock-loader.py, and in that fresh venv an import of terminal_jail.interruptor plus a landlock tier probe reports a loader path instead of \"landlock-loader.py not found\"",
+                "status": "PASS",
+                "detail": "Wheel zip contains terminal_jail/_bundled/landlock-loader.py (plus landlock-net-loader.py, seccomp-loader.py, terminal-jail). In the fresh venv from /tmp: `import terminal_jail.interruptor` OK (/tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/interruptor/__init__.py); landlock.loader_path() -> /tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/_bundled/landlock-loader.py; landlock_net.loader_path() -> .../_bundled/landlock-net-loader.py; exit 0, no \"not found\". [resolution 0.08; landlock-loader.py]",
+                "resolution_probability": 0.08,
+                "cited_path": "landlock-loader.py"
+              },
+              {
+                "criterion": "python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits 0",
+                "status": "PASS",
+                "detail": "`python scripts/board_id_guard.py` -> \"OK: 347 rows, 347 unique ids\", BOARD_EXIT=0; `python scripts/docs-check.py` -> \"docs-check: overall PASS\" (all checks PASS incl. ./standalone/terminal-jail --version -> terminal-jail 1.3.0), DOCS_EXIT=0. [resolution 0.08; scripts/board_id_guard.py, scripts/docs-check.py]",
+                "resolution_probability": 0.08,
+                "cited_path": "scripts/board_id_guard.py, scripts/docs-check.py"
+              }
+            ],
+            "summary": "All six criteria verified with live command output: full non-integration suite green (2000 passed), ruff clean, wheel built with a terminal-jail console script, fresh-venv wheel-only install prints 1.3.0, bundled landlock-loader.py resolves via loader_path(), and both repo guard scripts exit 0.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "summary": "Judge Result: RELPKG-001\n\nStage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 .venv/bin/python -m pytest plugin tests -q -m \"not integration\" exits 0 in the working tree: Fresh run (cache disabled): `.venv/bin/python -m pytest plugin tests -q -m \"not integration\" -p no:cacheprovider --tb=no` -> \"2000 passed, 12 skipped, 72 deselected in 410.38s (0:06:50)\", no F/E markers; collection-only run rc=0. Targeted subset (plugin/test_packaging_wheel.py, test_packaging.py, test_landlock.py, test_standalone_cli.py) -> SUBSET_RC=0, \"169 passed, 1 skipped\".\n  \u2713 ruff check plugin/ exits 0 and ruff format --check . exits 0: `ruff check plugin/` -> \"All checks passed!\" RUFF_CHECK_EXIT=0; `ruff format --check .` -> \"100 files already formatted\" RUFF_FMT_EXIT=0.\n  \u2713 Building a wheel from the working tree with uv build --wheel produces a wheel that contains terminal_jail-*.dist-info/entry_points.txt, and that file names a console script entry point called terminal-jail: `uv build --wheel --out-dir /tmp/wheelout` -> \"Successfully built /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl\". Zip listing contains terminal_jail-1.3.0.dist-info/entry_points.txt whose content is \"[console_scripts]\\nterminal-jail = terminal_jail.cli:main\" (declared in pyproject.toml [project.scripts]).\n  \u2713 Installing ONLY the built wheel (no source tree, no editable install) into a fresh venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0: Fresh venv /tmp/freshvenv; `pip install /tmp/wheelout/terminal_jail-1.3.0-py3-none-any.whl` -> \"Successfully installed PyYAML-6.0.3 terminal-jail-1.3.0\"; pip list shows only pip/PyYAML/terminal-jail (no editable/source install). Run from /tmp (outside repo): `/tmp/freshvenv/bin/terminal-jail --version` -> \"terminal-jail 1.3.0\", VERSION_EXIT=0; --help exit 0.\n  \u2713 The built wheel contains a file named landlock-loader.py, and in that fresh venv an import of terminal_jail.interruptor plus a landlock tier probe reports a loader path instead of \"landlock-loader.py not found\": Wheel zip contains terminal_jail/_bundled/landlock-loader.py (plus landlock-net-loader.py, seccomp-loader.py, terminal-jail). In the fresh venv from /tmp: `import terminal_jail.interruptor` OK (/tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/interruptor/__init__.py); landlock.loader_path() -> /tmp/freshvenv/lib/python3.14/site-packages/terminal_jail/_bundled/landlock-loader.py; landlock_net.loader_path() -> .../_bundled/landlock-net-loader.py; exit 0, no \"not found\". [resolution 0.08; landlock-loader.py]\n  \u2713 python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits 0: `python scripts/board_id_guard.py` -> \"OK: 347 rows, 347 unique ids\", BOARD_EXIT=0; `python scripts/docs-check.py` -> \"docs-check: overall PASS\" (all checks PASS incl. ./standalone/terminal-jail --version -> terminal-jail 1.3.0), DOCS_EXIT=0. [resolution 0.08; scripts/board_id_guard.py, scripts/docs-check.py]\nAll six criteria verified with live command output: full non-integration suite green (2000 passed), ruff clean, wheel built with a terminal-jail console script, fresh-venv wheel-only install prints 1.3.0, bundled landlock-loader.py resolves via loader_path(), and both repo guard scripts exit 0.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-04T14:41:08.239954",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-04T14:41:08.323081+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 121409,
+        "truncated": false,
+        "source": "git show 4843ffb42555"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 7251,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "RELPKG-001"
+  }
+}

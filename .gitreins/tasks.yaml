@@ -2254,3 +2254,23 @@ tasks:
     \ carries a trailer or the remedy branch/commit is missing."
   status: in_progress
   created_at: '2026-11-03T03:14:28.875475+00:00'
+- id: RELPKG-001
+  title: Ship the standalone CLI and the landlock loaders in the published wheel (pip
+    users get a library with no jail command and an inert Landlock tier)
+  criteria:
+  - .venv/bin/python -m pytest plugin tests -q -m "not integration" exits 0 in the
+    working tree
+  - ruff check plugin/ exits 0 and ruff format --check . exits 0
+  - Building a wheel from the working tree with uv build --wheel produces a wheel
+    that contains terminal_jail-*.dist-info/entry_points.txt, and that file names
+    a console script entry point called terminal-jail
+  - Installing ONLY the built wheel (no source tree, no editable install) into a fresh
+    venv and running the venv's terminal-jail --version exits 0 and prints 1.3.0
+  - The built wheel contains a file named landlock-loader.py, and in that fresh venv
+    an import of terminal_jail.interruptor plus a landlock tier probe reports a loader
+    path instead of "landlock-loader.py not found"
+  - python scripts/board_id_guard.py exits 0 and python scripts/docs-check.py exits
+    0
+  status: complete
+  created_at: '2026-11-04T13:33:23.307064+00:00'
+  completed_at: '2026-11-04T14:17:55.489810+00:00'
