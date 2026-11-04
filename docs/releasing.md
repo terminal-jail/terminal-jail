@@ -6,11 +6,16 @@ pushed `v*` tag: `.github/workflows/release.yml` builds the artifacts and
 creates the Release. Nothing publishes without a tag, and nothing here is
 automatic — every step below is a deliberate, ordered action.
 
-**Authorization gate:** a **v1.3.0 cut still requires explicit owner
-authorization** (board row **RELEASE-TJ-008**, gate 1 of 3). Do not tag
-v1.3.0 — or bump the version — without it. This repo's release history:
-v1.0.0, v1.2.0 (whose Release object currently carries **zero assets**; the
-tag-triggered workflow exists so the next cut does not repeat that).
+**Authorization gate:** the standing release charter authorizes **patch and
+minor** cuts on a readiness tick; only a **major/breaking** cut, a new
+distribution channel, or a destructive tag operation needs explicit owner
+authorization. The historical v1.3.0 hold (board row **RELEASE-TJ-008**) was
+satisfied on 2026-11-03 — v1.3.0 is tagged and published, so do not re-hold
+an authorized patch/minor cut against it. Release history: v1.0.0; v1.2.0
+(whose Release object carries **zero assets**); v1.3.0 (assets present, but
+its wheel predates the RELPKG-001 packaging fix — install v1.3.1 or later);
+v1.3.1 — the current version (packaging fix, published by hand while
+RELCI-001 blocks the workflow preflight).
 
 ## The exact ordered steps
 
@@ -51,6 +56,27 @@ tag-triggered workflow exists so the next cut does not repeat that).
    writes `SHA256SUMS` over the artifacts, creates the Release with
    `gh release create --verify-tag`, and then **verifies the Release object
    carries every artifact** before reporting success.
+
+5b. **While RELCI-001 is open, publish by hand from the tagged tree.**
+   The preflight above fails today because the repository's Actions
+   workflow-permission default caps `permissions: contents: write`, so the
+   tag run goes red at step 5 with no artifacts. That is a token-scope
+   defect, not a verdict on the tree: build the identical artifact set from
+   a clean checkout of the tag and publish it yourself, keep the tag
+   immutable, and leave RELCI-001 open for the owner/app-admin setting.
+
+   ```bash
+   git checkout --detach vX.Y.Z && git status --porcelain   # must be empty
+   python3 -m venv /tmp/tj-build-venv && /tmp/tj-build-venv/bin/pip install -q build
+   /tmp/tj-build-venv/bin/python -m build --outdir /tmp/tj-dist
+   (cd /tmp/tj-dist && sha256sum -- *.tar.gz *.whl > SHA256SUMS && sha256sum -c SHA256SUMS)
+   gh release create vX.Y.Z /tmp/tj-dist/* --verify-tag \
+     --title "terminal-jail vX.Y.Z" --notes-file /tmp/tj-notes.md
+   ```
+
+   Then run step 6 **and** the manual artifact verification below against the
+   published assets; a Release whose wheel installs but ships no
+   `terminal-jail` command is the RELPKG-001 relapse, and it is not a release.
 
 6. **Verify assets on the Release object.** Confirm independently:
 
