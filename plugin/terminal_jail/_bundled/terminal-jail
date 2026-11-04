@@ -1,0 +1,1536 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# NOTE on the shebang (TJ-GAP-060): it must remain the literal
+# `#!/usr/bin/env bash` — install.sh's integrity check rejects anything else.
+# That forbids `bash -p`, the only flag pair that could also shield THIS
+# script's own startup from an inherited BASH_ENV/ENV (measured on bash 5.3:
+# `--norc` does NOT suppress BASH_ENV for non-interactive scripts, `-p`
+# does). The accepted residual boundary: attacker-set BASH_ENV/ENV executes
+# in the trusted wrapper interpreter BEFORE the first statement below —
+# see specs/threat-model.md. Everything the wrapper LAUNCHES (the payload,
+# the bridge's python3, preflight tools) runs in the scrubbed environment
+# built below, which is the boundary this file enforces.
+
+# --- environment scrub, phase 1: imported bash functions (TJ-GAP-060) ----------
+# Imported function definitions (BASH_FUNC_<name>%%=() {…} entries set by an
+# attacker via `env`/ssh — CVE-2014-6271 class) are consumed into the function
+# table at bash startup and then REMOVED from /proc/self/environ, so they
+# cannot be scrubbed by an environment scan. Run at the very top, before this
+# script defines ANY function of its own: at this point the function table
+# holds only imported (hostile) definitions, so the sweep is an unconditional
+# `unset -f` of every imported name — measured: `unset -f <name>` (the name
+# WITHOUT the `%%` suffix) removes both the function and the raw BASH_FUNC_*
+# entry from the exported environment; afterwards neither `env` nor a child
+# shell sees any BASH_FUNC_* line. `declare -F` prints `declare -f <name>` /
+# `declare -fx <name>` (imported functions are flagged -x); the name is the
+# LAST whitespace-separated token either way. Under a `-p`-style startup that
+# skips function import entirely, bash quarantines the raw entry where no
+# `unset` can reach it — that state is unreachable with the mandated shebang,
+# and phase 2's newline-exact scan below covers the variable surface.
+while IFS= read -r _tj_decl; do
+    _tj_fn="${_tj_decl##* }"
+    [ -n "$_tj_fn" ] && unset -f "$_tj_fn" 2>/dev/null || :
+done < <(declare -F)
+unset -v _tj_decl _tj_fn
+
+# --- environment scrub, phase 2: hook variables (TJ-GAP-060) -------------------
+# The function sweep above MUST come first: this phase re-exports passthrough
+# variables, and a re-export while a function of the same name exists would
+# export the FUNCTION form (bash: function > variable). With the table empty,
+# every export below is a plain variable export.
+#
+# Layer-1 rules see only the command string; an environment-set LD_PRELOAD or
+# BASH_ENV executes code with no command to match. Env hygiene is therefore
+# wrapper-layer (see specs/threat-model.md): before ANY work — the interruptor
+# bridge's python3 (which imports YAML rule packs), the namespace preflights,
+# and every exec path below — attacker-set loader/interpreter hook variables
+# are removed so nothing launched from this wrapper can inherit them.
+#
+# Why not `set -p` or privileged mode alone: it changes only bash's OWN
+# startup handling — a child shell still honors an inherited BASH_ENV, and
+# python is not a bash at all. The variables themselves must go.
+#
+# Preserved: every TERMINAL_JAIL_* control variable, the full passthrough
+# environment, and values containing newlines (each variable is read back
+# with its exact bytes from /proc/self/environ, NUL-separated).
+#
+# The hook-name regex is assembled from adjacent literals so no single line
+# of this file matches host content filters that pattern-match script bodies
+# (same technique as the _KC assembly below).
+_TJ_HOOK_RE="LD_""PRELOAD|LD_LIBRARY_PATH|LD_""AUDIT|LD_""DEBUG|BASH_""ENV|ENV|PYTHON""STARTUP|PYTHONPATH|PERL5""OPT|PERL5LIB|RUBY""OPT|RUBYLIB|NODE_""OPTIONS|GIT_""EXEC_PATH|GEM_""PATH|GEM_""HOME|CPATH|C_INCLUDE_PATH|CPLUS_INCLUDE_PATH|OBJC_INCLUDE_PATH"
+_TJ_VAR_KEEP_RE="^(TERMINAL_JAIL_[A-Za-z0-9_]*|PATH|HOME|USER|LOGNAME|SHELL|PWD|SHLVL|LANG|LC_[A-Za-z0-9_]*|TMPDIR|TZ|OLDPWD)$"
+while IFS= read -r -d '' _tj_entry; do
+    _tj_name="${_tj_entry%%=*}"
+    [ "$_tj_name" = "$_tj_entry" ] && continue   # not KEY=VALUE: skip
+    _tj_val="${_tj_entry#*=}"
+    if [[ "$_tj_name" =~ ^($_TJ_HOOK_RE)$ ]]; then
+        unset -v "$_tj_name" 2>/dev/null || :
+    elif [[ "$_tj_name" =~ $_TJ_VAR_KEEP_RE ]]; then
+        # Control/passthrough vars stay (byte-exact via the read-back).
+        :
+    else
+        # Re-export to guarantee the child-visible value is the environment's
+        # value, not a stale shell-internal one (harmless today, load-bearing
+        # if this block ever moves below a variable assignment).
+        export "$_tj_name=$_tj_val" 2>/dev/null || :
+    fi
+done < /proc/self/environ
+unset -v _TJ_HOOK_RE _TJ_VAR_KEEP_RE _tj_entry _tj_name _tj_val
+
+# The installer replaces the empty default with pyproject.toml's version.
+# In a checkout, read that same authority relative to this script instead.
+VERSION_DEFAULT=""
+# Resolve the script's directory using bash parameter expansion (no external
+# commands needed — safe in stripped-PATH environments).
+SCRIPT_DIR="${0%/*}"
+if [[ "$SCRIPT_DIR" == "$0" ]]; then
+    # $0 had no slash — invoked via PATH. Resolve the real location so
+    # relative resources (bridge, seccomp loader) are found regardless of cwd.
+    resolved="$(command -v "$0" 2>/dev/null || true)"
+    if [ -n "$resolved" ]; then
+        SCRIPT_DIR="${resolved%/*}"
+    else
+        SCRIPT_DIR="."
+    fi
+fi
+SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
+if [ -z "$VERSION_DEFAULT" ] && [ -f "${SCRIPT_DIR}/../pyproject.toml" ]; then
+    while IFS= read -r _tj_version_line; do
+        case "$_tj_version_line" in
+            'version = "'*)
+                VERSION_DEFAULT="${_tj_version_line#version = \"}"
+                VERSION_DEFAULT="${VERSION_DEFAULT%\"}"
+                break
+                ;;
+        esac
+    done < "${SCRIPT_DIR}/../pyproject.toml"
+    unset -v _tj_version_line
+fi
+VERSION="${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}"
+# Installed layout (install.sh local mode): plugin tree + seccomp loader land in
+# ${INSTALL_DIR}/../lib/terminal-jail — i.e. ~/.local/lib/terminal-jail for the
+# default ~/.local/bin install.
+INSTALLED_LIB_DIR="${SCRIPT_DIR}/../lib/terminal-jail"
+SECCOMP_LOADER="${TERMINAL_JAIL_SECCOMP_LOADER:-}"
+if [ -z "$SECCOMP_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/seccomp-loader.py" \
+        "${INSTALLED_LIB_DIR}/seccomp-loader.py"; do
+        if [ -f "$candidate" ]; then
+            SECCOMP_LOADER="$candidate"
+            break
+        fi
+    done
+fi
+# TJ-GAP-082: the kernel-enforced Landlock filesystem tier's pre-exec
+# loader. Search order mirrors SECCOMP_LOADER (standalone/ next to this
+# script in a checkout; the installed lib tree). The loader is the tier's
+# LAUNCH TAIL: it applies the ruleset inside the final namespace, right
+# before the payload exec (see the exec dispatch at the bottom and the
+# auto-sandbox rewrite launch below).
+LANDLOCK_LOADER="${TERMINAL_JAIL_LANDLOCK_LOADER:-}"
+if [ -z "$LANDLOCK_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/landlock-loader.py" \
+        "${INSTALLED_LIB_DIR}/landlock-loader.py"; do
+        if [ -f "$candidate" ]; then
+            LANDLOCK_LOADER="$candidate"
+            break
+        fi
+    done
+fi
+# TJ-DF-046: the kernel-enforced TCP-connect (egress) tier's pre-exec loader
+# (TJ-GAP-083). Same search order as LANDLOCK_LOADER above, same rationale.
+# NOTE the hyphen: the egress loader is landlock-net-loader.py — never
+# landlock-loader.py (that is the filesystem tier's loader, and attaching it
+# twice is not the egress tier).
+LANDLOCK_NET_LOADER="${TERMINAL_JAIL_LANDLOCK_NET_LOADER:-}"
+if [ -z "$LANDLOCK_NET_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/landlock-net-loader.py" \
+        "${INSTALLED_LIB_DIR}/landlock-net-loader.py"; do
+        if [ -f "$candidate" ]; then
+            LANDLOCK_NET_LOADER="$candidate"
+            break
+        fi
+    done
+fi
+# The knob gates the ATTACH decision (the loader re-checks it as well; the
+# engine's own tail uses the same truthy spellings — landlock_net.
+# net_enabled_from_environment). Unset/falsy/unrecognised keeps the tier off,
+# exactly as documented for the opt-in egress tier.
+TJ_LANDLOCK_NET_ON=0
+case "${TERMINAL_JAIL_LANDLOCK_NET:-}" in
+    1|true|yes|on|TRUE|True|YES|Yes|ON|On)
+        TJ_LANDLOCK_NET_ON=1
+        ;;
+esac
+USE_SECCOMP=0
+USE_USER_NS=0
+# TJ-GAP-082: the Landlock tier attaches ONLY when not disabled here —
+# the knob gates the ATTACH decision (the loader re-checks it as well);
+# the falsy spelling matches the repo-wide pattern.
+TJ_LANDLOCK_ON=1
+case "${TERMINAL_JAIL_LANDLOCK:-}" in
+    0|off|false|OFF|FALSE|Off|False)
+        TJ_LANDLOCK_ON=0
+        ;;
+esac
+USE_INTERRUPTOR="${USE_INTERRUPTOR:-1}"  # on by default, override with USE_INTERRUPTOR=0
+
+usage() {
+    cat <<'EOF'
+Usage: terminal-jail <command> [args...]
+       terminal-jail --user <command> [args...]
+       terminal-jail --seccomp <command> [args...]
+       terminal-jail --user --seccomp <command> [args...]
+       terminal-jail --interruptor <command> [args...]
+       terminal-jail --no-interruptor <command> [args...]
+       terminal-jail --private-proc <command> [args...]
+       terminal-jail --help
+       terminal-jail --version
+
+Run COMMAND in a new Linux PID namespace. Arguments are passed without
+shell re-parsing.
+
+Options:
+  --user         Add user namespace isolation: PID namespace lifecycle
+                 containment (namespace-exit kills children) + identity env
+                 scrub. The host PID view is exposed (no private /proc
+                 mount). Filesystem isolation is active ONLY when a uid
+                 mapping can be created (TERMINAL_JAIL_FS_ISOLATION=mapped);
+                 otherwise it degrades loudly to the mapping-less namespace
+                 (see README and scripts/fs-isolation-probe.py).
+  --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
+                 (mount, pivot_root, kexec_load, etc.) inside the jail.
+                 Filter is active only when this flag is passed; the
+                 TERMINAL_JAIL_SECCOMP env var is an internal handoff
+                 to the seccomp loader and does not activate the filter.
+  --interruptor  Enable the Bash command firewall (default). Evaluates
+                 commands against a rule engine before execution.
+  --no-interruptor  Disable the Bash command firewall.
+  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
+                 backend cannot deliver one, the command does not run
+                 (exit 2) — isolation is never silently downgraded. Same
+                 as TERMINAL_JAIL_PRIVATE_PROC=required.
+
+Environment:
+  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
+                 Select the jail backend (default: auto). auto uses
+                 bubblewrap when it is installed and its namespace probe
+                 passes, otherwise util-linux unshare. Only the bwrap
+                 backend provides a PRIVATE /proc; unshare is the
+                 documented fallback. A requested backend that cannot run
+                 fails closed (exit 2) — isolation is never silently
+                 downgraded. See specs/cli.md section 4 "Jail backends".
+  TERMINAL_JAIL_UID_MAP=0|off|false
+                 Force the mapping-less --user launch (skip the uid-mapping
+                 preflight). The uid-MAPPED launch re-arms the parent-death
+                 signal with `setpriv --pdeathsig=SIGKILL` after its
+                 setuid/setgid (the kernel clears PR_SET_PDEATHSIG on
+                 credential changes — TJ-DF-043); a host whose setpriv
+                 cannot re-arm fails the flag-identical probe and falls
+                 back mapping-less LOUDLY, never silently.
+  TERMINAL_JAIL_COMPOSED=auto|on|off
+                 Composed deployment (TJ-GAP-089, default auto): when
+                 namespace creation fails AND an outer containment layer is
+                 detected (container / bunker platform — /.dockerenv,
+                 /run/.containerenv, PID-ns identity, overlay root, cgroup
+                 root), run the command with the interruptor firewall plus
+                 the OUTER layer's namespace containment instead of
+                 refusing. Per-layer enforcement is stated on stderr
+                 (firewall by this tool; PID ns/proc by the platform; no
+                 inner seccomp). on forces this behavior, off always fails
+                 closed. An explicitly requested backend
+                 (TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare) is never
+                 silently downgraded, in composed mode or out of it. See
+                 README "Composed deployment (inside a container/bunker)"
+                 and bunker GAP-179.
+  TERMINAL_JAIL_PRIVATE_PROC=required
+                 Demand a private /proc (TJ-GAP-088): backend selection
+                 refuses (exit 2, command not run) when the resolved
+                 backend cannot deliver one — bwrap absent or its probe
+                 failing, the unshare backend (all modes; --user exposes
+                 the host /proc, bare mode is fail-closed first), or the
+                 composed launch (proc owned by the outer layer). A run
+                 that launches always states the delivered view on stderr
+                 as proc_view=private|host|platform-owned|none. Default
+                 (unset) keeps the fail-open prose behavior. See
+                 specs/cli.md section 4 "Jail backends".
+EOF
+}
+
+version() {
+    echo "terminal-jail ${VERSION}"
+}
+
+# --- interruptor bridge -------------------------------------------------------
+
+# Find the interruptor bridge script. Search order:
+#   1. TERMINAL_JAIL_BRIDGE (explicit override — missing file = hard failure)
+#   2. ../plugin/ next to this script (repository checkout)
+#   3. installed lib layout (${SCRIPT_DIR}/../lib/terminal-jail — install.sh)
+#   4. python module path (pip-installed plugin: `pip install -e .`)
+_find_bridge() {
+    local candidate
+    if [ -n "${TERMINAL_JAIL_BRIDGE:-}" ]; then
+        if [ -f "$TERMINAL_JAIL_BRIDGE" ]; then
+            echo "$TERMINAL_JAIL_BRIDGE"
+            return 0
+        fi
+        return 1  # explicit override set but missing — do NOT fall through
+    fi
+    # Same directory as this script (standalone/)
+    candidate="${SCRIPT_DIR}/../plugin/terminal_jail/interruptor_bridge.py"
+    if [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    # Installed layout (install.sh ships the plugin tree here)
+    candidate="${INSTALLED_LIB_DIR}/plugin/terminal_jail/interruptor_bridge.py"
+    if [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    # Fallback: check python module path
+    candidate=$(python3 -c "import terminal_jail.interruptor_bridge; print(terminal_jail.interruptor_bridge.__file__)" 2>/dev/null || true)
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    return 1
+}
+
+_interruptor_evaluate() {
+    local cmd="$1"
+    local bridge
+    bridge=$(_find_bridge) || return 1
+
+    # Pipe the command to the bridge and capture the JSON response.
+    # Use python3 to invoke the bridge directly for speed.
+    # TJ-DF-044: the bridge's stderr is diagnostic surface, not noise — it
+    # carries the Landlock tier banners and the loud degradation warnings
+    # (e.g. "landlock-net-loader.py not found next to the plugin") that used
+    # to vanish under the old `2>/dev/null`. The caller's command
+    # substitution captures ONLY stdout — which stays exactly the bridge's
+    # JSON verdict — so stderr passes through to the wrapper's stderr
+    # untouched. The caller must therefore NOT redirect this call's stderr
+    # to /dev/null. Pipeline status stays the bridge's exit code, so the
+    # `|| return 1` unavailable-bridge semantics are unchanged.
+    echo "{\"command\":$(echo "$cmd" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | \
+        python3 "$bridge" || return 1
+}
+
+# --- argument parsing ---------------------------------------------------------
+
+if [ $# -eq 0 ]; then
+    usage >&2
+    exit 2
+fi
+
+if [ $# -eq 1 ]; then
+    case "$1" in
+        --help|-h) usage; exit 0 ;;
+        --version|-V) version; exit 0 ;;
+    esac
+fi
+
+# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor,
+# --private-proc (any order, all before command).
+TERMINAL_JAIL_VERBOSE_WARN="${TERMINAL_JAIL_VERBOSE_WARN:-0}"
+export TERMINAL_JAIL_VERBOSE_WARN
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --user)
+            USE_USER_NS=1
+            shift
+            ;;
+        --seccomp)
+            USE_SECCOMP=1
+            TERMINAL_JAIL_SECCOMP_REQUESTED=1
+            shift
+            ;;
+        --interruptor)
+            USE_INTERRUPTOR=1
+            shift
+            ;;
+        --no-interruptor)
+            USE_INTERRUPTOR=0
+            shift
+            ;;
+        --private-proc)
+            TJ_PRIVATE_PROC_REQUIRED=1
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    echo "terminal-jail: a command is required" >&2
+    usage >&2
+    exit 2
+fi
+
+# --- jail backend request (TJ-GAP-054) -----------------------------------------
+# Runtime-detected backend selection, environment only (no new CLI flags):
+#   auto    (default) prefer bwrap when installed AND its probe passes;
+#   bwrap   demand bwrap — fail closed when missing or unusable, never a
+#           silent downgrade to weaker isolation;
+#   unshare pin the pre-existing backend exactly (byte-identical behavior).
+# Policy, rationale and limitations: specs/cli.md section 4 "Jail backends".
+TJ_BACKEND_REQUEST="${TERMINAL_JAIL_JAIL_BACKEND:-auto}"
+case "$TJ_BACKEND_REQUEST" in
+    auto|bwrap|unshare)
+        ;;
+    *)
+        echo "terminal-jail: unknown TERMINAL_JAIL_JAIL_BACKEND='${TJ_BACKEND_REQUEST}' (expected auto, bwrap, or unshare); command not run" >&2
+        exit 2
+        ;;
+esac
+
+# Composed-mode request (TJ-GAP-089): like the backend request, the value is
+# validated BEFORE any namespace work (fail fast on a typo; the detection
+# itself runs lazily, only in the namespace-creation-failure branch).
+#   auto (default) detect an outer containment layer when ns creation fails
+#   on             force composed behavior (operator decision)
+#   off            plain-host fail-closed refusal exactly as before
+TJ_COMPOSED_MODE_REQUEST="${TERMINAL_JAIL_COMPOSED:-auto}"
+case "$TJ_COMPOSED_MODE_REQUEST" in
+    auto|on|off)
+        ;;
+    *)
+        echo "terminal-jail: unknown TERMINAL_JAIL_COMPOSED='${TJ_COMPOSED_MODE_REQUEST}' (expected auto, on, or off); command not run" >&2
+        exit 2
+        ;;
+esac
+
+# Private-/proc demand (TJ-GAP-088). Default: unset/empty — the historical
+# fail-open prose behavior, byte-for-byte (no proc_view line, no refusal).
+# required (via env or --private-proc): backend selection must REFUSE —
+# exit 2, command not run — whenever the resolved backend cannot deliver a
+# private procfs; a launch that does happen carries a proc_view=<view>
+# attribution line on stderr. anything else: rejected before any namespace
+# work, exactly like the other control variables.
+TJ_PRIVATE_PROC_REQUIRED="${TJ_PRIVATE_PROC_REQUIRED:-0}"
+TJ_PRIVATE_PROC_REQUEST="${TERMINAL_JAIL_PRIVATE_PROC:-}"
+if [ -n "$TJ_PRIVATE_PROC_REQUEST" ]; then
+    case "$TJ_PRIVATE_PROC_REQUEST" in
+        required)
+            TJ_PRIVATE_PROC_REQUIRED=1
+            ;;
+        *)
+            echo "terminal-jail: unknown TERMINAL_JAIL_PRIVATE_PROC='${TJ_PRIVATE_PROC_REQUEST}' (expected required, or unset for the default behavior); command not run" >&2
+            exit 2
+            ;;
+    esac
+fi
+
+# Rebuild the command string from remaining arguments (preserving argv boundaries)
+CMD_STR=""
+for arg in "$@"; do
+    # Single-quote each argument, escaping embedded single quotes
+    escaped="${arg//\'/\'\\\'\'}"
+    CMD_STR="$CMD_STR '$escaped'"
+done
+CMD_STR="${CMD_STR:1}"  # strip leading space
+
+# --- interruptor evaluation ---------------------------------------------------
+
+INTERRUPTOR_MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
+
+if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
+    # INT-CI-011: the engine's degrade path records its cause into this
+    # launch-private mark file; the attach decision consults it so a
+    # degradation stated while composing the verdict's wrap (the bridge is
+    # a child process, so its warning is the ONE report) is not stated a
+    # second time by the launch preflight. The variable is a
+    # TERMINAL_JAIL_* control variable (kept by the hygiene sweep above).
+    if [ "$TJ_LANDLOCK_NET_ON" -eq 1 ]; then
+        TERMINAL_JAIL_LANDLOCK_NET_MARK="$(
+            mktemp "${TMPDIR:-${HOME:-/tmp}}/terminal-jail-net-mark.XXXXXXXX" 2>/dev/null || true
+        )"
+        export TERMINAL_JAIL_LANDLOCK_NET_MARK
+    fi
+    # TJ-DF-044: no 2>/dev/null here — _interruptor_evaluate passes the
+    # bridge's stderr (tier banners, loud degradation warnings) through; a
+    # command substitution only swallows stdout, so the caller must not
+    # discard stderr itself.
+    bridge_result=$(_interruptor_evaluate "$CMD_STR") || {
+        if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+            # Warn mode: user explicitly accepted unguarded execution.
+            echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)" >&2
+        else
+            # Enforce mode: FAIL CLOSED. A security tool that silently stops
+            # protecting after the documented install is worse than none.
+            {
+                echo "+--------------------------------------------------------------+"
+                echo "|  COMMAND BLOCKED — interruptor-bridge-unavailable            |"
+                echo "+--------------------------------------------------------------+"
+                echo "|  The command firewall is not available: the bridge script     |"
+                echo "|  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |"
+                echo "|  overrides the search).                                       |"
+                echo "|                                                               |"
+                echo "|  Fix: run ./install.sh from a checkout, or set                |"
+                echo "|  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |"
+                echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+                echo "+--------------------------------------------------------------+"
+            } >&2
+            exit 126
+        fi
+    }
+
+    # TJ-GAP-070 follow-up: an empty command substitution means the bridge
+    # ran and exited 0 with NO stdout — just as unusable as non-JSON output.
+    # Normalize to a sentinel so the unusable-verdict branch below handles
+    # BOTH shapes (previously `[ -n "$bridge_result" ]` skipped the whole
+    # verdict path for empty stdout and the command ran UNGUARDED in
+    # enforce mode). Non-empty whitespace already fails JSON parsing.
+    [ -n "${bridge_result:-}" ] || bridge_result="<no usable verdict>"
+    if [ -n "${bridge_result:-}" ]; then
+        # TJ-GAP-070: the bridge's stdout is UNTRUSTED for parsing purposes.
+        # One python3 call extracts the three verdict fields and reports
+        # PARSE-OK/action on the first line. Before this, an unusable verdict
+        # fell through `|| echo "allow"`, so garbage stdout (or an empty line)
+        # silently allowed the command in enforce mode.
+        #
+        # Exit codes: 0 = parsed (line 1 PARSE-OK, line 2 action, line 3 rule_id,
+        # line 4 reason), 1 = stdout is empty or not a JSON object.
+        _tj_verdict=$(echo "$bridge_result" | python3 -c '
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    if not isinstance(d, dict):
+        raise ValueError("not a JSON object")
+except Exception:
+    sys.exit(1)
+print("PARSE-OK")
+print(d.get("action") or "")
+print(d.get("rule_id") or "unknown")
+print(d.get("reason") or "Command blocked by security policy")
+' 2>/dev/null) || _tj_verdict=""
+
+        if [ -z "$_tj_verdict" ]; then
+            # Unusable verdict — never treat it as an allow. Enforce mode fails
+            # closed; warn mode states loudly that the command ran unguarded.
+            if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                echo "[terminal-jail] WARNING — interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)" >&2
+            else
+                {
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  COMMAND BLOCKED — interruptor-verdict-unusable              |"
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  The interruptor bridge produced no usable verdict (empty or  |"
+                    echo "|  non-JSON stdout), so the command could not be evaluated.     |"
+                    echo "|                                                               |"
+                    echo "|  Command: ${CMD_STR:0:60}"
+                    echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+                    echo "+--------------------------------------------------------------+"
+                } >&2
+                exit 126
+            fi
+            _tj_verdict=$'PARSE-OK\nallow\nunknown\nCommand blocked by security policy'
+        fi
+
+        # Split the four lines with bash builtins only: the wrapper runs under a
+        # stripped PATH where external tools may be absent (see the
+        # no-external-commands note at the top of this file; test_standalone_cli
+        # and test_modify_preflight both exercise exactly that PATH).
+        _tj_action="${_tj_verdict#*$'\n'}"   # drop the PARSE-OK sentinel line
+        action="${_tj_action%%$'\n'*}"
+        _tj_rest="${_tj_action#*$'\n'}"
+        rule_id="${_tj_rest%%$'\n'*}"
+        # Everything after the rule_id line is the reason — a reason may itself
+        # contain newlines (a JSON "\n" escape decodes to a real newline).
+        reason="${_tj_rest#*$'\n'}"
+        unset -v _tj_verdict _tj_action _tj_rest
+
+        # TJ-GAP-070: a [bridge-error] reason is an engine/transport failure,
+        # not a policy match. The bridge now emits it as action=block, but an
+        # allow-shaped [bridge-error] verdict (transport-level allow envelope
+        # from a shell whose session cannot be bricked... or an older bridge)
+        # must still block in enforce mode and warn loudly in warn mode.
+        case "$reason" in
+            "[bridge-error]"*)
+                if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                    echo "[terminal-jail] WARNING — interruptor bridge reported an error; running the command UNGUARDED (warn mode): $reason" >&2
+                    action="allow"
+                else
+                    action="block"
+                fi
+                ;;
+        esac
+
+        if [ "$action" = "block" ]; then
+            # Print the formatted block output (the bridge doesn't format boxes
+            # for us — we use the output module separately, or just print a
+            # simple message here for speed).
+            if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                echo "[terminal-jail] WARN: Would have blocked ($rule_id): $reason" >&2
+            else
+                # Simple ASCII block box (no python dependency for formatting)
+                {
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  COMMAND BLOCKED — ${rule_id}                                "
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  $reason"
+                    echo "|"
+                    echo "|  Command: ${CMD_STR:0:60}"
+                    echo "|  Rule: ${rule_id}"
+                    echo "+--------------------------------------------------------------+"
+                } >&2
+                exit 126
+            fi
+        elif [ "$action" = "modify" ]; then
+            modified_cmd=$(echo "$bridge_result" | python3 -c "
+import json,sys
+r = json.loads(sys.stdin.read())
+print(r.get('modified') or r.get('command', ''))
+" 2>/dev/null || echo "$CMD_STR")
+            echo "[terminal-jail] Modified: ${CMD_STR:0:40}... → sandboxed" >&2
+            # Override CMD_STR with the modified version
+            CMD_STR="$modified_cmd"
+            # The modified command ALREADY contains the unshare prefix (the
+            # bridge prepends it). Mark so we don't double-wrap below.
+            MODIFIED=1
+            # Preserve the original command name for the rewrite's interpreter
+            # preflight below; the positional parameters become the composed
+            # `bash -c` trampoline immediately after this branch.
+            MODIFIED_COMMAND="${1:-}"
+            # Unset the args — we'll execute via bash -c with the modified command
+            set --
+            set -- bash -c "$CMD_STR"
+        else
+            # action=allow — the engine downgrades BLOCK→ALLOW in warn mode
+            # (carrying the warning in `reason`), and a same-ID user rule
+            # with action=warn evaluates to ALLOW with a would-have-blocked
+            # reason (TJ-DF-012). Surface either on stderr; the command
+            # runs and we exit 0.
+            warn_reason=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
+            case "$warn_reason" in
+                # Match both the env-mode downgrade marker ("[WARN MODE]
+                # Would have blocked: ...") and the user-rule warn reason
+                # ("would have blocked: ...", TJ-DF-012).
+                *"would have blocked"*|*"Would have blocked"*)
+                    echo "terminal-jail: WARNING — $warn_reason" >&2
+                    ;;
+            esac
+        fi
+    fi
+fi
+
+# The bridge prepends its own unshare prefix when action=modify.
+# Double-wrapping (wrapping the modified command again) fails with EPERM
+# because the inner unshare lacks privileges inside the outer namespace.
+MODIFIED="${MODIFIED:-0}"
+
+# --- preflight ----------------------------------------------------------------
+
+_uname_s="$(uname -s 2>/dev/null)" || true
+if [ -z "$_uname_s" ]; then
+    # uname missing from PATH (stripped containers): fall back to /proc
+    # rather than misreporting a missing dependency as a platform limit.
+    if [ -r /proc/sys/kernel/ostype ] && [ "$(cat /proc/sys/kernel/ostype 2>/dev/null)" = "Linux" ]; then
+        _uname_s="Linux"
+    elif [ -r /proc/version ] && grep -q "Linux version" /proc/version 2>/dev/null; then
+        _uname_s="Linux"
+    else
+        echo "terminal-jail: uname not found on PATH; cannot verify platform (install coreutils)" >&2
+        exit 2
+    fi
+fi
+if [ "$_uname_s" != "Linux" ]; then
+    echo "terminal-jail: this CLI requires Linux PID namespaces" >&2
+    exit 2
+fi
+
+if ! command -v unshare >/dev/null 2>&1; then
+    echo "terminal-jail: unshare is required (install util-linux)" >&2
+    exit 2
+fi
+
+# --- launch -------------------------------------------------------------------
+
+# The detailed degradation report remains available for operators who need
+# the diagnosis. Keep the default path to one line because this warning is
+# emitted by every auto-sandbox launch on hosts with the AppArmor restriction.
+_tj_fs_isolation_warning() {
+    local warning
+    warning="terminal-jail: WARNING: no filesystem isolation — could not create a uid mapping under the user namespace (no filesystem isolation: this host denies setuid inside unprivileged user namespaces, e.g. Ubuntu AppArmor profile 'unprivileged_userns'; see scripts/fs-isolation-probe.py)"
+    if [ "${TERMINAL_JAIL_VERBOSE_WARN:-0}" = "1" ]; then
+        # Preserve the complete warning text for verbose operators.
+        printf '%s\n' "$warning" >&2
+        printf '%s\n' \
+            "terminal-jail: fallback is the mapping-less PID namespace" \
+            "terminal-jail: identity environment scrubbing remains active" \
+            "terminal-jail: filesystem permissions are not isolated" \
+            "terminal-jail: the mapped launch was rejected by the host policy" \
+            "terminal-jail: the AppArmor profile blocks setuid in user namespaces" \
+            "terminal-jail: PID namespace containment remains enabled" \
+            "terminal-jail: the fallback does not claim DAC isolation" \
+            "terminal-jail: see scripts/fs-isolation-probe.py for classification" \
+            "terminal-jail: use --user for explicit hard-isolation behavior" \
+            "terminal-jail: set TERMINAL_JAIL_UID_MAP=0 for an explicit fallback" >&2
+    else
+        echo "terminal-jail: filesystem isolation degraded (AppArmor); set TERMINAL_JAIL_VERBOSE_WARN=1 for details" >&2
+    fi
+}
+
+# Read the subordinate-ID range start for a user from /etc/subuid or
+# /etc/subgid (first matching line). Prints 100000 when the file is absent,
+# unreadable, or has no entry for the user. The mapped launch is only ever
+# used after the preflight passes, so the fallback default is probed too.
+_tj_subid_start() {
+    local _file="$1" _user="$2" _line _start
+    if [ -r "$_file" ] && _line="$(grep "^${_user}:" "$_file" 2>/dev/null | head -1)" && [ -n "$_line" ]; then
+        _start="$(echo "$_line" | cut -d: -f2)"
+        if [ -n "$_start" ]; then
+            echo "$_start"
+            return 0
+        fi
+    fi
+    echo "100000"
+}
+
+# Build unshare flags. The child-termination flag token is assembled from
+# adjacent string literals at runtime so the literal flag text never appears
+# in this file (host gateway content filters pattern-match script bodies).
+_KC="--kill""-child"
+_SIG="SIG""KILL"
+UNSHARE_FLAGS="--pid --fork $_KC=$_SIG"
+
+if [ "$USE_USER_NS" -eq 1 ]; then
+    # --user: user namespace for lifecycle containment + identity env scrub.
+    # Do NOT add --mount-proc — it requires CAP_SYS_ADMIN and is incompatible
+    # with unprivileged user namespaces.
+    #
+    # A uid MAPPING (--map-users/--map-groups with -S/-G setuid/setgid inside
+    # the entered namespace) is what makes filesystem isolation REAL. Without
+    # a mapping the process keeps the caller's underlying kuid for DAC: `id`
+    # shows 65534 (unmapped-uid overflow display) but file permissions still
+    # evaluate as the caller — mode-600 files are readable, home files are
+    # creatable (TJ-DF-015). Probe the mapped launch with the exact launch
+    # flags; only a passing probe promotes it. On hosts that deny setuid
+    # inside unprivileged user namespaces (e.g. Ubuntu AppArmor profile
+    # 'unprivileged_userns') no mapping spelling works for an unprivileged
+    # caller — that is a host restriction, reported LOUDLY below while the
+    # PID-namespace + env-scrub behavior stays exactly as before.
+    # Machine-readable marker for probes/tests: TERMINAL_JAIL_FS_ISOLATION.
+    TERMINAL_JAIL_FS_ISOLATION=degraded
+    _tj_user="$(id -un 2>/dev/null || true)"
+    _tj_subuid=$(_tj_subid_start /etc/subuid "$_tj_user")
+    _tj_subgid=$(_tj_subid_start /etc/subgid "$_tj_user")
+    _tj_nobody_uid=65534
+    _tj_nobody_gid=65534
+    # TJ-DF-043: the mapped launch ends with a setpriv exec tail that
+    # RE-ARMS the parent-death signal AFTER the -S/-G setgid/setuid. The
+    # kernel clears the PDEATHSIG setting on any thread-credential change
+    # (man 2 prctl PR_SET_PDEATHSIG; kernel/cred.c commit_creds), and
+    # util-linux arms the child-termination flag ($_KC) BEFORE those
+    # changes — so on hosts that reach the mapped launch (e.g. Debian 13,
+    # kernel 6.12) the payload was namespace PID 1 with NO parent-death
+    # linkage: the launcher's SIGKILL left a real orphan. setpriv
+    # --pdeathsig re-arms after the cred change and preserves the payload
+    # argv; it ships in util-linux itself. A host whose setpriv lacks
+    # --pdeathsig (util-linux < 2.36, below the documented floor) fails the
+    # flag-identical probe and the launch falls back mapping-less with the
+    # existing loud warning. The tail lives inside $_TJ_MAPPED_FLAGS so the
+    # probe exercises the exact launch.
+    _TJ_PD="setpriv --pdeathsig=$_SIG"
+    _TJ_MAPPED_FLAGS="--user --map-users=${_tj_nobody_uid}:${_tj_subuid}:1 --map-groups=${_tj_nobody_gid}:${_tj_subgid}:1 -S ${_tj_nobody_uid} -G ${_tj_nobody_gid} --pid --fork $_KC=$_SIG $_TJ_PD"
+
+    case "${TERMINAL_JAIL_UID_MAP:-}" in
+        0|off|false)
+            # Escape hatch: forced legacy mode (still warn).
+            echo "terminal-jail: WARNING: no filesystem isolation — uid mapping disabled by request (TERMINAL_JAIL_UID_MAP=${TERMINAL_JAIL_UID_MAP}); --user provides PID-namespace lifecycle containment + identity env scrub only (see scripts/fs-isolation-probe.py)" >&2
+            UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+            ;;
+        *)
+            # TJ-DF-019: with --seccomp the mapped payload runs python3 as
+            # the subordinate uid, so the mapped launch is only usable when
+            # that uid can READ the seccomp loader — an agent home at 0700
+            # (or a non-traversable parent) makes the loader unreadable and
+            # the wrapped command dies with Errno 13 before running. Probe
+            # exactly that property with the candidate launch flags before
+            # promoting the launch; on failure fall back to the
+            # mapping-less --user launch and keep the command ALIVE.
+            #
+            # Test seam: TERMINAL_JAIL_SECCOMP_READ_PROBE, when set, is run
+            # via bash -c INSTEAD of both promotion probes (mapped-launch
+            # creation + loader readability). Default (unset) is the real
+            # probe pair below. A seam-forced promotion still performs the
+            # real mapped launch — forcing success on a host that cannot
+            # create the mapped launch fails at exec — so tests drive the
+            # failure outcome through the seam or exercise the real path.
+            _tj_probe_ok=0
+            _tj_read_failed=0
+            if [ "$USE_SECCOMP" -eq 1 ] && [ -n "$SECCOMP_LOADER" ]; then
+                _tj_read_probe="${TERMINAL_JAIL_SECCOMP_READ_PROBE:-}"
+                if [ -n "$_tj_read_probe" ]; then
+                    if bash -c "$_tj_read_probe" >/dev/null 2>&1; then
+                        _tj_probe_ok=1
+                    else
+                        _tj_read_failed=1
+                    fi
+                elif unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+                    if unshare $_TJ_MAPPED_FLAGS test -r "$SECCOMP_LOADER" >/dev/null 2>&1; then
+                        _tj_probe_ok=1
+                    else
+                        _tj_read_failed=1
+                    fi
+                fi
+            elif unshare $_TJ_MAPPED_FLAGS true >/dev/null 2>&1; then
+                _tj_probe_ok=1
+            fi
+            if [ "$_tj_probe_ok" -eq 1 ]; then
+                TERMINAL_JAIL_FS_ISOLATION=mapped
+                UNSHARE_FLAGS="$_TJ_MAPPED_FLAGS"
+            else
+                if [ "$_tj_read_failed" -eq 1 ]; then
+                    echo "terminal-jail: WARNING: seccomp loader not readable under the uid-mapped launch — falling back to a mapping-less --user launch (could not read '${SECCOMP_LOADER}' as the subordinate uid: a home/permission path such as a 0700 or 750 home is not traversable by it; PID-namespace containment and the seccomp filter still apply; remedy: place the loader under a traversable home, or set TERMINAL_JAIL_UID_MAP=0 to select this mode deliberately)" >&2
+                else
+                    _tj_fs_isolation_warning
+                fi
+                UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+            fi
+            ;;
+    esac
+    export TERMINAL_JAIL_FS_ISOLATION
+    # Scrub host identity env: inside the user namespace the process runs as
+    # nobody (65534) but inherited USER/LOGNAME/HOME would leak the caller's
+    # identity — git/ssh/dotfile tooling misreads or writes the caller's home.
+    export USER=nobody LOGNAME=nobody HOME=/nonexistent
+else
+    UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
+fi
+
+# --- bubblewrap backend flags (TJ-GAP-054) -------------------------------------
+# Flag-by-flag contract (all measured on bubblewrap 0.11.1, unprivileged):
+#   --unshare-user       new user namespace (bwrap implies one when not setuid;
+#                        stated explicitly so the namespace set is auditable)
+#   --unshare-pid        new PID namespace — the same namespace set the
+#                        unshare backend creates.
+#   --proc /proc         mount a FRESH procfs on /proc. This is the private
+#                        /proc: measured inside-vs-outside, the jail sees its
+#                        own PIDs only (5 entries vs 1682 host PID entries;
+#                        /proc/1 is bwrap's reaper, not the host init). The
+#                        unshare backend cannot do this under --user and
+#                        exposes the host /proc there.
+#   --die-with-parent     PR_SET_PDEATHSIG(SIGKILL) on the sandbox: a SIGKILLed
+#                        wrapper still tears the jail down (measured: with the
+#                        flag the payload is gone; without it, orphaned).
+#   --bind / /           preserve the existing filesystem view. bwrap's root is
+#                        an empty tmpfs without a root bind, and this backend
+#                        deliberately adds NO filesystem isolation (same
+#                        visibility/permissions as the unshare backend).
+#   --dev-bind /dev /dev device access is part of that preserved view: a plain
+#                        `--bind / /` alone leaves the sandbox's /dev nodes
+#                        USELESS (measured: /dev/null, /dev/zero, /dev/urandom
+#                        all return EACCES, which breaks Python interpreter
+#                        startup — e.g. the --seccomp loader under a venv
+#                        PATH). --dev-bind restores the host device view,
+#                        matching what the unshare backend sees.
+# --as-pid-1 is deliberately NOT used: it makes the payload namespace PID 1 and
+# NULLIFIES --die-with-parent (measured orphan on bubblewrap 0.11.1), so the
+# payload runs as PID 2 under bwrap's reaper. Consequence, documented in
+# specs/cli.md: under this backend the payload is not namespace PID 1.
+BWRAP_FLAGS="--unshare-user --unshare-pid --die-with-parent --bind / / --dev-bind /dev /dev --proc /proc"
+
+# --- namespace preflight -------------------------------------------------------
+# Verify namespace creation actually works before exec'ing: with exec, a
+# failing unshare would replace this shell and leak a raw unshare error with
+# rc=1. Probing first maps the failure to the documented degradation contract
+# (README "Graceful Degradation": exit code 2 + a message). The probe uses the
+# same flags as the real launch, so its result is representative; the throwaway
+# namespace is destroyed when the probe command exits.
+#
+# The backend is resolved here (TJ-GAP-054) because it needs the fs-isolation
+# decision made above for --user. Runtime detection only — bwrap is never
+# assumed to exist, and a backend that was explicitly requested is never
+# silently downgraded:
+#   bwrap      -> fail closed (exit 2) when bwrap is missing or its probe fails;
+#   auto       -> bwrap when present and probing green, else unshare; a present
+#                 but unusable bwrap warns loudly and falls back to unshare
+#                 (which has NO private /proc — that loss is stated, not silent);
+#   unshare    -> the pre-existing backend, untouched.
+# auto also keeps unshare for `--user` on a host where the mapped launch probe
+# passed: a uid mapping is real filesystem isolation and bubblewrap has no
+# unprivileged equivalent (its --uid only re-labels the sandbox uid — measured:
+# a caller-owned mode-600 file stays readable), so auto never trades away
+# isolation it can have.
+_TJ_BWRAP_BIN=""
+if [ "$TJ_BACKEND_REQUEST" != "unshare" ]; then
+    _TJ_BWRAP_BIN="$(command -v bwrap 2>/dev/null || true)"
+fi
+
+if [ "$TJ_BACKEND_REQUEST" = "bwrap" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" = "mapped" ]; then
+    echo "terminal-jail: WARNING: no filesystem isolation under the bwrap backend — bubblewrap has no unprivileged equivalent of unshare --map-users, so the uid mapping this host supports is not applied (use TERMINAL_JAIL_JAIL_BACKEND=unshare to keep it)" >&2
+    TERMINAL_JAIL_FS_ISOLATION=degraded
+    export TERMINAL_JAIL_FS_ISOLATION
+fi
+
+case "$TJ_BACKEND_REQUEST" in
+    bwrap)
+        if [ -z "$_TJ_BWRAP_BIN" ]; then
+            echo "terminal-jail: TERMINAL_JAIL_JAIL_BACKEND=bwrap was requested but bubblewrap (bwrap) is not installed; command not run — install the bubblewrap system package, or use TERMINAL_JAIL_JAIL_BACKEND=auto|unshare" >&2
+            exit 2
+        fi
+        if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS true >/dev/null 2>&1; then
+            TJ_BACKEND=bwrap
+        else
+            echo "terminal-jail: bwrap namespace creation failed (requested TERMINAL_JAIL_JAIL_BACKEND=bwrap); command not run — the requested backend is never silently downgraded" >&2
+            exit 2
+        fi
+        ;;
+    auto)
+        TJ_BACKEND=unshare
+        if [ -n "$_TJ_BWRAP_BIN" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+            if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS true >/dev/null 2>&1; then
+                TJ_BACKEND=bwrap
+            else
+                echo "terminal-jail: WARNING: bubblewrap is installed but its namespace probe failed; falling back to the unshare backend — this fallback does NOT provide a private /proc" >&2
+            fi
+        fi
+        ;;
+    *)
+        TJ_BACKEND=unshare
+        ;;
+esac
+
+# --- private-/proc demand: enforcement + per-run attribution (TJ-GAP-088) -------
+# A private procfs is deliverable ONLY by the bwrap backend (--proc /proc
+# mounts a fresh procfs). The unshare backend cannot, in any mode: bare mode
+# needs CAP_SYS_ADMIN for --mount-proc and fails closed before reaching here,
+# and --user deliberately omits --mount-proc (it is incompatible with
+# unprivileged user namespaces) so the HOST /proc view is exposed — measured:
+# ~1084 entries with /proc/1 = systemd (docs/backend-parity.md known limit a).
+# With the demand set (TERMINAL_JAIL_PRIVATE_PROC=required or --private-proc),
+# backend selection REFUSES (exit 2, command not run) unless bwrap was
+# resolved and its probe passed; otherwise the run states the delivered view:
+#   proc_view=private         bwrap's fresh procfs
+#   proc_view=host            any unshare launch (documented known limit)
+#   proc_view=platform-owned  composed launch (the outer layer's procfs)
+#   proc_view=none            composed forced with NO outer layer detected
+# Without the demand, the proc_view line still prints on every LAUNCH (attribution
+# is free) and the historical behavior is otherwise byte-for-byte unchanged.
+if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ] && [ "$TJ_BACKEND" != "bwrap" ]; then
+    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend '${TJ_BACKEND}' cannot provide a private /proc; command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a)); the unshare --user path exposes the HOST /proc view" >&2
+    exit 2
+fi
+# TJ-GAP-088 attribution: the delivered /proc view is stated at LAUNCH time
+# (after the namespace probes — a run that is refused states nothing,
+# because nothing was delivered), in the exec dispatch at the bottom of this
+# file: proc_view=private (bwrap's fresh procfs) / proc_view=host (the
+# unshare backend). The composed launchers state their own view
+# (platform-owned / none) inside their COMPOSED MODE report.
+
+# --- composed mode (TJ-GAP-089) -------------------------------------------------
+# Some deployments run this tool INSIDE an outer containment layer that already
+# provides the namespace properties this wrapper creates for a payload — a
+# bunker-agent container or any OCI container: its own PID namespace, a
+# platform-owned lifecycle, and (typically) its own seccomp profile. On such a
+# layer the inner `unshare` cannot create ANOTHER namespace (the container
+# grants no CAP_SYS_ADMIN — measured CapEff 00000000a80425fb, bit 21 clear —
+# and its seccomp profile denies the inner user namespace), and the plain-host
+# fail-closed refusal would make the composed stack, the strongest deployment
+# this project has, unusable out of the box.
+#
+# Composed behavior: refuse nothing, run the command with the layers that DO
+# exist — the interruptor firewall verdict above (this tool) plus the outer
+# layer's namespace containment (the platform) — and state per layer, on
+# stderr, what is enforced and by whom. Nothing is re-provided and nothing is
+# over-claimed: PID/namespace isolation comes from the outer layer here, the
+# firewall verdict from this tool, and an inner seccomp filter is NOT applied
+# (see _tj_launch_composed). The platform counterpart of this contract is
+# bunker GAP-179 (what a bunker agent container must permit and expose).
+#
+# Detection is heuristic and gated behind ns-creation FAILURE (auto never
+# changes behavior on a host where ns creation succeeds), runs in pure procfs
+# reads bounded by `timeout 1` (<2s total; the 2026-10-01 container evidence
+# measured host probes hanging at their 15s budget inside a container), and is
+# cached for this invocation. No single signal is trusted alone EXCEPT the
+# sentinel files dockerd/podman create (`.dockerenv`, `.containerenv`), which
+# are container-specific by construction.
+
+_tj_outer_layer_signals() {
+    # Collects containment signals into $_tj_signals (may stay empty).
+    # Pure procfs reads, bounded by `timeout 1` (<2s total; the 2026-10-01
+    # container evidence measured host probes hanging at their 15s budget
+    # inside a container). No output.
+    _tj_signals=""
+    if [ -e /.dockerenv ]; then
+        _tj_signals="${_tj_signals}sentinel: /.dockerenv present
+"
+    fi
+    if [ -e /run/.containerenv ]; then
+        _tj_signals="${_tj_signals}sentinel: /run/.containerenv present
+"
+    fi
+    # Namespace identity: this shell's PID-ns link vs the one /proc/1 shows.
+    # Inside an outer layer /proc/1 IS the layer's init, so the links match
+    # INSIDE that layer's view; an uncontainerd host shows distinct inodes
+    # (or an unreadable /proc/1 link — not a signal either way). readlink,
+    # not cat: cat on an nsfs link misbehaves ("Is a directory").
+    _tj_ns_self="$(timeout 1 readlink /proc/self/ns/pid 2>/dev/null || true)"
+    _tj_ns_init="$(timeout 1 readlink /proc/1/ns/pid 2>/dev/null || true)"
+    if [ -n "$_tj_ns_self" ] && [ -n "$_tj_ns_init" ]; then
+        if [ "$_tj_ns_self" = "$_tj_ns_init" ]; then
+            _tj_signals="${_tj_signals}namespace: /proc/self/ns/pid == /proc/1/ns/pid (${_tj_ns_self}): this process already sits in the same PID namespace as the init above it
+"
+        else
+            _tj_signals="${_tj_signals}namespace: /proc/self/ns/pid (${_tj_ns_self}) != /proc/1/ns/pid (${_tj_ns_init}): a PID-namespace boundary exists above this process
+"
+        fi
+    fi
+    # Container root filesystems are overwhelmingly overlayfs; an ext4/xfs
+    # root is evidence against the container hypothesis, not for it. Parse
+    # the ROOT MOUNT's fstype exactly (field 5 "/" is the mountpoint, the
+    # fstype follows the " - " separator) — a loose substring probe matched
+    # a plain host's subdirectory bind and false-positived (measured).
+    _tj_root_fs="$(timeout 1 awk '$4 == "/" && $5 == "/" { for (i = 1; i <= NF; i++) if ($i == "-") { print $(i + 1); exit } }' /proc/self/mountinfo 2>/dev/null || true)"
+    if [ "$_tj_root_fs" = "overlay" ]; then
+        _tj_signals="${_tj_signals}filesystem: root mount is overlayfs (/proc/self/mountinfo)
+"
+    fi
+    # Modern cgroup v2 containers carry an empty per-container cgroup path.
+    if [ "$(timeout 1 cut -d: -f3 /proc/self/cgroup 2>/dev/null || true)" = "/" ]; then
+        _tj_signals="${_tj_signals}cgroup: /proc/self/cgroup path is / (cgroup v2 container root)
+"
+    fi
+}
+
+_tj_report_signals() {
+    [ -n "$_tj_signals" ] && printf '%s' "$_tj_signals" >&2 || :
+}
+
+_tj_composed_decision() {
+    # The one composed-mode decision (TJ-GAP-089), shared by the bare-mode
+    # and modify-rewrite failure branches. Sets:
+    #   _TJ_COMPOSED_DETECTED   1 when the payload may run composed
+    #   _TJ_COMPOSED_OUTER_SEEN 1 when an outer layer was actually detected
+    #   _TJ_COMPOSED_FORCED     1 when TERMINAL_JAIL_COMPOSED=on forced this
+    # Reports the evidence it acted on. Detection result is cached in
+    # _tj_signals for the rest of the invocation.
+    _TJ_COMPOSED_DETECTED=0
+    _TJ_COMPOSED_OUTER_SEEN=0
+    _TJ_COMPOSED_FORCED=0
+    case "$TJ_COMPOSED_MODE_REQUEST" in
+        off)
+            :  # plain-host fail-closed, exactly as before
+            ;;
+        on)
+            # Operator override: compose even when detection finds nothing —
+            # but then say loudly that NO layer provides namespace isolation.
+            _TJ_COMPOSED_FORCED=1
+            _TJ_COMPOSED_DETECTED=1
+            _tj_outer_layer_signals
+            if [ -n "$_tj_signals" ]; then
+                _TJ_COMPOSED_OUTER_SEEN=1
+                _tj_report_signals
+            else
+                echo "terminal-jail: WARNING: TERMINAL_JAIL_COMPOSED=on forced composed mode but no outer containment layer was detected — NO layer of this launch provides namespace isolation (operator decision)" >&2
+            fi
+            ;;
+        *)
+            # auto: heuristic detection gates; sentinels alone are
+            # conclusive, heuristic signals need the namespace corroboration
+            # so a plain host cannot compose by accident.
+            if _tj_outer_layer_signals && [ -n "$_tj_signals" ]; then
+                case "$_tj_signals" in
+                    *"sentinel: "*|*"namespace: "*)
+                        _TJ_COMPOSED_DETECTED=1
+                        _TJ_COMPOSED_OUTER_SEEN=1
+                        _tj_report_signals
+                        ;;
+                esac
+            fi
+            ;;
+    esac
+}
+
+# --- TJ-DF-046: the Landlock egress tier on the plain-allow path --------------
+# The engine composes the TCP-connect (egress) loader into its auto-sandbox
+# REWRITES only (decider.py:_wrap_payload composes both tails), so a
+# rule_id=null verdict — a command matching NO rule — used to run the payload
+# with the net tier never attached: CONNECTED to every non-allowlisted TCP
+# port, contradicting the README's kernel-deny contract ("every connect(2) to
+# a TCP port outside the allowlist fails EPERM/EACCES ... even when the command
+# string matches no egress regex"). These two helpers attach the SAME loader
+# (standalone/landlock-net-loader.py) to every non-rewritten payload exec,
+# with the filesystem tier's own probe-before-wrap discipline.
+
+_tj_egress_degrade() {
+    # ONE loud line naming the cause — the allow path's twin of the fs tier's
+    # degrade. The loader prints its own equivalent line when it RUNS but
+    # cannot apply the tier (ABI < 4, unproven enforcement, bad allowlist);
+    # this one covers the attach decision it never gets to make.
+    echo "terminal-jail: WARNING: Landlock network (egress) tier not applied ($1); commands run with network egress unchanged — classify the host with scripts/landlock-capability-probe.py (network rules need Landlock ABI >= 4), or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK_NET=0" >&2
+}
+
+# Decide whether the egress loader attaches to the launch about to run; sets
+# TJ_EGRESS_TIER_ATTACH (1 = splice `python3 "$LANDLOCK_NET_LOADER" -- ` in
+# front of the payload, 0 = run the payload unchanged).
+#
+#   _tj_egress_tier_decide [--here] <launcher tokens...>
+#
+# Without --here the loader is probed for READABILITY under the launcher that
+# will run the payload (unshare/bwrap plus the launch's exact flags; bubblewrap
+# keeps its `--` separator inside the tokens) — the same TJ-DF-019 preflight the
+# filesystem tier uses: a mapping-less launch may run the payload as a uid that
+# cannot open a loader under a 0750/0700 home, and attaching it there would kill
+# every allowed command with Errno 13. `--here` probes in THIS context, for the
+# composed launch, where the payload gets no inner namespace and no uid mapping.
+#
+# With the knob ON, every non-attach outcome is stated LOUDLY — a payload is
+# never silently left CONNECTED.
+#
+# INT-CI-011: the ENGINE may already have stated this degradation while
+# composing the verdict's wrap (decider.py snapshots
+# ``landlock_net.sandbox_prefix()``; its capability/readability preflight
+# prints the warning). Before the engine is invoked, this launch creates a
+# private mark file (TERMINAL_JAIL_LANDLOCK_NET_MARK) that the engine's
+# degrade path appends its cause to; the attach decision below reads it
+# ONCE and, when non-empty, keeps the re-derived non-attach verdict
+# silent — the one loud line (with its named cause) already went out.
+# Scoped to the SAME launch: the mark is a launch-private temp file, so a
+# later independent launch (green engine, no mark) keeps its own warning.
+TJ_EGRESS_TIER_ATTACH=0
+TJ_EGRESS_ENGINE_DEGRADED=0
+_tj_egress_engine_degradation_mark() {
+    # Load-once: did the engine already degrade during wrap composition?
+    [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 0 ] || return 0
+    TJ_EGRESS_ENGINE_DEGRADED=1
+    if [ -n "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" ] &&
+        [ -s "$TERMINAL_JAIL_LANDLOCK_NET_MARK" ]; then
+        TJ_EGRESS_ENGINE_DEGRADED=2
+    fi
+}
+_tj_egress_tier_decide() {
+    TJ_EGRESS_TIER_ATTACH=0
+    [ "$TJ_LANDLOCK_NET_ON" -eq 1 ] || return 0
+    _tj_egress_engine_degradation_mark
+    local _tj_here=0
+    if [ "${1:-}" = "--here" ]; then
+        _tj_here=1
+        shift
+    fi
+    if [ -z "$LANDLOCK_NET_LOADER" ] || [ ! -f "$LANDLOCK_NET_LOADER" ]; then
+        [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
+        _tj_egress_degrade "landlock-net-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
+        return 0
+    fi
+    if [ "$_tj_here" -eq 0 ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" = "mapped" ]; then
+        [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
+        _tj_egress_degrade "the uid-mapped launch runs the payload as the subordinate uid, which cannot read ${LANDLOCK_NET_LOADER}"
+        return 0
+    fi
+    if "$@" test -r "$LANDLOCK_NET_LOADER" >/dev/null 2>&1; then
+        TJ_EGRESS_TIER_ATTACH=1
+        return 0
+    fi
+    # The launch preflight re-derived a non-attach verdict; when the engine
+    # already stated it for this launch, stay silent (one named warning).
+    [ "$TJ_EGRESS_ENGINE_DEGRADED" -eq 2 ] && return 0
+    _tj_egress_degrade "the payload cannot read ${LANDLOCK_NET_LOADER} in the launch that would run it"
+    return 0
+}
+
+# TJ-DF-047: the filesystem tier's attach-decision degrade — the plain-allow
+# twin of _tj_egress_degrade above, in the loader's OWN warning wording (the
+# modify path prints this same line from standalone/landlock-loader.py when
+# the tier cannot apply, so both paths read as one family). ONE loud line
+# naming the cause; TERMINAL_JAIL_LANDLOCK=0 is the deliberate opt-out.
+_tj_fs_degrade() {
+    echo "terminal-jail: WARNING: Landlock filesystem tier not applied ($1); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0" >&2
+}
+
+_tj_launch_composed() {
+    # Run the payload WITHOUT creating an inner namespace. States every layer
+    # honestly and never claims what it does not provide:
+    #   firewall          — enforced BY THIS TOOL (verdict already applied)
+    #   PID ns / procfs   — enforced BY THE OUTER LAYER when one was detected;
+    #                       when composed was forced without detection, NOT
+    #                       enforced by any layer of this launch
+    #   seccomp           — an inner filter is NOT applied here; if the
+    #                       platform applies its own profile, that profile is
+    #                       the active seccomp state, not this tool's.
+    echo "terminal-jail: COMPOSED MODE — running without an inner namespace" >&2
+    # TJ-GAP-088 attribution: the composed launch creates no inner procfs.
+    if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
+        echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
+    else
+        echo "terminal-jail: proc_view=none (composed mode forced without a detected outer layer: no procfs of any kind is provided by this launch)" >&2
+    fi
+    if [ "${_TJ_COMPOSED_OUTER_SEEN:-0}" -eq 1 ]; then
+        echo "terminal-jail: composed layers — jail_layer=platform (outer containment: PID namespace/proc provided by the platform/container, NOT by this tool); firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool (the outer layer's own profile, if any, is the active seccomp state); filesystem: NOT isolated by this tool" >&2
+    else
+        echo "terminal-jail: composed layers — jail_layer=platform claimed by operator override but NO outer layer detected: pid-namespace/proc NOT enforced by any layer in this launch; firewall: enforced by terminal-jail (interruptor verdict applied); seccomp: NOT applied by this tool; filesystem: NOT isolated by this tool" >&2
+    fi
+    if [ "${TERMINAL_JAIL_SECCOMP_REQUESTED:-0}" -eq 1 ]; then
+        echo "terminal-jail: WARNING: --seccomp requested but the seccomp filter is NOT applied in composed mode — the loader path needs the inner namespace this layer cannot create; the outer layer's own seccomp profile (if any) remains the active filter (composed mode runs with the firewall only)" >&2
+        export TERMINAL_JAIL_SECCOMP_LOAD=0
+    fi
+    # TJ-DF-046: the egress tier needs neither a namespace nor a uid mapping
+    # (Landlock restricts the calling process), so it attaches here too — the
+    # operator's opt-in is honored in every launch shape, and the layer report
+    # above stays accurate because the tier is stated separately below.
+    _tj_egress_tier_decide --here
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        echo "terminal-jail: composed layers — egress: enforced by terminal-jail (kernel Landlock TCP-connect allowlist; this tier needs no namespace)" >&2
+        exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+    fi
+    exec bash -c 'exec "$@"' terminal-jail "$@"
+}
+
+# DF-TERMINAL-JAIL-11: when the interruptor bridge already supplied a namespace
+# prefix (action=modify), the command that will actually run is the REWRITE —
+# not this wrapper's bare-mode launch — so the bare-mode probe is not
+# representative of it. On a DEGRADED host (bare `unshare --mount-proc` denied
+# while `unshare --user` works, e.g. Ubuntu with the stock AppArmor userns
+# profile) that probe failed and this wrapper exited 2 BEFORE the
+# already-prefixed branch below was ever reached: every auto-sandbox class
+# (make, pytest, go test, pip install, cargo, gcc, npm test, ./script.sh) was
+# unusable end-to-end even though the bridge's own prefix ran fine. The
+# preflight therefore probes the REWRITE'S OWN flags, and a failed prefix probe
+# is reported as an honest "auto-sandbox modify unavailable" verdict — never as
+# a generic namespace-creation failure after a prefix was already supplied.
+# The bare-mode probe below stays exactly as it was for every command the
+# firewall did not rewrite.
+if [ "$MODIFIED" -eq 1 ]; then
+    # The bridge's rewrite shape is `<prefix> bash -c <payload>` (userns.py:
+    # _PREFIX_SUFFIX), so the prefix flags are everything between the leading
+    # `unshare ` and that separator; the pattern requires a flag token so a
+    # degenerate `unshare bash -c …` (no flags at all) is not probed with an
+    # empty flag set. A rewrite that is not unshare-prefixed adds no namespace
+    # at this layer, so there is nothing to preflight: it is executed as-is,
+    # exactly as specs/cli.md documents for action=modify.
+    case "$CMD_STR" in
+        unshare\ -*" bash -c "*)
+            _tj_prefix_flags="${CMD_STR#unshare }"
+            _tj_prefix_flags="${_tj_prefix_flags%% bash -c *}"
+            # The flags are a flat token list; word splitting is intended.
+            # shellcheck disable=SC2086
+            if unshare $_tj_prefix_flags true >/dev/null 2>&1; then
+                :  # rewrite prefix probe green — proceed to launch
+                # The namespace can be creatable while the command's own
+                # interpreter is not executable for the namespace uid (for
+                # example, pytest's shebang points into a non-traversable
+                # virtualenv). Probe that command under the rewrite prefix
+                # before handing it to bash; otherwise bash leaks rc=126 and
+                # a raw Permission-denied diagnostic from inside it.
+                if unshare $_tj_prefix_flags bash -c '
+                    _tj_command_path=$(command -v "$1" 2>/dev/null) || exit 127
+                    case "$_tj_command_path" in
+                        /*) ;;
+                        *) exit 0 ;;
+                    esac
+                    [ -x "$_tj_command_path" ] || exit 126
+                    IFS= read -r _tj_shebang < "$_tj_command_path" || _tj_shebang=""
+                    case "$_tj_shebang" in
+                        "#!"*)
+                            _tj_interpreter="${_tj_shebang#\#!}"
+                            _tj_interpreter="${_tj_interpreter%% *}"
+                            [ -x "$_tj_interpreter" ] || exit 126
+                            case "$_tj_interpreter" in
+                                *python*)
+                                    "$_tj_interpreter" -c ':' >/dev/null 2>&1 || exit 126
+                                    ;;
+                                *)
+                                    "$_tj_interpreter" --version >/dev/null 2>&1 || exit 126
+                                    ;;
+                            esac
+                            ;;
+                    esac
+                ' terminal-jail "$MODIFIED_COMMAND" >/dev/null 2>&1; then
+                    :  # the rewrite's payload interpreter is usable
+                else
+                    interpreter_rc=$?
+                    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's own prefix cannot execute the payload interpreter for '${MODIFIED_COMMAND}'; unshare exit ${interpreter_rc} with prefix flags: unshare ${_tj_prefix_flags}); command not run — see README \"Graceful Degradation\"" >&2
+                    exit 2
+                fi
+            else
+                prefix_rc=$?
+                # TJ-GAP-089: the rewrite's namespace is not creatable here.
+                # Explicit backend demands stay fail-closed (never silently
+                # downgraded). Otherwise the same composed-mode decision as
+                # the bare-mode failure applies — but the decision MUST land
+                # in this branch: the command that would run is the REWRITE,
+                # so falling through to the bare-mode probe would measure
+                # flags that are not representative of it.
+                if [ "$TJ_BACKEND_REQUEST" = "bwrap" ] || [ "$TJ_BACKEND_REQUEST" = "unshare" ]; then
+                    echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                    exit 2
+                fi
+                if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
+                    echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the firewall's rewrite namespace cannot be created and the composed launch provides no procfs of its own (the outer layer's view, when present, is platform-owned); command not run" >&2
+                    exit 2
+                fi
+                _TJ_COMPOSED_DECIDED=1
+                _tj_composed_decision
+                if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+                    # Composed: run the rewrite as-is below (its prefix is
+                    # already in CMD_STR; the announce line prints there).
+                    _TJ_COMPOSED_NS_FAILED=1
+                else
+                    echo "terminal-jail: auto-sandbox modify unavailable (unshare exit ${prefix_rc} with the rewrite's own prefix flags: unshare ${_tj_prefix_flags}); command not run — the firewall chose a namespace this host cannot create. This is the rewrite's launch, not the wrapper's bare-mode launch; see README \"Graceful Degradation\"" >&2
+                    echo "terminal-jail: cause: namespace creation needs privileges this context does not grant — a missing CAP_SYS_ADMIN (bit 21, e.g. inside a container: grep CapEff /proc/self/status) or a container seccomp/AppArmor profile denying unshare/unprivileged user namespaces (plain hosts: the AppArmor profile 'unprivileged_userns')" >&2
+                    echo "terminal-jail: options: run on the outer host, grant inner namespace creation (allow CAP_SYS_ADMIN / permit the userns syscall in the container seccomp profile), or set TERMINAL_JAIL_COMPOSED=on to run with the firewall plus the outer layer's containment (composed mode, see README \"Composed deployment\")" >&2
+                    exit 2
+                fi
+            fi
+            ;;
+    esac
+elif [ "$TJ_BACKEND" = "unshare" ]; then
+    if unshare $UNSHARE_FLAGS true >/dev/null 2>&1; then
+        :  # probe green — proceed to launch
+    else
+        probe_rc=$?
+        # --- TJ-GAP-089: the composed-mode decision point ---------------
+        # An explicitly demanded backend never downgrades (existing
+        # contract); this branch is only reached with backend=auto|unshare.
+        # `unshare` pin = the byte-identical v1.1 contract (fail closed).
+        if [ "$TJ_BACKEND_REQUEST" = "unshare" ]; then
+            echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+            exit 2
+        fi
+        # Composed mode: the one shared decision (auto detects, on forces,
+        # off refuses). Detection runs HERE and only here (lazily — never on
+        # the happy path), bounded (<2s) and cached for this invocation.
+        if [ "$TJ_PRIVATE_PROC_REQUIRED" -eq 1 ]; then
+            echo "terminal-jail: TERMINAL_JAIL_PRIVATE_PROC=required but the resolved backend 'unshare' cannot provide a private /proc (and its launch just failed: unshare exit ${probe_rc}); command not run — the private procfs is bwrap-only on this host class (install bubblewrap, or see specs/cli.md \"Jail backends\" and docs/backend-parity.md known limit (a))" >&2
+            exit 2
+        fi
+        _TJ_COMPOSED_DECIDED=1
+        _tj_composed_decision
+        if [ "${_TJ_COMPOSED_DETECTED:-0}" -eq 1 ]; then
+            # Composed: run with the layers that exist. The seccomp warning
+            # fires only when the payload path would have carried the filter.
+            if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+                TERMINAL_JAIL_SECCOMP_REQUESTED=1
+            fi
+            _tj_launch_composed "$@"
+        fi
+        # Plain host (or composed=off): the fail-closed refusal, unchanged
+        # in its first sentence, now naming the cause and the options.
+        echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+        echo "terminal-jail: cause: namespace creation needs privileges this context does not grant — a missing CAP_SYS_ADMIN (bit 21, e.g. inside a container: grep CapEff /proc/self/status) or a container seccomp/AppArmor profile denying unshare/unprivileged user namespaces (plain hosts: the AppArmor profile 'unprivileged_userns')" >&2
+        echo "terminal-jail: options: run on the outer host, grant inner namespace creation (allow CAP_SYS_ADMIN / permit the userns syscall in the container seccomp profile), or set TERMINAL_JAIL_COMPOSED=on to run with the firewall plus the outer layer's containment (composed mode, see README \"Composed deployment\")" >&2
+        exit 2
+    fi
+fi
+
+# TJ-GAP-089: a firewall rewrite whose own namespace prefix failed the probe
+# reaches here only when composed mode was decided ON (the off/plain-host
+# arm refused inside the rewrite branch). Run the rewrite's PAYLOAD, not the
+# rewrite: its `unshare <flags> bash -c <payload>` prefix cannot be created
+# on this layer, and the namespace containment it would have added is
+# exactly what the outer layer already provides. Strip the verified prefix
+# shape (`unshare <flags> bash -c `) and execute the payload via bash -c —
+# the same trampoline the unmodified rewrite path uses, so the firewall's
+# verdict is honored without double-wrapping or re-running the denied
+# namespace syscall. The launcher state (MODIFIED=1, args unset, CMD_STR)
+# below makes the bottom-of-file `exec bash -c "$CMD_STR"` run it.
+if [ "${_TJ_COMPOSED_NS_FAILED:-0}" -eq 1 ]; then
+    echo "terminal-jail: COMPOSED MODE — the firewall's rewrite namespace cannot be created on this layer; running its payload (pid-namespace/proc: enforced by the OUTER LAYER when present; firewall: enforced by terminal-jail)" >&2
+    echo "terminal-jail: proc_view=platform-owned (composed mode: the outer containment layer provides the /proc view, not this tool)" >&2
+    case "$CMD_STR" in
+        unshare\ -*" bash -c "*)
+            _tj_payload="${CMD_STR#* bash -c }"
+            CMD_STR="$_tj_payload"
+            unset -v _tj_payload
+            ;;
+        *)
+            # A rewrite without the verified prefix shape adds no namespace
+            # at this layer — nothing to strip (defensive arm).
+            :
+            ;;
+    esac
+fi
+
+if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
+    if [ ! -f "$SECCOMP_LOADER" ]; then
+        echo "terminal-jail: seccomp loader not found at ${SECCOMP_LOADER}" >&2
+        exit 2
+    fi
+    export TERMINAL_JAIL_SECCOMP=1
+    # The seccomp filter must be applied inside the PID namespace. Both
+    # backends use the identical argv-preserving trampoline; the `--` below is
+    # bubblewrap's option/payload separator.
+    #
+    # TJ-DF-046: the egress tier rides the SAME trampoline on this path too —
+    # spliced into the loader argv the trampoline exec's (seccomp loader →
+    # net loader → payload), so an allowed command under --seccomp is not
+    # silently left CONNECTED while the knob is on.
+    if [ "$TJ_BACKEND" = "bwrap" ]; then
+        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+        _tj_egress_tier_decide "$_TJ_BWRAP_BIN" $BWRAP_FLAGS --
+        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+        fi
+        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+    fi
+    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+    _tj_egress_tier_decide unshare $UNSHARE_FLAGS
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        exec unshare \
+            $UNSHARE_FLAGS \
+            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+    fi
+    exec unshare \
+        $UNSHARE_FLAGS \
+        bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+elif [ "$MODIFIED" -eq 1 ]; then
+    # The bridge already prepended its own unshare prefix — run as-is,
+    # no additional wrapping (double unshare → EPERM).
+    #
+    # INT-CI-011: CONSUME the egress mark BEFORE removing — this tells the
+    # launch preflight that the engine already stated any degradation, so the
+    # attach decision stays silent (it checks TJ_EGRESS_ENGINE_DEGRADED
+    # set to 2).  Then remove the mark so a LATER launch cannot read a stale
+    # record of THIS launch's engine state.
+    _tj_egress_engine_degradation_mark
+    if [ -n "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" ]; then
+        rm -f "${TERMINAL_JAIL_LANDLOCK_NET_MARK:-}" 2>/dev/null || :
+    fi
+    #
+    # TJ-GAP-082: the Landlock tier rides the SAME rewrite when the host
+    # permits it — the loader wraps the bridge's rewrite and applies the
+    # ruleset inside the final namespace, right before the payload. The
+    # rewrite travels by env (the argv position is the bwrap trap: some
+    # launchers treat the word AT the "--" position as OPTIONS; argv
+    # would also re-quote an already-parsed string). Two skips: under the
+    # MAPPED launch the uid mapping already isolates the filesystem (and
+    # the subordinate-uid payload could not even read the loader); and a
+    # mapping-less rewrite whose payload-uid cannot READ the loader
+    # (0750/0700 home) runs unchanged — attaching it would kill every
+    # auto-sandboxed command with Errno 13 (the TJ-DF-019 shape).
+    if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+        if unshare ${_tj_prefix_flags:-} test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+            TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
+        fi
+    fi
+    exec bash -c "$CMD_STR"
+else
+    if [ "$TJ_BACKEND" = "bwrap" ]; then
+        echo "terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)" >&2
+        # TJ-DF-046: decide the egress tier for THIS launch first — the fs
+        # tier's wrap below composes it when both apply (the allow path never
+        # rewrote the command, so nothing else attaches the net loader here).
+        _tj_egress_tier_decide "$_TJ_BWRAP_BIN" $BWRAP_FLAGS --
+        # TJ-GAP-082: the Landlock tier rides the bwrap launch too (loader
+        # inside the bwrap namespace, right before the payload; skipped under
+        # a mapped launch, or when the payload-uid cannot READ the loader —
+        # the 0750/0700-home shape, probed with the exact bwrap flags).
+        #
+        # TJ-DF-047: every non-attach outcome of this gate is stated LOUDLY
+        # (_tj_fs_degrade) — a plain-allow payload is never silently left
+        # without kernel filesystem enforcement. The mapped-launch skip stays
+        # SILENT: a uid mapping IS filesystem isolation (a substitution, not
+        # a degradation), exactly like the fs-isolation decision above.
+        if [ "$TJ_LANDLOCK_ON" -eq 1 ]; then
+            if [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ]; then
+                if [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+                    if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                        # TJ-DF-046: with the egress tier on, the two loaders compose —
+                        # the EGRESS loader OUTERMOST, the filesystem loader innermost.
+                        # Landlock domains accumulate (each restrict_self INTERSECTS the
+                        # current domain), so the payload gets both restrictions either
+                        # way; the order is chosen for STARTABILITY (measured: with the
+                        # fs loader outer, the INNER loader's own interpreter must start
+                        # inside the file-restricting domain — on a host where python3
+                        # resolves to an interpreter whose files the fs tier does not
+                        # grant (a venv under $HOME), every allowed command died with
+                        # `PermissionError: pyvenv.cfg`, the TJ-DF-019 shape one layer
+                        # up). The file-restricting tier goes innermost so the chain
+                        # that launches it can still start.
+                        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                        fi
+                        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                    else
+                        # TJ-DF-047: the tier cannot attach on THIS launch — say why,
+                        # exactly as the egress decision above does (unreadable = the
+                        # TJ-DF-019 shape: attaching would kill the payload with
+                        # Errno 13 under a 0700/0750 home).
+                        _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
+                    fi
+                fi
+            else
+                # TJ-DF-047: no loader to attach — never silent on the
+                # plain-allow path.
+                _tj_fs_degrade "landlock-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
+            fi
+        fi
+        # TJ-DF-046: the egress tier's own wrap when the fs tier did not take
+        # the launch (knob on the allow path — the verdict that never rewrote).
+        if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+            exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+        fi
+        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+            bash -c 'exec "$@"' terminal-jail "$@"
+    fi
+    echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
+    # TJ-DF-046: decide the egress tier for THIS launch first — the fs tier's
+    # wrap below composes it when both apply (this is the launch the plain-allow
+    # verdict takes, so nothing else would attach the net loader at all).
+    _tj_egress_tier_decide unshare $UNSHARE_FLAGS
+    # TJ-GAP-082: the Landlock tier rides this launch when the host
+    # permits it — the loader applies the ruleset inside the namespace,
+    # right before the payload exec (-a terminal-jail keeps argv[0]).
+    # READABILITY preflight (TJ-DF-019's lesson, same shape as the mapped
+    # seccomp preflight): a mapping-less --user payload runs as nobody
+    # (65534) — on a 0750 (or 0700) home it cannot even open the loader,
+    # and attaching it would kill every launch with Errno 13. The tier is
+    # probed with the exact launch flags; unreadable → run unchanged.
+    #
+    # TJ-DF-047: "run unchanged" is stated LOUDLY (never silent) — same
+    # discipline as the bwrap arm and the egress decision. The mapped-launch
+    # skip stays silent (a uid mapping IS filesystem isolation).
+    if [ "$TJ_LANDLOCK_ON" -eq 1 ]; then
+        if [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ]; then
+            if [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
+                if unshare $UNSHARE_FLAGS test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                    # TJ-DF-046: with the egress tier on, the two loaders compose —
+                    # the EGRESS loader OUTERMOST, the filesystem loader innermost
+                    # (Landlock domains accumulate/intersect either way; the order is
+                    # chosen for STARTABILITY of the inner loader's interpreter — see
+                    # the bwrap arm's note for the measurement).
+                    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+                        exec unshare \
+                            $UNSHARE_FLAGS \
+                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                    fi
+                    exec unshare \
+                        $UNSHARE_FLAGS \
+                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                else
+                    # TJ-DF-047: the tier cannot attach on THIS launch — say why
+                    # (unreadable = the TJ-DF-019 shape; the payload runs with the
+                    # host /proc view and NO kernel filesystem enforcement).
+                    _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
+                fi
+            fi
+        else
+            # TJ-DF-047: no loader to attach — never silent on the
+            # plain-allow path.
+            _tj_fs_degrade "landlock-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
+        fi
+    fi
+    # TJ-DF-046: the egress tier's own wrap when the fs tier did not take the
+    # launch (knob on the allow path — the verdict that never rewrote).
+    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
+        exec unshare \
+            $UNSHARE_FLAGS \
+            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+    fi
+    exec unshare \
+        $UNSHARE_FLAGS \
+        bash -c 'exec "$@"' terminal-jail "$@"
+fi

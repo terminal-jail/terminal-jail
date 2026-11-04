@@ -47,7 +47,7 @@ cd terminal-jail
 ./install.sh --uninstall
 ```
 
-**Source only.** There is no `terminal-jail` package on PyPI — any `pip install terminal-jail` fails by design; source install (above) is the only supported channel ([docs/supply-chain.md](supply-chain.md)).
+**Source only.** There is no `terminal-jail` package on PyPI — any `pip install terminal-jail` fails by design; source install (above) is the only supported channel ([docs/supply-chain.md](supply-chain.md)). A wheel built from a checkout is self-sufficient once installed (`RELPKG-001`): it provides the `terminal-jail` command and the Landlock/seccomp loaders; PyPI itself stays a non-channel.
 
 **Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
 demand a containment tier instead of the default advisory probe report —

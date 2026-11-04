@@ -20,6 +20,18 @@
 
 ### Fixed
 
+- **Complete pip-wheel installs (`RELPKG-001`):** a built wheel shipped only
+  the library — no `terminal-jail` command and an inert Landlock tier (the
+  interruptor could not find `landlock-loader.py`). The wheel now declares a
+  `terminal-jail` console script (`terminal_jail.cli:main`), ships the
+  standalone bash CLI and the three tier loaders byte-identically as package
+  data (`terminal_jail/_bundled/`), exports `TERMINAL_JAIL_VERSION` from
+  importlib.metadata, points the wrapper's loader/bridge overrides at the
+  shipped copies when unset, and `loader_path()` (fs + net) falls back to
+  the bundled copy after the repository walk — so installing a wheel yields
+  a working command and live containment tiers. PyPI remains a non-channel
+  ([docs/supply-chain.md](docs/supply-chain.md)).
+
 - **Parity-battery portability on composed hosts (`QA-TERMINAL-JAIL-21`):**
   three battery cells graded a containerized host's CORRECT behavior as
   `DIFFERS`, failing

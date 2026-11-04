@@ -656,8 +656,12 @@ def loader_path() -> str | None:
 
     Same walk as landlock.loader_path(): repo checkout (<root>/standalone/)
     and installed layout (<lib>/landlock-net-loader.py next to the plugin).
+    Shares landlock's last-resort fallback too: when the walk finds nothing
+    (a pip wheel ships neither layout), the package's bundled copy under
+    ``terminal_jail/_bundled/`` resolves (RELPKG-001 package data).
     """
-    current = os.path.dirname(os.path.abspath(__file__))
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    current = module_dir
     while True:
         for base in (
             os.path.join(current, "standalone"),
@@ -668,8 +672,12 @@ def loader_path() -> str | None:
                 return candidate
         parent = os.path.dirname(current)
         if parent == current:
-            return None
+            break
         current = parent
+    bundled = os.path.normpath(
+        os.path.join(module_dir, os.pardir, "_bundled", "landlock-net-loader.py")
+    )
+    return bundled if os.path.isfile(bundled) else None
 
 
 # _world_traversable arrives bound from the fs module (package import or

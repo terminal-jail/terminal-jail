@@ -30,6 +30,9 @@ classifiers = [
 Homepage = "https://github.com/terminal-jail/terminal-jail"
 Repository = "https://github.com/terminal-jail/terminal-jail"
 
+[project.scripts]
+terminal-jail = "terminal_jail.cli:main"
+
 [dependency-groups]
 dev = ["pytest>=8", "pytest-cov>=6", "ruff==0.16.8"]
 
@@ -38,7 +41,7 @@ where = ["plugin"]
 include = ["terminal_jail*"]
 
 [tool.setuptools.package-data]
-"terminal_jail" = ["rules/*.yaml"]
+"terminal_jail" = ["rules/*.yaml", "_bundled/*"]
 
 [tool.pytest.ini_options]
 markers = [

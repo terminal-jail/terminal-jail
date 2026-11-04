@@ -1237,9 +1237,21 @@ if [ -n "$LOCAL_WRAPPER" ]; then
         # is this repository's own Python package tree, so a newline in a
         # file name is not a real case — capture in the portable \n form and
         # match exactly with grep -Fx.
-        new_manifest="$(cd "$SCRIPT_DIR/plugin/terminal_jail" && find . -type f | sort | sed 's#^\./##')"
+        # RELPKG-001: _bundled/ is the wheel's packaging copy — excluded here
+        # and stripped after the copy below, so the recorded manifest equals
+        # the deployed tree exactly.
+        new_manifest="$(cd "$SCRIPT_DIR/plugin/terminal_jail" && find . -type f -not -path './_bundled/*' | sort | sed 's#^\./##')"
 
         cp -R "$SCRIPT_DIR/plugin/terminal_jail" "$LIB_DIR/plugin/"
+        # RELPKG-001: terminal_jail/_bundled/ is the WHEEL's packaging copy of
+        # the standalone CLI and tier loaders. The install.sh layout ships the
+        # real loaders at LIB_DIR top-level (below); a second copy inside the
+        # installed plugin tree would shadow the TJ-DF-044 "loader missing ->
+        # loud degradation" contract, so the packaged copies are stripped
+        # here. --hermes-plugin keeps them: that deployment must stay
+        # byte-for-byte the repo's plugin/ tree (TJ-DF-022) and it has no
+        # LIB_DIR loaders to shadow.
+        rm -rf -- "${LIB_DIR}/plugin/terminal_jail/_bundled"
         echo "terminal-jail installer: installed plugin bridge tree to ${LIB_DIR}/plugin/"
 
         # Prune exactly the stale files: recorded in the previous manifest,

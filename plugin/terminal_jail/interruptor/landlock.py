@@ -1182,8 +1182,13 @@ def loader_path() -> str | None:
 
     Walks up from this module (repo checkout: <root>/standalone/;
     installed layout: <lib>/landlock-loader.py next to the plugin tree).
+    Last resort, only when the walk finds nothing (a pip wheel ships
+    neither layout): the package's own bundled copy under
+    ``terminal_jail/_bundled/`` (RELPKG-001 package data), so an installed
+    wheel resolves its loader instead of degrading the tier.
     """
-    current = os.path.dirname(os.path.abspath(__file__))
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    current = module_dir
     while True:
         for base in (
             os.path.join(current, "standalone"),
@@ -1194,8 +1199,12 @@ def loader_path() -> str | None:
                 return candidate
         parent = os.path.dirname(current)
         if parent == current:
-            return None
+            break
         current = parent
+    bundled = os.path.normpath(
+        os.path.join(module_dir, os.pardir, "_bundled", "landlock-loader.py")
+    )
+    return bundled if os.path.isfile(bundled) else None
 
 
 def _world_traversable(path: str) -> bool:
