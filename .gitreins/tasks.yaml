@@ -2291,3 +2291,14 @@ tasks:
   status: complete
   created_at: '2026-11-04T14:54:55.582643+00:00'
   completed_at: '2026-11-04T15:09:40.639440+00:00'
+- id: TJ-GAP-098
+  title: prepare-commit-msg trailer hook must match standalone trailer LINES, not
+    a substring of the co-author name
+  criteria:
+  - 'Probe in a scratch repo: a commit whose body mentions ''Co-authored-by: Alexis
+    Okuwa <wojonstech@gmail.com>'' as prose still receives exactly one standalone
+    trailer line; a message already carrying the real trailer gets no duplicate; a
+    message with no mention still gets one. Hook resolved via git rev-parse --git-path
+    hooks.'
+  status: in_progress
+  created_at: '2026-11-04T15:44:35.471664+00:00'
