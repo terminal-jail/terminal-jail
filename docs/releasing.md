@@ -20,10 +20,13 @@ RELCI-001 blocks the workflow preflight).
 ## The exact ordered steps
 
 1. **Version-prep commit.** Land a single commit that changes exactly the
-   `version = "X.Y.Z"` line in `pyproject.toml` (plus its CHANGELOG entry,
-   if any). The workflow never bumps versions; if you push a tag whose
-   version does not match `pyproject.toml`, the workflow fails loudly at its
-   `Verify pyproject version matches the tag` step.
+   `version = "X.Y.Z"` line in `pyproject.toml`, the matching `version:` in
+   `plugin/plugin.yaml`, and its CHANGELOG entry. The workflow never bumps
+   versions; if you push a tag whose version does not match `pyproject.toml`,
+   the workflow fails loudly at its `Verify pyproject version matches the tag`
+   step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
+   pins the manifest to `pyproject.toml`, so bumping only `pyproject.toml`
+   turns the CI matrix red before the tag.
 
 2. **CI green on that SHA.** Push to `main` and wait for the `CI` workflow
    to go green on the version-prep SHA (`gh run list --commit <sha>`).
