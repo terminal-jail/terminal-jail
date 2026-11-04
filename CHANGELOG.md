@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+_Nothing unreleased. The entries below landed before the `v1.3.0` tag and are
+shipped in v1.3.0; they sit here because the `[1.3.0]` section was frozen at
+its version-prep commit (2026-10-08) and was not reopened at the cut._
+
 ### Added
 
 - **First incumbent-parity sweep artifact** (`docs/incumbent-parity-2026-10-12.md`,
@@ -19,18 +23,6 @@
   for Ubuntu 24.04/25.04) beside the host-wide sysctl.
 
 ### Fixed
-
-- **Complete pip-wheel installs (`RELPKG-001`):** a built wheel shipped only
-  the library — no `terminal-jail` command and an inert Landlock tier (the
-  interruptor could not find `landlock-loader.py`). The wheel now declares a
-  `terminal-jail` console script (`terminal_jail.cli:main`), ships the
-  standalone bash CLI and the three tier loaders byte-identically as package
-  data (`terminal_jail/_bundled/`), exports `TERMINAL_JAIL_VERSION` from
-  importlib.metadata, points the wrapper's loader/bridge overrides at the
-  shipped copies when unset, and `loader_path()` (fs + net) falls back to
-  the bundled copy after the repository walk — so installing a wheel yields
-  a working command and live containment tiers. PyPI remains a non-channel
-  ([docs/supply-chain.md](docs/supply-chain.md)).
 
 - **Parity-battery portability on composed hosts (`QA-TERMINAL-JAIL-21`):**
   three battery cells graded a containerized host's CORRECT behavior as
@@ -85,6 +77,40 @@
     output), plus a local CI-shape reproduction — a repo-shaped scratch
     tree under a `0700` parent yields the identical o+x warning, and the
     env-pin restores the byte-identical refusal.
+
+## [1.3.1] — 2026-11-04
+
+Release range v1.3.0..HEAD: 1 material commit, `fix` (semver PATCH, rule R5).
+Board/harness bookkeeping commits are not listed. This cut exists because the
+v1.3.0 Release assets were built from `be643a8`, before the packaging fix
+landed — so v1.3.0's wheel is the library-only artifact described below and
+installing it yields no `terminal-jail` command.
+
+### Fixed
+
+- **Complete pip-wheel installs (`RELPKG-001`):** a built wheel shipped only
+  the library — no `terminal-jail` command and an inert Landlock tier (the
+  interruptor could not find `landlock-loader.py`). The wheel now declares a
+  `terminal-jail` console script (`terminal_jail.cli:main`), ships the
+  standalone bash CLI and the three tier loaders byte-identically as package
+  data (`terminal_jail/_bundled/`), exports `TERMINAL_JAIL_VERSION` from
+  importlib.metadata, points the wrapper's loader/bridge overrides at the
+  shipped copies when unset, and `loader_path()` (fs + net) falls back to
+  the bundled copy after the repository walk — so installing a wheel yields
+  a working command and live containment tiers. PyPI remains a non-channel
+  ([docs/supply-chain.md](docs/supply-chain.md)).
+
+### Carried forward
+
+- **`RELCI-001` — the tag-triggered Release workflow still cannot publish on
+  its own:** its `Preflight — verify the token may create releases` step
+  fails because the repository's Actions workflow-permission default caps
+  `permissions: contents: write`, so `GITHUB_TOKEN` lacks push and
+  `gh release create` would be refused (observed on the v1.3.0 tag run
+  `41743401719`). The v1.3.1 artifacts are therefore built and published by
+  hand from the tagged tree with the identical build recipe; the workflow gap
+  stays open and is owner/app-admin gated (Settings → Actions → General →
+  Workflow permissions).
 
 ## [1.3.0] — 2026-10-08
 
