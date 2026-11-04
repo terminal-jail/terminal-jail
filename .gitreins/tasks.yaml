@@ -2274,3 +2274,20 @@ tasks:
   status: complete
   created_at: '2026-11-04T13:33:23.307064+00:00'
   completed_at: '2026-11-04T14:17:55.489810+00:00'
+- id: README-10
+  title: 'README doc-drift sweep: fix README-10..13 (env-table enforcement claim,
+    Landlock var name, installer line citations, socket-security grep recipe)'
+  criteria:
+  - "README.md only; each row's VERIFY commands from .coding-hermes/board/tasks.jsonl\
+    \ must pass on the committed tree: (10) line for HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\
+    \ no longer says 'Reserved \u2014 not yet read' and states default 131072, that\
+    \ it bounds the wrapped command the engine produces, and enforcement at intercept();\
+    \ live read env=10 -> 10, unset -> 131072; (11) README 373-378 names TERMINAL_JAIL_LANDLOCK\
+    \ (honored name, default ON) not TERMINAL_JAIL_LANDLOCK_FS, medians 1036/915 unchanged;\
+    \ (12) REQUIRE_TIER row cites lines that really read the variable (install.sh:519\
+    \ and :1496), no install.sh:298/:492; (13) README 405-420 prints no grep recipe\
+    \ that returns a hit + still states AF_UNIX-only/no TCP listener; quoted recipe\
+    \ returns 0 hits verbatim. No plugin/install.sh behavior changes."
+  status: complete
+  created_at: '2026-11-04T14:54:55.582643+00:00'
+  completed_at: '2026-11-04T15:09:40.639440+00:00'
