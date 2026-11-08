@@ -1,0 +1,17 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-08-16-12-48",
+  "wave": "serial",
+  "budget": 12,
+  "rows": [
+    {
+      "task_id": "TJ-DF-060",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-060",
+      "branch": "wt/TJ-DF-060",
+      "base": "origin/main",
+      "base_sha": "7e37242",
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-08-16-12-48/TJ-DF-060-brief.txt",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm"
+    }
+  ]
+}
