@@ -664,3 +664,29 @@ A fresh-machine install is unverified when `bunker-qa.sh` cannot sync the spawne
 Use a short explicit `TERMINAL_JAIL_BRIDGE_SOCK` path when starting the resident bridge. The daemon creates a 0600 AF_UNIX socket, serves the same six-field verdict contract as the one-shot bridge, serializes concurrent clients, and removes the socket on SIGTERM to the Python daemon. A deeply nested HOME/XDG runtime path can fail the default socket with `[resident-bridge] bind failed: AF_UNIX path too long`; this is a runtime path limitation, not a policy verdict.
 
 The resident path measured 34.32ms warm median for `echo hello` over ten samples, compared with 88.34ms for the one-shot bridge. Neither is user-noticeable at low documented cadence.
+
+
+## Dogfood 2026-11-08 — using the published v1.3.1 artifacts
+
+Install the wheel into a venv as a stranger would (`pip install terminal_jail-1.3.1-py3-none-any.whl`,
+then `terminal-jail --version` → 1.3.1) and know what breaks before you trust it:
+
+- **Put the venv on PATH.** The bundled bash CLI runs the interruptor bridge as `python3 "$bridge"`
+  (`standalone/terminal-jail:321`), so with a python3 that cannot import `terminal_jail` first on PATH
+  (absolute-path invocation, a shim, a cron or agent command) the wrapper fail-closes and blocks EVERY
+  command with `[bridge-error] interruptor engine not importable` (rc=126). `PATH=<venv>/bin:$PATH
+  <venv>/bin/terminal-jail <cmd>` is the working shape; `--no-interruptor` bypasses the firewall but also
+  drops it.
+- **The Landlock tiers are inert in wheel installs.** Both bundled loaders warn
+  `… tier module not found next to the loader` because the loader's upward search never visits
+  `site-packages/terminal_jail/interruptor/`, where `landlock.py` / `landlock_net.py` live. Treat
+  “wheel provides the loaders” as “the loaders exist”, not “the tier applies”. The seccomp tier does work
+  from the wheel (`Seccomp: 2`, one filter).
+- **Release mode (`TERMINAL_JAIL_USE_RELEASE=1`) cannot install from this project's own releases.**
+  `install.sh` fetches `<base>/terminal-jail` and `<base>/terminal-jail.sha256`; the published assets are
+  `terminal_jail-<ver>-py3-none-any.whl`, `.tar.gz` and `SHA256SUMS`. Default version is 1.2.0, whose
+  release carries no assets at all. Use the source path (`git clone` + `./install.sh`) unless those rows
+  are fixed.
+- For a fresh-machine battery, pull the failing cell's own log off the agent
+  (`bunker exec --server <s> <agent> --raw -- tail <home>/qa-logs-*/tests.log`); the evidence JSONL
+  truncates pytest output to progress dots.

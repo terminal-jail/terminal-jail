@@ -827,3 +827,49 @@ The resident bridge worked with an explicit short AF_UNIX socket: mode 0600, ten
 The same `echo hello` request measured one-shot cold 85.43ms and warm median 88.34ms, versus resident cold 49.62ms and warm median 34.32ms across ten samples. These are not user-noticeable at low documented cadence, so no PERF row was filed.
 
 The fresh-machine battery launched on bunker-mvp agent f02af844 at the exact HEAD. Its evidence showed repo-head OK, toolchains OK, and fresh-install OK with PyYAML 6.0.3 and terminal-jail 1.3.0. Collection found the battery still running in ci-pass, correctly kept the agent, and did not claim PASS. Destroy initially refused because nine agent-owned processes remained; after those processes were stopped, destroy succeeded and a later info read returned not_found. A partial running battery remains PARTIAL/UNPROVEN, never a full install PASS.
+
+
+## 21. Run 2026-11-08 — the published v1.3.1 artifacts as a stranger's install channel
+
+Angle: the surfaces the RELPKG-001 wheel fix and the v1.3.1 cut created — a **published wheel** installed
+into a fresh venv, release-mode install against the real Release object, and one fresh-machine battery.
+Previous entries had never driven a release artifact; RELPKG-001 was verified by its own worker on the dev host.
+
+The wheel installs cleanly (`terminal_jail-1.3.1-py3-none-any.whl`, `sha256sum -c SHA256SUMS` OK, PyYAML
+6.0.3) and `terminal-jail --version` prints 1.3.1. Two legs then fail, and both are artifacts of the wheel
+**layout** rather than of the engine:
+
+1. The bundled bash CLI runs the interruptor bridge as `python3 "$bridge"` (`standalone/terminal-jail:321`),
+   a PATH-resolved interpreter. Invoked outside an activated venv (absolute path — what a shim, a cron job or
+   an agent harness does), that python3 cannot import `terminal_jail`, the bridge exits non-zero, and the
+   wrapper fail-closes with `[bridge-error] interruptor engine not importable` — rc=126 for **every** command
+   in the default mode. `--no-interruptor` runs fine, and with the venv on PATH the identical command returns
+   `allow-echo`. `plugin/terminal_jail/cli.py`'s docstring claims the bridge override makes interruptor mode
+   "not depend on python3 resolving the venv"; it does depend on it.
+2. Both Landlock loaders ship under `terminal_jail/_bundled/`, and `standalone/landlock-loader.py:43-65`
+   searches `<dir>/plugin/terminal_jail/interruptor/` and `<dir>/landlock.py` walking UP — never the sibling
+   `terminal_jail/interruptor/` where `landlock.py`/`landlock_net.py` actually live in the wheel. Both tiers
+   print `… tier module not found next to the loader` forever. The discriminating arm is the source install on
+   the same host, in a prefix of the same permissions: no warning, tier applied. `loader_path()`
+   (`interruptor/landlock.py:1180-1205`) — the RELPKG-001 fix — resolves the *loader* correctly, which is why
+   the row closed green while the tier stayed dead.
+
+Release mode is dead in two ways at once: `install.sh:1342-1343` fetches `${BASE_URL}/terminal-jail` and
+`/terminal-jail.sha256`, but v1.3.0/v1.3.1 publish `terminal_jail-<ver>-py3-none-any.whl`, `…tar.gz` and
+`SHA256SUMS` (both expected names answer 404, the real assets 200), and the default `TERMINAL_JAIL_VERSION`
+is still `1.2.0` (`install.sh:21`), the one tag with zero assets. The failure surfaces as a bare
+`curl: (22)`, and README:190 still states no release assets are published.
+
+Lessons worth carrying:
+
+- A packaging fix that closes on “the specific warning string is gone” can leave the capability dead. Re-prove
+  a tier by its EFFECT (a kernel denial, or the absence of the degrade warning on a same-host control arm),
+  never by the absence of the message the row named.
+- For a console script, the failing environment is the one where the venv is *not* on PATH. Test the absolute
+  path and the unactivated shell, not only `source venv/bin/activate && terminal-jail …`.
+- A test that skips on a capability must probe the capability it actually needs. `shutil.which("docker")`
+  only proves the CLI exists; on the fresh agent the daemon was unreachable when the suite ran and reachable
+  minutes later (`docker info` OK), so the cell went red instead of skipping.
+- Same-tick battery work needs a per-cell log pull. The evidence JSONL truncated the pytest failure to
+  progress dots; the failing test name only appeared in `qa-logs-<pid>/tests.log` on the agent, read with
+  `bunker exec --server <s> <agent> --raw -- tail …`.
