@@ -846,6 +846,74 @@ class TestWiring:
             f"(stdout={result.stdout!r}, stderr={result.stderr!r})"
         )
 
+    def test_wheel_layout_loader_enforces_on_a_permitting_host(
+        self, tmp_path: Path
+    ) -> None:
+        """TJ-DF-060, kernel EFFECT arm: the loader running from the
+        WHEEL layout (<site>/terminal_jail/_bundled/) must resolve its
+        SIBLING interruptor module AND prove the fs restriction for the
+        payload — the ungranted mode-600 read is denied by the KERNEL
+        (rc=1 from cat), not merely missing its warning. Host-conditional:
+        skips with the HOST-DEGRADED marker (never silently passes)."""
+        if not _host_permits_landlock():
+            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+        pkg_root = tmp_path / "site" / "terminal_jail"
+        (pkg_root / "interruptor").mkdir(parents=True)
+        bundled = pkg_root / "_bundled"
+        bundled.mkdir()
+        (bundled / "landlock-loader.py").write_text(
+            LOADER_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        (pkg_root / "interruptor" / "landlock.py").write_text(
+            (
+                PROJECT_ROOT
+                / "plugin"
+                / "terminal_jail"
+                / "interruptor"
+                / "landlock.py"
+            ).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        workdir = tmp_path / "work"
+        workdir.mkdir()
+        home = tmp_path / "home"
+        home.mkdir()
+        secret = tmp_path / "s600"  # home's parent: ungranted by the layout
+        secret.write_text("terminal-jail wheel loader secret\n")
+        os.chmod(secret, 0o600)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(bundled / "landlock-loader.py"),
+                "sh",
+                "-c",
+                "cat '$0' 2>/dev/null; echo rc=$?; echo wheel-payload-ok",
+                str(secret),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+            cwd=str(workdir),
+            env={
+                **os.environ,
+                "HOME": str(tmp_path / "home"),
+                "TMPDIR": "",
+                "TEMP": "",
+                "TMP": "",
+            },
+        )
+        assert "wheel-payload-ok" in result.stdout
+        assert "tier module not found next to the loader" not in result.stderr, (
+            f"the wheel-layout loader must resolve the sibling tier module; "
+            f"stderr={result.stderr!r}"
+        )
+        assert "rc=1" in result.stdout, (
+            f"the kernel EFFECT must reach the payload under the "
+            f"wheel-layout loader: the secret read is DENIED "
+            f"(stdout={result.stdout!r}, stderr={result.stderr!r})"
+        )
+
 
 # ── Loader launch through the standalone CLI (host-conditional) ───────────
 

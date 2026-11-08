@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -124,3 +126,185 @@ class TestWheelLoaderResolution:
             assert found == str(pkg_root / "_bundled" / loader_name)
         finally:
             sys.modules.pop(module_id, None)
+
+
+class TestWheelLoaderModuleResolution:
+    """TJ-DF-060 — the loaders' OWN search resolves the wheel layout.
+
+    The bundled loader copies ship at ``<site>/terminal_jail/_bundled/``
+    while the tier modules are SIBLINGS under
+    ``<site>/terminal_jail/interruptor/``. The search walked only
+    repo-shaped paths (``<current>/plugin/terminal_jail/interruptor`` and
+    bare ``<current>``), so an installed wheel degraded BOTH tiers with
+    the module-not-found warning. The fix adds ``<current>/interruptor``
+    to the same walk. These pins prove both loaders RESOLVE AND EXECUTE
+    the sibling module there (in-process, host-independent), that the
+    real exec path stays free of the module-not-found warning, and that
+    an ``interruptor`` directory WITHOUT the module still degrades
+    loudly (the negative control — the test FAILS if the search ever
+    resolves a module from a directory that has none).
+    """
+
+    # ch:trace row=TJ-DF-060 spec=none:dogfood-row wave=none:serial test=plugin/test_packaging_wheel.py::TestWheelLoaderModuleResolution::test_fs_loader_resolves_and_executes_sibling_module_in_wheel_layout doc=none:scope-fence evidence=none:worker-local-until-foreman-freezes witness=none:worker-branch verdict=none:open-finding commit=none:worker-commit memory=none:not-written
+
+    @staticmethod
+    def _build_wheel_tree(
+        tmp_path: Path,
+        loader_name: str,
+        sibling_modules: tuple[str, ...],
+        *,
+        populate_interruptor: bool = True,
+    ) -> tuple[Path, Path]:
+        """The installed-wheel shape: <site>/terminal_jail/{interruptor,_bundled}."""
+        pkg_root = tmp_path / "site" / "terminal_jail"
+        (pkg_root / "interruptor").mkdir(parents=True)
+        bundled = pkg_root / "_bundled"
+        bundled.mkdir()
+        (bundled / loader_name).write_text(
+            (PROJECT_ROOT / "standalone" / loader_name).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        if populate_interruptor:
+            # Both siblings land in the synthetic tree: landlock_net.py's
+            # by-path import resolves landlock.py NEXT TO ITSELF when no
+            # package context exists (landlock_net.py's ImportError
+            # fallback branch — the same behavior a real wheel relies on).
+            for sibling in sibling_modules:
+                (pkg_root / "interruptor" / sibling).write_text(
+                    (PACKAGE_DIR / "interruptor" / sibling).read_text(encoding="utf-8"),
+                    encoding="utf-8",
+                )
+        return bundled / loader_name, pkg_root / "interruptor"
+
+    @staticmethod
+    def _run_loader_from_wheel_tree(
+        loader_copy: Path, tmp_path: Path, *payload: str, env: dict[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(loader_copy), *payload],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+            cwd=str(tmp_path),
+            env=env,
+        )
+
+    @staticmethod
+    def _find_via_loader_source(loader_copy: Path, func_name: str) -> object:
+        """Execute the loader source with __file__ INSIDE the synthetic tree.
+
+        The search derives everything from ``__file__``, so pointing a
+        compiled copy of the real loader at the wheel-layout copy
+        exercises the exact production function against the exact
+        installed shape — no monkeypatching of the search itself.
+        """
+        namespace: dict[str, object] = {
+            "__file__": str(loader_copy),
+            "__name__": "tj_wheel_layout_probe",
+        }
+        exec(  # noqa: S102 — the loader is the unit under test
+            compile(
+                loader_copy.read_text(encoding="utf-8"),
+                str(loader_copy),
+                "exec",
+            ),
+            namespace,
+        )
+        return namespace[func_name]()
+
+    def test_fs_loader_resolves_and_executes_sibling_module_in_wheel_layout(
+        self, tmp_path: Path
+    ) -> None:
+        loader_copy, interruptor = self._build_wheel_tree(
+            tmp_path, "landlock-loader.py", ("landlock.py",)
+        )
+        try:
+            module = self._find_via_loader_source(loader_copy, "_find_landlock_module")
+        finally:
+            sys.modules.pop("terminal_jail_landlock_standalone", None)
+        assert module is not None, (
+            "the wheel-layout loader must resolve the SIBLING interruptor "
+            "tier module (TJ-DF-060: the search never looked there)"
+        )
+        assert module.__file__ == str(interruptor / "landlock.py")  # type: ignore[attr-defined]
+        assert callable(module.apply_tier)  # type: ignore[attr-defined]
+
+    def test_net_loader_resolves_and_executes_sibling_module_in_wheel_layout(
+        self, tmp_path: Path
+    ) -> None:
+        loader_copy, interruptor = self._build_wheel_tree(
+            tmp_path, "landlock-net-loader.py", ("landlock.py", "landlock_net.py")
+        )
+        try:
+            module = self._find_via_loader_source(
+                loader_copy, "_find_landlock_net_module"
+            )
+        finally:
+            sys.modules.pop("terminal_jail_landlock_net_standalone", None)
+            sys.modules.pop("terminal_jail_landlock_fs_by_path", None)
+        assert module is not None, (
+            "the wheel-layout net loader must resolve the SIBLING "
+            "interruptor tier module (TJ-DF-060)"
+        )
+        assert module.__file__ == str(interruptor / "landlock_net.py")  # type: ignore[attr-defined]
+        assert callable(module.apply_net_tier)  # type: ignore[attr-defined]
+
+    def test_fs_loader_exec_path_from_wheel_tree_has_no_module_not_found(
+        self, tmp_path: Path
+    ) -> None:
+        loader_copy, _ = self._build_wheel_tree(
+            tmp_path, "landlock-loader.py", ("landlock.py",)
+        )
+        env = dict(os.environ)
+        env.pop("TERMINAL_JAIL_LANDLOCK", None)  # default: enabled
+        result = self._run_loader_from_wheel_tree(
+            loader_copy, tmp_path, "echo", "tj-wheel-fs-ok", env=env
+        )
+        assert result.returncode == 0
+        assert "tj-wheel-fs-ok" in result.stdout
+        assert "tier module not found next to the loader" not in result.stderr, (
+            f"the wheel-layout loader must resolve the sibling tier module; "
+            f"stderr={result.stderr!r}"
+        )
+
+    def test_net_loader_exec_path_from_wheel_tree_is_silent_when_disabled(
+        self, tmp_path: Path
+    ) -> None:
+        loader_copy, _ = self._build_wheel_tree(
+            tmp_path, "landlock-net-loader.py", ("landlock.py", "landlock_net.py")
+        )
+        env = dict(os.environ)
+        env.pop("TERMINAL_JAIL_LANDLOCK_NET", None)  # default: off → silent
+        result = self._run_loader_from_wheel_tree(
+            loader_copy, tmp_path, "echo", "tj-wheel-net-ok", env=env
+        )
+        assert result.returncode == 0
+        assert "tj-wheel-net-ok" in result.stdout
+        # The tier is off AND the module resolves: NOTHING to report.
+        assert "terminal-jail:" not in result.stderr, (
+            f"a disabled, RESOLVED net tier must stay silent (no "
+            f"module-not-found warning); stderr={result.stderr!r}"
+        )
+
+    def test_wheel_layout_interruptor_without_module_still_degrades_loudly(
+        self, tmp_path: Path
+    ) -> None:
+        """Negative control: an ``interruptor`` SIBLING directory that
+        holds no ``landlock.py`` must NOT satisfy the new search base —
+        the loader warns (exit 0, payload unchanged). This test FAILS if
+        the search ever resolves a module from a directory without one."""
+        loader_copy, _ = self._build_wheel_tree(
+            tmp_path,
+            "landlock-loader.py",
+            (),
+            populate_interruptor=False,
+        )
+        env = dict(os.environ)
+        env.pop("TERMINAL_JAIL_LANDLOCK", None)
+        result = self._run_loader_from_wheel_tree(
+            loader_copy, tmp_path, "echo", "tj-wheel-neg-ok", env=env
+        )
+        assert result.returncode == 0
+        assert "tj-wheel-neg-ok" in result.stdout
+        assert "tier module not found next to the loader" in result.stderr

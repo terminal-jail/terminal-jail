@@ -49,12 +49,20 @@ import sys
 
 
 def _find_landlock_net_module():
-    """Locate and exec landlock_net.py by path (repo checkout + installed)."""
+    """Locate and exec landlock_net.py by path (repo checkout + installed wheel).
+
+    Repo checkout: ``<root>/plugin/terminal_jail/interruptor/landlock_net.py``
+    found by walking up from the loader. Installed wheel (TJ-DF-060): the
+    loader ships under ``terminal_jail/_bundled/`` and the tier module is
+    its SIBLING directory ``terminal_jail/interruptor/landlock_net.py`` —
+    the ``<current>/interruptor`` base covers it at the package root.
+    """
     loader_dir = os.path.dirname(os.path.abspath(__file__))
     current = loader_dir
     while True:
         for base in (
             os.path.join(current, "plugin", "terminal_jail", "interruptor"),
+            os.path.join(current, "interruptor"),
             current,
         ):
             candidate = os.path.join(base, "landlock_net.py")
