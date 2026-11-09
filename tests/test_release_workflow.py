@@ -39,7 +39,11 @@ def _yaml_load(path: pathlib.Path) -> dict:
 
 
 def _run_script(cwd: pathlib.Path, *args: str, env_extra: dict | None = None):
-    env = {**os.environ, **(env_extra or {})}
+    env = {
+        **os.environ,
+        "TJ_RELEASE_TAG_EXISTS": "absent",
+        **(env_extra or {}),
+    }
     return subprocess.run(
         [str(cwd / "scripts" / "release-cut-check.sh"), *args],
         cwd=cwd,
@@ -199,6 +203,20 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     )
     assert n == 1, "expected exactly one top-level version line in pyproject.toml"
     pp.write_text(new_text)
+    manifest = clone / "plugin" / "plugin.yaml"
+    manifest.write_text(
+        re.sub(
+            r'(?m)^version:\s*["\']?.*$',
+            f'version: "{tag[1:]}"',
+            manifest.read_text(),
+            count=1,
+        )
+    )
+    changelog = clone / "CHANGELOG.md"
+    changelog.write_text(
+        f"## [{tag[1:]}] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
+        + changelog.read_text()
+    )
     subprocess.run(
         [
             "git",
@@ -257,6 +275,8 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     assert f"OK: tag '{tag}' does not exist yet" in proc.stdout
     assert "OK: working tree clean" in proc.stdout
     assert f"OK: pyproject.toml version {tag[1:]} == tag {tag}" in proc.stdout
+    assert f"OK: plugin/plugin.yaml version {tag[1:]} == tag {tag}" in proc.stdout
+    assert f"OK: CHANGELOG.md has matching [{tag[1:]}] section" in proc.stdout
     assert "OK: CI green on HEAD" in proc.stdout
     assert "READY:" in proc.stdout
 
@@ -295,7 +315,9 @@ def test_check_script_fails_clearly_on_existing_tag() -> None:
         f"failed to create temp tag: {make.stderr}"
     )
     try:
-        proc = _run_script(PROJECT_ROOT, tmp_tag)
+        proc = _run_script(
+            PROJECT_ROOT, tmp_tag, env_extra={"TJ_RELEASE_TAG_EXISTS": "local"}
+        )
         assert proc.returncode == 1
         assert "already exists" in proc.stderr
     finally:
@@ -306,6 +328,89 @@ def test_check_script_fails_clearly_on_existing_tag() -> None:
             capture_output=True,
             timeout=30,
         )
+
+
+def _prepare_version_fixture(
+    source: pathlib.Path, destination: pathlib.Path, version: str
+) -> None:
+    shutil.copytree(source, destination, ignore=shutil.ignore_patterns(".git", ".venv"))
+    pyproject = destination / "pyproject.toml"
+    pyproject.write_text(
+        re.sub(
+            r'(?m)^version = ".*"$',
+            f'version = "{version}"',
+            pyproject.read_text(),
+            count=1,
+        )
+    )
+    manifest = destination / "plugin" / "plugin.yaml"
+    manifest.write_text(
+        re.sub(
+            r'(?m)^version:\s*["\']?.*$',
+            f'version: "{version}"',
+            manifest.read_text(),
+            count=1,
+        )
+    )
+    changelog = destination / "CHANGELOG.md"
+    changelog.write_text(
+        f"## [{version}] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
+        + changelog.read_text()
+    )
+    subprocess.run(["git", "init", "-q"], cwd=destination, check=True, timeout=30)
+    subprocess.run(["git", "add", "."], cwd=destination, check=True, timeout=30)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "user.email=tj-release-test@example.invalid",
+            "-c",
+            "user.name=tj-release-test",
+            "commit",
+            "-qm",
+            "scratch fixture",
+        ],
+        cwd=destination,
+        check=True,
+        timeout=30,
+    )
+
+
+def test_check_script_accepts_matching_version_fixture(tmp_path) -> None:
+    fixture = tmp_path / "matching"
+    _prepare_version_fixture(PROJECT_ROOT, fixture, "9.9.9")
+    shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+    proc = _run_script(
+        fixture,
+        "v9.9.9",
+        env_extra={
+            "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
+        },
+    )
+    assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+
+
+def test_check_script_rejects_plugin_version_mismatch(tmp_path) -> None:
+    fixture = tmp_path / "mismatch"
+    _prepare_version_fixture(PROJECT_ROOT, fixture, "9.9.9")
+    manifest = fixture / "plugin" / "plugin.yaml"
+    manifest.write_text(
+        manifest.read_text().replace('version: "9.9.9"', 'version: "9.9.8"')
+    )
+    shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+    proc = _run_script(
+        fixture,
+        "v9.9.9",
+        env_extra={
+            "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
+        },
+    )
+    assert proc.returncode != 0
+    assert "plugin/plugin.yaml" in proc.stderr
+    assert "expected 9.9.9" in proc.stderr
+    assert "9.9.8" in proc.stderr
 
 
 def test_check_script_fails_clearly_on_wrong_version_tag() -> None:

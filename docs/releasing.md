@@ -21,10 +21,13 @@ RELCI-001 blocks the workflow preflight).
 
 1. **Version-prep commit.** Land a single commit that changes exactly the
    `version = "X.Y.Z"` line in `pyproject.toml`, the matching `version:` in
-   `plugin/plugin.yaml`, and its CHANGELOG entry. The workflow never bumps
-   versions; if you push a tag whose version does not match `pyproject.toml`,
-   the workflow fails loudly at its `Verify pyproject version matches the tag`
-   step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
+   `plugin/plugin.yaml`, and its matching CHANGELOG section. Run
+   `scripts/release-cut-check.sh vX.Y.Z` to validate that all three version
+   surfaces agree; the checker validates content consistency, not commit
+   atomicity. The one-commit rule remains the operator/CI contract. The
+   workflow never bumps versions; if you push a tag whose version does not
+   match `pyproject.toml`, the workflow fails loudly at its `Verify pyproject
+   version matches the tag` step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
    pins the manifest to `pyproject.toml`, so bumping only `pyproject.toml`
    turns the CI matrix red before the tag.
 
