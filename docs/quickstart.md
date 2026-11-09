@@ -34,7 +34,7 @@ PID-namespace containment for everything Hermes runs → deploy shim
 ### 3a. Standalone CLI
 
 ```bash
-# From source (recommended until release assets are published)
+# From source (checkout install; also supports rule packs)
 git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
 ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
@@ -66,11 +66,20 @@ failure**: the wrapper and default rules still install, the skip is printed
 with its reason, and the installer exits `2` at the end with a summary
 (`--unrule-pack` needs no Python at all).
 
-Release-mode downloads (wrapper + SHA-256 from a published release) are
-**opt-in only**: set `TERMINAL_JAIL_USE_RELEASE=1` (with
-`TERMINAL_JAIL_BASE_URL` if you host assets yourself). Without the flag the
-installer refuses rather than hitting the dead default release URL — release
-assets are not published yet.
+Release-mode downloads are **opt-in** and use the published GitHub Release
+wheel plus its checksum manifest. The installer downloads
+`terminal_jail-1.3.1-py3-none-any.whl`, verifies the matching entry in
+`SHA256SUMS`, and extracts the bundled wrapper/support files. Other published
+versions use the same naming pattern:
+
+```bash
+TERMINAL_JAIL_USE_RELEASE=1 ./install.sh                    # default: 1.3.1
+TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.1 ./install.sh
+```
+
+Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory for a mirror or
+local fixture. The checkout path above remains supported; PyPI is not a
+channel.
 
 After installing or upgrading, verify the installed rules mirror against the
 engine in one command (TJ-GAP-069):

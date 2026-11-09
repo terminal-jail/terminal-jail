@@ -4,21 +4,16 @@
 set -eu
 
 # --- defaults ----------------------------------------------------------------
-# Release mode is EXPLICITLY OPTED IN via TERMINAL_JAIL_USE_RELEASE=1 — no
-# release assets are published yet, so the default curl | sh path must not
-# silently 404 (see TJ-GAP-023). Local mode (./install.sh from a checkout) is
-# the supported install path; it ships the wrapper, the plugin bridge tree,
-# and the seccomp loader together.
+# Release mode is EXPLICITLY OPTED IN via TERMINAL_JAIL_USE_RELEASE=1. Local
+# mode (./install.sh from a checkout) remains the supported source install path;
+# release mode downloads the published wheel and its SHA256SUMS manifest.
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
-# The default below is the last released tag, not the version of this tree, and
-# the difference is deliberate. This value builds the release-mode download URL
-# (TERMINAL_JAIL_BASE_URL, below), so it must name a tag whose assets actually
-# exist — v1.3.0 is not tagged yet, which leaves v1.2.0 as the newest tag that
-# resolves. Do not "sync" it to pyproject.toml. A normal checkout install never
-# uses it: the LOCAL_VERSION block in the install section reads the version out
-# of pyproject.toml and reports that one instead; only a checkout with no
-# packaging metadata falls back to this value.
-TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.2.0}"
+# This is the newest published release represented by the repository's release
+# surface. It is intentionally independent of pyproject.toml: checkout installs
+# read their version from that file, while release installs need a tag with
+# downloadable assets. A leading `v` is accepted for explicit overrides.
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.1}"
+TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
 # (default) = derive from the install scope: the live user rules dir
@@ -116,7 +111,7 @@ path_normalize() {
     esac
     printf '%s\n' "$output"
 }
-TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/terminal-jail/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
+TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/terminal-jail/terminal-jail/releases/download/v${TERMINAL_JAIL_RELEASE_VERSION}}"
 
 # --- installer flags (TJ-GAP-061) --------------------------------------------
 # The installer stays env-var driven; these flags only add the opt-in rule-pack
@@ -308,8 +303,9 @@ Environment (all optional):
                                (default: derived from the install scope)
   TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
                                local checkout (rule packs need the checkout)
-  TERMINAL_JAIL_VERSION        release version to download (default: 1.2.0,
-                               the last released tag; a checkout install uses
+  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.1,
+                               the newest published asset release; accepts an
+                               optional leading 'v'; checkout installs use
                                the pyproject version)
   TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
   TERMINAL_JAIL_REQUIRE_TIER   demand a containment tier instead of the default
@@ -536,18 +532,18 @@ ARCH="$(uname -m)"
 echo "terminal-jail installer: detected architecture ${ARCH}"
 
 # --- release-mode gate -------------------------------------------------------
-# No release assets are published yet. Without a local checkout wrapper and
-# without an explicit TERMINAL_JAIL_USE_RELEASE=1 opt-in, refuse instead of
-# downloading from a dead URL (curl | sh would otherwise 404 silently).
-# --uninstall is exempt (TJ-GAP-071): it downloads nothing, so the dead-URL
-# hazard does not apply and removal must work from any invocation shape.
+# Release assets are published on GitHub Releases, but downloads remain
+# explicitly opt-in. Without a local checkout wrapper and without
+# TERMINAL_JAIL_USE_RELEASE=1, refuse rather than guessing a release channel.
+# --uninstall is exempt (TJ-GAP-071): it downloads nothing, so the release
+# download contract does not apply and removal must work from any invocation shape.
 # --hermes-plugin is exempt for the same reason (TJ-DF-022): it copies a
 # checkout tree, downloads nothing, and a refresh must work from any
 # invocation shape (its own checkout guard follows).
 if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ] && [ "$UNINSTALL" -eq 0 ] && [ "$HERMES_PLUGIN" -eq 0 ]; then
     echo "terminal-jail installer: no local checkout detected and release mode is not enabled." >&2
-    echo "  Release assets are not published yet (the default download URL returns 404)." >&2
-    echo "  Supported install: run ./install.sh from a repository checkout." >&2
+    echo "  Release downloads are opt-in; published assets are available for release mode." >&2
+    echo "  Supported source install: run ./install.sh from a repository checkout." >&2
     echo "  To opt into release mode anyway, set TERMINAL_JAIL_USE_RELEASE=1" >&2
     echo "  (with TERMINAL_JAIL_BASE_URL if you host assets yourself)." >&2
     exit 1
@@ -725,6 +721,11 @@ if [ -z "$LOCAL_WRAPPER" ]; then
         has_shasum=1
     else
         echo "terminal-jail installer: requires sha256sum or shasum (neither found)" >&2
+        exit 1
+    fi
+
+    if ! command -v unzip >/dev/null 2>&1; then
+        echo "terminal-jail installer: release asset is a wheel and requires unzip (not found)" >&2
         exit 1
     fi
 fi
@@ -1168,10 +1169,13 @@ mkdir -p "$TERMINAL_JAIL_INSTALL_DIR"
 
 tmpdir="${TERMINAL_JAIL_INSTALL_DIR}"
 tmp_payload="${tmpdir}/.terminal-jail.$$"
-tmp_checksum="${tmpdir}/.terminal-jail.$$.sha256"
+tmp_wheel="${tmpdir}/.terminal-jail.$$.whl"
+tmp_checksum="${tmpdir}/.terminal-jail.$$.SHA256SUMS"
+tmp_extract="${tmpdir}/.terminal-jail.$$extract"
 
 cleanup() {
-    rm -f "$tmp_payload" "$tmp_checksum"
+    rm -f "$tmp_payload" "$tmp_wheel" "$tmp_checksum"
+    rm -rf "$tmp_extract"
 }
 trap cleanup EXIT INT TERM
 
@@ -1338,16 +1342,61 @@ if [ -n "$LOCAL_WRAPPER" ]; then
         echo "terminal-jail installer: WARNING — default rules file not found next to installer; user rules directory left empty" >&2
     fi
 else
-    echo "terminal-jail installer: downloading v${TERMINAL_JAIL_VERSION}..."
-    download "${TERMINAL_JAIL_BASE_URL}/terminal-jail" "$tmp_payload"
-    download "${TERMINAL_JAIL_BASE_URL}/terminal-jail.sha256" "$tmp_checksum"
-
-    expected="$(awk '{print $1}' "$tmp_checksum")"
-    if ! check_sha256 "$tmp_payload" "$expected"; then
-        echo "terminal-jail installer: checksum verification FAILED — aborting" >&2
+    # GitHub Releases publish the self-contained wheel and SHA256SUMS. The
+    # standalone wrapper is the wheel's package-data copy; extracting the
+    # package also preserves the bridge, rules, and tier loaders needed by the
+    # installed layout. Do not fall back to PyPI or generic binary names.
+    release_asset="terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl"
+    echo "terminal-jail installer: downloading release v${TERMINAL_JAIL_RELEASE_VERSION} (${release_asset})..."
+    if ! download "${TERMINAL_JAIL_BASE_URL}/${release_asset}" "$tmp_wheel"; then
+        echo "terminal-jail installer: release asset unavailable: ${release_asset} (version ${TERMINAL_JAIL_VERSION})" >&2
         exit 1
     fi
-    echo "terminal-jail installer: checksum OK"
+    if ! download "${TERMINAL_JAIL_BASE_URL}/SHA256SUMS" "$tmp_checksum"; then
+        echo "terminal-jail installer: release checksum manifest unavailable: SHA256SUMS (version ${TERMINAL_JAIL_VERSION})" >&2
+        exit 1
+    fi
+
+    expected="$(awk -v asset="$release_asset" '
+        { name=$2; sub(/^\\*/, "", name); if (name == asset) print $1 }
+    ' "$tmp_checksum" | head -n 1)"
+    if [ -z "$expected" ]; then
+        echo "terminal-jail installer: release checksum entry unavailable: ${release_asset} is not listed in SHA256SUMS" >&2
+        exit 1
+    fi
+    case "$expected" in
+        *[!0-9a-fA-F]*)
+            echo "terminal-jail installer: release checksum entry invalid: ${release_asset} in SHA256SUMS" >&2
+            exit 1
+            ;;
+    esac
+    if [ "${#expected}" -ne 64 ]; then
+        echo "terminal-jail installer: release checksum entry invalid: ${release_asset} in SHA256SUMS" >&2
+        exit 1
+    fi
+    if ! check_sha256 "$tmp_wheel" "$expected"; then
+        echo "terminal-jail installer: checksum verification FAILED for ${release_asset} — aborting" >&2
+        exit 1
+    fi
+    echo "terminal-jail installer: checksum OK (${release_asset})"
+
+    mkdir -p "$tmp_extract"
+    if ! unzip -q "$tmp_wheel" -d "$tmp_extract"; then
+        echo "terminal-jail installer: release wheel could not be extracted: ${release_asset}" >&2
+        exit 1
+    fi
+    release_wrapper="${tmp_extract}/terminal_jail/_bundled/terminal-jail"
+    release_package="${tmp_extract}/terminal_jail"
+    if [ ! -s "$release_wrapper" ] || [ ! -d "$release_package" ]; then
+        echo "terminal-jail installer: release wheel missing required terminal_jail/_bundled/terminal-jail artifact: ${release_asset}" >&2
+        exit 1
+    fi
+    LIB_DIR="$(path_normalize "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
+    mkdir -p "$LIB_DIR/plugin"
+    rm -rf -- "$LIB_DIR/plugin/terminal_jail"
+    cp -R "$release_package" "$LIB_DIR/plugin/"
+    cp "$release_wrapper" "$tmp_payload"
+    echo "terminal-jail installer: extracted release package to ${LIB_DIR}/plugin/terminal_jail"
 fi
 
 # Integrity sanity check — first line must be the expected shebang.

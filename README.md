@@ -187,9 +187,16 @@ The one mistake that wastes the first several attempts: `match.type: regex` is *
 
 ### Release mode
 
-Release-mode installs (downloading the wrapper from a published release plus its SHA-256 checksum, verified and atomically installed) are supported by `install.sh` via `TERMINAL_JAIL_USE_RELEASE=1` with `TERMINAL_JAIL_BASE_URL`, but no release assets are published yet and release mode is therefore **opt-in only** — without the flag the installer refuses instead of hitting a dead URL. The git-clone path above is the supported install path.
+Published GitHub Releases provide a self-contained Python wheel and `SHA256SUMS`. Release-mode installs download the versioned `terminal_jail` wheel, verify its matching `SHA256SUMS` entry, and extract the bundled wrapper and support files. Release mode is **opt-in**:
 
-**PyPI is not a distribution channel** for this project: there are no `terminal-jail` packages on PyPI or any other index, so `pip install terminal-jail==<version>` always fails by design. Source install (above) is the only supported channel — see [docs/supply-chain.md](docs/supply-chain.md#distribution-channel) for the statement automation should rely on.
+```bash
+TERMINAL_JAIL_USE_RELEASE=1 ./install.sh
+TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.1 ./install.sh
+```
+
+The default release version is the newest published asset release represented by this repository (`1.3.1`). Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory when using a mirror or local fixture. The checkout install path above remains supported and is useful when installing rule packs or developing the project.
+
+**PyPI is not a distribution channel** for this project: there are no `terminal-jail` packages on PyPI or any other index, so `pip install terminal-jail==<version>` always fails by design. Use a published GitHub Release or install from a checkout; see [docs/supply-chain.md](docs/supply-chain.md#distribution-channel).
 
 ---
 
