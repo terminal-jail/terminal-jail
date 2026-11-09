@@ -68,8 +68,9 @@ with its reason, and the installer exits `2` at the end with a summary
 
 Release-mode downloads are **opt-in** and use the published GitHub Release
 wheel plus its checksum manifest. The installer downloads
-`terminal_jail-<version>-py3-none-any.whl`, verifies the matching entry in
-`SHA256SUMS`, and extracts the bundled wrapper/support files:
+`terminal_jail-1.3.1-py3-none-any.whl`, verifies the matching entry in
+`SHA256SUMS`, and extracts the bundled wrapper/support files. Other published
+versions use the same naming pattern:
 
 ```bash
 TERMINAL_JAIL_USE_RELEASE=1 ./install.sh                    # default: 1.3.1

@@ -187,7 +187,7 @@ The one mistake that wastes the first several attempts: `match.type: regex` is *
 
 ### Release mode
 
-Published GitHub Releases provide a self-contained Python wheel and `SHA256SUMS`. Release-mode installs download `terminal_jail-<version>-py3-none-any.whl`, verify its matching `SHA256SUMS` entry, and extract the bundled wrapper and support files. Release mode is **opt-in**:
+Published GitHub Releases provide a self-contained Python wheel and `SHA256SUMS`. Release-mode installs download the versioned `terminal_jail` wheel, verify its matching `SHA256SUMS` entry, and extract the bundled wrapper and support files. Release mode is **opt-in**:
 
 ```bash
 TERMINAL_JAIL_USE_RELEASE=1 ./install.sh
