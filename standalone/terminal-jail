@@ -266,6 +266,18 @@ version() {
 
 # --- interruptor bridge -------------------------------------------------------
 
+# TJ-DF-061: the interpreter for the WHOLE bridge path. A pip-installed
+# wheel's console script exports the INSTALLING interpreter (sys.executable)
+# as TERMINAL_JAIL_PYTHON before exec'ing this script: the interruptor
+# engine and PyYAML live in the installing venv, which may not be on PATH
+# (an unactivated venv), so the bare `python3` resolution below used to
+# fail closed with a [bridge-error] verdict on every firewall-on
+# invocation. Unset/empty keeps the historical `python3` (checkout and
+# install.sh layouts, where python3 carries the package). An explicitly
+# set but nonexistent interpreter makes the bridge invocation fail loudly
+# — fail closed in enforce mode, never a silent fallback to python3.
+_TJ_BRIDGE_PY="${TERMINAL_JAIL_PYTHON:-python3}"
+
 # Find the interruptor bridge script. Search order:
 #   1. TERMINAL_JAIL_BRIDGE (explicit override — missing file = hard failure)
 #   2. ../plugin/ next to this script (repository checkout)
@@ -293,7 +305,7 @@ _find_bridge() {
         return 0
     fi
     # Fallback: check python module path
-    candidate=$(python3 -c "import terminal_jail.interruptor_bridge; print(terminal_jail.interruptor_bridge.__file__)" 2>/dev/null || true)
+    candidate=$("$_TJ_BRIDGE_PY" -c "import terminal_jail.interruptor_bridge; print(terminal_jail.interruptor_bridge.__file__)" 2>/dev/null || true)
     if [ -n "$candidate" ] && [ -f "$candidate" ]; then
         echo "$candidate"
         return 0
@@ -307,7 +319,8 @@ _interruptor_evaluate() {
     bridge=$(_find_bridge) || return 1
 
     # Pipe the command to the bridge and capture the JSON response.
-    # Use python3 to invoke the bridge directly for speed.
+    # Use the bridge-path interpreter (TJ-DF-061) to invoke the bridge
+    # directly for speed.
     # TJ-DF-044: the bridge's stderr is diagnostic surface, not noise — it
     # carries the Landlock tier banners and the loud degradation warnings
     # (e.g. "landlock-net-loader.py not found next to the plugin") that used
@@ -317,8 +330,8 @@ _interruptor_evaluate() {
     # untouched. The caller must therefore NOT redirect this call's stderr
     # to /dev/null. Pipeline status stays the bridge's exit code, so the
     # `|| return 1` unavailable-bridge semantics are unchanged.
-    echo "{\"command\":$(echo "$cmd" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | \
-        python3 "$bridge" || return 1
+    echo "{\"command\":$(echo "$cmd" | "$_TJ_BRIDGE_PY" -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | \
+        "$_TJ_BRIDGE_PY" "$bridge" || return 1
 }
 
 # --- argument parsing ---------------------------------------------------------
@@ -498,7 +511,7 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
         #
         # Exit codes: 0 = parsed (line 1 PARSE-OK, line 2 action, line 3 rule_id,
         # line 4 reason), 1 = stdout is empty or not a JSON object.
-        _tj_verdict=$(echo "$bridge_result" | python3 -c '
+        _tj_verdict=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c '
 import json, sys
 try:
     d = json.loads(sys.stdin.read())
@@ -584,7 +597,7 @@ print(d.get("reason") or "Command blocked by security policy")
                 exit 126
             fi
         elif [ "$action" = "modify" ]; then
-            modified_cmd=$(echo "$bridge_result" | python3 -c "
+            modified_cmd=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c "
 import json,sys
 r = json.loads(sys.stdin.read())
 print(r.get('modified') or r.get('command', ''))
@@ -608,7 +621,7 @@ print(r.get('modified') or r.get('command', ''))
             # with action=warn evaluates to ALLOW with a would-have-blocked
             # reason (TJ-DF-012). Surface either on stderr; the command
             # runs and we exit 0.
-            warn_reason=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
+            warn_reason=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
             case "$warn_reason" in
                 # Match both the env-mode downgrade marker ("[WARN MODE]
                 # Would have blocked: ...") and the user-rule warn reason
