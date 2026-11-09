@@ -457,7 +457,7 @@ class TestUnactivatedVenvBridgeInterpreter:
     the verdict-path arms run on every Linux host.
     """
 
-    # ch:trace row=TJ-DF-061 spec=board:TJ-DF-061 wave=none:serial test=plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter::test_allow_verdict_runs_command_with_venv_absent_from_path evidence=plugin/test_packaging_wheel.py witness=none:worker-local verdict=none:pending-foreman-judge commit=a321c4d293b27c5e9e1c5f7e559a361a442c6514 memory=none:foreman-closeout-pending
+    # ch:trace row=TJ-DF-061 spec=board:TJ-DF-061 wave=none:serial test=plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter::test_allow_verdict_runs_command_with_venv_absent_from_path evidence=plugin/test_packaging_wheel.py witness=none:worker-local verdict=PASS:cf28005b evidence=.gitreins/history/2026-11-09/cf28005b/verdict.json commit=15fe8f9b7858e29f5f79f3c1e68255693bcec181 memory=none:foreman-closeout-pending
 
     @pytest.mark.standalone_cli
     def test_allow_verdict_runs_command_with_venv_absent_from_path(

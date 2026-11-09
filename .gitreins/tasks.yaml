@@ -2310,6 +2310,6 @@ tasks:
     echo hi exits 0 with an allow rule_id and runs; rm -rf / remains blocked; explicit
     nonexistent interpreter fails loudly; --no-interruptor remains unchanged; regression
     test covers absolute-path unactivated-venv invocation.
-  status: in_progress
-  created_at: '2026-11-08T23:58:25.761373+00:00'
-  completed_at: '2026-11-09T00:49:28.506553+00:00'
+  status: complete
+  created_at: '2026-11-09T07:53:27.701156+00:00'
+  completed_at: '2026-11-09T07:56:43.158648+00:00'
