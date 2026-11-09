@@ -465,6 +465,17 @@ class TestCompositionBattery:
         with pytest.raises(pytest.skip.Exception, match="docker daemon"):
             self._run_live_three_cell()
 
+    def test_unreachable_daemon_environment_skips_live_battery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The real CLI-present probe must skip on an unreachable daemon."""
+        monkeypatch.setenv("DOCKER_HOST", "unix:///tmp/nonexistent-docker.sock")
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert "docker daemon" in reason
+        with pytest.raises(pytest.skip.Exception, match="docker daemon"):
+            self._run_live_three_cell()
+
     def test_daemon_available_control_runs_three_cell_battery(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -509,4 +520,4 @@ class TestCompositionBattery:
         assert result.returncode == 0, result.stderr
         assert "summary: 3/3 PASS" in result.stdout
 
-    # ch:trace row=TJ-DF-063 spec=tests/test_composed_mode.py#TestCompositionBattery wave=none:serial-dispatch test=tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run doc=none:not-required prompt=/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-09-08-21-13-TJ-DF-063-brief.txt evidence=tests/test_composed_mode.py witness=none:daemon-state-is-host-dependent verdict=none:pending-foreman-judge commit=none:pending memory=none:foreman-will-write-after-closeout
+    # ch:trace row=TJ-DF-063 spec=tests/test_composed_mode.py#TestCompositionBattery wave=none:serial-dispatch test=tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run doc=none:not-required prompt=/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-09-15-55-51/dispatch-rework/TJ-DF-063-brief.txt evidence=tests/test_composed_mode.py witness=live:docker-daemon-probe verdict=none:pending-foreman-judge commit=d2c03b5 memory=none:foreman-will-write-after-closeout
