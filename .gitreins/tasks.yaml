@@ -2313,3 +2313,17 @@ tasks:
   status: complete
   created_at: '2026-11-09T07:53:27.701156+00:00'
   completed_at: '2026-11-09T07:56:43.158648+00:00'
+- id: RELEASE-TJ-013b
+  title: 'RELEASE-TJ-013 re-verification on merged main: atomic version-prep surfaces
+    + byte-exact release-body snapshot'
+  criteria:
+  - scripts/release-cut-check.sh refuses a tag whose pyproject.toml, plugin/plugin.yaml
+    and CHANGELOG.md version surfaces disagree, and refuses a missing CHANGELOG section,
+    exiting 0 only when all agree; docs/releasing.md documents the one-commit version-prep
+    rule and the docs/releases/ body snapshot step; docs/releases/v1.3.1-notes.md
+    equals the live GitHub body byte for byte (sha256 44a634c0..., 3035 B) and cites
+    the green tag run 41854640938 on e474191 plus the failed prep run 41854020675
+    on 6ca0bfa; tests/test_release_workflow.py passes.
+  status: complete
+  created_at: '2026-11-09T18:57:41.682130+00:00'
+  completed_at: '2026-11-09T19:02:49.869250+00:00'
