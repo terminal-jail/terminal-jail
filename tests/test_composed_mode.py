@@ -16,7 +16,8 @@ Pins the composed deployment contract end to end:
 - the host-capability probes fail fast (3s budget, was 15s) — pinned as
   constants, and live inside a container only (skip marker elsewhere);
 - scripts/composed-mode-battery.py: validation semantics (offline) and, on a
-  container host, the live three-cell run (skip when docker is absent).
+  container host, the live three-cell run (skip when the Docker daemon is
+  unavailable).
 
 Patterns follow plugin/test_standalone_cli.py (forced-fail PATH without
 bwrap = the real container shape) and tests/test_kernel_matrix_teardown.py
@@ -323,12 +324,6 @@ def test_probe_budgets_are_three_seconds() -> None:
 # ── Battery pins (offline + container-conditional live) ───────────────────
 
 
-def shutil_which_docker() -> bool:
-    import shutil
-
-    return shutil.which("docker") is not None
-
-
 class TestCompositionBattery:
     @classmethod
     def setup_class(cls) -> None:
@@ -432,10 +427,10 @@ class TestCompositionBattery:
         assert child_env["PATH"] == "/usr/bin:/bin"
         assert child_env["TERMINAL_JAIL_COMPOSED"] == "auto"
 
-    @pytest.mark.skipif(
-        not shutil_which_docker(), reason="docker not available on this host"
-    )
-    def test_live_three_cell_run(self) -> None:
+    def _run_live_three_cell(self) -> subprocess.CompletedProcess[str]:
+        reason = self.battery._docker_available()
+        if reason is not None:
+            pytest.skip(reason)
         result = subprocess.run(
             [sys.executable, str(BATTERY)],
             capture_output=True,
@@ -443,5 +438,86 @@ class TestCompositionBattery:
             timeout=400,
             check=False,
         )
+        return result
+
+    def test_docker_cli_absent_skips_with_probe_reason(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(self.battery.shutil, "which", lambda _name: None)
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert "docker CLI" in reason
+        assert "daemon" in reason
+
+    def test_docker_daemon_unavailable_skips_live_battery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        monkeypatch.setattr(
+            self.battery.subprocess,
+            "run",
+            lambda *_args, **_kwargs: subprocess.CompletedProcess(
+                ["docker", "info"], 1, "", "Cannot connect to the Docker daemon"
+            ),
+        )
+        with pytest.raises(pytest.skip.Exception, match="docker daemon"):
+            self._run_live_three_cell()
+
+    def test_unreachable_daemon_environment_skips_live_battery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The real CLI-present probe must skip on an unreachable daemon."""
+        monkeypatch.setenv("DOCKER_HOST", "unix:///tmp/nonexistent-docker.sock")
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert "docker daemon" in reason
+        with pytest.raises(pytest.skip.Exception, match="docker daemon"):
+            self._run_live_three_cell()
+
+    def test_daemon_available_control_runs_three_cell_battery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(self.battery, "_docker_available", lambda: None)
+        calls: list[tuple[list[str], dict]] = []
+
+        def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            calls.append((cmd, kwargs))
+            return subprocess.CompletedProcess(cmd, 0, "summary: 3/3 PASS\n", "")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        result = self._run_live_three_cell()
         assert result.returncode == 0, result.stderr
         assert "summary: 3/3 PASS" in result.stdout
+        assert calls[0][0] == [sys.executable, str(BATTERY)]
+
+    def test_docker_probe_uses_bounded_timeout(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        captured: dict[str, object] = {}
+
+        def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            captured["cmd"] = cmd
+            captured.update(kwargs)
+            return subprocess.CompletedProcess(cmd, 0, "27.5.1", "")
+
+        monkeypatch.setattr(self.battery.subprocess, "run", fake_run)
+        assert self.battery._docker_available() is None
+        assert captured["cmd"] == [
+            "/usr/bin/docker",
+            "info",
+            "--format",
+            "{{.ServerVersion}}",
+        ]
+        assert captured["timeout"] == 3
+
+    def test_live_three_cell_run(self) -> None:
+        result = self._run_live_three_cell()
+        assert result.returncode == 0, result.stderr
+        assert "summary: 3/3 PASS" in result.stdout
+
+    # ch:trace row=TJ-DF-063 spec=tests/test_composed_mode.py#TestCompositionBattery wave=none:serial-dispatch test=tests/test_composed_mode.py::TestCompositionBattery::test_live_three_cell_run doc=none:not-required prompt=/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-09-15-55-51/dispatch-rework/TJ-DF-063-brief.txt evidence=tests/test_composed_mode.py witness=live:docker-daemon-probe verdict=none:pending-foreman-judge commit=43c7634 memory=none:foreman-will-write-after-closeout

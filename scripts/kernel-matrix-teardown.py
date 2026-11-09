@@ -277,10 +277,13 @@ def run_backend_cell(backend: str) -> dict:
             backend,
             verdict="UNAVAILABLE",
             survival=None,
-            exit_code=launcher.returncode,
+            # No payload means no observed wrapper result belongs in the row.
+            # Keep the launcher rc in evidence only; UNAVAILABLE rows carry
+            # null measurement fields by contract.
+            exit_code=None,
             evidence=(
                 f"no 'sleep 300' payload appeared within {LAUNCH_WAIT:.0f}s; "
-                "wrapper exited without launching the jail"
+                f"wrapper exited without launching the jail (rc={launcher.returncode})"
             ),
         )
     try:
