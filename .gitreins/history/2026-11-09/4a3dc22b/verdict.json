@@ -1,0 +1,147 @@
+{
+  "task_id": "INT-CI-018-R1",
+  "task_title": "Verify merged INT-CI-018 Docker timeout fix",
+  "task_criteria": [
+    "On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-2026-11-09-22-10-58-closeout",
+  "branch": "foreman/terminal-jail-2026-11-09-22-10-58-closeout",
+  "commit": "e942fd69b44dbfb13b7944c50c65123930761ab6",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "b8e8e21d185661abebcbb9e405694500bd43de3c2d4b0f111d94eb3c443211e1",
+  "working_tree_dirty_path_count": 2,
+  "items": [
+    {
+      "criterion": "On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6.",
+      "status": "PASS",
+      "detail": "All four sub-claims verified on merged main. (1) COMMIT: `git log -1 --format='%H'` => e942fd69b44dbfb13b7944c50c65123930761ab6, 'Merge branch wt/INT-CI-018' with parents bc829b6 + dfec1d4 \u2014 exact match. (2) DAEMON-SPECIFIC REASON: scripts/composed-mode-battery.py:312 `return f\"docker daemon unavailable: {exc}\"` (dfec1d4 changed it from 'docker info failed: {exc}'); TimeoutExpired subclasses subprocess.SubprocessError so it hits this branch. Confirmed in the merged tree, not just the branch: `git show HEAD:scripts/composed-mode-battery.py | sed -n 311,313p` => `return f\"docker daemon unavailable: {exc}\"`. Live simulation of a probe timeout produced reason = \"docker daemon unavailable: Command '['docker', 'info']' timed out after 3 seconds\", and _container_cells() propagated it into both UNAVAILABLE cells' failures, surfacing via main()'s `! {failure}` print at scripts/composed-mode-battery.py:483. (3) FOCUSED TEST: `/usr/bin/python3 -m pytest tests/test_composed_mode.py::TestCompositionBattery -x --tb=short -q` => \"11 passed in 13.82s\", exit 0. The new test test_docker_probe_timeout_reports_daemon_unavailable is a genuine regression test: reverting line 312 to the old string makes it FAIL with `assert 'docker daemon' in \"docker info failed: Command '['docker', 'info']' timed out after 3 seconds\"` at tests/test_composed_mode.py:492. Whole file: \"21 passed, 3 skipped in 17.56s\" (skips are live-docker cells). (4) RUFF: `ruff check .` => \"All checks passed!\", exit 0. (5) BOARD GUARD: `/usr/bin/python3 scripts/board_id_guard.py` => \"OK: 364 rows, 364 unique ids\", EXIT=0 (only advisory P2/P3 evidence warnings); guard tests tests/test_board_schema_guard.py + plugin/test_board_id_guard.py => \"43 passed in 2.16s\". Working tree clean apart from the .gitreins/tasks.yaml board row."
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-2026-11-09-22-10-58-closeout/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check",
+      "steps": [
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\nsh: 1: .venv/bin/python: not found\n",
+          "error": "",
+          "data": {
+            "exit_code": 127,
+            "pytest_outcome": {
+              "kind": "unknown",
+              "detail": "pytest exited with unexpected code 127",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "skipped": true,
+            "skip_reason": "test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-2026-11-09-22-10-58-closeout/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command"
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:28PM INF scanned ~2716209 bytes (2.72 MB) in 181ms\n5:28PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 243 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6.: All four sub-claims verified on merged main. (1) COMMIT: `git log -1 --format='%H'` => e942fd69b44dbfb13b7944c50c65123930761ab6, 'Merge branch wt/INT-CI-018' with parents bc829b6 + dfec1d4 \u2014 exact match. (2) DAEMON-SPECIFIC REASON: scripts/composed-mode-battery.py:312 `return f\"docker daemon unavailable: {exc}\"` (dfec1d4 changed it from 'docker info failed: {exc}'); TimeoutExpired subclasses subprocess.SubprocessError so it hits this branch. Confirmed in the merged tree, not just the branch: `git show HEAD:scripts/composed-mode-battery.py | sed -n 311,313p` => `return f\"docker daemon unavailable: {exc}\"`. Live simulation of a probe timeout produced reason = \"docker daemon unavailable: Command '['docker', 'info']' timed out after 3 seconds\", and _container_cells() propagated it into both UNAVAILABLE cells' failures, surfacing via main()'s `! {failure}` print at scripts/composed-mode-battery.py:483. (3) FOCUSED TEST: `/usr/bin/python3 -m pytest tests/test_composed_mode.py::TestCompositionBattery -x --tb=short -q` => \"11 passed in 13.82s\", exit 0. The new test test_docker_probe_timeout_reports_daemon_unavailable is a genuine regression test: reverting line 312 to the old string makes it FAIL with `assert 'docker daemon' in \"docker info failed: Command '['docker', 'info']' timed out after 3 seconds\"` at tests/test_composed_mode.py:492. Whole file: \"21 passed, 3 skipped in 17.56s\" (skips are live-docker cells). (4) RUFF: `ruff check .` => \"All checks passed!\", exit 0. (5) BOARD GUARD: `/usr/bin/python3 scripts/board_id_guard.py` => \"OK: 364 rows, 364 unique ids\", EXIT=0 (only advisory P2/P3 evidence warnings); guard tests tests/test_board_schema_guard.py + plugin/test_board_id_guard.py => \"43 passed in 2.16s\". Working tree clean apart from the .gitreins/tasks.yaml board row.\nThe INT-CI-018 Docker probe-timeout fix is present in merged main at the exact commit e942fd69b44dbfb13b7944c50c65123930761ab6, classifies the timeout as 'docker daemon unavailable' end-to-end, and the focused TestCompositionBattery (11 passed), ruff (All checks passed) and board guard (OK: 364 rows) all pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6.: All four sub-claims verified on merged main. (1) COMMIT: `git log -1 --format='%H'` => e942fd69b44dbfb13b7944c50c65123930761ab6, 'Merge branch wt/INT-CI-018' with parents bc829b6 + dfec1d4 \u2014 exact match. (2) DAEMON-SPECIFIC REASON: scripts/composed-mode-battery.py:312 `return f\"docker daemon unavailable: {exc}\"` (dfec1d4 changed it from 'docker info failed: {exc}'); TimeoutExpired subclasses subprocess.SubprocessError so it hits this branch. Confirmed in the merged tree, not just the branch: `git show HEAD:scripts/composed-mode-battery.py | sed -n 311,313p` => `return f\"docker daemon unavailable: {exc}\"`. Live simulation of a probe timeout produced reason = \"docker daemon unavailable: Command '['docker', 'info']' timed out after 3 seconds\", and _container_cells() propagated it into both UNAVAILABLE cells' failures, surfacing via main()'s `! {failure}` print at scripts/composed-mode-battery.py:483. (3) FOCUSED TEST: `/usr/bin/python3 -m pytest tests/test_composed_mode.py::TestCompositionBattery -x --tb=short -q` => \"11 passed in 13.82s\", exit 0. The new test test_docker_probe_timeout_reports_daemon_unavailable is a genuine regression test: reverting line 312 to the old string makes it FAIL with `assert 'docker daemon' in \"docker info failed: Command '['docker', 'info']' timed out after 3 seconds\"` at tests/test_composed_mode.py:492. Whole file: \"21 passed, 3 skipped in 17.56s\" (skips are live-docker cells). (4) RUFF: `ruff check .` => \"All checks passed!\", exit 0. (5) BOARD GUARD: `/usr/bin/python3 scripts/board_id_guard.py` => \"OK: 364 rows, 364 unique ids\", EXIT=0 (only advisory P2/P3 evidence warnings); guard tests tests/test_board_schema_guard.py + plugin/test_board_id_guard.py => \"43 passed in 2.16s\". Working tree clean apart from the .gitreins/tasks.yaml board row.\nThe INT-CI-018 Docker probe-timeout fix is present in merged main at the exact commit e942fd69b44dbfb13b7944c50c65123930761ab6, classifies the timeout as 'docker daemon unavailable' end-to-end, and the focused TestCompositionBattery (11 passed), ruff (All checks passed) and board guard (OK: 364 rows) all pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6.",
+                "status": "PASS",
+                "detail": "All four sub-claims verified on merged main. (1) COMMIT: `git log -1 --format='%H'` => e942fd69b44dbfb13b7944c50c65123930761ab6, 'Merge branch wt/INT-CI-018' with parents bc829b6 + dfec1d4 \u2014 exact match. (2) DAEMON-SPECIFIC REASON: scripts/composed-mode-battery.py:312 `return f\"docker daemon unavailable: {exc}\"` (dfec1d4 changed it from 'docker info failed: {exc}'); TimeoutExpired subclasses subprocess.SubprocessError so it hits this branch. Confirmed in the merged tree, not just the branch: `git show HEAD:scripts/composed-mode-battery.py | sed -n 311,313p` => `return f\"docker daemon unavailable: {exc}\"`. Live simulation of a probe timeout produced reason = \"docker daemon unavailable: Command '['docker', 'info']' timed out after 3 seconds\", and _container_cells() propagated it into both UNAVAILABLE cells' failures, surfacing via main()'s `! {failure}` print at scripts/composed-mode-battery.py:483. (3) FOCUSED TEST: `/usr/bin/python3 -m pytest tests/test_composed_mode.py::TestCompositionBattery -x --tb=short -q` => \"11 passed in 13.82s\", exit 0. The new test test_docker_probe_timeout_reports_daemon_unavailable is a genuine regression test: reverting line 312 to the old string makes it FAIL with `assert 'docker daemon' in \"docker info failed: Command '['docker', 'info']' timed out after 3 seconds\"` at tests/test_composed_mode.py:492. Whole file: \"21 passed, 3 skipped in 17.56s\" (skips are live-docker cells). (4) RUFF: `ruff check .` => \"All checks passed!\", exit 0. (5) BOARD GUARD: `/usr/bin/python3 scripts/board_id_guard.py` => \"OK: 364 rows, 364 unique ids\", EXIT=0 (only advisory P2/P3 evidence warnings); guard tests tests/test_board_schema_guard.py + plugin/test_board_id_guard.py => \"43 passed in 2.16s\". Working tree clean apart from the .gitreins/tasks.yaml board row.",
+                "resolution_probability": 0.06
+              }
+            ],
+            "summary": "The INT-CI-018 Docker probe-timeout fix is present in merged main at the exact commit e942fd69b44dbfb13b7944c50c65123930761ab6, classifies the timeout as 'docker daemon unavailable' end-to-end, and the focused TestCompositionBattery (11 passed), ruff (All checks passed) and board guard (OK: 364 rows) all pass.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY"
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The diff only appends a completed task record to .gitreins/tasks.yaml and a usage log line to .gitreins/usage.jsonl, both matching the existing record shapes, with no code changes to review."
+  },
+  "summary": "Stage tier1: PASS\n    ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-2026-11-09-22-10-58-closeout/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 On merged main, verify INT-CI-018: Docker probe timeout is classified with a daemon-specific reason; focused TestCompositionBattery passes; ruff and board guard pass; commit is e942fd69b44dbfb13b7944c50c65123930761ab6.: All four sub-claims verified on merged main. (1) COMMIT: `git log -1 --format='%H'` => e942fd69b44dbfb13b7944c50c65123930761ab6, 'Merge branch wt/INT-CI-018' with parents bc829b6 + dfec1d4 \u2014 exact match. (2) DAEMON-SPECIFIC REASON: scripts/composed-mode-battery.py:312 `return f\"docker daemon unavailable: {exc}\"` (dfec1d4 changed it from 'docker info failed: {exc}'); TimeoutExpired subclasses subprocess.SubprocessError so it hits this branch. Confirmed in the merged tree, not just the branch: `git show HEAD:scripts/composed-mode-battery.py | sed -n 311,313p` => `return f\"docker daemon unavailable: {exc}\"`. Live simulation of a probe timeout produced reason = \"docker daemon unavailable: Command '['docker', 'info']' timed out after 3 seconds\", and _container_cells() propagated it into both UNAVAILABLE cells' failures, surfacing via main()'s `! {failure}` print at scripts/composed-mode-battery.py:483. (3) FOCUSED TEST: `/usr/bin/python3 -m pytest tests/test_composed_mode.py::TestCompositionBattery -x --tb=short -q` => \"11 passed in 13.82s\", exit 0. The new test test_docker_probe_timeout_reports_daemon_unavailable is a genuine regression test: reverting line 312 to the old string makes it FAIL with `assert 'docker daemon' in \"docker info failed: Command '['docker', 'info']' timed out after 3 seconds\"` at tests/test_composed_mode.py:492. Whole file: \"21 passed, 3 skipped in 17.56s\" (skips are live-docker cells). (4) RUFF: `ruff check .` => \"All checks passed!\", exit 0. (5) BOARD GUARD: `/usr/bin/python3 scripts/board_id_guard.py` => \"OK: 364 rows, 364 unique ids\", EXIT=0 (only advisory P2/P3 evidence warnings); guard tests tests/test_board_schema_guard.py + plugin/test_board_id_guard.py => \"43 passed in 2.16s\". Working tree clean apart from the .gitreins/tasks.yaml board row.\nThe INT-CI-018 Docker probe-timeout fix is present in merged main at the exact commit e942fd69b44dbfb13b7944c50c65123930761ab6, classifies the timeout as 'docker daemon unavailable' end-to-end, and the focused TestCompositionBattery (11 passed), ruff (All checks passed) and board guard (OK: 364 rows) all pass.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-09T22:32:49.125744",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-09T22:32:49.145148+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 602,
+        "truncated": false,
+        "source": "git show e942fd69b44d"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 1934,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-018-R1"
+  }
+}
