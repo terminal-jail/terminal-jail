@@ -25,6 +25,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -355,6 +356,46 @@ def _run_harness(*args: str, timeout: int = 240) -> subprocess.CompletedProcess:
         check=False,
         timeout=timeout,
     )
+
+
+def test_no_payload_wrapper_exit_is_unavailable_with_null_measurements(
+    tmp_path,
+) -> None:
+    """A wrapper that exits before launching the payload remains valid evidence."""
+    fixture = tmp_path / "no-payload"
+    shutil.copytree(
+        PROJECT_ROOT,
+        fixture,
+        ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache"),
+    )
+    stub = fixture / "standalone" / "terminal-jail"
+    stub.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+    stub.chmod(0o755)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(fixture / "scripts" / "kernel-matrix-teardown.py"),
+            "--json",
+        ],
+        cwd=str(fixture),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    rows = payload["rows"]
+    assert len(rows) == len(BACKENDS)
+    assert sorted(row["backend"] for row in rows) == sorted(BACKENDS)
+    unavailable = [row for row in rows if row["verdict"] == "UNAVAILABLE"]
+    assert len(unavailable) == len(BACKENDS)
+    for row in unavailable:
+        assert row["survival_seconds"] is None
+        assert row["exit_code"] is None
+        assert "launcher return code 2" in row["evidence"]
 
 
 @pytest.mark.integration

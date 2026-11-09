@@ -277,10 +277,11 @@ def run_backend_cell(backend: str) -> dict:
             backend,
             verdict="UNAVAILABLE",
             survival=None,
-            exit_code=launcher.returncode,
+            exit_code=None,
             evidence=(
                 f"no 'sleep 300' payload appeared within {LAUNCH_WAIT:.0f}s; "
-                "wrapper exited without launching the jail"
+                "wrapper exited without launching the jail "
+                f"(launcher return code {launcher.returncode})"
             ),
         )
     try:
