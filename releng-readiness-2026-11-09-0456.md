@@ -176,3 +176,103 @@ superseded here because the **decision** changed, not because the carrier moved.
 - `RELEASE-TJ-017` — new row: the **v1.3.2 cut record** (tag, Release, assets,
   shipped-artifact proof, carried blockers).
 - No duplicate readiness row was minted for the same range.
+
+## Pass 3 — 2026-11-09T06:35Z (third delivery; standing record re-verified, decision unchanged)
+
+Same tick id delivered a third time. The delta since the certified cut is
+bookkeeping only, so this pass re-verifies the standing record in full and
+records one **measurement correction** found by re-probing a carried blocker.
+Decision unchanged: **NOT DUE** (Decision-1 rule 3); the v1.3.2 cut recorded in
+`RELEASE-TJ-017` stands verified.
+
+### Converged tip and re-verification receipts
+
+- Tip `4d1c2a7a7c304c21f02e6336cc08f34e53a31ccd` — `git fetch`, `git ls-remote
+  origin refs/heads/main` and the provider API agree.
+- Remote artifact hash: `git show origin/main:releng-readiness-2026-11-09-0456.md
+  | sha256sum` = `ff430d123fc445dfa0c85bd519f63148452554c78d29d770f62d9fcd3af4ff94`,
+  178 lines = `RELEASE-TJ-017.detail.evidence[0].tree_fp`. Bytes intact. That
+  entry's `artifacts[]` path names a scratch carrier
+  (`…/tj-releng-wt-2026-11-09-0456/releng-readiness-2026-11-09-0456.md`) while
+  the identical bytes are tracked at the same repo-relative path — a path nit,
+  not an unverified record.
+- Row readback: `RELEASE-TJ-017` status=complete, evidence entries=2,
+  `evidence[0].run_id=42569431104`, `completed_at=2026-11-09T06:12:00Z`.
+- Delta since the cut commit `f7ce3ef`: 4 commits; path delta
+  `.coding-hermes/board/{tasks,events}.jsonl` + this artifact only. No product
+  source, no release surface.
+
+### Rebuilt census — v1.3.2..4d1c2a7 (4 commits)
+
+feat 0 · fix 0 · perf 0 · breaking 0 · bookkeeping 4 (docs 1, board 3 —
+including the non-conventional `PM dispatchability pass` board commit).
+Classified classes plus remainder reconcile to `git rev-list --count` = 4.
+Zero material commits ⇒ **rule 3, not due**.
+
+### Exact-SHA hosted CI
+
+`4d1c2a7` = run **42572230717** `completed/success`, all six jobs success:
+Lint (ruff), Audit (pip-audit), Drift guards, Python 3.11 / 3.12 / 3.13.
+
+### Carried blockers, re-probed at this tip
+
+- **RELEASE-TJ-014 — STILL LIVE, and the gap WIDENS to three releases.** Explicit
+  path `/home/kara/.local/bin/terminal-jail --version` → `terminal-jail 1.2.0`
+  (mtime 2026-10-13 11:49); `~/.hermes/plugins/terminal-jail/plugin.yaml` →
+  `version: "1.2.0"`. Missing 1.3.0, 1.3.1, 1.3.2.
+- **MEASUREMENT CORRECTION on that surface (this pass's finding of record).** A
+  bare `terminal-jail` in an agent shell does NOT resolve to the install
+  surface. The harness shell wrapper re-injects QA-battery residue directories
+  ahead of `~/.local/bin`:
+
+      command -v terminal-jail            -> /tmp/tjtest/bin/terminal-jail -> 1.3.0  (mtime 2026-10-15 07:43)
+      /tmp/tj-test-pack2/terminal-jail    -> 1.2.0                                    (mtime 2026-10-01 02:07)
+      /tmp/tj-test-pack, /tmp/tj-stranger-bin -> PATH entries with no binary
+
+  Consequence: a version probe taken from the bare command inside an agent
+  session reports **1.3.0**, the residue copy, and would read as a one-release
+  gap instead of three. Every probe in this record uses explicit absolute paths.
+  No row filed for the injection: the injector is the harness session
+  environment, not a defect in this repository, and a row here would dispatch
+  work its foreman cannot perform. Carried as a note on RELEASE-TJ-014.
+- **RELEASE-TJ-015 — STILL LIVE.** Asset census: v1.2.0=0, v1.3.0=3, v1.3.1=3,
+  v1.3.2=3.
+- **TJ-DF-062 — STILL LIVE at the tip.** `install.sh:21` still defaults
+  `TERMINAL_JAIL_VERSION:-1.2.0`; `install.sh:1343` still downloads
+  `terminal-jail.sha256`, which no release publishes.
+- **RELCI-001 — STILL LIVE, re-proved on this very cut.** Tag-triggered `Release`
+  run **42569796687** on `f7ce3ef5` = `completed/failure`, failing step
+  `Preflight — verify the token may create releases`. No artifact built, no
+  Release object created by it; the Release was published once by hand per
+  `docs/releasing.md` 5b.
+- **RELEASE-TJ-013** — historical (v1.3.1 era), not re-opened.
+
+### GitReins and dogfood
+
+- TJ-DF-061 latest verdict **b43b4a8f**, PASS, `evaluated_at 2026-11-09T02:35:36Z`,
+  commit `6951c0a5` — this supersedes the commit number pass 2 quoted (383f260).
+  It ran in the canonical checkout with `working_tree_dirty_path_count=3`, so it
+  is not candidate evidence; no fresh candidate-bound verdict exists at `4d1c2a7`.
+- Dogfood: newest note remains `docs/dogfood/2026-11-08-release-artifact-integration.md`;
+  no dogfood run since pass 2.
+
+### Posture (unchanged)
+
+public=true, archived=false, license=MIT; branch-protection API 404
+(unprotected); `security_and_analysis` absent (UNVERIFIED, not asserted enabled).
+
+### Row census (pre-filing snapshot, 06:35Z)
+
+Scope: every row whose status is in {pending, blocked, in_progress, review} =
+**25** (9 pending, 16 blocked, 0 in_progress, 0 review) against 336 complete.
+One row carries `status: null` (`QA-TERMINAL-JAIL-21`) — pre-existing board
+hygiene, not an `in_progress` state; nothing filed.
+
+### Row disposition
+
+- `RELEASE-TJ-014` — title corrected to the published line (v1.3.2) and
+  acceptance refreshed from 1.3.1 to 1.3.2 with an explicit-path probe, so the
+  foreman can neither close it against a superseded artifact nor against the
+  PATH-shadowed binary. Status and priority untouched (pending, P2).
+- No new RELEASE-* row: no new range, no new decision, and no duplicate
+  readiness row for a line that already has its cut record.
