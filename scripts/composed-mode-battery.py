@@ -50,6 +50,7 @@ CLI_REL = "standalone/terminal-jail"
 INNER_IMAGE = "python:3.11-slim"
 
 VERDICTS = ("PASS", "FAIL", "UNMEASURED", "UNAVAILABLE")
+_DOCKER_PROBE_TIMEOUT = 3
 
 
 def _readlink(path: str) -> str | None:
@@ -298,13 +299,13 @@ def _inner_cell() -> dict:
 def _docker_available() -> str | None:
     docker = shutil.which("docker")
     if docker is None:
-        return "docker not on PATH"
+        return "docker CLI not on PATH; Docker daemon unavailable"
     try:
         result = subprocess.run(
             [docker, "info", "--format", "{{.ServerVersion}}"],
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=_DOCKER_PROBE_TIMEOUT,
             check=False,
         )
     except (OSError, subprocess.SubprocessError) as exc:

@@ -164,6 +164,29 @@ def test_no_data_verdict_claiming_numbers_rejected(harness, overrides) -> None:
     assert canonical is None, overrides
 
 
+def test_no_payload_branch_clears_launcher_exit_code(harness, monkeypatch) -> None:
+    """A wrapper that exits before producing a payload is unavailable, not live."""
+
+    class _Launcher:
+        pid = 4242
+        returncode = 2
+
+        def kill(self) -> None:
+            return None
+
+        def wait(self) -> None:
+            return None
+
+    monkeypatch.setattr(harness, "_sleep300_pids", lambda: set())
+    monkeypatch.setattr(
+        harness.subprocess, "Popen", lambda *_args, **_kwargs: _Launcher()
+    )
+    row = harness.run_backend_cell("unshare")
+    assert row["verdict"] == "UNAVAILABLE"
+    assert row["exit_code"] is None
+    assert "rc=2" in row["evidence"]
+
+
 @pytest.mark.parametrize("row", [None, [], "PASS", 42])
 def test_non_object_row_rejected(harness, row) -> None:
     canonical, reason = harness.validate_row(row)
