@@ -476,6 +476,21 @@ class TestCompositionBattery:
         with pytest.raises(pytest.skip.Exception, match="docker daemon"):
             self._run_live_three_cell()
 
+    def test_docker_probe_timeout_reports_daemon_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+
+        def fake_run(*_args: object, **kwargs: object) -> object:
+            raise subprocess.TimeoutExpired(["docker", "info"], kwargs["timeout"])
+
+        monkeypatch.setattr(self.battery.subprocess, "run", fake_run)
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert "docker daemon" in reason
+
     def test_daemon_available_control_runs_three_cell_battery(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

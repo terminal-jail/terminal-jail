@@ -309,7 +309,7 @@ def _docker_available() -> str | None:
             check=False,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"docker info failed: {exc}"
+        return f"docker daemon unavailable: {exc}"
     if result.returncode != 0:
         return f"docker daemon unreachable: rc={result.returncode}"
     return None
