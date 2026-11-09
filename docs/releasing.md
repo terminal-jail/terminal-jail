@@ -92,6 +92,20 @@ RELCI-001 blocks the workflow preflight).
 
    Expect exactly: the `.tar.gz` sdist, the `.whl`, and `SHA256SUMS`.
 
+7. **Snapshot the published body into the repo.** The release body is part
+   of the release: copy it out of the Release object and commit it under
+   `docs/releases/`, so a later edit to the body can be diffed and audited.
+
+   ```bash
+   gh release view vX.Y.Z --json tagName,name,url,body > /tmp/tj-body.json
+   # docs/releases/vX.Y.Z-notes.md        <- the body, byte for byte
+   # docs/releases/vX.Y.Z-published.json  <- captured_at + body_sha256 + url
+   ```
+
+   Cite CI evidence by the run that actually ran on the **tag** commit. A
+   prep commit whose matrix went red is not a receipt; say so explicitly if
+   it has to be mentioned at all.
+
 ## Manual verification of the artifacts (optional but recommended)
 
 ```bash
