@@ -2327,3 +2327,14 @@ tasks:
   status: complete
   created_at: '2026-11-09T18:57:41.682130+00:00'
   completed_at: '2026-11-09T19:02:49.869250+00:00'
+- id: QA-TERMINAL-JAIL-23
+  title: kernel matrix unavailable row contract
+  criteria:
+  - 'FAILIF: scripts/kernel-matrix-teardown.py --json exits nonzero or emits UNAVAILABLE
+    with non-null survival_seconds/exit_code when the wrapper exits before launching
+    sleep 300. PROOF: run the harness with standalone/terminal-jail stubbed to exit
+    2; require rc=0, one row per backend, affected row UNAVAILABLE with both numeric
+    fields null, and evidence containing the launcher return code.'
+  status: complete
+  created_at: '2026-11-09T19:24:15.414016+00:00'
+  completed_at: '2026-11-09T19:56:45.572231+00:00'
