@@ -7,7 +7,7 @@ Range: v1.3.1..03641d9 (33 commits; 1 material source commit, 32 bookkeeping/doc
 
 ## Decision
 
-NO CUT — Decision 1 rule 2: the current candidate is blocked by a live release-surface/dogfood defect, not by hosted CI. The only material source change since v1.3.1 is 4f64a206 fix(packaging), already shipped in v1.3.1 and therefore no new semver release is due from this range. A patch would not be justified by the current range. Release tooling is present and the version surface is 1.3.1; no tag mutation was attempted.
+NO CUT — Decision 1 rule 3: there are no new material commits since v1.3.1. The only material source change in the 33-commit range is 4f64a206 fix(packaging), already shipped in v1.3.1, so no new semver release is due from this range. The live release-channel and dogfood defects remain blockers for release readiness and are carried by existing rows. Release tooling is present and the version surface is 1.3.1; no tag mutation was attempted.
 
 ## Commit census
 
