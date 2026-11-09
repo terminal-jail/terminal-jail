@@ -7,18 +7,26 @@ resolve the bundled copies in an installed wheel. These pins read the source
 tree only — no wheel is built here and nothing touches the network; the
 fresh-venv build/install probe is the foreman's separate leg. The fast
 pyproject/layout pins for the editable install live in test_packaging.py
-(TJ-DF-006).
+(TJ-DF-006). The TJ-DF-061 pins are the exception in DEPTH, not in
+network use: they drive the console script END-TO-END from a synthetic
+installed-wheel venv (stdlib ``venv`` module plus a file copy — still no
+pip, no network) with the venv absent from PATH.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import os
+import shutil
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from unittest import mock
+
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = PROJECT_ROOT / "plugin" / "terminal_jail"
@@ -308,3 +316,300 @@ class TestWheelLoaderModuleResolution:
         assert result.returncode == 0
         assert "tj-wheel-neg-ok" in result.stdout
         assert "tier module not found next to the loader" in result.stderr
+
+
+# pip console_scripts shape (REPLPKG-001): the generated wrapper is exec'd
+# under the INSTALLING interpreter, so sys.executable IS the venv python —
+# the property TJ-DF-061 hands to the wrapper via TERMINAL_JAIL_PYTHON.
+_CONSOLE_SCRIPT_TEMPLATE = """#!{python}
+# -*- coding: utf-8 -*-
+import re
+import sys
+from terminal_jail.cli import main
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])
+    sys.exit(main())
+"""
+
+
+def _build_installed_venv(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Synthetic installed-wheel venv: stdlib ``venv`` module + file copy.
+
+    The real pip install stays the foreman's separate leg (RELPKG-001);
+    this reproduces the installed SHAPE deterministically and offline: the
+    package tree copied into the venv's site-packages (so the venv python
+    imports ``terminal_jail`` from the INSTALL, not the checkout — proven
+    absent before the copy) and a pip-shaped console script at
+    ``<venv>/bin/terminal-jail``. ``system_site_packages`` lets the venv
+    interpreter resolve PyYAML the same way the installing interpreter
+    did. Returns (venv_dir, console_script, site_packages).
+    """
+    import venv as venv_module
+
+    venv_dir = tmp_path / "venv"
+    venv_module.create(venv_dir, with_pip=False, system_site_packages=True)
+    venv_python = venv_dir / "bin" / "python3"
+    assert venv_python.is_file(), f"venv has no bin/python3: {venv_dir}"
+    site = (
+        venv_dir
+        / "lib"
+        / f"python{sys.version_info.major}.{sys.version_info.minor}"
+        / "site-packages"
+    )
+    assert site.is_dir(), f"unexpected venv layout: no site-packages at {site}"
+    assert not (site / "terminal_jail").exists(), "fixture venv not clean"
+    shutil.copytree(
+        PACKAGE_DIR,
+        site / "terminal_jail",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    console = venv_dir / "bin" / "terminal-jail"
+    console.write_text(
+        _CONSOLE_SCRIPT_TEMPLATE.format(python=venv_python), encoding="utf-8"
+    )
+    console.chmod(0o755)
+    return venv_dir, console, site
+
+
+def _unactivated_testbin(base: Path) -> str:
+    """Minimal PATH for the unactivated-venv invocation shape.
+
+    bash, uname, true, grep, head, echo (+ unshare when present) — NO
+    python3 and NO venv bin. The venv-bin absence IS the defect's
+    invocation shape (absolute console-script path, venv not activated);
+    python3's absence too makes the pins independent of whatever python
+    the host PATH would supply: after the fix the bridge path needs only
+    TERMINAL_JAIL_PYTHON, and on pre-fix code the bridge invocation fails
+    closed loudly. grep/head serve the --user launch tail's subuid reads
+    and echo is the payload (exec resolves it from PATH inside the
+    namespace — builtins do not apply after `exec`).
+    """
+    test_bin = base / "testbin"
+    test_bin.mkdir(exist_ok=True)
+    for name in ("bash", "uname", "true", "grep", "head", "echo"):
+        source = shutil.which(name)
+        assert source, f"test host lacks {name}"
+        (test_bin / name).symlink_to(source)
+    unshare = shutil.which("unshare")
+    if unshare:
+        (test_bin / "unshare").symlink_to(unshare)
+    return str(test_bin)
+
+
+def _unactivated_env(test_bin: str) -> dict[str, str]:
+    """Scrubbed env: no inherited TERMINAL_JAIL_* (the wrapper keeps those
+    verbatim), the minimal PATH, and the Landlock tiers off — the subject
+    is the BRIDGE interpreter handoff (TJ-DF-061), not the tier launch
+    tails, which resolve python3 from PATH by design."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("TERMINAL_JAIL_")}
+    env["PATH"] = test_bin
+    env["TERMINAL_JAIL_LANDLOCK"] = "0"
+    env["TERMINAL_JAIL_LANDLOCK_NET"] = "0"
+    return env
+
+
+def _run_console(
+    console: Path, base: Path, test_bin: str, *args: str
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(console), *args],
+        cwd=str(base),
+        env=_unactivated_env(test_bin),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+
+def _verdict_log_entries(stderr: str) -> list[dict]:
+    """Decode the bridge's per-verdict structured stderr log lines
+    (REVIEW-TJ-015). Everything else on the stderr surface (proc_view
+    attribution, tier banners) is not a verdict record."""
+    entries: list[dict] = []
+    for line in stderr.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get("event") == "verdict":
+            entries.append(payload)
+    return entries
+
+
+class TestUnactivatedVenvBridgeInterpreter:
+    """TJ-DF-061 — the firewall works from an UNACTIVATED venv install.
+
+    A wheel's console script runs under the installing interpreter, whose
+    ``sys.executable`` is the venv python; the venv bin is typically NOT
+    on PATH (no activation). The wrapper's bridge path — module
+    discovery, bridge execution, and the verdict JSON helpers — must
+    therefore run under the interpreter the entry point hands it via
+    ``TERMINAL_JAIL_PYTHON``: the engine and PyYAML live in that venv.
+    Every console-script invocation here is the ABSOLUTE path with a
+    minimal PATH containing neither the venv bin nor any python3. The
+    launch-requiring arms run in whatever launch shape the host supports
+    (bare mode, or the established --user degradation) and skip only when
+    the host denies namespaces outright (HOST-DEGRADED-PIDNS, TJ-GAP-042);
+    the verdict-path arms run on every Linux host.
+    """
+
+    # ch:trace row=TJ-DF-061 spec=board:TJ-DF-061 wave=none:serial test=plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter::test_allow_verdict_runs_command_with_venv_absent_from_path evidence=plugin/test_packaging_wheel.py witness=none:worker-local verdict=PASS:cf28005b evidence=.gitreins/history/2026-11-09/cf28005b/verdict.json commit=15fe8f9b7858e29f5f79f3c1e68255693bcec181 memory=none:foreman-closeout-pending
+
+    @pytest.mark.standalone_cli
+    def test_allow_verdict_runs_command_with_venv_absent_from_path(
+        self, run_unactivated, launch_mode: tuple[str, ...] | None
+    ) -> None:
+        if launch_mode is None:
+            pytest.skip(
+                "HOST-DEGRADED-PIDNS: no namespace support — the launch arm "
+                "cannot run on this host"
+            )
+        result = run_unactivated(*launch_mode, "echo", "tj-df061-allow")
+        assert result.returncode == 0, result.stderr
+        assert "tj-df061-allow" in result.stdout
+        # The defect's signature — the fail-closed [bridge-error] verdict.
+        assert "[bridge-error]" not in result.stderr
+        assert "COMMAND BLOCKED" not in result.stderr
+        # The allow verdict carries a rule_id: the bridge's structured
+        # verdict log names the shipped catalog rule that allowed it.
+        verdicts = _verdict_log_entries(result.stderr)
+        assert verdicts, f"no verdict log entry on stderr: {result.stderr!r}"
+        assert verdicts[0].get("action") == "allow"
+        assert verdicts[0].get("rule_id") == "allow-echo"
+
+    @pytest.mark.standalone_cli
+    def test_builtin_rm_rf_root_still_blocks_with_venv_absent_from_path(
+        self, run_unactivated
+    ) -> None:
+        # The block verdict fires BEFORE any namespace work, so this arm
+        # runs on every Linux host — no launch-mode skip. The provenance
+        # assertion pins the shipped catalog id: the engine saw the real
+        # rule, not a [bridge-error] envelope.
+        result = run_unactivated("rm", "-rf", "/")
+        assert result.returncode == 126, result.stderr
+        assert "COMMAND BLOCKED" in result.stderr
+        assert "[bridge-error]" not in result.stderr
+        assert "builtin-rm-rf-root" in result.stderr
+
+    @pytest.mark.standalone_cli
+    def test_no_interruptor_behaviour_unchanged_with_venv_absent_from_path(
+        self, run_unactivated, launch_mode: tuple[str, ...] | None
+    ) -> None:
+        if launch_mode is None:
+            pytest.skip(
+                "HOST-DEGRADED-PIDNS: no namespace support — the launch arm "
+                "cannot run on this host"
+            )
+        result = run_unactivated(
+            *launch_mode, "--no-interruptor", "echo", "tj-df061-noi"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "tj-df061-noi" in result.stdout
+        # The bridge is never invoked: no verdict log line on stderr.
+        assert _verdict_log_entries(result.stderr) == []
+
+    @pytest.mark.standalone_cli
+    def test_explicit_missing_interpreter_fails_loudly_without_fallback(
+        self,
+        wheel_install: tuple[Path, Path, Path],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        console = wheel_install[1]
+        base = tmp_path_factory.mktemp("tjdf061-badpy")
+        test_bin = _unactivated_testbin(base)
+        env = _unactivated_env(test_bin)
+        env["TERMINAL_JAIL_PYTHON"] = str(base / "nonexistent" / "python3")
+        result = subprocess.run(
+            [str(console), "echo", "tj-df061-must-not-run"],
+            cwd=str(base),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        assert result.returncode == 126, result.stderr
+        assert "COMMAND BLOCKED" in result.stderr
+        assert "interruptor-bridge-unavailable" in result.stderr
+        # No silent fallback: the command never ran, and the operator's
+        # nonexistent interpreter was honored (had the entry point or the
+        # wrapper replaced it with a working python, rc would be 0).
+        assert "tj-df061-must-not-run" not in result.stdout
+
+    def test_entry_point_exports_installing_interpreter_unless_overridden(
+        self,
+    ) -> None:
+        """The cli.py seam in-process: sys.executable exported under the
+        dedicated variable only when the operator has not set one."""
+        from terminal_jail import cli as cli_module
+
+        seeded = {
+            "TERMINAL_JAIL_VERSION": "0-tjdf061-test",
+            "TERMINAL_JAIL_SECCOMP_LOADER": "/tjdf061-unused",
+            "TERMINAL_JAIL_LANDLOCK_LOADER": "/tjdf061-unused",
+            "TERMINAL_JAIL_LANDLOCK_NET_LOADER": "/tjdf061-unused",
+            "TERMINAL_JAIL_BRIDGE": "/tjdf061-unused",
+        }
+        with mock.patch.dict(os.environ, seeded):
+            os.environ.pop("TERMINAL_JAIL_PYTHON", None)
+            cli_module._apply_bundled_environment()
+            assert os.environ["TERMINAL_JAIL_PYTHON"] == sys.executable
+        with mock.patch.dict(
+            os.environ, {**seeded, "TERMINAL_JAIL_PYTHON": "/operator/python3"}
+        ):
+            cli_module._apply_bundled_environment()
+            assert os.environ["TERMINAL_JAIL_PYTHON"] == "/operator/python3"
+
+
+@pytest.fixture(scope="module")
+def wheel_install(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, Path]:
+    return _build_installed_venv(tmp_path_factory.mktemp("tjdf061-venv"))
+
+
+@pytest.fixture(scope="module")
+def run_unactivated(
+    wheel_install: tuple[Path, Path, Path],
+    tmp_path_factory: pytest.TempPathFactory,
+):
+    console = wheel_install[1]
+    base = tmp_path_factory.mktemp("tjdf061-run")
+    test_bin = _unactivated_testbin(base)
+
+    def _run(*args: str) -> subprocess.CompletedProcess[str]:
+        return _run_console(console, base, test_bin, *args)
+
+    return _run
+
+
+@pytest.fixture(scope="module")
+def launch_mode(
+    wheel_install: tuple[Path, Path, Path],
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[str, ...] | None:
+    """The launch shape this host supports, probed through the fixture:
+    ``()`` = bare mode (unshare --mount-proc works), ``("--user",)`` = the
+    established degraded fallback (user namespaces only — still a REAL
+    launch: the bridge verdict path is identical, only the launch tail
+    differs), ``None`` = no namespace support at all → launch arms skip
+    (HOST-DEGRADED-PIDNS). A healthy host also proves the whole console
+    chain (entry point → exports → wrapper → bridge → verdict → launch)
+    before any arm runs; only a rc=2 degradation counts as degraded —
+    anything else is a loud fixture failure, never a masked skip."""
+    console = wheel_install[1]
+    base = tmp_path_factory.mktemp("tjdf061-probe")
+    test_bin = _unactivated_testbin(base)
+    bare = _run_console(console, base, test_bin, "true")
+    if bare.returncode == 0:
+        return ()
+    user_mode = _run_console(console, base, test_bin, "--user", "true")
+    if user_mode.returncode == 0:
+        return ("--user",)
+    assert bare.returncode == 2 and user_mode.returncode == 2, (
+        f"fixture probe failed unexpectedly (bare rc={bare.returncode}, "
+        f"user rc={user_mode.returncode}): {bare.stderr!r} / {user_mode.stderr!r}"
+    )
+    return None

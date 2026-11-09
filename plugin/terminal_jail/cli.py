@@ -15,6 +15,13 @@ shipped copies (RELPKG-001):
   "loader not found next to the plugin" warning.
 - ``TERMINAL_JAIL_BRIDGE`` — the shipped ``interruptor_bridge.py``, so
   interruptor mode does not depend on ``python3`` resolving the venv.
+- ``TERMINAL_JAIL_PYTHON`` — this process's ``sys.executable`` (the
+  installing interpreter), so the wrapper runs the bridge and its JSON
+  helpers under THAT python: the rule engine and PyYAML live in the
+  installing venv, which may not be on PATH (an unactivated venv;
+  TJ-DF-061). Without it, the wrapper's bare ``python3`` resolution
+  cannot import the engine and every firewall-on invocation fails
+  closed with a ``[bridge-error]`` verdict.
 
 Every variable is set only when unset/empty and only when the target file
 exists, so operator overrides keep priority and the wrapper's hard-failure
@@ -60,6 +67,13 @@ def _apply_bundled_environment() -> None:
         bridge = _BUNDLED_DIR.parent / "interruptor_bridge.py"
         if bridge.is_file():
             env["TERMINAL_JAIL_BRIDGE"] = str(bridge)
+    if not env.get("TERMINAL_JAIL_PYTHON") and sys.executable:
+        # TJ-DF-061: the bridge path runs under the INSTALLING interpreter.
+        # The interruptor engine and PyYAML live in this venv, which may
+        # be absent from PATH (unactivated venv); the wrapper falls back
+        # to bare ``python3`` only when the variable is unset/empty, and
+        # an operator override always wins.
+        env["TERMINAL_JAIL_PYTHON"] = sys.executable
 
 
 def main(argv: list[str] | None = None) -> int:

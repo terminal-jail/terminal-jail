@@ -21,10 +21,13 @@ RELCI-001 blocks the workflow preflight).
 
 1. **Version-prep commit.** Land a single commit that changes exactly the
    `version = "X.Y.Z"` line in `pyproject.toml`, the matching `version:` in
-   `plugin/plugin.yaml`, and its CHANGELOG entry. The workflow never bumps
-   versions; if you push a tag whose version does not match `pyproject.toml`,
-   the workflow fails loudly at its `Verify pyproject version matches the tag`
-   step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
+   `plugin/plugin.yaml`, and its matching CHANGELOG section. Run
+   `scripts/release-cut-check.sh vX.Y.Z` to validate that all three version
+   surfaces agree; the checker validates content consistency, not commit
+   atomicity. The one-commit rule remains the operator/CI contract. The
+   workflow never bumps versions; if you push a tag whose version does not
+   match `pyproject.toml`, the workflow fails loudly at its `Verify pyproject
+   version matches the tag` step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
    pins the manifest to `pyproject.toml`, so bumping only `pyproject.toml`
    turns the CI matrix red before the tag.
 
@@ -88,6 +91,20 @@ RELCI-001 blocks the workflow preflight).
    ```
 
    Expect exactly: the `.tar.gz` sdist, the `.whl`, and `SHA256SUMS`.
+
+7. **Snapshot the published body into the repo.** The release body is part
+   of the release: copy it out of the Release object and commit it under
+   `docs/releases/`, so a later edit to the body can be diffed and audited.
+
+   ```bash
+   gh release view vX.Y.Z --json tagName,name,url,body > /tmp/tj-body.json
+   # docs/releases/vX.Y.Z-notes.md        <- the body, byte for byte
+   # docs/releases/vX.Y.Z-published.json  <- captured_at + body_sha256 + url
+   ```
+
+   Cite CI evidence by the run that actually ran on the **tag** commit. A
+   prep commit whose matrix went red is not a receipt; say so explicitly if
+   it has to be mentioned at all.
 
 ## Manual verification of the artifacts (optional but recommended)
 

@@ -78,6 +78,30 @@ its version-prep commit (2026-10-08) and was not reopened at the cut._
     tree under a `0700` parent yields the identical o+x warning, and the
     env-pin restores the byte-identical refusal.
 
+## [1.3.2] — 2026-11-09
+
+Release range v1.3.1..HEAD: 1 material commit, `fix` (semver PATCH).
+Board/harness bookkeeping commits are not listed.
+
+### Fixed
+
+- **Landlock tiers now resolve in an installed wheel (`TJ-DF-060`, `4f64a206`):**
+  in a wheel install the bundled loaders ship at
+  `<site>/terminal_jail/_bundled/` while the tier modules are siblings under
+  `<site>/terminal_jail/interruptor/`, but `_find_landlock_module` and
+  `_find_landlock_net_module` only searched
+  `<current>/plugin/terminal_jail/interruptor` and bare `<current>`, so a
+  wheel install degraded **both** Landlock tiers with the
+  "tier module not found next to the loader" warning. The loaders now walk
+  `<current>/interruptor` as well; the repo/source-install search order is
+  unchanged (the plugin-prefixed base still wins at the repo root) and the
+  no-module degradation is unchanged. Proven by a red-first six-arm probe
+  (5 of 6 arms fail against the pre-fix loaders, the sixth being the
+  negative control) plus a kernel EFFECT arm on a permitting host that
+  shows the wheel-layout loader resolving the sibling module *and* the
+  kernel denying the payload's ungranted mode-600 read. The bundled copies
+  stay byte-identical to `standalone/` (sha256-pinned).
+
 ## [1.3.1] — 2026-11-04
 
 Release range v1.3.0..HEAD: 1 material commit, `fix` (semver PATCH, rule R5).
