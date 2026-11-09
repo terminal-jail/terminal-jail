@@ -97,10 +97,19 @@ RELCI-001 blocks the workflow preflight).
    `docs/releases/`, so a later edit to the body can be diffed and audited.
 
    ```bash
-   gh release view vX.Y.Z --json tagName,name,url,body > /tmp/tj-body.json
-   # docs/releases/vX.Y.Z-notes.md        <- the body, byte for byte
-   # docs/releases/vX.Y.Z-published.json  <- captured_at + body_sha256 + url
+   # jq -j writes the raw string with no trailing newline: this is the body
+   # byte for byte. (`gh release view -q .body > file` appends a newline and
+   # silently changes the hash — do not use it for the snapshot.)
+   curl -s -H "Authorization: token $(gh auth token)" \
+     https://api.github.com/repos/OWNER/REPO/releases/tags/vX.Y.Z \
+     | jq -j .body > docs/releases/vX.Y.Z-notes.md
+
+   sha256sum docs/releases/vX.Y.Z-notes.md   # record this in the json sidecar
    ```
+
+   Commit the notes file plus `docs/releases/vX.Y.Z-published.json` carrying
+   `body_sha256`, `body_bytes`, the capture command and the URL, so a later
+   edit to the body can be diffed against what was actually published.
 
    Cite CI evidence by the run that actually ran on the **tag** commit. A
    prep commit whose matrix went red is not a receipt; say so explicitly if

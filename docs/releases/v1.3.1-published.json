@@ -2,12 +2,10 @@
   "tag": "v1.3.1",
   "name": "terminal-jail v1.3.1",
   "url": "https://github.com/terminal-jail/terminal-jail/releases/tag/v1.3.1",
-  "captured_with": "gh release view v1.3.1 --json tagName,name,url,body",
-  "live_body_sha256": "44a634c07d018d38105cc91aeab735aa61edf70299738f97ede10230e7a06c5c",
-  "file_sha256": "44a634c07d018d38105cc91aeab735aa61edf70299738f97ede10230e7a06c5c",
-  "live_body_bytes": 3035,
-  "file_bytes": 3035,
-  "note": "live_body_sha256 covers the exact GitHub body; file_sha256 covers the committed text file, which differs only by a single trailing newline when the body lacks one.",
+  "captured_with": "curl -s -H \"Authorization: token $TOKEN\" https://api.github.com/repos/terminal-jail/terminal-jail/releases/tags/v1.3.1 | jq -j .body",
+  "body_sha256": "75f75fc4e6f7900826c31e1d51947aa28c72374d19bdd357734f853b3aa80c38",
+  "body_bytes": 3034,
+  "note": "body_sha256/body_bytes cover the API body field exactly; docs/releases/v1.3.1-notes.md is those bytes verbatim (no added trailing newline). `gh release view ... -q .body` appends a newline and will not reproduce this hash.",
   "ci_evidence": {
     "green_run": {
       "id": 41854640938,
