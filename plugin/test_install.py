@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -84,17 +85,35 @@ def _link_tools(test_bin: Path, *tools: str) -> None:
 
 
 def _make_server_dir(tmp_path: Path, binary_content: str = FAKE_BINARY) -> Path:
-    """Create a fake 'server' directory with terminal-jail and sha256 file."""
-    server = tmp_path / "fake-server"
+    """Create the default published-release fixture (v1.3.1)."""
+    return _make_release_server_dir(tmp_path, binary_content=binary_content)
+
+
+def _make_release_server_dir(
+    tmp_path: Path,
+    versions: tuple[str, ...] = ("1.3.1",),
+    binary_content: str = FAKE_BINARY,
+) -> Path:
+    """Create wheel-shaped local release assets and a GitHub-style manifest."""
+    server = tmp_path / "release-server"
     server.mkdir(exist_ok=True)
-    (server / "terminal-jail").write_text(binary_content)
-    result = subprocess.run(
-        ["sha256sum", str(server / "terminal-jail")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    (server / "terminal-jail.sha256").write_text(result.stdout)
+    checksums: list[str] = []
+    package_files = {
+        "terminal_jail/__init__.py": "__version__ = 'fixture'\n",
+        "terminal_jail/interruptor_bridge.py": "#!/usr/bin/env python3\n",
+    }
+    for version in versions:
+        wheel_name = f"terminal_jail-{version}-py3-none-any.whl"
+        wheel = server / wheel_name
+        with zipfile.ZipFile(wheel, "w") as archive:
+            archive.writestr("terminal_jail/_bundled/terminal-jail", binary_content)
+            for name, content in package_files.items():
+                archive.writestr(name, content)
+        digest = subprocess.run(
+            ["sha256sum", str(wheel)], capture_output=True, text=True, check=True
+        ).stdout.split()[0]
+        checksums.append(f"{digest}  {wheel_name}")
+    (server / "SHA256SUMS").write_text("\n".join(checksums) + "\n")
     return server
 
 
@@ -206,7 +225,8 @@ def test_no_checksum_tool(install_script: Path, tmp_path: Path) -> None:
     assert "sha256sum or shasum" in stderr
 
 
-# ── Installation with mocked downloads ────────────────────────────────────
+# ── Installation with mocked published release downloads ───────────────────
+# ch:trace row=TJ-DF-062 spec=install.sh#release-mode wave=none:serial test=plugin/test_install.py doc=README.md,docs/quickstart.md prompt=worker-brief evidence=focused-tests witness=commit verdict=none:foreman-runs-control-root-judge commit=PENDING_SHA memory=none:foreman-closeout
 
 
 def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
@@ -229,6 +249,7 @@ def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
         "rm",
         "cp",
         "sha256sum",
+        "unzip",
         "basename",
         "dirname",
     )
@@ -274,6 +295,69 @@ def test_successful_install(install_script: Path, tmp_path: Path) -> None:
 
 
 @pytest.mark.standalone_cli
+def test_release_mode_explicit_version_uses_versioned_wheel(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """An explicit tag selects its matching published wheel asset."""
+    install_dir = tmp_path / "install-dir"
+    server_dir = _make_release_server_dir(tmp_path, versions=("1.3.1", "1.3.0"))
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+    result = _run_install(
+        install_script,
+        install_dir=str(install_dir),
+        test_bin=str(test_bin),
+        extra_env={
+            "HOME": str(tmp_path),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_VERSION": "v1.3.0",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+        },
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    assert "terminal_jail-1.3.0-py3-none-any.whl" in out
+    assert (install_dir / "terminal-jail").is_file(), out
+
+
+@pytest.mark.standalone_cli
+def test_release_mode_missing_asset_has_named_failure(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A missing versioned artifact is reported as a release asset failure."""
+    install_dir = tmp_path / "install-dir"
+    server_dir = _make_release_server_dir(tmp_path)
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+    result = _run_install(
+        install_script,
+        install_dir=str(install_dir),
+        test_bin=str(test_bin),
+        extra_env={
+            "HOME": str(tmp_path),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_VERSION": "9.9.9",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+        },
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 1, out
+    assert "release asset unavailable" in out, out
+    assert "terminal_jail-9.9.9-py3-none-any.whl" in out, out
+    assert not (install_dir / "terminal-jail").exists()
+
+
+@pytest.mark.standalone_cli
+def test_release_asset_contract_is_versioned_wheel_and_sha256sums(
+    install_script: Path,
+) -> None:
+    """Pin the installer to the published workflow's asset naming contract."""
+    source = install_script.read_text(encoding="utf-8")
+    assert "terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl" in source
+    assert '"${TERMINAL_JAIL_BASE_URL}/SHA256SUMS"' in source
+    assert '"${TERMINAL_JAIL_BASE_URL}/terminal-jail"' not in source
+    assert '"${TERMINAL_JAIL_BASE_URL}/terminal-jail.sha256"' not in source
+
+
+@pytest.mark.standalone_cli
 def test_bad_shebang_rejected(install_script: Path, tmp_path: Path) -> None:
     install_dir = tmp_path / "install-dir"
     install_dir.mkdir()
@@ -308,9 +392,10 @@ def test_checksum_fail(install_script: Path, tmp_path: Path) -> None:
     server_dir = _make_server_dir(tmp_path)
     test_bin = _setup_full_testbin(tmp_path, server_dir)
 
-    # Corrupt the checksum file
-    (server_dir / "terminal-jail.sha256").write_text(
-        "0000000000000000000000000000000000000000000000000000000000000000  terminal-jail\n"
+    # Corrupt the published checksum manifest
+    (server_dir / "SHA256SUMS").write_text(
+        "0000000000000000000000000000000000000000000000000000000000000000  "
+        "terminal_jail-1.3.1-py3-none-any.whl\n"
     )
 
     result = subprocess.run(
