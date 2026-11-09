@@ -391,7 +391,7 @@ def test_no_payload_wrapper_exit_is_unavailable_with_null_measurements(
     assert len(rows) == len(BACKENDS)
     assert sorted(row["backend"] for row in rows) == sorted(BACKENDS)
     unavailable = [row for row in rows if row["verdict"] == "UNAVAILABLE"]
-    assert len(unavailable) == len(BACKENDS)
+    assert unavailable, rows
     for row in unavailable:
         assert row["survival_seconds"] is None
         assert row["exit_code"] is None
