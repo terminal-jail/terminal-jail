@@ -981,3 +981,7 @@
 {"id":982,"timestamp":"2026-11-10 13:27:00+00:00","event_type":"task_created","task_id":"QA-TERMINAL-JAIL-32","actor":"foreman","tick_number":null,"detail":"{\"id\":\"QA-TERMINAL-JAIL-32\",\"status\":\"pending\"}"}
 {"id":983,"timestamp":"2026-11-10 13:27:08+00:00","event_type":"task_created","task_id":"QA-TERMINAL-JAIL-33","actor":"foreman","tick_number":null,"detail":"{\"id\":\"QA-TERMINAL-JAIL-33\",\"status\":\"pending\"}"}
 {"id":984,"timestamp":"2026-11-10 13:56:28+00:00","event_type":"task_created","task_id":"QA-TERMINAL-JAIL-19-R2","actor":"foreman","tick_number":null,"detail":"{\"id\":\"QA-TERMINAL-JAIL-19-R2\",\"status\":\"pending\"}"}
+{"id":985,"timestamp":"2026-11-10 14:27:56+00:00","event_type":"task_created","task_id":"DOC-14-R2","actor":"foreman","tick_number":null,"detail":"{\"id\":\"DOC-14-R2\",\"status\":\"pending\"}"}
+{"id":986,"timestamp":"2026-11-10 14:28:01+00:00","event_type":"task_created","task_id":"DOC-27","actor":"foreman","tick_number":null,"detail":"{\"id\":\"DOC-27\",\"status\":\"pending\"}"}
+{"id":987,"timestamp":"2026-11-10 14:28:01+00:00","event_type":"task_created","task_id":"DOC-28","actor":"foreman","tick_number":null,"detail":"{\"id\":\"DOC-28\",\"status\":\"pending\"}"}
+{"id":988,"timestamp":"2026-11-10 14:28:01+00:00","event_type":"task_created","task_id":"DOC-4-R2","actor":"foreman","tick_number":null,"detail":"{\"id\":\"DOC-4-R2\",\"status\":\"pending\"}"}
