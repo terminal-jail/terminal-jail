@@ -975,3 +975,4 @@
 {"id":976,"timestamp":"2026-11-10 08:02:33+00:00","event_type":"task_completed","task_id":"RELEASE-TJ-019","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":977,"timestamp":"2026-11-10 08:21:55+00:00","event_type":"task_completed","task_id":"RELEASE-TJ-018","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":978,"timestamp":"2026-11-10 08:59:33+00:00","event_type":"task_created","task_id":"RELEASE-TJ-022","actor":"foreman","detail":"{\"id\":\"RELEASE-TJ-022\",\"status\":\"pending\"}","tick_number":null}
+{"id":979,"timestamp":"2026-11-10 10:34:42+00:00","event_type":"task_completed","task_id":"RELEASE-TJ-014","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
