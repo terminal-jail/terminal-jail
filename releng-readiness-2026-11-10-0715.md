@@ -89,3 +89,49 @@ Three surfaces move together, as `dcac6fd` now enforces.
   does not claim a clean dogfood verdict.
 - No release notes snapshot was written, because no release body exists yet.
   Writing one now would mean snapshotting a body nobody published.
+
+## Pass 3 — post-release sweep — 2026-11-10 08:17Z
+
+The earlier publication-pending conclusion is superseded by the landed release
+commit `96dcc0f03f04d34db3d14d55d362560341e77a59`. This is a post-release sweep,
+not a second cut.
+
+Decision: NOT DUE for another release. The baseline is now `v1.3.3`, whose
+annotated tag peels to `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Three commits
+landed after the tag, all non-material release/board bookkeeping; no new `feat`,
+`fix`, `perf`, breaking declaration, or shipped-source path was added. The next
+release decision therefore remains governed by the next material change.
+
+Release verification:
+
+- `gh release view v1.3.3` reports release `440076088`, published, non-draft,
+  non-prerelease, with exactly `terminal_jail-1.3.3.tar.gz`,
+  `terminal_jail-1.3.3-py3-none-any.whl`, and `SHA256SUMS`.
+- The remote tag is immutable and still resolves to `290d9b0`.
+- Re-downloaded artifacts passed `sha256sum -c SHA256SUMS`; a fresh venv install
+  reports `terminal-jail 1.3.3`.
+- The tag-triggered Release run `42774392420` and manual-dispatch retry
+  `42778106840` remain red on `RELCI-001`; the documented hand-publish path was
+  used once and was not raced with a functioning publisher.
+
+Current candidate evidence at `origin/main` `96dcc0f`:
+
+- Exact-SHA CI run `42779786182` is completed success. All six check-runs ran and
+  passed: Lint, Python 3.11, Python 3.12, Python 3.13, Drift guards, and Audit.
+- A fresh GitReins guard is DEGRADED PASS only: secrets and lint passed, while
+  tests and static analysis were skipped because the clean candidate worktree had
+  no `.venv` and the guard selected no Python analyzer. This is not represented
+  as a non-degraded release gate. The prior publication evidence records
+  GitReins run `016644a0` PASS for the release artifact verification.
+- Dogfood remains PROMISING-BUT-ROUGH/partial rather than PASS. `TJ-DF-062` and
+  `TJ-DF-063` remain pending, and `RELEASE-TJ-021` carries the measured
+  `python3` trampoline residual.
+
+Carried findings remain open and distinct: `RELCI-001` (workflow token scope),
+`RELEASE-TJ-014` (host deployment still reports 1.2.0), `RELEASE-TJ-015`
+(v1.2.0 Release has zero assets), `RELEASE-TJ-020` (tag-absence checker),
+`RELEASE-TJ-021`, `TJ-DF-062`, and `TJ-DF-063`. Public posture remains public/MIT;
+branch-protection lookup returned 404 and security-analysis metadata was null,
+so those controls are UNVERIFIED rather than PASS. The readiness row is closed
+as superseded by the published `RELEASE-TJ-019` record; no tag or Release was
+created or moved by this pass.
