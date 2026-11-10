@@ -5,6 +5,31 @@ You have sudo. Do NOT restart the gateway until all steps are verified.
 
 ---
 
+### Measured host state before you start (ops tick 2026-11-10)
+
+There are **three** ways terminal-jail can be installed on this host. Check which one you are
+actually touching before you believe any `--version` output:
+
+| surface | path | measured 2026-11-10 |
+| --- | --- | --- |
+| current user install | `~/.local/bin/terminal-jail` | `terminal-jail 1.3.3`, landlock-loader sha256 `1eb4a20d4ecd72e79aff1cb3321362041e50a776e3293b836b7cda798f5d416b` = repo at v1.3.3 |
+| legacy host install (this doc, steps 1-2) | `/usr/local/bin/terminal-jail-sh`, `/usr/local/bin/terminal-jail-bash` | `terminal-jail 1.0.0`, bytes dated 2026-07-24 — stale, and the Step 4 unit is **not installed** (`systemctl list-units --all | grep -c terminal-jail` = 0, no live process, gateway `SHELL=/bin/bash`), so nothing runs it |
+| test residue | `/tmp/tj-test-pack2/terminal-jail` | `terminal-jail 1.2.0`, dated 2026-10-01, **first on PATH** |
+
+That third row is the trap: `~/.profile` still carries five PATH exports appended by earlier
+verification runs (`/tmp/tj-stranger-bin`, `/tmp/tj-test-pack`, `/tmp/tj-test-pack2`,
+`/tmp/tjtest/bin`, `/var/tmp/hermes-scratch/tmp.MYYkb9cBrh/prefix`), so `which terminal-jail` and
+`terminal-jail --version` report a `/tmp` build, not the host install. Three of those targets no
+longer exist after `/tmp` cleanup, so the entries are dead weight as well as a shadow.
+
+When you verify an install, always probe the absolute path (`/home/kara/.local/bin/terminal-jail
+--version`) and hash the file — never the bare command name. And when a step needs a temporary
+PATH, scope it to the command (`env PATH="/tmp/x/bin:$PATH" cmd`) or export it inside the worktree
+wrapper: never append `export PATH=…` lines to `~/.profile`, because they outlive the run and
+silently re-point every future shell (including agent tool shells) at throwaway binaries.
+
+---
+
 ### Step 1 — Install the shell wrapper
 
 ```bash
