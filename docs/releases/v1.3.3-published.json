@@ -1,0 +1,39 @@
+{
+  "tag": "v1.3.3",
+  "name": "terminal-jail v1.3.3",
+  "url": "https://github.com/terminal-jail/terminal-jail/releases/tag/v1.3.3",
+  "release_id": 440076088,
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-11-10T07:53:18Z",
+  "published_by": "totalwindupflightsystems",
+  "publish_path": "hand publish per docs/releasing.md step 5b (the Release workflow cannot publish: RELCI-001)",
+  "tagged_commit": "290d9b0770bd826b2f188ea245e8fdae38da9c9f",
+  "tag_ci_run": 42773935428,
+  "blocked_workflow_runs": [42774392420, 42778106840],
+  "body_sha256": "936ea6f56f40fe204c6dff2e907538b3300adbbd7134b6ffb2556cd45b49fbef",
+  "body_bytes": 4323,
+  "assets": [
+    {
+      "name": "terminal_jail-1.3.3.tar.gz",
+      "bytes": 282056,
+      "sha256": "f6c90be5acd83d96e452525f5f806ce9e867f09aab4072d43219ba29167de1d9"
+    },
+    {
+      "name": "terminal_jail-1.3.3-py3-none-any.whl",
+      "bytes": 192272,
+      "sha256": "87ce2605ce16a91787eeb4c2174da1a69c34a36eb04257b5b4b0063eb57b1c55"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 196,
+      "sha256": null
+    }
+  ],
+  "checks": {
+    "sha256sum_c": "OK for both artifacts after re-download from the release",
+    "wheel_install": "fresh uv venv: importlib.metadata.version('terminal_jail')=1.3.3, terminal-jail --version='terminal-jail 1.3.3', bundled loader/bridge data present",
+    "bridge_two_arm": "broken python3 first on PATH: v1.3.2 wheel exit 126 no verdict; v1.3.3 wheel verdict allow/engine, exit 0 on normal PATH",
+    "residual": "in-jail Landlock/seccomp trampoline still resolves bare python3 (exit 127 when no python3 on PATH) - follow-up row filed, TJ-DF-061 is a partial fix"
+  }
+}
