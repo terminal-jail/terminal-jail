@@ -78,6 +78,53 @@ its version-prep commit (2026-10-08) and was not reopened at the cut._
     tree under a `0700` parent yields the identical o+x warning, and the
     env-pin restores the byte-identical refusal.
 
+## [1.3.3] — 2026-11-10
+
+Release range v1.3.2..HEAD: 2 material commits, both `fix` (semver PATCH).
+Release/QA-harness tooling fixes that do not change an installed artifact are
+listed separately below and do not drive the version. Board/harness
+bookkeeping commits are not listed.
+
+### Fixed
+
+- **An unactivated-venv wheel install no longer blocks every command
+  (`TJ-DF-061`, `6c7ec92`):** a pip-installed wheel's console script runs
+  under the installing interpreter, but that interpreter's venv is not
+  necessarily on `PATH`. The wrapper's whole bridge path (module discovery,
+  bridge execution, command JSON encode, verdict parse, modify/warn-reason
+  extract) resolved bare `python3`, so every firewall-on invocation from such
+  an install failed closed with `[bridge-error]` — or
+  `interruptor-bridge-unavailable` / exit 126 when no `python3` was on `PATH`
+  at all — and the shipped rule catalog never evaluated. `cli.py` now exports
+  the installing `sys.executable` as `TERMINAL_JAIL_PYTHON` when unset/empty
+  (an operator override still wins), and both the standalone wrapper and its
+  byte-identical bundled copy run the bridge path under
+  `${TERMINAL_JAIL_PYTHON:-python3}`. Unset/empty keeps the historical
+  `python3`; an explicitly set but missing interpreter still fails loudly
+  (exit 126) with no silent fallback. The launch-tail seccomp/Landlock
+  trampolines are deliberately unchanged. Pinned by
+  `plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter`,
+  which drives a synthetic installed-wheel venv by absolute console-script
+  path with no `python3` on `PATH`.
+- **Release-mode install resolves the published asset names
+  (`TJ-DF-062`, `c42e01a`):** `install.sh --release` requested asset names
+  that 404 against the actual GitHub Release objects and defaulted to a
+  version whose Release carries no assets, so installing from this project's
+  own releases did not work while the docs still said nothing was published.
+  The installer now derives its asset names from the published set, and
+  `README.md` / `docs/quickstart.md` document the real install path.
+
+### Tooling and QA harness (not installed artifacts)
+
+- `dcac6fd` — `scripts/release-cut-check.sh` enforces the atomic
+  version-prep contract across `pyproject.toml`, `plugin/plugin.yaml`, and
+  `CHANGELOG.md`, with the failure paths pinned by
+  `tests/test_release_workflow.py`.
+- `224e743` — the composed-mode battery gates on the Docker daemon rather
+  than a bare binary, so a composed host grades honestly.
+- `dfec1d4` — the same battery classifies a Docker probe timeout as
+  daemon-unavailable instead of a divergence (`INT-CI-018`).
+
 ## [1.3.2] — 2026-11-09
 
 Release range v1.3.1..HEAD: 1 material commit, `fix` (semver PATCH).
