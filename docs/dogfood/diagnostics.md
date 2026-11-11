@@ -873,3 +873,71 @@ Lessons worth carrying:
 - Same-tick battery work needs a per-cell log pull. The evidence JSONL truncated the pytest failure to
   progress dots; the failing test name only appeared in `qa-logs-<pid>/tests.log` on the agent, read with
   `bunker exec --server <s> <agent> --raw -- tail …`.
+
+## 22. Run 2026-11-11 — first run from the quickstart, and how "the tier is not applied" was disproved
+
+Tick `terminal-jail-dogfood-2026-11-11-05-38-47`, product HEAD `bef9e68` (= `origin/main`),
+installed CLI `~/.local/bin/terminal-jail` 1.3.3. Full report:
+`docs/dogfood/2026-11-11-quickstart-first-run-and-fs-tier.md`.
+
+### 22.1 The angle, and why it produced one P1 instead of a sweep
+
+`docs/quickstart.md` §3a/§3a2 had never been driven end to end on the *installed* CLI, and this host
+emits `WARNING: Landlock filesystem tier not applied (…)` on **every** wrapped command. A warning that
+fires on every command is either a broken install or a broken warning; deciding which is exactly what a
+dogfood run is for. All §3a/§3a2 promises reproduced (version line aside — 1.3.3 vs the documented
+1.3.0, `TJ-DF-065`), so the run's value concentrated in the warning.
+
+### 22.2 The elimination ladder (each step removed one explanation)
+
+| step | hypothesis under test | result |
+|---|---|---|
+| L7 | the tier fails because the loader lives under `~/.local` (700) | copied the three loaders byte-identically into a 755 scratch tree and pointed `TERMINAL_JAIL_LANDLOCK_LOADER`/`_NET_LOADER`/`SECCOMP_LOADER` at them — warning unchanged; location alone does not explain it |
+| L8 | the installed wrapper resolves a different loader than the checkout | both resolve via `landlock.py:1316 loader = loader_path()`; installed and checkout CLIs behave the same on the same payload |
+| L9 | a 0600 canary proves the tier | **arm design flaw, discarded**: a 0600 file owned by the running uid is readable by that uid whether or not Landlock is active — the cell could never discriminate |
+| L10 | DAC is masking the answer | moved to a canary with **no** DAC obstacle: file 644, dir 755, `/home/kara` 751 — any uid may read it; `cat` outside the jail succeeds |
+| L11 | is the tier applied at all on the installed path? | **decisive**: with `TERMINAL_JAIL_LANDLOCK=0` the same installed CLI reads the canary (rc=0); with the default it is `Permission denied` (rc=1). Checkout reproduces both cells; only the installed one prints the warning |
+
+L11 is the cheapest possible discriminator: stop testing reachability/locations and *turn the tier off*.
+If turning it off changes the outcome, it was on.
+
+### 22.3 What the false warning costs, stated for the fixer
+
+Two distinct harms, one row (`TJ-DF-064`, P1): a permanent false alarm trains the user to ignore
+warnings (the true ones included), and its remedy text — "or disable this warning deliberately with
+`TERMINAL_JAIL_LANDLOCK=0`" — disables a working protection to silence it. Preferred fix shape: the
+reachability test should ask whether the *launcher* could execute the loader (it plainly can — the tier
+loaded), or the verdict should be read from the loader's own exit status instead of inferred from
+directory modes.
+
+### 22.4 Arm defects found in my own harness (recorded so they are not mistaken for product bugs)
+
+- **L4b/L4c** invoked `plugin/terminal_jail/interruptor/interruptor_bridge.py` — one directory too deep.
+  `FileNotFoundError`, rc=0 because the pipeline swallowed it. The real path (and the one every doc
+  uses, including `docs/dogfood/diagnostics.md:184`) is `plugin/terminal_jail/interruptor_bridge.py`.
+  **Not a product finding**; the §3a2 arm (correct path) ran four-for-four.
+- **L9** could not discriminate (see 22.2) and was replaced rather than reinterpreted.
+- The `stat` echo lines inside the decisive arm printed `home=751 dir=751 file=751` etc. for the wrong
+  pair on the first two lines before settling on `modes: 751 755 644`; the authoritative modes are the
+  ones in 22.2 (home 751, canary dir 755, canary file 644) plus `~/.local` 700 and loader 775 measured
+  separately.
+
+### 22.5 Install leg (bunker-qa.sh) — what it proved and what it could not
+
+`status`: server `bunker-mvp`, `bunkerd=active docker=yes act=no uidmap=yes`. `launch` → agent
+`d6035ac5`; `collect` synced 15 rows and reported the battery still running, so the agent was left to
+its TTL rather than destroyed from under a live battery. `fresh-install` **OK** (`Successfully installed
+PyYAML-6.0.3 terminal-jail-1.3.3`, artifact `/home/bunker-d6035ac5/tools/venv/bin/terminal-jail`) → a
+fresh machine gets a working command. `tests` **FAIL** at
+`plugin/test_install.py::test_successful_install`, which passes locally (`. [100%] 1 passed in 0.54s`);
+the captured `detail` is truncated at 1 517 B before the assertion, so no root cause is claimed beyond
+the environment dependency already filed as `QA-TERMINAL-JAIL-32` (unzip on the wheel path).
+
+### 22.6 Timing, harvested from the arms rather than a separate harness
+
+`terminal-jail true` 251/260/269/250/253 ms (median 253) vs bare `true` 3/4/3/3/4 ms; bridge evaluate
+22–23 ms; capability probe 283 ms; drift probes 93/89 ms; a blocked command 140 ms. ~250 ms of wrap
+overhead per command is the known figure (`TJ-DF-048`), no regression appeared, and nothing here
+justifies a profile — so no `PERF-<n>` row was filed. A standalone timing loop was attempted earlier in
+the session and refused by the tool-consent gate; the numbers above come from instrumentation inside the
+dogfood arms, which is the better provenance anyway because it measures the thing while it is being used.
