@@ -1,6 +1,6 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
-Certified candidate (latest pass): `8b28074a463b82fd8303e4e171712f635b730204` (`origin/main`); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`.
+Certified candidate (latest pass): `5c9b9d6af67b57b9aa3d7595c3bde0c8b9d1db74` (`origin/main`, pass 5); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 4 certified `8b28074` — superseded by the docs-only carrier commit above, tree identity unchanged for product paths.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -170,4 +170,64 @@ This pass supersedes the prior candidate header for this artifact; the earlier
 pass remains historical evidence. The new standalone evidence report was delivered
 in the scheduler thread as message `252175`; the report file was
 `/home/kara/.hermes/cache/scratch/tj-releng-20261111-pbTl3T/report-pass2.txt`.
+
+## Pass 5 — 2026-11-11 releng tick (`terminal-jail-releng-2026-11-11-10-08-38`, duplicate fire)
+
+Certified candidate: `5c9b9d6af67b57b9aa3d7595c3bde0c8b9d1db74`; `git rev-parse
+origin/main`, `git ls-remote origin refs/heads/main`, and the fast-forwarded
+checkout all agree on that SHA. Baseline `v1.3.3` at
+`290d9b0770bd826b2f188ea245e8fdae38da9c9f`.
+
+Decision: **NO CUT / NOT DUE.** Re-derived at the live tip, not carried.
+
+- **Census (3-way agreement).** `git rev-list --count v1.3.3..5c9b9d6` = 24,
+  `git log --format=%H | wc -l` = 24, `git describe --tags --always` =
+  `v1.3.3-24-g5c9b9d6`. Class sum reconciles: docs 8, ops 4, chore 4, board 3,
+  qa 2, PM 2, dogfood 1 = 24. feat 0, fix 0, perf 0, type-bang 0, and a
+  record-delimited body scan found zero `BREAKING CHANGE` declarations.
+- **Materiality from the shipped diff.** Eleven non-bookkeeping paths changed,
+  all documentation or `.gitreins/` records: `docs/deploy-to-karahermes.md`,
+  three `docs/dogfood/*.md`, `docs/releases/v1.3.3-*.{md,json}`,
+  `releng-readiness-2026-11-10-0715.md`, `.gitreins/{tasks.yaml,usage.jsonl}`.
+  Zero `.py`, `plugin/`, `tests/`, `standalone/`, `build/`, `pyproject.toml`, or
+  `install.sh` changes — nothing installed moved, so no patch is earned.
+- **Exact-SHA CI.** Run `43006333285` on the full SHA: completed/success, all six
+  jobs green with named steps — Python 3.11/3.12/3.13 (install, unit tests,
+  coverage upload, board ID validation, GTFOBins sweep), Drift guards (rule
+  catalog, YAML mirror parity, installed-rules probe, README docs check, backend
+  parity battery, TJ-DF-043 orphan gate), pip-audit, ruff + format check.
+- **Release artifact reality.** `v1.3.3` is the latest Release (published
+  2026-11-10T07:53:18Z, not draft, not prerelease) carrying three assets:
+  `terminal_jail-1.3.3-py3-none-any.whl` (192272 B),
+  `terminal_jail-1.3.3.tar.gz` (282056 B), `SHA256SUMS` (196 B). Tag peeled to
+  `290d9b0`.
+- **Version hygiene.** `pyproject.toml` version = 1.3.3; `CHANGELOG.md` carries a
+  `## [1.3.3] — 2026-11-10` section and its `[Unreleased]` block explicitly says
+  nothing is unreleased. Remaining stale surfaces are already owned:
+  README at-a-glance Version cell (`README-14`, `DOC-14-R2`), quickstart version
+  examples (`DOC-27`), release runbook stopping at v1.3.1 (`DOC-28`), and
+  `install.sh` release-mode default 1.3.1 (`RELEASE-TJ-022`).
+- **Deployed staleness.** `/home/kara/.local/bin/terminal-jail --version` reports
+  `1.3.3`, matching the tag — not stale. `which -a` also returns
+  `/tmp/tj-test-pack2/terminal-jail` ahead of it, the PATH-shadow/legacy residue
+  already filed as `OPS-TJ-001`.
+- **GitReins.** No verdict is bound to `5c9b9d6` or `8b28074`; the newest
+  `.gitreins/history` day is 2026-11-09, so release-gate verdict status here is
+  UNVERIFIED rather than PASS or FAIL. `INT-CI-018` remains `in_progress`.
+- **Dogfood.** Latest ledger (2026-11-11, 24 cells) is partial: 12 OK, 7 N/A,
+  4 FAIL, 1 UNVERIFIED. Fresh install is OK (`terminal-jail-1.3.3` installs on a
+  clean box); tests, ci-pass, and upgrade cells fail on
+  `plugin/test_install.py::test_successful_install`, and chaos-disconnect is
+  UNVERIFIED. Owned by `QA-TERMINAL-JAIL-32`/`-33`.
+- **Release tooling present.** `docs/releasing.md`, `scripts/release-cut-check.sh`,
+  and `.github/workflows/release.yml` triggered on `tags: ["v*"]` with
+  `--verify-tag` plus an asset-set verification step. No generic fallback was
+  needed and nothing was tagged.
+- **Board.** 347 complete / 25 pending / 13 blocked. Open release rows unchanged:
+  `RELEASE-TJ-020`, `RELEASE-TJ-021`, `RELEASE-TJ-022`, `RELEASE-TJ-015`.
+
+No tag, Release, artifact, or board row was created or moved by this pass; no
+duplicate readiness row was filed. Delivery of this pass is reported in the
+scheduler thread.
+
 
