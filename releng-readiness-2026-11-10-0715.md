@@ -1,5 +1,7 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
+Certified candidate (latest pass): `8b28074a463b82fd8303e4e171712f635b730204` (`origin/main`); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`.
+
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
 correct for a *read-only* pass and wrong for a release-engineering pass: the
@@ -135,3 +137,37 @@ branch-protection lookup returned 404 and security-analysis metadata was null,
 so those controls are UNVERIFIED rather than PASS. The readiness row is closed
 as superseded by the published `RELEASE-TJ-019` record; no tag or Release was
 created or moved by this pass.
+
+## Pass 4 — 2026-11-11 10:08Z
+
+Certified candidate: `8b28074a463b82fd8303e4e171712f635b730204` (`origin/main`),
+with baseline `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`.
+
+Decision: **NO CUT / NOT DUE.** The range contains 23 commits, but all are
+non-material board, documentation, dogfood, QA, ops, PM, or release-record
+changes. The independent counts agree (`git rev-list --count` = 23 and
+`git log --format=%H | wc -l` = 23); conventional categories are feat 0, fix 0,
+perf 0, breaking 0, and `git diff --name-only` outside the bookkeeping/docs
+exclusion set is empty. No version-prep, tag, Release, or artifact mutation was
+made.
+
+Exact candidate CI is green: run `42972306976` on the full SHA, completed success,
+with all six jobs and their real steps successful. No GitReins verdict is bound to
+this candidate; historical PASS verdicts remain historical. The latest dogfood
+ledger is partial (12 OK, 7 N/A, 4 FAIL, 1 UNVERIFIED of 24): fresh install is
+OK, while the tests/CI-pass/chaos-resource cells fail on
+`plugin/test_install.py::test_successful_install` and chaos-disconnect is
+UNVERIFIED. Existing pending rows own those findings.
+
+Open release rows remain `RELEASE-TJ-020` (tag-absence check), `RELEASE-TJ-021`
+(in-jail `python3` trampoline), and `RELEASE-TJ-022` (release-mode default 1.3.1).
+The installed `/home/kara/.local/bin/terminal-jail` reports 1.3.3. The project
+release tooling remains present: `docs/releasing.md`,
+`scripts/release-cut-check.sh`, and the active tag workflow. No duplicate release
+row was filed.
+
+This pass supersedes the prior candidate header for this artifact; the earlier
+pass remains historical evidence. The new standalone evidence report was delivered
+in the scheduler thread as message `252175`; the report file was
+`/home/kara/.hermes/cache/scratch/tj-releng-20261111-pbTl3T/report-pass2.txt`.
+
