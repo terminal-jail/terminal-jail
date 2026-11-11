@@ -116,8 +116,9 @@ def _main() -> None:
             f"terminal-jail: WARNING: Landlock filesystem tier not applied "
             f"({cause}); commands run unchanged without kernel filesystem "
             "enforcement — classify the host with "
-            "scripts/landlock-capability-probe.py, or disable this warning "
-            "deliberately with TERMINAL_JAIL_LANDLOCK=0",
+            "scripts/landlock-capability-probe.py and verify the loader path "
+            "and launch context; do not disable filesystem protection to "
+            "suppress this warning",
             file=sys.stderr,
         )
     _exec_payload()

@@ -159,9 +159,10 @@ class TestFsDegradeWiring:
             "the fs degrade must name the cause from its argument, "
             "in the loader's own wording"
         )
-        assert "TERMINAL_JAIL_LANDLOCK=0" in body, (
-            "the line must carry the deliberate opt-out, like the loader's"
+        assert "TERMINAL_JAIL_LANDLOCK=0" not in body, (
+            "warning remediation must not advise disabling the enforcing tier"
         )
+        assert "verify the loader path and launch context" in body
 
     def test_df046_egress_seam_is_untouched(self) -> None:
         """Criterion 3, wrapper side: the egress attach decision keeps its
@@ -180,6 +181,9 @@ class TestFsDegradeWiring:
         assert loader_text.count(DEGRADE_PREFIX) == 2
         assert "tier module not found next to the loader" in loader_text
         assert "classify the host with" in loader_text
+        assert "TERMINAL_JAIL_LANDLOCK=0" not in loader_text
+        assert "verify the loader path" in loader_text
+        assert "launch context" in loader_text
 
     def test_modify_branch_gains_no_degrade_call(self) -> None:
         start = text_start = CLI_SCRIPT.read_text(encoding="utf-8").index(

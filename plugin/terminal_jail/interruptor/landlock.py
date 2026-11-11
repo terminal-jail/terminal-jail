@@ -1125,12 +1125,13 @@ _WARNED = False
 
 
 def degradation_warning(cause: str) -> str:
-    """One line naming the degradation, its cause and the way out."""
+    """One line naming the degradation and safe diagnostics."""
     return (
         f"{_WARNING_PREFIX} ({cause}); commands run unchanged without kernel "
         "filesystem enforcement — classify the host with "
-        "scripts/landlock-capability-probe.py, or disable this warning "
-        "deliberately with TERMINAL_JAIL_LANDLOCK=0"
+        "scripts/landlock-capability-probe.py and verify the loader path and "
+        "launch context; do not disable filesystem protection to suppress "
+        "this warning"
     )
 
 
@@ -1210,10 +1211,11 @@ def loader_path() -> str | None:
 def _world_traversable(path: str) -> bool:
     """True when EVERY directory on ``path`` grants other-execute (o+x).
 
-    A mapping-less rewrite runs its payload as nobody (65534); a loader
-    under a 0700/0750 home is unopenable for it, and a payload that
-    cannot exec the loader dies with Errno 13 instead of running. The
-    tail is only emitted when the launch can actually reach the loader.
+    This is retained as a diagnostic helper for callers that specifically
+    need a DAC-independent path check.  The Landlock tail decision must not
+    use it: the engine runs as the owner while uid-mapped launches change the
+    payload uid, so owner-uid reachability cannot be inferred from ancestor
+    mode bits.
     """
     real = os.path.realpath(path)
     parent = os.path.dirname(real)
@@ -1228,6 +1230,20 @@ def _world_traversable(path: str) -> bool:
         if nxt == parent:
             return True
         parent = nxt
+
+
+def _loader_readable_by_launch(path: str) -> bool:
+    """Probe the actual launch context instead of owner-uid ancestor stats.
+
+    The engine's process can open a loader below a private home even when the
+    subordinate uid used by a mapped launch cannot.  The wrapper performs the
+    authoritative launch-context probe; here we only reject a missing or
+    owner-unreadable file and let that probe decide whether the tail can run.
+    """
+    try:
+        return os.path.isfile(path) and os.access(path, os.R_OK)
+    except OSError:
+        return False
 
 
 def _probe_child_verdict() -> str:
@@ -1316,10 +1332,9 @@ def _compute_sandbox_prefix() -> str:
     loader = loader_path()
     if loader is None:
         return _degrade("landlock-loader.py not found next to the plugin")
-    if not _world_traversable(loader):
+    if not _loader_readable_by_launch(loader):
         return _degrade(
-            "landlock-loader.py is not reachable by the launch's payload "
-            f"uid (a parent of {loader} lacks o+x — e.g. a 0700/0750 home)"
+            f"landlock-loader.py cannot be read by the engine launch context ({loader})"
         )
     return f"python3 {shlex.quote(loader)} -- "
 

@@ -1154,9 +1154,9 @@ _tj_egress_tier_decide() {
 # twin of _tj_egress_degrade above, in the loader's OWN warning wording (the
 # modify path prints this same line from standalone/landlock-loader.py when
 # the tier cannot apply, so both paths read as one family). ONE loud line
-# naming the cause; TERMINAL_JAIL_LANDLOCK=0 is the deliberate opt-out.
+# naming the cause; the warning points to safe diagnostics only.
 _tj_fs_degrade() {
-    echo "terminal-jail: WARNING: Landlock filesystem tier not applied ($1); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py, or disable this warning deliberately with TERMINAL_JAIL_LANDLOCK=0" >&2
+    echo "terminal-jail: WARNING: Landlock filesystem tier not applied ($1); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning" >&2
 }
 
 _tj_launch_composed() {

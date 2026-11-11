@@ -2279,7 +2279,9 @@ class TestDegradation:
         )
         assert "(Landlock ABI absent)" in text
         assert "scripts/landlock-capability-probe.py" in text
-        assert "TERMINAL_JAIL_LANDLOCK=0" in text
+        assert "verify the loader path and launch context" in text
+        assert "TERMINAL_JAIL_LANDLOCK=0" not in text
+        assert "do not disable filesystem protection" in text
 
     def test_degrade_silent_on_deliberate_disable(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
@@ -2524,7 +2526,7 @@ class TestComputeSandboxPrefix:
         monkeypatch.delenv("TERMINAL_JAIL_LANDLOCK", raising=False)
         monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK_PROBE", str(self._ok_stub(tmp_path)))
         monkeypatch.setattr(ll, "loader_path", lambda: str(loader))
-        monkeypatch.setattr(ll, "_world_traversable", lambda p: True)
+        monkeypatch.setattr(ll, "_loader_readable_by_launch", lambda p: True)
         self._reset(monkeypatch)
         tail = ll.sandbox_prefix()
         assert tail == f"python3 {shlex.quote(str(loader))} -- "
@@ -2542,11 +2544,15 @@ class TestComputeSandboxPrefix:
         assert module.sandbox_prefix() == ""  # type: ignore[attr-defined]
         sys.modules.pop("tj_ll_noloader", None)
 
-    def test_ok_verdict_but_loader_unreachable_degrades(
+    def test_private_home_does_not_false_degrade_owner_readable_loader(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The o+x rule: a loader under a 0700 directory cannot be opened
-        by the launch's payload uid -> degrade, empty tail."""
+        """A private installed-style home is not an engine reachability test.
+
+        The wrapper's launch-context probe owns subordinate-uid readability;
+        the engine must not reject a valid loader merely because an owner-uid
+        stat walk sees a 0700 ancestor.
+        """
         home = tmp_path / "closedhome"
         home.mkdir()
         home.chmod(0o700)
@@ -2556,12 +2562,23 @@ class TestComputeSandboxPrefix:
         monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK_PROBE", str(self._ok_stub(tmp_path)))
         monkeypatch.setattr(ll, "loader_path", lambda: str(loader))
         self._reset(monkeypatch)
+        assert ll.sandbox_prefix() == f"python3 {shlex.quote(str(loader))} -- "
+
+    def test_unreadable_loader_still_degrades(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        loader = tmp_path / "landlock-loader.py"
+        loader.write_text("# loader\n")
+        monkeypatch.delenv("TERMINAL_JAIL_LANDLOCK", raising=False)
+        monkeypatch.setenv("TERMINAL_JAIL_LANDLOCK_PROBE", str(self._ok_stub(tmp_path)))
+        monkeypatch.setattr(ll, "loader_path", lambda: str(loader))
+        monkeypatch.setattr(ll, "_loader_readable_by_launch", lambda p: False)
+        self._reset(monkeypatch)
         assert ll.sandbox_prefix() == ""
-        text = ll.degradation_warning(
-            "landlock-loader.py is not reachable by the launch's payload "
-            f"uid (a parent of {loader} lacks o+x)"
-        )
-        assert "lacks o+x" in text
+        assert "cannot be read by the engine launch context" in capsys.readouterr().err
 
     def test_fork_failure_degrades_loudly(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
