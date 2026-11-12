@@ -6,7 +6,11 @@ and the top-level intercept() entry point.
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -3085,6 +3089,67 @@ rules:
         assert result.action == Action.ALLOW, (
             f"Expected ALLOW (fail-safe on unknown action), got {result.action}"
         )
+        assert result.rule_id == "user-weird-action"
+        assert "'explode'" in result.reason
+
+    def test_unknown_rule_action_is_visible_on_cli_stderr(self, tmp_path) -> None:
+        """The CLI preserves fail-safe provenance for an invalid user action."""
+        home = tmp_path / "home"
+        rules_dir = home / ".config" / "terminal-jail" / "rules.d"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "99-teleport.yaml").write_text(
+            """rules:
+  - id: user-teleport-uname
+    description: Invalid action regression fixture
+    priority: 100
+    action: teleport
+    match:
+      type: pattern
+      pattern: "uname"
+"""
+        )
+        empty_system = tmp_path / "empty-system-rules.d"
+        empty_system.mkdir()
+        env = os.environ.copy()
+        env.update(
+            {
+                "HOME": str(home),
+                "PATH": os.environ["PATH"],
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(empty_system),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+                "TERMINAL_JAIL_LANDLOCK": "0",
+                "TERMINAL_JAIL_PYTHON": sys.executable,
+                "USE_INTERRUPTOR": "1",
+            }
+        )
+        result = subprocess.run(
+            [
+                "bash",
+                str(
+                    Path(__file__).resolve().parent.parent
+                    / "standalone"
+                    / "terminal-jail"
+                ),
+                "uname",
+                "-s",
+            ],
+            cwd=Path(__file__).resolve().parent.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "Linux"
+        verdicts = [
+            json.loads(line)
+            for line in result.stderr.splitlines()
+            if line.startswith("{") and json.loads(line).get("event") == "verdict"
+        ]
+        assert len(verdicts) == 1
+        assert verdicts[0]["rule_id"] == "user-teleport-uname"
+        assert "teleport" in verdicts[0]["reason"]
 
     def test_same_id_warn_override_returns_allow_with_warn_reason(
         self, tmp_path

@@ -495,6 +495,7 @@ class Decider:
         return InterceptResult(
             action=Action.ALLOW,
             command=raw,
+            rule_id=rule.id,
             reason=(
                 f"User rule {rule.id!r} has unknown action {rule.action!r} "
                 "— allowing (fail-safe)"

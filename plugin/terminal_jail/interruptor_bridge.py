@@ -139,7 +139,11 @@ def _verdict_log_enabled() -> bool:
 
 
 def _log_verdict(
-    action: str, rule_id: str | None, layer: str | None, command: str
+    action: str,
+    rule_id: str | None,
+    layer: str | None,
+    command: str,
+    reason: str = "",
 ) -> None:
     """Emit the one-line per-verdict structured log (REVIEW-TJ-015).
 
@@ -157,6 +161,7 @@ def _log_verdict(
         "action": action,
         "rule_id": rule_id,
         "layer": layer,
+        "reason": reason,
         "command_sha256": hashlib.sha256(command.encode()).hexdigest()[:16],
     }
     sys.stderr.write(json.dumps(entry, separators=(",", ":")) + "\n")
@@ -228,6 +233,7 @@ def main() -> None:
         result.rule_id,
         getattr(result, "layer", None),
         command,
+        result.reason,
     )
     response = {
         "action": result.action,
