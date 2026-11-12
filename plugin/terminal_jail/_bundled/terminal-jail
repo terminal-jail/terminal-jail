@@ -622,14 +622,13 @@ print(r.get('modified') or r.get('command', ''))
             # reason (TJ-DF-012). Surface either on stderr; the command
             # runs and we exit 0.
             warn_reason=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
-            case "$warn_reason" in
-                # Match both the env-mode downgrade marker ("[WARN MODE]
-                # Would have blocked: ...") and the user-rule warn reason
-                # ("would have blocked: ...", TJ-DF-012).
-                *"would have blocked"*|*"Would have blocked"*)
-                    echo "terminal-jail: WARNING — $warn_reason" >&2
-                    ;;
-            esac
+            if [ -n "$warn_reason" ]; then
+                # Any non-empty allow reason is operator-visible provenance,
+                # including fail-safe unknown user-rule actions. Keep the
+                # existing warning wording for warn-mode downgrades while also
+                # surfacing malformed action values.
+                echo "terminal-jail: WARNING — $warn_reason" >&2
+            fi
         fi
     fi
 fi
