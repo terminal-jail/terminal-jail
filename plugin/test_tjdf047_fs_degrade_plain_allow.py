@@ -35,6 +35,11 @@ unprivileged user namespaces — the CI-shaped Ubuntu runner permits it), and
 static wiring pins.
 """
 
+# ch:trace row=TJ-DF-064 spec=none:row-acceptance wave=none:serial-tick test=plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning doc=none evidence=plugin/test_tjdf047_fs_degrade_plain_allow.py witness=none:host-specific mapped launch captured by production wiring test verdict=none:foreman-closeout commit=none:foreman-closeout memory=none:foreman-closeout
+# STATUS: complete | partial | blocked
+# TIER: T3
+# EVIDENCE: pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py
+
 from __future__ import annotations
 
 import os
@@ -98,6 +103,9 @@ while [ "$i" -lt "${#args[@]}" ]; do
         *) break ;;
     esac
 done
+if [ "${TJ_DF047_BWRAP_READ_EXIT:-0}" = "1" ] && [ "${args[$i]:-}" = "test" ]; then
+    exit 1
+fi
 exec "${args[@]:$i}"
 """
 
@@ -244,6 +252,7 @@ class TestFsDegradePlainAllow:
                 "HOME": str(tmp_path / "home"),
                 "TJ_DF047_FS_STUB_LOG": str(tmp_path / "stub.log"),
                 "TERMINAL_JAIL_JAIL_BACKEND": "unshare",
+                "TJ_DF047_BWRAP_READ_EXIT": "1",
             }
         )
         (tmp_path / "home").mkdir(exist_ok=True)
@@ -287,9 +296,28 @@ class TestFsDegradePlainAllow:
         assert DEGRADE_PREFIX in result.stderr, result.stderr
         assert "cannot read" in result.stderr, result.stderr
 
+    def test_mapped_bwrap_substitution_does_not_emit_false_fs_warning(
+        self, tmp_path: Path
+    ) -> None:
+        """A bwrap launch after a successful mapped preflight uses the
+        mapped filesystem-isolation result; its subordinate-id readability
+        probe must not manufacture a Landlock degradation warning."""
+        result = self._run(
+            tmp_path,
+            "echo",
+            "TJ064-MAPPED-BWRAP",
+            TERMINAL_JAIL_JAIL_BACKEND="bwrap",
+            TERMINAL_JAIL_FS_ISOLATION="mapped",
+        )
+        assert result.returncode == 0, result.stderr
+        assert "TJ064-MAPPED-BWRAP" in result.stdout
+        assert DEGRADE_PREFIX not in result.stderr
+
     def test_missing_fs_loader_degrades_on_the_bwrap_plain_allow(
         self, tmp_path: Path
     ) -> None:
+        """A missing loader remains a genuine non-attach warning even when
+        the bwrap backend is substituting for a mapped unshare launch."""
         result = self._run(
             tmp_path,
             "echo",
