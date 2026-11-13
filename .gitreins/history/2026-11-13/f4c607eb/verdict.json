@@ -1,0 +1,438 @@
+{
+  "task_id": "INT-CI-019-V-20261113",
+  "task_title": "Verify INT-CI-019 landed fix",
+  "task_criteria": [
+    "PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064",
+  "branch": "",
+  "commit": "f3f376362cf5485c9e4e6a257cd8dfb2595692f5",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "aadce14a14736bd9988860cedc2528b4114265b45383fb807ac08257148ec364",
+  "working_tree_dirty_path_count": 2,
+  "items": [
+    {
+      "criterion": "PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success.",
+      "status": "PASS",
+      "detail": "All three legs verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (git rev-parse origin/main == HEAD). (a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> '17 passed in 1.47s', exit 0. (b) Parity hashes via `sha256sum standalone/* plugin/terminal_jail/_bundled/*`: terminal-jail 8ee5df7cf6de2f10ed35a7721b58aeca25627da4c6b47097f24999042d59c035 on both sides; landlock-loader.py 2b3eccbcdce60a75462d34ba8783365a545b67832ce898f55584d2a0582ac16f on both; landlock-net-loader.py 6d3ed12476d18e424468e55ab64ec219a0fb467b0948f5ed3198f6aab7d173b7 on both; seccomp-loader.py 4d797d41ca1e732e3c7b765c51162d6d65970c738695be5e97373ad2290bbc32 on both \u2014 zero drift. (c) Exact-head CI: `gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5` -> run 43308393385, workflow CI, branch main, event push, 'completed success'; `gh run view 43308393385 --json ...` shows status=completed conclusion=success with all 6 jobs success (Python 3.11/3.12/3.13, Lint (ruff), Drift guards, Audit (pip-audit)). The fix itself is commit 34bdb22 ('fix: resync bundled terminal-jail copy. Addresses INT-CI-019'), which restored the bundled CLI to byte-identical parity with standalone/terminal-jail. [resolution 0.11; plugin/test_packaging_wheel.py]"
+    },
+    {
+      "criterion": "The parity assertion is a live guard, not a vacuous pass \u2014 reintroducing drift in the bundled copy makes the focused test fail.",
+      "status": "PASS",
+      "detail": "Mutation check: appending one byte to plugin/terminal_jail/_bundled/terminal-jail then running `python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q` produced 'FAILED ... test_bundled_copies_are_byte_identical_to_standalone / 1 failed in 0.03s' with the diff '- 8ee5df7c...c035 / + 8d6ff379...4230' at plugin/test_packaging_wheel.py:84. Restoring the file returned both hashes to 8ee5df7c...c035 and `git status --short` shows only the expected ' M .gitreins/tasks.yaml'. The test at plugin/test_packaging_wheel.py:79-86 iterates BUNDLED_FILES (:35-42), which includes both 'terminal-jail' and 'landlock-loader.py'.",
+      "derived": true
+    },
+    {
+      "criterion": "The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.",
+      "status": "PASS",
+      "detail": "`gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName` returned headSha=f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (identical to `git rev-parse origin/main`), headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. .github/workflows/ci.yml triggers on 'push: branches: [main]', so this is the main-branch push run for that exact tip, not a pull_request run.",
+      "derived": true
+    },
+    {
+      "criterion": "The CI run's test step actually executed the parity test (not deselected/skipped), so \"CI success\" covers the criterion's subject.",
+      "status": "PASS",
+      "detail": "Job log for the Python 3.11 job (id 131497632513) via `gh api repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs` contains 'plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]' and the run summary '2024 passed, 13 skipped, 72 deselected in 149.16s'. The 72 deselected are the `-m \"not integration\"` marker from ci.yml, not this test, so the parity assertion genuinely ran and passed in hosted CI.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check",
+      "steps": [
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\nsh: 1: .venv/bin/python: not found\n",
+          "error": "",
+          "data": {
+            "exit_code": 127,
+            "pytest_outcome": {
+              "kind": "unknown",
+              "detail": "pytest exited with unexpected code 127",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "skipped": true,
+            "skip_reason": "test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command"
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n9:00PM INF scanned ~2741932 bytes (2.74 MB) in 137ms\n9:00PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 249 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success.: All three legs verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (git rev-parse origin/main == HEAD). (a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> '17 passed in 1.47s', exit 0. (b) Parity hashes via `sha256sum standalone/* plugin/terminal_jail/_bundled/*`: terminal-jail 8ee5df7cf6de2f10ed35a7721b58aeca25627da4c6b47097f24999042d59c035 on both sides; landlock-loader.py 2b3eccbcdce60a75462d34ba8783365a545b67832ce898f55584d2a0582ac16f on both; landlock-net-loader.py 6d3ed12476d18e424468e55ab64ec219a0fb467b0948f5ed3198f6aab7d173b7 on both; seccomp-loader.py 4d797d41ca1e732e3c7b765c51162d6d65970c738695be5e97373ad2290bbc32 on both \u2014 zero drift. (c) Exact-head CI: `gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5` -> run 43308393385, workflow CI, branch main, event push, 'completed success'; `gh run view 43308393385 --json ...` shows status=completed conclusion=success with all 6 jobs success (Python 3.11/3.12/3.13, Lint (ruff), Drift guards, Audit (pip-audit)). The fix itself is commit 34bdb22 ('fix: resync bundled terminal-jail copy. Addresses INT-CI-019'), which restored the bundled CLI to byte-identical parity with standalone/terminal-jail. [resolution 0.11; plugin/test_packaging_wheel.py]\n  \u2713 The parity assertion is a live guard, not a vacuous pass \u2014 reintroducing drift in the bundled copy makes the focused test fail.: Mutation check: appending one byte to plugin/terminal_jail/_bundled/terminal-jail then running `python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q` produced 'FAILED ... test_bundled_copies_are_byte_identical_to_standalone / 1 failed in 0.03s' with the diff '- 8ee5df7c...c035 / + 8d6ff379...4230' at plugin/test_packaging_wheel.py:84. Restoring the file returned both hashes to 8ee5df7c...c035 and `git status --short` shows only the expected ' M .gitreins/tasks.yaml'. The test at plugin/test_packaging_wheel.py:79-86 iterates BUNDLED_FILES (:35-42), which includes both 'terminal-jail' and 'landlock-loader.py'.\n  \u2713 The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.: `gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName` returned headSha=f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (identical to `git rev-parse origin/main`), headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. .github/workflows/ci.yml triggers on 'push: branches: [main]', so this is the main-branch push run for that exact tip, not a pull_request run.\n  \u2713 The CI run's test step actually executed the parity test (not deselected/skipped), so \"CI success\" covers the criterion's subject.: Job log for the Python 3.11 job (id 131497632513) via `gh api repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs` contains 'plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]' and the run summary '2024 passed, 13 skipped, 72 deselected in 149.16s'. The 72 deselected are the `-m \"not integration\"` marker from ci.yml, not this test, so the parity assertion genuinely ran and passed in hosted CI.\nThe INT-CI-019 fix is fully proven at tip f3f3763: the focused packaging-wheel suite passes (17 passed), all four bundled/standalone parity hashes are byte-identical, and the exact-head main CI run 43308393385 is completed success with the parity test observed PASSED in the job log.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success.: All three legs verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (git rev-parse origin/main == HEAD). (a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> '17 passed in 1.47s', exit 0. (b) Parity hashes via `sha256sum standalone/* plugin/terminal_jail/_bundled/*`: terminal-jail 8ee5df7cf6de2f10ed35a7721b58aeca25627da4c6b47097f24999042d59c035 on both sides; landlock-loader.py 2b3eccbcdce60a75462d34ba8783365a545b67832ce898f55584d2a0582ac16f on both; landlock-net-loader.py 6d3ed12476d18e424468e55ab64ec219a0fb467b0948f5ed3198f6aab7d173b7 on both; seccomp-loader.py 4d797d41ca1e732e3c7b765c51162d6d65970c738695be5e97373ad2290bbc32 on both \u2014 zero drift. (c) Exact-head CI: `gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5` -> run 43308393385, workflow CI, branch main, event push, 'completed success'; `gh run view 43308393385 --json ...` shows status=completed conclusion=success with all 6 jobs success (Python 3.11/3.12/3.13, Lint (ruff), Drift guards, Audit (pip-audit)). The fix itself is commit 34bdb22 ('fix: resync bundled terminal-jail copy. Addresses INT-CI-019'), which restored the bundled CLI to byte-identical parity with standalone/terminal-jail. [resolution 0.11; plugin/test_packaging_wheel.py]\n  \u2713 The parity assertion is a live guard, not a vacuous pass \u2014 reintroducing drift in the bundled copy makes the focused test fail.: Mutation check: appending one byte to plugin/terminal_jail/_bundled/terminal-jail then running `python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q` produced 'FAILED ... test_bundled_copies_are_byte_identical_to_standalone / 1 failed in 0.03s' with the diff '- 8ee5df7c...c035 / + 8d6ff379...4230' at plugin/test_packaging_wheel.py:84. Restoring the file returned both hashes to 8ee5df7c...c035 and `git status --short` shows only the expected ' M .gitreins/tasks.yaml'. The test at plugin/test_packaging_wheel.py:79-86 iterates BUNDLED_FILES (:35-42), which includes both 'terminal-jail' and 'landlock-loader.py'.\n  \u2713 The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.: `gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName` returned headSha=f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (identical to `git rev-parse origin/main`), headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. .github/workflows/ci.yml triggers on 'push: branches: [main]', so this is the main-branch push run for that exact tip, not a pull_request run.\n  \u2713 The CI run's test step actually executed the parity test (not deselected/skipped), so \"CI success\" covers the criterion's subject.: Job log for the Python 3.11 job (id 131497632513) via `gh api repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs` contains 'plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]' and the run summary '2024 passed, 13 skipped, 72 deselected in 149.16s'. The 72 deselected are the `-m \"not integration\"` marker from ci.yml, not this test, so the parity assertion genuinely ran and passed in hosted CI.\nThe INT-CI-019 fix is fully proven at tip f3f3763: the focused packaging-wheel suite passes (17 passed), all four bundled/standalone parity hashes are byte-identical, and the exact-head main CI run 43308393385 is completed success with the parity test observed PASSED in the job log.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success.",
+                "status": "PASS",
+                "detail": "All three legs verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (git rev-parse origin/main == HEAD). (a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> '17 passed in 1.47s', exit 0. (b) Parity hashes via `sha256sum standalone/* plugin/terminal_jail/_bundled/*`: terminal-jail 8ee5df7cf6de2f10ed35a7721b58aeca25627da4c6b47097f24999042d59c035 on both sides; landlock-loader.py 2b3eccbcdce60a75462d34ba8783365a545b67832ce898f55584d2a0582ac16f on both; landlock-net-loader.py 6d3ed12476d18e424468e55ab64ec219a0fb467b0948f5ed3198f6aab7d173b7 on both; seccomp-loader.py 4d797d41ca1e732e3c7b765c51162d6d65970c738695be5e97373ad2290bbc32 on both \u2014 zero drift. (c) Exact-head CI: `gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5` -> run 43308393385, workflow CI, branch main, event push, 'completed success'; `gh run view 43308393385 --json ...` shows status=completed conclusion=success with all 6 jobs success (Python 3.11/3.12/3.13, Lint (ruff), Drift guards, Audit (pip-audit)). The fix itself is commit 34bdb22 ('fix: resync bundled terminal-jail copy. Addresses INT-CI-019'), which restored the bundled CLI to byte-identical parity with standalone/terminal-jail. [resolution 0.11; plugin/test_packaging_wheel.py]",
+                "resolution_probability": 0.11,
+                "cited_path": "plugin/test_packaging_wheel.py"
+              },
+              {
+                "criterion": "The parity assertion is a live guard, not a vacuous pass \u2014 reintroducing drift in the bundled copy makes the focused test fail.",
+                "status": "PASS",
+                "detail": "Mutation check: appending one byte to plugin/terminal_jail/_bundled/terminal-jail then running `python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q` produced 'FAILED ... test_bundled_copies_are_byte_identical_to_standalone / 1 failed in 0.03s' with the diff '- 8ee5df7c...c035 / + 8d6ff379...4230' at plugin/test_packaging_wheel.py:84. Restoring the file returned both hashes to 8ee5df7c...c035 and `git status --short` shows only the expected ' M .gitreins/tasks.yaml'. The test at plugin/test_packaging_wheel.py:79-86 iterates BUNDLED_FILES (:35-42), which includes both 'terminal-jail' and 'landlock-loader.py'.",
+                "derived": true
+              },
+              {
+                "criterion": "The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.",
+                "status": "PASS",
+                "detail": "`gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName` returned headSha=f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (identical to `git rev-parse origin/main`), headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. .github/workflows/ci.yml triggers on 'push: branches: [main]', so this is the main-branch push run for that exact tip, not a pull_request run.",
+                "derived": true
+              },
+              {
+                "criterion": "The CI run's test step actually executed the parity test (not deselected/skipped), so \"CI success\" covers the criterion's subject.",
+                "status": "PASS",
+                "detail": "Job log for the Python 3.11 job (id 131497632513) via `gh api repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs` contains 'plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]' and the run summary '2024 passed, 13 skipped, 72 deselected in 149.16s'. The 72 deselected are the `-m \"not integration\"` marker from ci.yml, not this test, so the parity assertion genuinely ran and passed in hosted CI.",
+                "derived": true
+              }
+            ],
+            "summary": "The INT-CI-019 fix is fully proven at tip f3f3763: the focused packaging-wheel suite passes (17 passed), all four bundled/standalone parity hashes are byte-identical, and the exact-head main CI run 43308393385 is completed success with the parity test observed PASSED in the job log.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"INT-CI-019-V-20261113\"}",
+          "exit_code": 0,
+          "output_sha": "0d8deefab3bc3290b2522116432364e7def32b4b5e17326dabad332d2d88de3f"
+        },
+        {
+          "tool": "run_command",
+          "command": "pwd && ls -la && git log --oneline -15",
+          "exit_code": 0,
+          "output_sha": "e5501a3d7078c17313ed6f553f6a38a17b4e9df4c81b8589ef79e455f652d63b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat .git && git status --short | head -30 && git rev-parse HEAD && git branch -a",
+          "exit_code": 0,
+          "output_sha": "61197658d5c6e95ea0009d890365db125ae05b8694a7f4d38af4e621b93d56c9"
+        },
+        {
+          "tool": "run_command",
+          "command": "ls -la plugin/ plugin/terminal_jail/ plugin/terminal_jail/_bundled/ standalone/ 2>&1 | head -80",
+          "exit_code": 0,
+          "output_sha": "894e12b9f6323476587a2115b3083742a6d6bd71e307db4eacdfe9712c6011e5"
+        },
+        {
+          "tool": "run_command",
+          "command": "ls -la standalone/ && echo \"---HASHES---\" && sha256sum standalone/* plugin/terminal_jail/_bundled/* 2>&1",
+          "exit_code": 0,
+          "output_sha": "f1a48b42182b5b7ddafca1847ab94ac6970a0c423d446abec76b13fe6952dc24"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && cat plugin/pytest.ini && cat plugin/conftest.py && cat pyproject.toml",
+          "exit_code": 0,
+          "output_sha": "3732946450f48cc33d0f2b2e97a3e0e479ae469a62002d26a169be78ad0469f1"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python -m pytest plugin/test_packaging_wheel.py -q 2>&1 | tail -40",
+          "exit_code": 0,
+          "output_sha": "188ebe2a845989f843465f5713a54a4cd078a850d42f14651a184b26985a05bc"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && grep -n \"landlock-loader\\|terminal-jail\\b\\|sha256\\|parity\\|_bundled\" plugin/test_packaging_wheel.py | head -60",
+          "exit_code": 0,
+          "output_sha": "cc72387002fe2b560c13aede34787c471aefd6aefa5322b90bc63e0faabdc043"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 110, \"offset\": 1, \"path\": \"plugin/test_packaging_wheel.py\"}",
+          "exit_code": 0,
+          "output_sha": "8c9d63a5c4912c83bb53489aefdd936f63d0999188a1d5b7433dc4b444632e89"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git log --oneline -5 -- plugin/terminal_jail/_bundled/ standalone/ && echo \"=== diff of INT-CI-019 fix commit ===\" && git show --stat 34bdb22",
+          "exit_code": 0,
+          "output_sha": "a4d4ece88e5b20d8eb5bbe88b49b21a46516b333a7abb48f4dbbe88387540d7e"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git show 34bdb22 -- plugin/terminal_jail/_bundled/terminal-jail",
+          "exit_code": 0,
+          "output_sha": "95261c67c6b8444d6e649f6d37acaccb702e31478cc8a45b5c59c3a229476aa0"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git log --oneline -3 origin/main && echo \"=== is HEAD on main? ===\" && git merge-base --is-ancestor HEAD origin/main && echo \"HEAD IS ANCESTOR OF origin/main\" || echo \"HEAD NOT IN origin/main\" ; echo \"=== origin/main tip ===\" && git rev-parse origin/main && git log --oneline -1 origin/main",
+          "exit_code": 0,
+          "output_sha": "151d80b025df54592fee72bab58aed07cd79a361e6d28bcfdf2c9dcded4f7d6f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git show --stat 5b0420e && echo \"=== 5b0420e full diff ===\" && git show 5b0420e | head -200",
+          "exit_code": 0,
+          "output_sha": "8edadf4684802d22cd39bf31ff9058d6e0ed9ce4ea285d68ca22243c636da7f3"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && ls -R .github && echo \"=== workflows ===\" && for f in .github/workflows/*; do echo \"--- $f ---\"; cat \"$f\"; done 2>&1 | head -200",
+          "exit_code": 0,
+          "output_sha": "8121c07366f749e0633a07fa106b93b19534d3c66a5976067b1dc4cd3f610d56"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && grep -rn \"INT-CI-019\" --include=*.jsonl --include=*.yaml --include=*.md --include=*.json . 2>/dev/null | grep -v \"^./.gitreins/tasks.yaml\" | head -40",
+          "exit_code": 0,
+          "output_sha": "6eff7ae40743e22a62f404e6c794430848898fd08b509af9e72ab3b486a332cd"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && ls -la .coding-hermes .coding-hermes/board 2>/dev/null && ls -la .gitreins && cat .gitreins/config.yaml 2>/dev/null",
+          "exit_code": 0,
+          "output_sha": "3a72bafd18cbaf08761c7798c0260f5d2d7ef98916683a67119f8d88bb28a06a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 -c \"\nimport json\nfor line in open('.coding-hermes/board/tasks.jsonl'):\n    line=line.strip()\n    if not line: continue\n    try: d=json.loads(line)\n    except Exception: continue\n    if d.get('id')=='INT-CI-019':\n        print(json.dumps(d, indent=2)[:6000])\n\"",
+          "exit_code": 0,
+          "output_sha": "b1b8d814666bf845497e2953849561d33ca58d7c777f81fc6a4a420c878381bc"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 -c \"\nimport json\nfor line in open('.coding-hermes/board/events.jsonl'):\n    line=line.strip()\n    if not line: continue\n    try: d=json.loads(line)\n    except Exception: continue\n    if d.get('task_id')=='INT-CI-019':\n        print(d.get('id'), d.get('timestamp'), d.get('event_type'), d.get('actor'))\n        print('  ', str(d.get('detail'))[:1500])\n        print()\n\"",
+          "exit_code": 0,
+          "output_sha": "aa239a2f23853bf63a7bac1258415d9d4ec8f350927f7d58015a8de6dcdb505a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 -c \"\nimport json\nfor line in open('.coding-hermes/board/events.jsonl'):\n    line=line.strip()\n    if not line: continue\n    try: d=json.loads(line)\n    except Exception: continue\n    s=json.dumps(d)\n    if '43284390458' in s or '43141455667' in s:\n        print(d.get('id'), d.get('timestamp'), d.get('event_type'), d.get('task_id'), d.get('actor'))\n        print('  ', str(d.get('detail'))[:2500])\n        print()\n\"",
+          "exit_code": 0,
+          "output_sha": "c01a203b2f6946aa1b163536a70fb2cb36ec0706475d6dcda1299b00b552a9a4"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && grep -rn \"43284390458\\|43141455667\" --include=*.md --include=*.jsonl --include=*.yaml . 2>/dev/null | cut -c1-400 | head -30",
+          "exit_code": 0,
+          "output_sha": "543cdad1bf61dfb583efe508c09f49de675340b76f8385321eb026cf60ec8e3e"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 -c \"\nimport json\nfor line in open('.coding-hermes/board/events.jsonl'):\n    line=line.strip()\n    if not line: continue\n    try: d=json.loads(line)\n    except Exception: continue\n    s=json.dumps(d)\n    if '43284390458' in s:\n        print(d.get('id'), d.get('timestamp'), d.get('event_type'), d.get('task_id'), d.get('actor'))\n        print(json.dumps(d.get('detail'), indent=1)[:4000])\n\"",
+          "exit_code": 0,
+          "output_sha": "11ba47ebc44cbc389dd0fce54af05df395d798a58e77cdec67801eddf92112a3"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 -c \"\nimport json\nfor line in open('.coding-hermes/board/tasks.jsonl'):\n    line=line.strip()\n    if not line: continue\n    try: d=json.loads(line)\n    except Exception: continue\n    if d.get('id') in ('INT-CI-020','QA-TERMINAL-JAIL-34'):\n        print(json.dumps(d, indent=1)[:3000]); print('---')\n\"",
+          "exit_code": 0,
+          "output_sha": "75ab7f676edc6f0e0116cf2741400b235a993df6b3b1d4ce1a75aac746018db1"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && python3 scripts/board_id_guard.py; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "98932a0f30a31b889f06f6b4bb15d533b04368d2bc997b6a87a356343bc2143f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git log --oneline -3 -- .coding-hermes/board/tasks.jsonl && echo \"=== tasks.jsonl at origin/main tip vs HEAD ===\" && git diff --stat origin/main -- .coding-hermes/board/tasks.jsonl && echo \"=== show line 387 at origin/main ===\" && git show origin/main:.coding-hermes/board/tasks.jsonl | sed -n '387p' | cut -c1-600",
+          "exit_code": 0,
+          "output_sha": "0f85c6342cf3cee396739fa441e7b5d491b67fc7ebd77f3214204ac85471ba97"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Repo: /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 (worktree of /home/kara/terminal-jail)\\nHEAD = f3f3763 == origin/main tip (git rev-parse origin/main = f3f376362cf5485c9e4e6a257cd8dfb2595692f5). HEAD is ancestor of origin/main.\\nOnly working-tree change: .gitreins/tasks.yaml (adds INT-CI-019-V-20261113 row, status complete).\\n\\nHASH PARITY (sha256sum standalone/* plugin/terminal_jail/_bundled/*):\\n  landlock-loader.py     2b3eccbc...ac16f  == both\\n  landlock-net-loader.py 6d3ed124...173b7  == both\\n  seccomp-loader.py      4d797d41...bbc32  == both\\n  terminal-jail          8ee5df7c...c035   == both\\n=> parity holds at tip.\\n\\nFOCUSED PYTEST: `python -m pytest plugin/test_packaging_wheel.py -q` -> \\\"17 passed in 2.60s\\\" exit 0.\\nTest that pins parity: plugin/test_packaging_wheel.py:79 test_bundled_copies_are_byte_identical_to_standalone (BUNDLED_FILES at :35-42 includes terminal-jail + landlock-loader.py).\\n\\nCI EVIDENCE:\\n- .github/workflows/ci.yml: on push branches [main]; jobs test (3.11/3.12/3.13) + lint.\\n- Board tasks.jsonl:387 INT-CI-019 description: \\\"hosted run 43284390458: 2024 passed, 13 skipped, 72 deselected\\\" \\u2014 but INT-CI-020 acceptance says at 5b0420e the 3.11/3.12/3.13 jobs FAIL at step \\\"Validate canonical board task IDs\\\" for line 387.\\n- INT-CI-020 (filed 2026-11-12T21:13:58Z, still pending) cites run 43284390458 as RED.\\n- No run id / conclusion recorded for tip f3f3763 anywhere in repo. Board event 997 (18:52Z) says \\\"ci: exact-head main run queued/in_progress ... future green run required by row\\\"; trace witness=none:future-main-ci-pending.\\n- scripts/board_id_guard.py at tip: rc=0 (INT-CI-019 line 387 repaired by f3f3763), so that specific red step is now green locally \\u2014 but no hosted run for f3f3763 is recorded.\\n\", \"key\": \"exploration\"}",
+          "exit_code": 0,
+          "output_sha": "343ecf98c471c2e5dd4f0e4b526d5661af3a3e54c33886c43b2d720f01168825"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && grep -rn \"f3f3763\\|f3f376362cf5485c9e4e6a257cd8dfb2595692f5\" --include=*.jsonl --include=*.md --include=*.yaml . 2>/dev/null | cut -c1-300 | head -20; echo \"=== gh available? ===\"; which gh; echo \"=== any CI run artifacts ===\"; ls -la .gitreins/history | head -20",
+          "exit_code": 0,
+          "output_sha": "4fed8494ee62a9eb59324ac4e70ecc42a12af56b25889217be78810e3cea2a5c"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git remote -v && timeout 60 gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5 --limit 10 2>&1 | head -20; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "3dbf994155de45ec208324e80c251de26ad34d96fdf20997a252530e2cb2ac56"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && timeout 90 gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName,createdAt,updatedAt,jobs 2>&1 | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('run', d['databaseId'], 'sha', d['headSha'], 'branch', d['headBranch'], 'event', d['event'])\nprint('status', d['status'], 'conclusion', d['conclusion'], 'workflow', d['workflowName'])\nfor j in d.get('jobs',[]):\n    print(' JOB', j['name'], j['status'], j['conclusion'])\n    for s in j.get('steps',[]):\n        print('    step:', s['name'], s['conclusion'])\n\"",
+          "exit_code": 0,
+          "output_sha": "d0001c1b5d67842a315a4ea2f77b009047447a7dd9b07b80b2a99981c8155894"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && timeout 120 gh run view 43308393385 --log --job \"$(timeout 60 gh run view 43308393385 --json jobs -q '.jobs[] | select(.name==\"Python 3.11\") | .databaseId')\" 2>&1 | grep -i \"test_bundled_copies_are_byte_identical\\|passed\\|deselected\" | head -10",
+          "exit_code": 0,
+          "output_sha": "6a0c4a65dd371760162a43bc3a13dc8a77cf881c9c2b798878e45af2f4c71287"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && JID=$(timeout 60 gh run view 43308393385 --json jobs -q '.jobs[] | select(.name==\"Python 3.11\") | .databaseId'); echo \"job=$JID\"; timeout 180 gh run view --job \"$JID\" --log 2>&1 | tail -5; echo \"---grep---\"; timeout 180 gh run view --job \"$JID\" --log 2>&1 | grep -c \"test_bundled_copies_are_byte_identical\"",
+          "exit_code": 1,
+          "output_sha": "9893770e28b2269263d0dfee9d7d53f181213cc03bed0cd5824e433b7bd7054d"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && timeout 180 gh run view --job 131497632513 --log 2>&1 | head -20; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "d088469437aae37984c7a359fe7d790e8fea74989289ef7a52673af177ae0ddb"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && timeout 180 gh api \"repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs\" 2>&1 | grep -i \"test_bundled_copies_are_byte_identical\\|passed\\|deselected\\|error\" | head -10; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "de8ad372ca2894b69718215ea6cc823cc0750f7099038ec30ab5c096f93685d7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && timeout 180 gh api \"repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs\" 2>&1 | grep -E \"test_bundled_copies_are_byte_identical|passed, .*skipped|deselected in\" | head -10",
+          "exit_code": 0,
+          "output_sha": "335e8db411ba406b01c69bb73ddd39d60cea0e14070a25eeac0b06b0c77846f3"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: All three legs of criterion 1 verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (== origin/main, == HEAD).\\n(a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> \\\"17 passed in 2.60s\\\", exit 0.\\n(b) Parity hashes: sha256sum shows bundled == standalone for terminal-jail (8ee5df7c...c035), landlock-loader.py (2b3eccbc...ac16f), landlock-net-loader.py (6d3ed124...173b7), seccomp-loader.py (4d797d41...bbc32). No diff.\\n(c) Exact-head CI: `gh run list --commit f3f3763...` -> run 43308393385, workflow CI, branch main, event push, status completed, conclusion success. All 6 jobs success (Python 3.11/3.12/3.13, Lint, Drift guards, Audit). Job log (gh api .../actions/jobs/131497632513/logs) shows \\\"plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED\\\" and \\\"2024 passed, 13 skipped, 72 deselected in 149.16s\\\".\\n\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "d2e56bbe58c2ab257f6120d0d365e89a3954eb3146cc8d142b1b0c42c015163f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && echo \"=== does the parity test actually fail if drift reintroduced? (mutation check) ===\" && cp plugin/terminal_jail/_bundled/terminal-jail /tmp/tj.bak && printf '\\n# drift\\n' >> plugin/terminal_jail/_bundled/terminal-jail && python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q 2>&1 | tail -8; cp /tmp/tj.bak plugin/terminal_jail/_bundled/terminal-jail; echo \"=== restored ===\"; sha256sum plugin/terminal_jail/_bundled/terminal-jail standalone/terminal-jail; git status --short",
+          "exit_code": 0,
+          "output_sha": "c309e7e67ac993491127486ffbb3142272e4557139dcaa08b22d4e0abdb8ddf0"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"The parity assertion is a live guard, not a vacuous pass: appending one byte to plugin/terminal_jail/_bundled/terminal-jail makes test_bundled_copies_are_byte_identical_to_standalone FAIL (\\\"- 8ee5df7c...c035 / + 8d6ff379...4230\\\", 1 failed in 0.03s); restoring the file returns both to 8ee5df7c...c035 and the tree is clean apart from .gitreins/tasks.yaml.\\n\", \"key\": \"verified_derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "8850157f0093f395fda0e2be09f042a2c6cfbfc1d0baa6e09ae2024001f863c3"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"The CI run 43308393385 is bound to the exact tip: gh run view --json headSha returns f3f376362cf5485c9e4e6a257cd8dfb2595692f5, headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. The CI workflow (.github/workflows/ci.yml) triggers on push to main, so this is the main-branch run for that tip, not a PR run.\\n\", \"key\": \"verified_derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "e88377a28fbaae4c5c5e03af3ad034039230ce36ca2e89f5f44ff458023b7884"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"DERIVED CRITERIA (proposed before grading):\\nderived_0: The parity assertion is a live guard, not a vacuous pass \\u2014 reintroducing drift in the bundled copy makes the focused test fail.\\nderived_1: The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.\\nderived_2: The CI run's test step actually executed the parity test (not deselected/skipped), so \\\"CI success\\\" covers the criterion's subject.\\n\", \"key\": \"derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "b64e525a48b31ae6b190d1cf16ab643361969d11f47c7e6c7a2d44544651cba2"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"The CI test step ran the parity test and it passed: job 131497632513 (Python 3.11) log line \\\"plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]\\\" and the run summary \\\"2024 passed, 13 skipped, 72 deselected in 149.16s\\\". The 72 deselected are the -m \\\"not integration\\\" marker, not this test.\\n\", \"key\": \"verified_derived_2\"}",
+          "exit_code": 0,
+          "output_sha": "98e7f7b3c5b637f1ca1deb87842bf621ce7bef5e7b2f0e308d816b527afa5200"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"derived_1: The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.\\n\", \"key\": \"derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "2583c7715b06d38e889110d7b543f0557e3031cd930bf0a4aa6104a93c4ff13e"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"derived_2: The CI run's test step actually executed the parity test (not deselected/skipped), so \\\"CI success\\\" covers the criterion's subject.\\n\", \"key\": \"derived_2\"}",
+          "exit_code": 0,
+          "output_sha": "495afe60c618c2b0faeb88c6aad26abb32e064ec0d293ef5cd259ef5eb3a3e10"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064 && git status --short && echo \"=== final focused run ===\" && python -m pytest plugin/test_packaging_wheel.py -q 2>&1 | tail -3",
+          "exit_code": 0,
+          "output_sha": "fef35856935377b2e6013a5705088e0fccd86edbaeb8118828c47be3d34267bc"
+        }
+      ]
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The diff only appends a completed verification task record and a usage-log line to gitreins bookkeeping files, with no code, wiring, or test changes to review."
+  },
+  "summary": "Stage tier1: PASS\n    ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-20261113-013958/verify-tj-df-064/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: at the published integration tip, plugin/test_packaging_wheel.py passes and the bundled terminal-jail plus landlock-loader hashes equal their standalone counterparts; the exact main CI run for that tip is completed success. FAILIF: any parity hash differs, the focused pytest fails, or the exact-head CI run is not terminal success.: All three legs verified at tip f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (git rev-parse origin/main == HEAD). (a) Focused pytest: `python -m pytest plugin/test_packaging_wheel.py -q` -> '17 passed in 1.47s', exit 0. (b) Parity hashes via `sha256sum standalone/* plugin/terminal_jail/_bundled/*`: terminal-jail 8ee5df7cf6de2f10ed35a7721b58aeca25627da4c6b47097f24999042d59c035 on both sides; landlock-loader.py 2b3eccbcdce60a75462d34ba8783365a545b67832ce898f55584d2a0582ac16f on both; landlock-net-loader.py 6d3ed12476d18e424468e55ab64ec219a0fb467b0948f5ed3198f6aab7d173b7 on both; seccomp-loader.py 4d797d41ca1e732e3c7b765c51162d6d65970c738695be5e97373ad2290bbc32 on both \u2014 zero drift. (c) Exact-head CI: `gh run list --commit f3f376362cf5485c9e4e6a257cd8dfb2595692f5` -> run 43308393385, workflow CI, branch main, event push, 'completed success'; `gh run view 43308393385 --json ...` shows status=completed conclusion=success with all 6 jobs success (Python 3.11/3.12/3.13, Lint (ruff), Drift guards, Audit (pip-audit)). The fix itself is commit 34bdb22 ('fix: resync bundled terminal-jail copy. Addresses INT-CI-019'), which restored the bundled CLI to byte-identical parity with standalone/terminal-jail. [resolution 0.11; plugin/test_packaging_wheel.py]\n  \u2713 The parity assertion is a live guard, not a vacuous pass \u2014 reintroducing drift in the bundled copy makes the focused test fail.: Mutation check: appending one byte to plugin/terminal_jail/_bundled/terminal-jail then running `python -m pytest plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone -q` produced 'FAILED ... test_bundled_copies_are_byte_identical_to_standalone / 1 failed in 0.03s' with the diff '- 8ee5df7c...c035 / + 8d6ff379...4230' at plugin/test_packaging_wheel.py:84. Restoring the file returned both hashes to 8ee5df7c...c035 and `git status --short` shows only the expected ' M .gitreins/tasks.yaml'. The test at plugin/test_packaging_wheel.py:79-86 iterates BUNDLED_FILES (:35-42), which includes both 'terminal-jail' and 'landlock-loader.py'.\n  \u2713 The CI run cited is bound to the exact tip SHA on the main branch (headSha == tip, event push, branch main), not a PR or a different commit.: `gh run view 43308393385 --json databaseId,headSha,headBranch,event,status,conclusion,workflowName` returned headSha=f3f376362cf5485c9e4e6a257cd8dfb2595692f5 (identical to `git rev-parse origin/main`), headBranch=main, event=push, workflowName=CI, status=completed, conclusion=success. .github/workflows/ci.yml triggers on 'push: branches: [main]', so this is the main-branch push run for that exact tip, not a pull_request run.\n  \u2713 The CI run's test step actually executed the parity test (not deselected/skipped), so \"CI success\" covers the criterion's subject.: Job log for the Python 3.11 job (id 131497632513) via `gh api repos/terminal-jail/terminal-jail/actions/jobs/131497632513/logs` contains 'plugin/test_packaging_wheel.py::TestBundledPackageData::test_bundled_copies_are_byte_identical_to_standalone PASSED [ 67%]' and the run summary '2024 passed, 13 skipped, 72 deselected in 149.16s'. The 72 deselected are the `-m \"not integration\"` marker from ci.yml, not this test, so the parity assertion genuinely ran and passed in hosted CI.\nThe INT-CI-019 fix is fully proven at tip f3f3763: the focused packaging-wheel suite passes (17 passed), all four bundled/standalone parity hashes are byte-identical, and the exact-head main CI run 43308393385 is completed success with the parity test observed PASSED in the job log.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-13T02:01:32.275758",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-13T02:01:32.330038+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 134235,
+        "truncated": false,
+        "source": "git show f3f376362cf5"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2061,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "INT-CI-019-V-20261113"
+  }
+}
