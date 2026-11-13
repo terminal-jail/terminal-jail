@@ -1453,21 +1453,21 @@ else
                 # A missing loader is a genuine non-attach, including when
                 # bwrap is only substituting for a mapped unshare launch.
                 _tj_fs_degrade "landlock-loader.py not found (searched ${SCRIPT_DIR} and ${INSTALLED_LIB_DIR})"
-            elif [ "$TJ_LANDLOCK_MAPPED_SUBSTITUTION" -eq 1 ]; then
-                # The mapped preflight already proved filesystem isolation;
-                # bwrap's subordinate-id read probe is not a second verdict.
-                :
-            elif [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
-                if "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
-                    if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
-                        exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
-                    fi
+            elif "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+                if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
                     exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
-                else
-                    _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
+                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
                 fi
+                exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
+                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+            elif [ "$TJ_LANDLOCK_MAPPED_SUBSTITUTION" -eq 1 ]; then
+                # The mapped preflight already reported the deliberate bwrap
+                # (the legacy != "mapped" gate remains represented here).
+                # filesystem-isolation substitution. Do not add a second
+                # Landlock warning when bwrap cannot read this loader.
+                :
+            else
+                _tj_fs_degrade "the payload cannot read ${LANDLOCK_LOADER} in the launch that would run it"
             fi
         fi
         # TJ-DF-046: the egress tier's own wrap when the fs tier did not take
