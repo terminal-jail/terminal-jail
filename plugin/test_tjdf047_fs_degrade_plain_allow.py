@@ -35,7 +35,7 @@ unprivileged user namespaces — the CI-shaped Ubuntu runner permits it), and
 static wiring pins.
 """
 
-# ch:trace row=TJ-DF-064 spec=none:row-acceptance wave=none:serial-tick test=plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning doc=none evidence=plugin/test_tjdf047_fs_degrade_plain_allow.py witness=none:host-specific mapped launch captured by production wiring test verdict=none:foreman-closeout commit=f4e5406c4c2a9d439e486b2e05e6b432ad551dee memory=none:foreman-closeout
+# ch:trace row=TJ-DF-064 spec=none:row-acceptance wave=none:serial-tick test=plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning doc=none evidence=plugin/test_tjdf047_fs_degrade_plain_allow.py witness=none:host-specific mapped launch captured by production wiring test verdict=none:foreman-closeout commit=f4e540652e348d43e11bc8e681d276221efffc08 memory=none:foreman-closeout
 # STATUS: complete | partial | blocked
 # TIER: T3
 # EVIDENCE: pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py
