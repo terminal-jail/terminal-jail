@@ -30,24 +30,54 @@ silently re-point every future shell (including agent tool shells) at throwaway 
 
 ---
 
-### Step 1 — Install the shell wrapper
+## Steps 1–2 are RETIRED (ops tick 2026-11-13)
+
+The `/usr/local` host install is retired. Do **not** install it. Measured on karaHermes 2026-11-13:
+
+| path | `--version` | bytes | sha256 vs tag v1.3.3 |
+| --- | --- | --- | --- |
+| `/usr/local/bin/terminal-jail-sh` | `1.0.0` | 2094 B, 2026-07-24 | `9a29ecd396d1…` ≠ tag `35e6855e46e5…` |
+| `/usr/local/bin/terminal-jail-bash` | `1.0.0` | 8068 B, 2026-07-24 | `35b816a23d3b…` ≠ tag `5afe5e52dbdf…` |
+| `~/.local/bin/terminal-jail` (supported) | `1.3.3` | 86885 B, 2026-11-10 | `VERSION_DEFAULT` baked `1.3.3` at install time |
+
+Those shims are dormant: `/etc/systemd/system/hermes-gateway.service.d/` holds
+`90-terminal-jail-hardening.conf`, `99-tasks-max.conf` and `signal-dependency.conf` but **no**
+`95-terminal-jail-shell.conf`, `systemctl show hermes-gateway -p Environment` is empty, and
+`hermes-gateway.service` is `ActiveState=inactive`, `MainPID=0` (no unit file present). Tool shells
+run as transient `hermes-worker-proc_*.scope` units invoking `/bin/bash -lic` directly, so no shell
+ever passes through the retired shims — their staleness is a supply-of-record defect, not an outage.
+The supported install is the user install, which needs no root:
 
 ```bash
-sudo cp /home/kara/terminal-jail/standalone/terminal-jail /usr/local/bin/terminal-jail-bash
-sudo chmod 755 /usr/local/bin/terminal-jail-bash
+./install.sh          # installs ~/.local/bin/terminal-jail (currently 1.3.3)
 ```
 
-### Step 2 — Install the SHELL shim (handles -lic invocation)
+If you ever deliberately re-install the shim, install it **from tag v1.3.3** and record the per-file
+sha256 — never from a working tree that may be mid-edit.
+
+---
+
+### Step 1 — Install the shell wrapper — RETIRED, do not run
+
+```bash
+# RETIRED 2026-11-13: this installed /usr/local/bin/terminal-jail-bash, now stale at 1.0.0.
+# Use ./install.sh (user install -> ~/.local/bin/terminal-jail) instead.
+# sudo cp /home/kara/terminal-jail/standalone/terminal-jail /usr/local/bin/terminal-jail-bash
+# sudo chmod 755 /usr/local/bin/terminal-jail-bash
+```
+
+### Step 2 — Install the SHELL shim (handles -lic invocation) — RETIRED, do not run
 
 The Hermes terminal tool invokes the shell as: `bash -lic "set +m; {command}"`. We need a thin
 wrapper that extracts the command, runs it through the interruptor, wraps it in the CLI's jail
 (`--user --seccomp`; the backend — `unshare`, or the optional bubblewrap one with a private
 `/proc` — is chosen by the CLI at runtime, see `specs/cli.md` §4 "Jail backends"), and execs.
-The canonical wrapper lives in this repo at `standalone/terminal-jail-sh` — install it from there
-(do NOT copy a script by hand; the repo copy is the maintained one):
+The canonical wrapper lives in this repo at `standalone/terminal-jail-sh`. The `/usr/local`
+destination is **retired** (see the retirement note above) — do not install it there:
 
 ```bash
-sudo install -m 755 /home/kara/terminal-jail/standalone/terminal-jail-sh /usr/local/bin/terminal-jail-sh
+# RETIRED 2026-11-13: lands a dormant, unversioned copy in /usr/local. Do not run.
+# sudo install -m 755 /home/kara/terminal-jail/standalone/terminal-jail-sh /usr/local/bin/terminal-jail-sh
 ```
 
 The wrapper resolves its base directory relative to the repo checkout when present, and falls back
@@ -62,6 +92,10 @@ UNWRAPPED `/bin/bash` — no interruptor firewall, no namespace, no seccomp (TJ-
 with `-c`.
 
 ### Step 3 — Verify the shim works
+
+> The `/usr/local/bin/terminal-jail-sh` paths below assume the **retired** legacy install. If you did
+> not reinstall the shim from tag v1.3.3 (see the retirement note), run the repo copy instead:
+> `standalone/terminal-jail-sh -c "..."` from the checkout — that is the same file, at the current tag.
 
 ```bash
 # Test: simple command
@@ -137,6 +171,15 @@ sudo cp /home/kara/terminal-jail/systemd/90-terminal-jail-hardening.conf \
 ```
 
 ### Step 5 — Update gateway unit to use the jail SHELL
+
+> **Blocked by the retirement (2026-11-13).** `SHELL=/usr/local/bin/terminal-jail-sh` points at the
+> retired path, which is stale (1.0.0) and will not be reinstalled by default. Do not run this step
+> until the shim has been reinstalled **from tag v1.3.3** at a stable path and Steps 1–3 pass against
+> it. Measured state: `/etc/systemd/system/hermes-gateway.service.d/` has no
+> `95-terminal-jail-shell.conf`, `systemctl show hermes-gateway -p Environment` is empty, and
+> `hermes-gateway.service` reports `ActiveState=inactive`, `MainPID=0` — this host runs the gateway
+> outside systemd (tool shells are transient `hermes-worker-proc_*.scope` units), so there is no unit
+> to add this override to until that is resolved.
 
 ```bash
 sudo mkdir -p /etc/systemd/system/hermes-gateway.service.d
