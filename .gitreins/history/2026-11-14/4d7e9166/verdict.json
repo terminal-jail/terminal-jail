@@ -1,0 +1,335 @@
+{
+  "task_id": "QA-TERMINAL-JAIL-30-V",
+  "task_title": "Verify unknown action provenance at published implementation",
+  "task_criteria": [
+    "PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V",
+  "branch": "wt/QA-TERMINAL-JAIL-30-V",
+  "commit": "0e231957c90f924894083584e08b7077a95311e3",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "c1ecc875bce0e2a6d16bbb51ef3fe17dee52cec4795ef44d6a561de4e8b26f56",
+  "working_tree_dirty_path_count": 2,
+  "items": [
+    {
+      "criterion": "PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication.",
+      "status": "PASS",
+      "detail": "HEAD confirmed as 0e231957c90f924894083584e08b7077a95311e3 via `git rev-parse HEAD`. FOCUSED TESTS: `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short` -> exit_code 0, 'plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]', 'test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]', '2 passed in 0.39s'. Full file: '525 passed in 2.26s'. CLI ARM (independently reproduced, not just via test): ran `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport -> EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0, verdict line {\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"user-teleport-uname\",\"layer\":\"user\",\"reason\":\"User rule 'user-teleport-uname' has unknown action 'teleport' \u2014 allowing (fail-safe)\"}. DIRECT ARM (independently reproduced): intercept(\"anything at all\") -> action=allow, rule_id='user-weird-action', reason=\"User rule 'user-weird-action' has unknown action 'explode' \u2014 allowing (fail-safe)\". Implementation source: plugin/terminal_jail/interruptor/decider.py:511-521 sets rule_id=rule.id and reason embedding rule.action!r; emitted by plugin/terminal_jail/interruptor_bridge.py:160-168. FAILIF CLEAR: neither arm returns null rule_id and both reasons carry the offending action value ('teleport'/'explode'). NON-VACUITY: mutating decider.py:514 to rule_id=None and dropping rule.action!r made both tests FAIL ('assert None == 'user-weird-action'' at test_interruptor.py:3092; 'assert None == 'user-teleport-uname'' at test_interruptor.py:3257; '2 failed in 0.26s'), then restored. VERIFICATION-ONLY: `git diff --name-only HEAD` = only .gitreins/tasks.yaml (13 insertions, the board row); no product code modified; `git tag --points-at HEAD` empty (no tag/release/publication)."
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check",
+      "steps": [
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\nsh: 1: .venv/bin/python: not found\n",
+          "error": "",
+          "data": {
+            "exit_code": 127,
+            "pytest_outcome": {
+              "kind": "unknown",
+              "detail": "pytest exited with unexpected code 127",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "skipped": true,
+            "skip_reason": "test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command"
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n5:46PM INF scanned ~2872119 bytes (2.87 MB) in 137ms\n5:46PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 255 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication.: HEAD confirmed as 0e231957c90f924894083584e08b7077a95311e3 via `git rev-parse HEAD`. FOCUSED TESTS: `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short` -> exit_code 0, 'plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]', 'test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]', '2 passed in 0.39s'. Full file: '525 passed in 2.26s'. CLI ARM (independently reproduced, not just via test): ran `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport -> EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0, verdict line {\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"user-teleport-uname\",\"layer\":\"user\",\"reason\":\"User rule 'user-teleport-uname' has unknown action 'teleport' \u2014 allowing (fail-safe)\"}. DIRECT ARM (independently reproduced): intercept(\"anything at all\") -> action=allow, rule_id='user-weird-action', reason=\"User rule 'user-weird-action' has unknown action 'explode' \u2014 allowing (fail-safe)\". Implementation source: plugin/terminal_jail/interruptor/decider.py:511-521 sets rule_id=rule.id and reason embedding rule.action!r; emitted by plugin/terminal_jail/interruptor_bridge.py:160-168. FAILIF CLEAR: neither arm returns null rule_id and both reasons carry the offending action value ('teleport'/'explode'). NON-VACUITY: mutating decider.py:514 to rule_id=None and dropping rule.action!r made both tests FAIL ('assert None == 'user-weird-action'' at test_interruptor.py:3092; 'assert None == 'user-teleport-uname'' at test_interruptor.py:3257; '2 failed in 0.26s'), then restored. VERIFICATION-ONLY: `git diff --name-only HEAD` = only .gitreins/tasks.yaml (13 insertions, the board row); no product code modified; `git tag --points-at HEAD` empty (no tag/release/publication).\nAt published commit 0e23195 both focused unknown-action tests pass and independent end-to-end reproduction confirms the CLI arm emits exactly one verdict with rule_id user-teleport-uname, reason containing 'teleport', exit 0, while the direct intercept arm keeps rule_id user-weird-action with 'explode' in the reason under action allow \u2014 no null rule_id, no omitted action value, and no product code, board rows, tags or releases were touched.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication.: HEAD confirmed as 0e231957c90f924894083584e08b7077a95311e3 via `git rev-parse HEAD`. FOCUSED TESTS: `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short` -> exit_code 0, 'plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]', 'test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]', '2 passed in 0.39s'. Full file: '525 passed in 2.26s'. CLI ARM (independently reproduced, not just via test): ran `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport -> EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0, verdict line {\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"user-teleport-uname\",\"layer\":\"user\",\"reason\":\"User rule 'user-teleport-uname' has unknown action 'teleport' \u2014 allowing (fail-safe)\"}. DIRECT ARM (independently reproduced): intercept(\"anything at all\") -> action=allow, rule_id='user-weird-action', reason=\"User rule 'user-weird-action' has unknown action 'explode' \u2014 allowing (fail-safe)\". Implementation source: plugin/terminal_jail/interruptor/decider.py:511-521 sets rule_id=rule.id and reason embedding rule.action!r; emitted by plugin/terminal_jail/interruptor_bridge.py:160-168. FAILIF CLEAR: neither arm returns null rule_id and both reasons carry the offending action value ('teleport'/'explode'). NON-VACUITY: mutating decider.py:514 to rule_id=None and dropping rule.action!r made both tests FAIL ('assert None == 'user-weird-action'' at test_interruptor.py:3092; 'assert None == 'user-teleport-uname'' at test_interruptor.py:3257; '2 failed in 0.26s'), then restored. VERIFICATION-ONLY: `git diff --name-only HEAD` = only .gitreins/tasks.yaml (13 insertions, the board row); no product code modified; `git tag --points-at HEAD` empty (no tag/release/publication).\nAt published commit 0e23195 both focused unknown-action tests pass and independent end-to-end reproduction confirms the CLI arm emits exactly one verdict with rule_id user-teleport-uname, reason containing 'teleport', exit 0, while the direct intercept arm keeps rule_id user-weird-action with 'explode' in the reason under action allow \u2014 no null rule_id, no omitted action value, and no product code, board rows, tags or releases were touched.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication.",
+                "status": "PASS",
+                "detail": "HEAD confirmed as 0e231957c90f924894083584e08b7077a95311e3 via `git rev-parse HEAD`. FOCUSED TESTS: `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short` -> exit_code 0, 'plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]', 'test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]', '2 passed in 0.39s'. Full file: '525 passed in 2.26s'. CLI ARM (independently reproduced, not just via test): ran `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport -> EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0, verdict line {\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"user-teleport-uname\",\"layer\":\"user\",\"reason\":\"User rule 'user-teleport-uname' has unknown action 'teleport' \u2014 allowing (fail-safe)\"}. DIRECT ARM (independently reproduced): intercept(\"anything at all\") -> action=allow, rule_id='user-weird-action', reason=\"User rule 'user-weird-action' has unknown action 'explode' \u2014 allowing (fail-safe)\". Implementation source: plugin/terminal_jail/interruptor/decider.py:511-521 sets rule_id=rule.id and reason embedding rule.action!r; emitted by plugin/terminal_jail/interruptor_bridge.py:160-168. FAILIF CLEAR: neither arm returns null rule_id and both reasons carry the offending action value ('teleport'/'explode'). NON-VACUITY: mutating decider.py:514 to rule_id=None and dropping rule.action!r made both tests FAIL ('assert None == 'user-weird-action'' at test_interruptor.py:3092; 'assert None == 'user-teleport-uname'' at test_interruptor.py:3257; '2 failed in 0.26s'), then restored. VERIFICATION-ONLY: `git diff --name-only HEAD` = only .gitreins/tasks.yaml (13 insertions, the board row); no product code modified; `git tag --points-at HEAD` empty (no tag/release/publication).",
+                "resolution_probability": 0.09
+              }
+            ],
+            "summary": "At published commit 0e23195 both focused unknown-action tests pass and independent end-to-end reproduction confirms the CLI arm emits exactly one verdict with rule_id user-teleport-uname, reason containing 'teleport', exit 0, while the direct intercept arm keeps rule_id user-weird-action with 'explode' in the reason under action allow \u2014 no null rule_id, no omitted action value, and no product code, board rows, tags or releases were touched.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"QA-TERMINAL-JAIL-30-V\"}",
+          "exit_code": 0,
+          "output_sha": "4880914ca90b93e9f04a7be5bfab1c9360488464b62cdd075cad31aa847c153b"
+        },
+        {
+          "tool": "run_command",
+          "command": "pwd && ls -la && git log --oneline -15",
+          "exit_code": 0,
+          "output_sha": "4d3c8382995d747339ab88ac351537e222901fdc9693c6981e4771d19dd39ea8"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && git status --short && echo \"---HEAD---\" && git rev-parse HEAD && echo \"---TREE---\" && find plugin -type f -name \"*.py\" | head -50 && echo \"---TESTS---\" && ls tests/",
+          "exit_code": 0,
+          "output_sha": "474f803eba5dc8ec6dff58d8bfeadfe8b90d28a64f5460cdadc511e58f7a69c2"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"regex\": \"user-teleport-uname|user-weird-action\"}",
+          "exit_code": 0,
+          "output_sha": "d6ad0bdb2412b4ffd08f56a70b497db3c470efa3f4a4022d7bf0c0b60415fed6"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 300, \"offset\": 3020, \"path\": \"plugin/test_interruptor.py\"}",
+          "exit_code": 0,
+          "output_sha": "ae2b9780cba1c486b6f206d7b639b94eeaf44a92955b121277a3a19f9a82b669"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && cat .gitreins/config.yaml 2>/dev/null; echo \"---\"; cat pyproject.toml",
+          "exit_code": 0,
+          "output_sha": "b47e27eaebd029739405a9a987238f98fcfb2190ae54e6c13000ee31829ac479"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && ls -la .venv/bin/python 2>/dev/null; .venv/bin/python --version 2>/dev/null || python3 --version",
+          "exit_code": 0,
+          "output_sha": "576ed65c8e9af94ca91e157fd19232cd652dd8a52d54fa5dad9fe48db39f1fd6"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"HEAD = 0e231957c90f924894083584e08b7077a95311e3 (published impl commit) - confirmed via git rev-parse.\\nOnly modified file: .gitreins/tasks.yaml (board row) - verification-only, no product code change.\\nTests found:\\n- plugin/test_interruptor.py:3079-3092 test_unknown_rule_action_fails_open (direct intercept arm: user-weird-action, action explode, asserts rule_id + \\\"'explode'\\\" in reason)\\n- plugin/test_interruptor.py:3208-3257 test_unknown_rule_action_is_visible_on_cli_stderr (CLI arm: user-teleport-uname, action teleport, asserts returncode 0, len(verdicts)==1, rule_id, \\\"teleport\\\" in reason)\\ntest_command from .gitreins/config.yaml: .venv/bin/python -m pytest -x --tb=short\\n\", \"key\": \"checked\"}",
+          "exit_code": 0,
+          "output_sha": "9de6730a4ad8c42bbca9c6be38325a2e66159009ce7953812a3736a5ecdede5c"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && which python3.11 python3.12 python3.13 python3.14 2>/dev/null; echo \"---\"; python3 -c \"import pytest, yaml; print('pytest', pytest.__version__)\" 2>&1 | tail -3",
+          "exit_code": 0,
+          "output_sha": "48dc38aeecfbfe05dfdd981345664900f03173a817d89c748e3010065bb6374a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && python3 -m pytest -p no:cacheprovider \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open\" \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr\" -v --tb=short 2>&1 | tail -40",
+          "exit_code": 0,
+          "output_sha": "910af65c56c1bce58c97cf9f82cb7668c8bd717cc10f0c82ff556dac5dbc86d3"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.py\", \"regex\": \"unknown action|Unknown action\"}",
+          "exit_code": 0,
+          "output_sha": "a62bbbcffd837e58a429ccadd60e1e0438e0769eaf494eca25145259dbd33603"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: focused tests run at HEAD 0e23195 with `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short`\\nOutput: \\\"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]\\\" / \\\"test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]\\\" / \\\"2 passed in 0.39s\\\", exit_code 0.\\nNote: .venv absent in worktree; used system python3 (3.14.9) with pytest 9.2.0 + yaml available.\\n\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "077c5e258a52da5910016b9594b10219272638fa5d1f424e20f87140be21fcc0"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 120, \"offset\": 440, \"path\": \"plugin/terminal_jail/interruptor/decider.py\"}",
+          "exit_code": 0,
+          "output_sha": "97dc2325149d32ae4379c92484601d14e18cc38c2025059e46e161d9cf1bfa8c"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"standalone/terminal-jail\", \"regex\": \"event.*verdict|\\\\\\\"verdict\\\\\\\"\"}",
+          "exit_code": 0,
+          "output_sha": "bb6cdc377f35371bfaf9396cf1f5dd9348d615cfa418e9a5e600e5925e4253d0"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && grep -n \"verdict\" standalone/terminal-jail | head -40",
+          "exit_code": 0,
+          "output_sha": "3bf69d2563a5ddac9549f4b5c0af290beff36a71c9d01619940094fe39785e61"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"plugin/terminal_jail/*.py\", \"regex\": \"event.*verdict|\\\"event\\\":\\\\s*\\\"verdict\\\"\"}",
+          "exit_code": 0,
+          "output_sha": "e981beaa0ea24a6815123aa3e02687ced7938caef0caebd5140c9ecc04166eb9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && grep -rn \"event.*verdict\" plugin/terminal_jail/ | head -20",
+          "exit_code": 0,
+          "output_sha": "d94d5310244df37e3a2000be037432565655c3d8fa7002b28441ccd18976929c"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 80, \"offset\": 140, \"path\": \"plugin/terminal_jail/interruptor_bridge.py\"}",
+          "exit_code": 0,
+          "output_sha": "ed08b6d299a183764b95161d1fda377ef52a49bcb1c9495bf465e1115f7d4ab1"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && grep -n \"_log_verdict\" plugin/terminal_jail/interruptor_bridge.py",
+          "exit_code": 0,
+          "output_sha": "9df6ab846bf43633f7b1cef206b73e7cbf185f7f071ce793fbb6ad760c05f4c6"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && python3 - <<'EOF'\nimport tempfile, pathlib, sys\nsys.path.insert(0, \"plugin\")\nfrom terminal_jail.interruptor import intercept\nfrom terminal_jail.interruptor.config import Config\n\ntmp = pathlib.Path(tempfile.mkdtemp())\nrules = tmp / \"rules.d\"; rules.mkdir()\n(rules / \"99-weird.yaml\").write_text(\"\"\"rules:\n  - id: user-weird-action\n    description: Rule with an unknown action\n    priority: 100\n    action: explode\n    match:\n      type: pattern\n      pattern: \"anything\"\n\"\"\")\ncfg = Config(system_rules_dir=str(tmp/\"no-system\"), user_rules_dir=str(rules))\nr = intercept(\"anything at all\", config=cfg)\nprint(\"DIRECT ARM: action=\", r.action, \"rule_id=\", repr(r.rule_id), \"reason=\", repr(r.reason))\nEOF",
+          "exit_code": 0,
+          "output_sha": "ee1778d1985f704f42c8cc915a6d2503d85806785ab313418b1840dfc1f151aa"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && T=$(mktemp -d) && mkdir -p \"$T/home/.config/terminal-jail/rules.d\" \"$T/empty-system\" && cat > \"$T/home/.config/terminal-jail/rules.d/99-teleport.yaml\" <<'YAML'\nrules:\n  - id: user-teleport-uname\n    description: Invalid action regression fixture\n    priority: 100\n    action: teleport\n    match:\n      type: pattern\n      pattern: \"uname\"\nYAML\nenv HOME=\"$T/home\" PATH=\"$PATH\" TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=\"$T/empty-system\" TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=\"$T/home/.config/terminal-jail/rules.d\" TERMINAL_JAIL_LANDLOCK=0 TERMINAL_JAIL_PYTHON=\"$(which python3)\" USE_INTERRUPTOR=1 bash standalone/terminal-jail uname -s > \"$T/out.txt\" 2> \"$T/err.txt\"; echo \"EXIT=$?\"; echo \"--- STDOUT ---\"; cat \"$T/out.txt\"; echo \"--- VERDICT LINES ---\"; grep '\"event\":\"verdict\"' \"$T/err.txt\"",
+          "exit_code": 0,
+          "output_sha": "ccb2bc70ae7ae1c36c35203fba1f9e0ed02d6931be735d399f34b3800490bf5b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && T=$(mktemp -d) && mkdir -p \"$T/home/.config/terminal-jail/rules.d\" \"$T/empty-system\" && cat > \"$T/home/.config/terminal-jail/rules.d/99-teleport.yaml\" <<'YAML'\nrules:\n  - id: user-teleport-uname\n    description: Invalid action regression fixture\n    priority: 100\n    action: teleport\n    match:\n      type: pattern\n      pattern: \"uname\"\nYAML\nenv HOME=\"$T/home\" PATH=\"$PATH\" TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=\"$T/empty-system\" TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=\"$T/home/.config/terminal-jail/rules.d\" TERMINAL_JAIL_LANDLOCK=0 TERMINAL_JAIL_PYTHON=\"$(which python3)\" USE_INTERRUPTOR=1 bash standalone/terminal-jail uname -s >/dev/null 2>\"$T/err.txt\"; echo \"EXIT=$?\"; echo \"VERDICT_COUNT=$(grep -c '\"event\":\"verdict\"' \"$T/err.txt\")\"; echo \"NULL_RULE_ID_COUNT=$(grep -c '\"rule_id\":null' \"$T/err.txt\")\"",
+          "exit_code": 0,
+          "output_sha": "19c7ea43b3cce1ea11a1c89f395f419646123ba7021fad383c7e1d1732334555"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && echo \"=== git status ===\" && git status --short && echo \"=== diff stat vs HEAD ===\" && git diff --stat HEAD && echo \"=== tags at HEAD ===\" && git tag --points-at HEAD && echo \"(none above = no tag)\" && echo \"=== product code touched? ===\" && git diff --name-only HEAD",
+          "exit_code": 0,
+          "output_sha": "bf40c3076431a5dbd0d5f030a58adb879984cfcae17008909342b6c616e6576e"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: CLI arm reproduced independently at HEAD 0e23195 via `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport.\\nOutput: EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0\\nVerdict line: {\\\"ts\\\":\\\"...\\\",\\\"event\\\":\\\"verdict\\\",\\\"action\\\":\\\"allow\\\",\\\"rule_id\\\":\\\"user-teleport-uname\\\",\\\"layer\\\":\\\"user\\\",\\\"reason\\\":\\\"User rule 'user-teleport-uname' has unknown action 'teleport' \\\\u2014 allowing (fail-safe)\\\",\\\"command_sha256\\\":\\\"e75d5ad878fea816\\\"}\\nDirect arm reproduced independently: intercept(\\\"anything at all\\\") -> action=allow rule_id='user-weird-action' reason=\\\"User rule 'user-weird-action' has unknown action 'explode' \\\\u2014 allowing (fail-safe)\\\"\\nImplementation: plugin/terminal_jail/interruptor/decider.py:511-521 (rule_id=rule.id, reason includes rule.action!r); bridge emits at plugin/terminal_jail/interruptor_bridge.py:160-168.\\nFAILIF clear: no null rule_id, offending action value present in both reasons.\\nVerification-only: git diff HEAD = only .gitreins/tasks.yaml (13 insertions); no product code touched; git tag --points-at HEAD empty (no tag/release).\\n\", \"key\": \"verified_0_full\"}",
+          "exit_code": 0,
+          "output_sha": "ef08e7681fe0b9c5c964e21f4822b14b11763c9168a548854ed9a9bc0916b1ba"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py -q --tb=short 2>&1 | tail -15",
+          "exit_code": 0,
+          "output_sha": "fb524ece8a90ce63baea3092c1ad33905a6bd880c1c59b327b0aa06e2c58f75f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && cp plugin/terminal_jail/interruptor/decider.py /tmp/decider.bak && python3 - <<'EOF'\nimport re, pathlib\np = pathlib.Path(\"plugin/terminal_jail/interruptor/decider.py\")\ns = p.read_text()\n# Simulate the FAILIF regression: null rule_id + reason omitting the action value\nold = \"\"\"        return InterceptResult(\n            action=Action.ALLOW,\n            command=raw,\n            rule_id=rule.id,\n            reason=(\n                f\"User rule {rule.id!r} has unknown action {rule.action!r} \"\n                \"\\\\u2014 allowing (fail-safe)\"\n            ),\n            layer=layer,\n        )\"\"\"\nassert old in s, \"anchor not found\"\nnew = \"\"\"        return InterceptResult(\n            action=Action.ALLOW,\n            command=raw,\n            rule_id=None,\n            reason=\"unknown action \\\\u2014 allowing (fail-safe)\",\n            layer=layer,\n        )\"\"\"\np.write_text(s.replace(old, new))\nprint(\"MUTATED: rule_id -> None, action value dropped from reason\")\nEOF\necho \"=== rerun focused tests against mutation ===\"; python3 -m pytest -p no:cacheprovider \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open\" \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr\" -q --tb=line 2>&1 | tail -12; echo \"=== restore ===\"; cp /tmp/decider.bak plugin/terminal_jail/interruptor/decider.py && git diff --stat HEAD -- plugin/terminal_jail/interruptor/decider.py && echo \"RESTORED (empty diff above = clean)\"",
+          "exit_code": 0,
+          "output_sha": "5b0c8f3475cdcae257bfd863e3b1d1a8e9bf33e90c6f13449852181fdcd0ff8d"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && sed -n '508,522p' plugin/terminal_jail/interruptor/decider.py | cat -A | sed -n '1,20p' | cut -c1-120",
+          "exit_code": 0,
+          "output_sha": "b1852aab8f1dea06ab9cdd669d7ed4f9ea865199b59d89ee44e571f6bf596c55"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && cp plugin/terminal_jail/interruptor/decider.py /tmp/decider.bak && python3 - <<'PYEOF'\nimport pathlib\np = pathlib.Path(\"plugin/terminal_jail/interruptor/decider.py\")\nlines = p.read_text().splitlines(keepends=True)\n# lines 511-521 (1-indexed) are the unknown-action InterceptResult\nprint(\"BEFORE:\", \"\".join(lines[510:521]))\nlines[513] = \"            rule_id=None,\\n\"                       # line 514: rule_id=rule.id -> None\nlines[515] = '                \"unknown action - allowing (fail-safe)\"\\n'  # line 516: drop action value\np.write_text(\"\".join(lines))\nprint(\"AFTER:\", \"\".join(lines[510:521]))\nPYEOF\necho \"=== focused tests vs mutation ===\"; python3 -m pytest -p no:cacheprovider \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open\" \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr\" -q --tb=line 2>&1 | tail -10; echo \"=== restore ===\"; cp /tmp/decider.bak plugin/terminal_jail/interruptor/decider.py; git diff --stat HEAD -- plugin/terminal_jail/interruptor/decider.py; echo \"RESTORED_OK\"",
+          "exit_code": 0,
+          "output_sha": "12f90c6c5eb13e7184ec89034c475a8d93ef76d33dfab07956e03ec28a505568"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V && echo \"=== git status (must be only tasks.yaml) ===\" && git status --short && echo \"=== re-run focused tests on restored tree ===\" && python3 -m pytest -p no:cacheprovider \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open\" \"plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr\" -q --tb=line 2>&1 | tail -5",
+          "exit_code": 0,
+          "output_sha": "5cd355cc91ea2f84340c2db07ea8c948005ba219029c935df96bbf0bfed4feba"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 30, \"offset\": 75, \"path\": \"docs/dogfood/2026-11-14-deny-by-default-and-a-dead-rule.md\"}",
+          "exit_code": 0,
+          "output_sha": "0bc4071159d369d1ebdd61c426f73c9a718e4bdf082c45e8aaad3bb3faf9a31a"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"MUTATION TEST (non-vacuity proof): mutated decider.py:514 rule_id=rule.id -> None and dropped rule.action!r from reason (the exact FAILIF condition). Both focused tests FAILED:\\n  plugin/test_interruptor.py:3092 AssertionError: assert None == 'user-weird-action'\\n  plugin/test_interruptor.py:3257 AssertionError: assert None == 'user-teleport-uname'\\n  \\\"2 failed in 0.26s\\\"\\nRestored from backup; git status shows only \\\" M .gitreins/tasks.yaml\\\"; focused tests re-run -> \\\"2 passed in 0.62s\\\".\\nFull file suite: plugin/test_interruptor.py -> \\\"525 passed in 2.26s\\\".\\nDogfood doc docs/dogfood/2026-11-14-deny-by-default-and-a-dead-rule.md:89 records the live warning text matching the implementation.\\nVERDICT: criterion 1 PASS.\\n\", \"key\": \"final\"}",
+          "exit_code": 0,
+          "output_sha": "b9bf02407e2da3602fb8bcfdf0c775d0d5e3bfa7dbbf5fdfc09876772772c042"
+        }
+      ]
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The diff only appends a completed verification task row to .gitreins/tasks.yaml and a usage record to .gitreins/usage.jsonl, with no product code, wiring, or logic changes to review."
+  },
+  "summary": "Stage tier1: PASS\n    ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-14-22-37-55-attempt-1/wt/terminal-jail-QA-TERMINAL-JAIL-30-V/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3, the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct intercept arm retains rule_id user-weird-action and reason containing explode while action is allow. FAILIF: either arm silently returns a null rule_id or omits the offending action value from the reason. This is verification-only; do not modify product code or board rows; no tag, release, or publication.: HEAD confirmed as 0e231957c90f924894083584e08b7077a95311e3 via `git rev-parse HEAD`. FOCUSED TESTS: `python3 -m pytest -p no:cacheprovider plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_is_visible_on_cli_stderr -v --tb=short` -> exit_code 0, 'plugin/test_interruptor.py::TestUserRules::test_unknown_rule_action_fails_open PASSED [ 50%]', 'test_unknown_rule_action_is_visible_on_cli_stderr PASSED [100%]', '2 passed in 0.39s'. Full file: '525 passed in 2.26s'. CLI ARM (independently reproduced, not just via test): ran `bash standalone/terminal-jail uname -s` with user rule user-teleport-uname/action teleport -> EXIT=0, VERDICT_COUNT=1, NULL_RULE_ID_COUNT=0, verdict line {\"event\":\"verdict\",\"action\":\"allow\",\"rule_id\":\"user-teleport-uname\",\"layer\":\"user\",\"reason\":\"User rule 'user-teleport-uname' has unknown action 'teleport' \u2014 allowing (fail-safe)\"}. DIRECT ARM (independently reproduced): intercept(\"anything at all\") -> action=allow, rule_id='user-weird-action', reason=\"User rule 'user-weird-action' has unknown action 'explode' \u2014 allowing (fail-safe)\". Implementation source: plugin/terminal_jail/interruptor/decider.py:511-521 sets rule_id=rule.id and reason embedding rule.action!r; emitted by plugin/terminal_jail/interruptor_bridge.py:160-168. FAILIF CLEAR: neither arm returns null rule_id and both reasons carry the offending action value ('teleport'/'explode'). NON-VACUITY: mutating decider.py:514 to rule_id=None and dropping rule.action!r made both tests FAIL ('assert None == 'user-weird-action'' at test_interruptor.py:3092; 'assert None == 'user-teleport-uname'' at test_interruptor.py:3257; '2 failed in 0.26s'), then restored. VERIFICATION-ONLY: `git diff --name-only HEAD` = only .gitreins/tasks.yaml (13 insertions, the board row); no product code modified; `git tag --points-at HEAD` empty (no tag/release/publication).\nAt published commit 0e23195 both focused unknown-action tests pass and independent end-to-end reproduction confirms the CLI arm emits exactly one verdict with rule_id user-teleport-uname, reason containing 'teleport', exit 0, while the direct intercept arm keeps rule_id user-weird-action with 'explode' in the reason under action allow \u2014 no null rule_id, no omitted action value, and no product code, board rows, tags or releases were touched.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-14T22:47:53.270623",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-14T22:47:53.308264+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 31257,
+        "truncated": false,
+        "source": "git show 0e231957c90f"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 2324,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "QA-TERMINAL-JAIL-30-V"
+  }
+}

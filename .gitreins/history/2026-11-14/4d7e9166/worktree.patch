@@ -1,0 +1,30 @@
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index aec6ba2..1402103 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -2420,3 +2420,16 @@ tasks:
+   status: complete
+   created_at: '2026-11-14T21:52:27.512314+00:00'
+   completed_at: '2026-11-14T22:33:19.609976+00:00'
++- id: QA-TERMINAL-JAIL-30-V
++  title: Verify unknown action provenance at published implementation
++  criteria:
++  - 'PROOF: at the published implementation commit 0e231957c90f924894083584e08b7077a95311e3,
++    the focused unknown-action tests pass and the CLI arm emits one verdict with rule_id
++    user-teleport-uname, reason containing teleport, and exit 0. PROOF: the direct
++    intercept arm retains rule_id user-weird-action and reason containing explode
++    while action is allow. FAILIF: either arm silently returns a null rule_id or omits
++    the offending action value from the reason. This is verification-only; do not
++    modify product code or board rows; no tag, release, or publication.'
++  status: complete
++  created_at: '2026-11-14T22:46:36.716362+00:00'
++  completed_at: '2026-11-14T22:46:57.797711+00:00'
+diff --git a/.gitreins/usage.jsonl b/.gitreins/usage.jsonl
+index 5312f31..9fb7a19 100644
+--- a/.gitreins/usage.jsonl
++++ b/.gitreins/usage.jsonl
+@@ -215,3 +215,4 @@
+ {"ts": 1794423144.8026063, "tokens_in": 6322048, "tokens_out": 12101, "cache_read": 0, "cache_write": 0, "step": "tier2", "outcome": "graded", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1794479854.1773446, "tokens_in": 337804, "tokens_out": 4373, "cache_read": 0, "cache_write": 0, "step": "tier2", "outcome": "graded", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
+ {"ts": 1794653491.2863917, "tokens_in": 1053937, "tokens_out": 7728, "cache_read": 0, "cache_write": 0, "step": "tier2", "outcome": "graded", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
++{"ts": 1794696472.1611495, "tokens_in": 383724, "tokens_out": 6601, "cache_read": 0, "cache_write": 0, "step": "tier2", "outcome": "graded", "model": "deepseek-v4-flash", "base_url_source": "GITREINS_LLM_BASE_URL", "api_key_source": "GITREINS_LLM_API_KEY"}
