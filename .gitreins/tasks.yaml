@@ -2411,3 +2411,12 @@ tasks:
   status: complete
   created_at: '2026-11-14T10:48:59.305508+00:00'
   completed_at: '2026-11-14T10:49:05.787632+00:00'
+- id: TJ-DF-066-impl-20261114213733
+  title: Fix unknown user-rule match type diagnostics
+  criteria:
+  - Unknown match types must emit one warning naming rule id and type; rules-drift-probe
+    must flag the rule; valid pattern matching and builtin precedence remain unchanged;
+    focused and full tests pass.
+  status: complete
+  created_at: '2026-11-14T21:52:27.512314+00:00'
+  completed_at: '2026-11-14T22:33:19.609976+00:00'
