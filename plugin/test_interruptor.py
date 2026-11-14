@@ -3092,6 +3092,108 @@ rules:
         assert result.rule_id == "user-weird-action"
         assert "'explode'" in result.reason
 
+    def test_unknown_match_type_is_visible_once_and_does_not_change_precedence(
+        self, tmp_path
+    ) -> None:
+        """Unsupported match types surface one user-rule diagnostic only."""
+        config = _write_user_rules(
+            tmp_path,
+            """rules:
+  - id: user-unknown-match
+    description: Invalid match type regression fixture
+    priority: 1000
+    action: block
+    match:
+      type: future-match
+      pattern: "rm\\\\s+-rf"
+  - id: user-valid-pattern
+    description: Valid pattern regression fixture
+    priority: 100
+    action: block
+    match:
+      type: pattern
+      pattern: "danger-tool"
+""",
+        )
+        result = intercept("printf hello", config=config)
+        assert result.action == Action.ALLOW
+        assert result.rule_id == "user-unknown-match"
+        assert result.reason.count("Unknown match type") == 1
+        assert "future-match" in result.reason
+        assert "pattern" in result.reason
+        assert "heredoc" in result.reason
+
+        valid = intercept("danger-tool --wipe", config=config)
+        assert valid.action == Action.BLOCK
+        assert valid.rule_id == "user-valid-pattern"
+
+        builtin = intercept("rm -rf /", config=config)
+        assert builtin.action == Action.BLOCK
+        assert builtin.rule_id == "builtin-rm-rf-root"
+
+    def test_unknown_match_type_is_visible_on_cli_stderr(self, tmp_path) -> None:
+        """The CLI preserves invalid match-type provenance on stderr."""
+        home = tmp_path / "home"
+        rules_dir = home / ".config" / "terminal-jail" / "rules.d"
+        rules_dir.mkdir(parents=True)
+        (rules_dir / "99-unknown-match.yaml").write_text(
+            """rules:
+  - id: user-unknown-match-cli
+    description: Invalid match type regression fixture
+    priority: 100
+    action: block
+    match:
+      type: future-match
+      pattern: "uname"
+"""
+        )
+        empty_system = tmp_path / "empty-system-rules.d"
+        empty_system.mkdir()
+        env = os.environ.copy()
+        env.update(
+            {
+                "HOME": str(home),
+                "PATH": os.environ["PATH"],
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(empty_system),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+                "TERMINAL_JAIL_LANDLOCK": "0",
+                "TERMINAL_JAIL_PYTHON": sys.executable,
+                "USE_INTERRUPTOR": "1",
+            }
+        )
+        result = subprocess.run(
+            [
+                "bash",
+                str(Path(__file__).resolve().parent.parent / "standalone" / "terminal-jail"),
+                "uname",
+                "-s",
+            ],
+            cwd=Path(__file__).resolve().parent.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "Linux"
+        verdicts = [
+            json.loads(line)
+            for line in result.stderr.splitlines()
+            if line.startswith("{") and json.loads(line).get("event") == "verdict"
+        ]
+        assert len(verdicts) == 1
+        diagnostic = verdicts[0]["reason"]
+        assert "user-unknown-match-cli" in diagnostic
+        assert "future-match" in diagnostic
+        assert "pattern" in diagnostic
+        assert diagnostic.count("Unknown match type") == 1
+
+    # ch:trace row=TJ-DF-066 spec=none:dogfood-row wave=none:serial test=plugin/test_interruptor.py::TestUserRules::test_unknown_match_type_is_visible_once_and_does_not_change_precedence doc=none evidence=none:worker-commit witness=none:local-test verdict=none:foreman-judge commit=none:worker-commit memory=none:foreman-closeout
+    # STATUS: complete
+    # TIER: T3 (focused regression and rules-drift probe)
+    # EVIDENCE: none:worker-commit
+
     def test_unknown_rule_action_is_visible_on_cli_stderr(self, tmp_path) -> None:
         """The CLI preserves fail-safe provenance for an invalid user action."""
         home = tmp_path / "home"

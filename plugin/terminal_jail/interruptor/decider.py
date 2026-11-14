@@ -406,30 +406,46 @@ class Decider:
     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
         """Evaluate a single command segment against all rule layers."""
         raw = segment.raw
+        unknown_match_result: InterceptResult | None = None
+
+        def evaluate_rules(rules: list[Rule]) -> InterceptResult | None:
+            nonlocal unknown_match_result
+            for rule in rules:
+                match_result = self.matcher.match_segment(segment, rule.match)
+                if match_result:
+                    return self._rule_result(rule, raw)
+                if match_result.details.startswith("Unknown match type"):
+                    if unknown_match_result is None:
+                        unknown_match_result = InterceptResult(
+                            action=Action.ALLOW,
+                            command=raw,
+                            rule_id=rule.id,
+                            reason=f"User rule {rule.id!r} has {match_result.details}",
+                            layer=self._layer_for(rule),
+                        )
+            return None
 
         # Layer 1: Critical blocklist (builtins + same-ID user overrides)
-        for rule in self._blocklist:
-            match_result = self.matcher.match_segment(segment, rule.match)
-            if match_result:
-                return self._rule_result(rule, raw)
+        result = evaluate_rules(self._blocklist)
+        if result is not None:
+            return result
 
         # Layer 2: Allowlist — if matched, skip further evaluation
-        for rule in self._allowlist:
-            match_result = self.matcher.match_segment(segment, rule.match)
-            if match_result:
-                return self._rule_result(rule, raw)
+        result = evaluate_rules(self._allowlist)
+        if result is not None:
+            return result
 
         # Layer 3: Auto-sandbox — wrap in unshare
-        for rule in self._sandbox:
-            match_result = self.matcher.match_segment(segment, rule.match)
-            if match_result:
-                return self._rule_result(rule, raw)
+        result = evaluate_rules(self._sandbox)
+        if result is not None:
+            return result
 
         # Layer 4: User-defined rules (new ids) — priority order, first match wins
-        for rule in self._layer4:
-            match_result = self.matcher.match_segment(segment, rule.match)
-            if match_result:
-                return self._rule_result(rule, raw)
+        result = evaluate_rules(self._layer4)
+        if result is not None:
+            return result
+        if unknown_match_result is not None:
+            return unknown_match_result
 
         return InterceptResult(action=Action.ALLOW, command=raw)
 

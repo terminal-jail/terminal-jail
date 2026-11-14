@@ -213,6 +213,7 @@ class TestOkCases:
         assert (
             f"RESULT: drift=0 overridden={len(probe_mod.ENGINE_RULES)}" in result.stdout
         )
+        assert "problematic=0" in result.stdout
 
     def test_fail_on_drift_exits_zero_when_clean(self, tmp_path: Path) -> None:
         result = run_probe(
@@ -242,6 +243,7 @@ class TestNotDrift:
         assert result.returncode == 0
         assert "DRIFT" not in result.stdout
         assert "RESULT: drift=0 overridden=1" in result.stdout
+        assert "problematic=0" in result.stdout
 
     def test_non_builtin_ids_are_info_never_drift(self, tmp_path: Path) -> None:
         user_dir = write_rules_dir(
@@ -266,6 +268,32 @@ class TestNotDrift:
         assert "DRIFT" not in result.stdout
         assert "my-catch-all" in result.stdout
         assert "never drift" in result.stdout
+
+    def test_unsupported_non_builtin_match_type_is_problematic(self, tmp_path: Path) -> None:
+        user_dir = write_rules_dir(
+            tmp_path / "user",
+            {
+                "99-invalid.yaml": (
+                    "rules:\n"
+                    '  - id: "my-invalid-rule"\n'
+                    '    description: "unsupported extension"\n'
+                    "    priority: 10\n"
+                    "    action: block\n"
+                    "    match:\n"
+                    "      type: future-match\n"
+                )
+            },
+        )
+        result = run_probe(
+            "--fail-on-drift",
+            env_extra={ENV_SYSTEM: str(tmp_path / "absent"), ENV_USER: str(user_dir)},
+        )
+        assert result.returncode == 1
+        assert "PROBLEM: non-builtin rule my-invalid-rule" in result.stdout
+        assert "future-match" in result.stdout
+        assert "accepted types:" in result.stdout
+        assert "RESULT: drift=0" in result.stdout
+        assert "problematic=1" in result.stdout
 
     def test_corrupt_yaml_produces_no_drift_row(self, tmp_path: Path) -> None:
         # The engine's loader fails open on an unparseable file (the builtin
@@ -296,6 +324,7 @@ class TestNotDrift:
         assert result.returncode == 0
         assert "DRIFT" not in result.stdout
         assert "RESULT: drift=0 overridden=0" in result.stdout
+        assert "problematic=0" in result.stdout
 
     def test_user_dir_wins_over_system_dir_same_id(self, tmp_path: Path) -> None:
         # Resolution order under test: user dir loads after system dir, same-id
