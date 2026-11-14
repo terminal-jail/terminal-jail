@@ -1,6 +1,6 @@
-# Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
+# Releng readiness — terminal-jail — 2026-11-14 (pass 11)
 
-Certified candidate (latest pass): `6b12f6207d72ba7b049ccbb863715faac1075e6d` (`origin/main`, pass 10); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 9 certified `8dd90ab` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
+Certified candidate (latest pass): `889abcba26c73f77fb8a39870236a88dadd0b7d9` (`origin/main`, pass 11); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 10 certified `6b12f620` — superseded by later board/evidence-only carriers and the current fresh candidate.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -471,3 +471,40 @@ The header baseline was malformed in the initial pass-10 evidence; it is now rea
 The board status census at candidate is 397 rows: 348 complete, 35 pending, 13 blocked, 1 without status. Existing RELEASE-TJ-023 is dispatchable version-prep work; no duplicate finding was filed. The public-state/dependency audit, fresh full local suite, and new candidate-bound GitReins judge were not completed this pass; no release-grade PASS is claimed for them.
 
 Event 1019 supersedes event 1018's premature evidence-as-carrier field. Final carrier identity and its exact-SHA CI are reported outside the row to avoid a self-referential commit loop. The row's original installer-default acceptance contract remains unchanged. The guard-generated `.vfs/graph/edges.jsonl` change accidentally entered carrier cb0df26; it is restored byte-for-byte to the certified candidate in this correction.
+
+## Pass 11 — 2026-11-14T13:30Z (fresh readiness sweep; no cut)
+
+Certified candidate: `889abcba26c73f77fb8a39870236a88dadd0b7d9` (`origin/main`); forge default branch `main`; baseline `v1.3.3` peels to `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. The product checkout `/home/kara/terminal-jail` is a shared, dirty carrier behind the forge tip; all write-intended work used the detached candidate worktree `/home/kara/.hermes/cache/scratch/tj-releng-wt`.
+
+## Decision
+
+**NO CUT / NOT READY — propose patch `v1.3.4`; no tag or Release created.** The patch proposal is driven by four conventional `fix:` commits that change shipped code; there are no `feat`, `perf`, bang, or `BREAKING CHANGE` markers. Tagging is withheld because the version-prep surfaces are still 1.3.3, the candidate has no GitReins verdict, and dogfood remains partial with open product findings. The repository-owned tag workflow is the publication switch, not a staging action.
+
+## Known issues
+
+- `RELEASE-TJ-023`: version-prep is still pending; pyproject/plugin remain 1.3.3 and CHANGELOG has no `[1.3.4]` section. It must land before any tag.
+- `RELEASE-TJ-020`: `scripts/release-cut-check.sh` still treats `git ls-remote --exit-code` exit 2 for an absent tag as a probe failure. The clean candidate check reproduced this and exited 1 with four failures. Do not use the test seam as production evidence.
+- `RELCI-001`: the tag publisher's effective Actions token previously failed its `contents:write` preflight; manual publication remains the documented fallback until the owner/app-admin fixes permissions.
+- `RELEASE-TJ-022`: release-mode install defaults to 1.3.1 while v1.3.3 is latest; explicit `TERMINAL_JAIL_VERSION` is the workaround.
+- Dogfood remains incomplete: the 24-cell ledger is 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED; open product-use findings include `TJ-DF-066`, `TJ-DF-067`, `TJ-DF-068`, and `TJ-DF-069`; `QA-TERMINAL-JAIL-32` owns the install-suite failure.
+- `RELEASE-TJ-021`: in-jail Landlock/seccomp trampolines still hardcode `python3` for the off-PATH case.
+
+## Evidence table
+
+| Layer | Evidence | Verdict |
+|---|---|---|
+| Identity | `origin` = `git@github.com:terminal-jail/terminal-jail.git`; forge repo `terminal-jail/terminal-jail`; default `main`; candidate `889abcba26c73f77fb8a39870236a88dadd0b7d9`; baseline `v1.3.3` -> `290d9b0770bd826b2f188ea245e8fdae38da9c9f` | PASS |
+| Commit census | `v1.3.3..889abcba`: 75 non-merge commits; `feat=0`, `fix=4`, `perf=0`, `docs=17`, `test=0`, `ci=0`, `chore=19`, `refactor=0`, `other=35`; sum reconciles to 75; zero breaking footers/bang subjects | PATCH proposal |
+| Material fixes | `88cf92f`, `a48809c`, `34bdb22`, `9020095`; ten non-excluded installed-code/test paths changed in the range | PATCH due |
+| Candidate CI | GitHub Actions run `43599584529` on exact SHA `889abcba26c73f77fb8a39870236a88dadd0b7d9`; completed/success; six check-runs all success: Python 3.11/3.12/3.13, Lint, Audit, Drift guards | GREEN |
+| Release tooling | `docs/releasing.md`, `scripts/release-cut-check.sh`, `.github/workflows/release.yml`, `.github/release.yml`; tag trigger `push.tags: ["v*"]`; workflow builds sdist/wheel/checksums and creates/verifies a GitHub Release | PRESENT; withheld |
+| Repository pre-cut check | In the clean candidate worktree, `bash scripts/release-cut-check.sh v1.3.4` exited 1: absent-tag probe defect plus pyproject/plugin mismatch and missing changelog section; it independently printed `OK: CI green on HEAD 889abcb` | BLOCKED |
+| Version hygiene | `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `[1.3.4]` section; `install.sh:15` and `:306` still name default 1.3.1 | BLOCKED |
+| Previous release | Remote `v1.3.3` tag is immutable at `290d9b0`; GitHub Release is published, non-draft/non-prerelease, with exactly `SHA256SUMS`, the 1.3.3 wheel, and the 1.3.3 sdist | VERIFIED |
+| GitReins | No stored verdict is bound to candidate `889abcba`; latest stored PASS `f4c607eb` is bound to `f3f3763`, and stored verdicts on older SHAs are not inherited | UNVERIFIED |
+| Dogfood/QA | Latest committed install ledger: 24 cells, 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED; fire 5 says the modify path is broken on this host and install proof was skipped; open rows own these findings | PARTIAL / BLOCKED |
+| Deployed surfaces | Primary `~/.local/bin/terminal-jail` and Hermes plugin manifest report 1.3.3; PATH-shadow/legacy residue remains under `OPS-TJ-001`; no host mutation performed | CURRENT for v1.3.3; residual open |
+
+## Release authorization and mutations
+
+PATCH requires no major confirmation, but no release mutation is authorized by this pass. No tag, Release, artifact publication, deployment, host install, or shared-checkout cleanup was performed. `WAVE_BUDGET=2`; no worker was dispatched because version preparation is already owned by `RELEASE-TJ-023` and this satellite verifies rather than develops. Memory persistence is UNVERIFIED: the required scoped DuckBrain calls could not be dispatched because the wrapper emitted empty/unscoped arguments; the returned default-namespace keys are unusable as project history.
