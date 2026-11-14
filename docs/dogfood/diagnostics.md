@@ -941,3 +941,97 @@ overhead per command is the known figure (`TJ-DF-048`), no regression appeared, 
 justifies a profile — so no `PERF-<n>` row was filed. A standalone timing loop was attempted earlier in
 the session and refused by the tool-consent gate; the numbers above come from instrumentation inside the
 dogfood arms, which is the better provenance anyway because it measures the thing while it is being used.
+
+## 23. Run 2026-11-14 — the deny-by-default recipe, and the rule that was never armed
+
+Tick `terminal-jail-dogfood-2026-11-14-10-01-04`, checkout `489bbd4` = `origin/main` (clean, 0/0).
+Angle: `docs/quickstart.md:543`, the paragraph that tells a user how to get deny-by-default. Finding
+`TJ-DF-066`.
+
+### 23.1 How the arms were isolated (and the one that contaminated itself)
+
+Every user-rule arm ran with `TERMINAL_JAIL_INTERRUPTOR_RULES_DIR` pointed at an **empty** scratch dir
+(`…/tj-dogfood-20261114/empty-sys`, 0 rule files) and `TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR` at a
+fixture dir, with `MODE=enforce` and `TERMINAL_JAIL_LANDLOCK=0` so the filesystem tier could not confound
+a rules result. The 55 engine rules are hardcoded, so an empty system dir still yields the real builtin
+allow/block ladder — the drift probe confirms `engine: 55 rules (36 block / 9 sandbox / 10 allow)`.
+
+Contamination worth recording: those four variables were **exported** for the catch-all arm and stayed
+in the persistent shell. The next hyperfine pass, which was meant to measure the wrap, measured a
+catch-all *block* instead (`true` → `block/user-deny-by-default`, rc 126) and came back at 126 ms —
+a 2× "win" that was entirely an artifact. Lesson: `unset` (or prefix with `env -u`) before any timing,
+and treat a suspiciously fast wrap number as a leaked deny rule until proven otherwise.
+
+### 23.2 The deny-by-default recipe, verified line by line
+
+Catch-all at `priority: 1`, `match: {type: pattern, pattern: "."}`, `action: block`:
+`date` → `block/user-deny-by-default` rc 126; `echo hello` → `allow/allow-echo` rc 0; `ls /tmp` →
+`allow/allow-ls` rc 0. Builtin allows (500) outrank the user catch-all (1) exactly as the quickstart
+says; that claim is not just documented, it is the observed ordering.
+
+### 23.3 The refusal a broken rule file earns (contrast for the finding)
+
+`priority: critical` in a catch-all file did not silently degrade — it refused the whole file and
+blocked everything:
+
+```
+terminal-jail: REFUSING rule file …/usr-badschema/rules.d/99-catchall.yaml: rule #1
+(user-catchall-broken): field priority must be an integer, got str ('critical') — fix the field type
+(the rules in this file are NOT loaded)
+… fail-closed: blocking command (enforce mode)                                             rc=126
+```
+
+So the loader validates the *types of the keys present* and fails closed on them; the hole is a
+well-formed key carrying an unknown *value* (§23.4). That contrast is what makes `TJ-DF-066` narrow and
+worth fixing rather than a general distrust of the loader.
+
+### 23.4 Dead-rule A/B (the finding)
+
+Fixtures `usr-pattern/` and `usr-regex/`, one line apart:
+
+```
+type: pattern, pattern: "^date$"   → block / user-block-pattern-type   BLOCKED rc 126
+type: regex,   regex:   "^date$"   → allow / rule_id null              ran     rc 0, stderr silent
+```
+
+`regex` is a legal *field* name in the same block (`rules.py:187-210`), which is why a user types it;
+`matcher.py:157-159` has no handler for it and returns `MatchResult()` (no match), so the rule never
+fires. `rules.py:183-184` records this as a known no-op in a source comment. The drift probe over the
+same dir prints `drift=0 … non-builtin=1` and names `user-block-regex-type` as a present extension rule,
+i.e. every operator surface a user could consult says the rule is fine. Filed as `TJ-DF-066` with both
+remedies (a stderr warning like the one `9020095` added for `action`; a drift-probe flag for a
+handler-less `match.type`) plus the docs half (`quickstart.md:543` never names the vocabulary nor points
+at `scripts/rule-pack-tool.py schema`).
+
+### 23.5 Containment and the stale installed build
+
+Canary `…/tj-dogfood-canary/secret.txt` (755/644, readable from the host): denied by default on **both**
+the checkout CLI and the installed 1.3.3 (rc 1, `Permission denied`), printed with
+`TERMINAL_JAIL_LANDLOCK=0` on both (rc 0). The tier is real on the installed path even though that build
+still prints the `TJ-DF-064` "tier not applied" warning — the fix `ae8524e` is in HEAD, the host install
+is from 2026-11-10 and predates it. Deploy note, not a row: re-run `install.sh`.
+
+Containment caveat that changed the report: those arms all used **explicit paths**. `type -a terminal-jail`
+shows `/tmp/tj-test-pack2/terminal-jail` (1.2.0) *first* on PATH, ahead of the 1.3.3 install, and that
+binary refuses **every** command with `COMMAND BLOCKED — interruptor-bridge-unavailable` rc=126 — not
+waivable (`TERMINAL_JAIL_LANDLOCK=0` gives the same box), only `--no-interruptor date` works (rc 0, i.e.
+the firewall has to be disarmed to use the product). Root cause is `~/.profile` carrying stale `/tmp` PATH
+entries — the pending, owner-gated `OPS-TJ-001` (harness refuses `~/.profile` writes; `grep -c '/tmp/tj'
+~/.profile` = 4 again today). The bridge defect itself (`TJ-DF-061`) is `complete` and fixed in code;
+1.2.0 simply predates it, and the same shell runs fine through the 1.3.3 path. No new row.
+
+### 23.6 Timing, and what the tier actually costs
+
+`hyperfine --warmup 3 -r 20`, clean env: installed CLI with tier on **245.1 ± 7.8 ms**, checkout CLI
+242.8 ± 6.0 ms, tier off (`TERMINAL_JAIL_LANDLOCK=0`) 178.0 ± 7.6 ms, sandbox off 250.2 ± 10.6 ms.
+The fs tier costs **+67 ms** per invocation and `TERMINAL_JAIL_SANDBOX=off` saves nothing — the sandbox
+launch is not the cost, the tier attach is. Same order as `TJ-DF-048`'s +120 ms (10-17); no regression,
+nothing a user would feel, no `PERF-<n>` row.
+
+### 23.7 Install leg
+
+`bunker-qa.sh resolve` → `/home/kara/terminal-jail`; `launch` → agent `51fa2112` @ `bunker-mvp`
+(ttl 4h, script 139 101 B). First collected cells: `launch` OK, five `toolchain-bootstrap` OK (go 1.27.4
+discovered, venv+pytest, gcc/g++ wrappers, make 4.3, jq 1.8.2), `fresh-install` **OK**
+(`Successfully installed PyYAML-6.0.3 terminal-jail-1.3.3`), `lint` N/A (no lint trigger declared).
+Battery still running at report time; evidence `/tmp/bunker-qa-evidence-20261114T101500Z-2836405.jsonl`.

@@ -185,6 +185,46 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
   `~/.config/terminal-jail/rules.d/` (user); install.sh ships
   `00-builtins.yaml` to the user dir (TJ-GAP-033).
 
+### The `match.type` vocabulary, and the silent trap (run 23, 2026-11-14 — TJ-DF-066)
+
+The engine dispatches on `match.type` over a closed set. Anything else — `regex`, `glob`, a typo — is
+**loaded without complaint and never fires**: no stderr warning, `rule_id: null`, command runs, and
+`scripts/rules-drift-probe.py` still reports `drift=0 … non-builtin=1` naming your rule as a healthy
+extension. A dead rule is indistinguishable from an armed one at every operator surface. Use this list
+and nothing else:
+
+```
+command  pattern  path  composite  syscall  network  heredoc  subcommand
+```
+
+Authoritative copy: `python3 scripts/rule-pack-tool.py schema` (run it before writing a rule pack; the
+quickstart's deny-by-default paragraph never names the vocabulary).
+
+`type: pattern` is a regex over the command line (`re.search`, `IGNORECASE`) — so a rule wanting regex
+semantics uses `type: pattern` + `pattern:`, never `type: regex` + `regex:` even though `regex` is a
+legal field name in other contexts.
+
+Always prove a new rule actually fires before trusting it — the A/B is two commands:
+
+```bash
+# same dirs, same mode; the control must differ from the candidate
+env TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=$D TERMINAL_JAIL_INTERRUPTOR_MODE=enforce \
+    TERMINAL_JAIL_LANDLOCK=0 USE_INTERRUPTOR=1 "$TJ" date      # expect {"action":"block","rule_id":"<yours>"}
+```
+
+Related, verified the same run: an unknown `action:` (e.g. `teleport`) IS warned about by rule id and
+fails safe to allow (commit `9020095`), and a schema-broken rule *file* (`priority: critical`) fails
+CLOSED with a message naming file, rule index, rule id and field. Only the `match.type` value is silent.
+
+Deny-by-default itself works exactly as the quickstart says: a `priority: 1` catch-all
+`{type: pattern, pattern: "."}` + `action: block` denies everything the builtin allows (priority 500) do
+not match.
+
+Run 23 also re-confirmed the deployment trap on this host: `type -a terminal-jail` listed a stale
+`/tmp/tj-test-pack2/terminal-jail` (1.2.0, blocks every command with `interruptor-bridge-unavailable`
+unless `--no-interruptor`) ahead of the real `~/.local/bin/terminal-jail` (1.3.3, works). Before quoting
+any version or behaviour, check which binary the shell resolves — carried by `OPS-TJ-001`.
+
 ## Common pitfalls (current as of 2026-09-19)
 
 1. **World-writable `chmod` on ANY absolute path is BLOCKED** (TJ-DF-011
