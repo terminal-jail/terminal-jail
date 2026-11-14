@@ -1,0 +1,17 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-14-10-09-30",
+  "tick_type": "verification-only",
+  "source_sha": "489bbd49de2a3f961ce29375714dffeaa483727f",
+  "selected_row": "INT-CI-020",
+  "board_rows": 391,
+  "pending_actionable_rows": 29,
+  "eligible_independent": 0,
+  "wave_budget": 12,
+  "wave_size": 0,
+  "workers": [],
+  "reason": "Highest-priority pending row is an already-landed CI/board evidence defect; current exact-head board guard passes with 14 advisory evidence warnings, and the row's implementation surface is boardctl outside this repository. No repository-owned implementation worker is dispatchable.",
+  "direct_acceptance": "not run: verification-only selection; current board guard run is recorded separately",
+  "owner_or_scope": "boardctl writer is upstream-owned; INT-CI-020 remains pending until boardctl or guard contract is repaired in the owning repository",
+  "ci_state": "recent main runs green; exact closeout SHA not yet committed",
+  "status": "open"
+}
