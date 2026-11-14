@@ -1,6 +1,6 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
-Certified candidate (latest pass): `6b12f6207d72ba7b049ccbb863715faac1075e6d` (`origin/main`, pass 10); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea2455e5f1bac67`. Pass 9 certified `8dd90ab` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
+Certified candidate (latest pass): `6b12f6207d72ba7b049ccbb863715faac1075e6d` (`origin/main`, pass 10); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 9 certified `8dd90ab` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -461,4 +461,13 @@ The candidate CI is now terminal green, but the release remains blocked by missi
 
 No major confirmation is needed because the measured bump is PATCH. No worker wave was dispatched (`WAVE_BUDGET=2`); version prep is already owned by `RELEASE-TJ-023`, and this satellite verifies rather than develops.
 
-Memory leg: UNVERIFIED. The required namespace resolution was not available from the lane record: the scheduler identifies `namespace_id="releases"`, but the only permitted namespace-list call was unscoped and returned the default namespace; an unscoped recall was also emitted by the runtime and returned unrelated default records. No project-scoped release memory was read or written, and no false durable claim is made.
+Memory leg: UNVERIFIED. The lane metadata resolved namespace `releases`, but this assistant submitted empty, unscoped list_keys and recall arguments. Those calls returned unrelated default-namespace records and are unusable as project history. This was an invocation error, not evidence of a transport mutation or unavailable namespace. No scoped memory read or write succeeded; the memory leg was stopped.
+
+
+### Pass 10 correction of record
+
+The header baseline was malformed in the initial pass-10 evidence; it is now read directly from `git rev-parse v1.3.3^{commit}`: `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Earlier historical sections are retained verbatim. The exact NUL-delimited subject/body census was re-run: 71 accepted full-SHA records, zero breaking footers or bang subjects. Non-conventional shipped-code commit `ae8524e` (`fix landlock launch reachability warning`) is material even though it is in the `other` bucket; the four conventional fixes are `88cf92f`, `a48809c`, `34bdb22`, `9020095`. Five fix-like commits do not imply five independent behavioral changes; the patch proposal is unchanged.
+
+The board status census at candidate is 397 rows: 348 complete, 35 pending, 13 blocked, 1 without status. Existing RELEASE-TJ-023 is dispatchable version-prep work; no duplicate finding was filed. The public-state/dependency audit, fresh full local suite, and new candidate-bound GitReins judge were not completed this pass; no release-grade PASS is claimed for them.
+
+Event 1019 supersedes event 1018's premature evidence-as-carrier field. Final carrier identity and its exact-SHA CI are reported outside the row to avoid a self-referential commit loop. The row's original installer-default acceptance contract remains unchanged. The guard-generated `.vfs/graph/edges.jsonl` change accidentally entered carrier cb0df26; it is restored byte-for-byte to the certified candidate in this correction.
