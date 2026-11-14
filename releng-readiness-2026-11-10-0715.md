@@ -1,6 +1,6 @@
-# Releng readiness — terminal-jail — 2026-11-14 (pass 11)
+# Releng readiness — terminal-jail — 2026-11-14 (pass 12)
 
-Certified candidate (latest pass): `889abcba26c73f77fb8a39870236a88dadd0b7d9` (`origin/main`, pass 11); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 10 certified `6b12f620` — superseded by later board/evidence-only carriers and the current fresh candidate.
+Certified candidate (latest pass): `5a51e0f8dc5cbfbb277be62af0512602dcc6a731` (`origin/main`, pass 12); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 11 certified `889abcba` — superseded only by board/evidence bookkeeping (`5a51e0f` moves no product path). Pass 10 certified `6b12f620` — superseded by later board/evidence-only carriers and the current fresh candidate.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -508,3 +508,56 @@ Certified candidate: `889abcba26c73f77fb8a39870236a88dadd0b7d9` (`origin/main`);
 ## Release authorization and mutations
 
 PATCH requires no major confirmation, but no release mutation is authorized by this pass. No tag, Release, artifact publication, deployment, host install, or shared-checkout cleanup was performed. `WAVE_BUDGET=2`; no worker was dispatched because version preparation is already owned by `RELEASE-TJ-023` and this satellite verifies rather than develops. Memory persistence is UNVERIFIED: the required scoped DuckBrain calls could not be dispatched because the wrapper emitted empty/unscoped arguments; the returned default-namespace keys are unusable as project history.
+
+---
+
+## Pass 12 — 2026-11-14T13:42Z — NO NEW DECISION (byte-identical product tree)
+
+This pass re-anchors to the tip and measures **the interval, not the tip**. Since
+pass 11 certified `889abcba`, `origin/main` moved by exactly two commits and
+**zero product paths**:
+
+| Measure | Value | Verdict |
+|---|---|---|
+| Interval | `889abcba..5a51e0f` = 2 commits (`6545f1b` docs(releng) pass-11 artifact, `5a51e0f` board(releng) pass-11 row binding); both bookkeeping | NO MATERIAL DELTA |
+| Material paths in interval | 0 (the only changed files are `.coding-hermes/board/tasks.jsonl` and `releng-readiness-2026-11-10-0715.md`) | PRODUCT TREE BYTE-IDENTICAL to pass 11 |
+| Tip CI | GitHub Actions run `43600771735` on exact SHA `5a51e0f8dc5cbfbb277be62af0512602dcc6a731`; completed / success | GREEN |
+| Version hygiene | `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `v1.3.4` tag on the remote (`git ls-remote` returned no `refs/tags/v1.3.4`), no `v1.3.4` Release object | UNCHANGED — version prep still absent, owned by `RELEASE-TJ-023` |
+| Previous release | `v1.3.3` Release published, non-draft/non-prerelease, exactly 3 assets (`SHA256SUMS` 196 B, wheel 192272 B, sdist 282056 B); tag immutable at `290d9b0` | VERIFIED |
+| GitReins | No stored verdict is bound to `5a51e0f`; newest stored record is `.gitreins/history/2026-11-13/f4c607eb` bound to `f3f3763`; verdicts are not inherited across SHAs | UNVERIFIED |
+| Dogfood/QA | No new installer ledger since pass 11; `RELEASE-TJ-022` carries the 24-cell ledger (12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED) | PARTIAL / BLOCKED (unchanged) |
+| Deployed surfaces | `~/.local/bin/terminal-jail --version` -> `terminal-jail 1.3.3`; Hermes plugin manifest `version: "1.3.3"` | CURRENT for v1.3.3 |
+| Board backlog | 397 rows: 348 complete, 35 pending, 13 blocked; release-family open rows are `RELEASE-TJ-015`, `RELEASE-TJ-020`, `RELEASE-TJ-021`, `RELEASE-TJ-022`, `RELEASE-TJ-023`, plus `RELCI-001` blocked | UNCHANGED |
+
+**Decision: NO CUT, and no new decision is owed.** The v1.3.4 PATCH gate set is
+identical to pass 11's: version prep absent (`RELEASE-TJ-023`), GitReins
+unverified on any current SHA, dogfood partial. Nothing in the two-commit
+interval could have changed any of those three.
+
+### Residue found and published this pass
+
+Pass 11's board **event `1020`** (`task_updated RELEASE-TJ-022`, actor
+`foreman`, `13:38:01Z`) was written into its scratch worktree but **never
+committed**: the worktree at `.hermes/cache/scratch/tj-releng-wt` carried it as
+an uncommitted `M .coding-hermes/board/events.jsonl` while only
+`tasks.jsonl` was staged into `5a51e0f`. The row change itself is canonical, so
+the audit trail had a hole rather than a wrong value. This pass publishes that
+line unchanged, attributed, together with its own event — no mutation of pass
+11's row.
+
+### Lane cadence note (repeated, now with numbers)
+
+This tick id has now fired six times against an unchanged product tree
+(passes 3, 6, 7, 8, 11, 12), the last carrier landing four minutes before this
+fire (pass 11 carried `13:38:22Z`; this pass started `13:42Z`). Each pass costs
+one artifact commit, one board carry, and one CI run on a tree that cannot
+produce a different verdict. The material-event gate this lane should run under
+is: **fire only when `git rev-list --no-merges --count <last-certified>..origin/main`
+over non-bookkeeping paths is > 0, when an owner ruling is recorded, or when a
+`RELEASE-*`/`RELCI-*` row changes state** — otherwise report `NO MATERIAL
+DELTA` from the previous certification instead of publishing a new one.
+
+No mutation was authorized or performed this pass: no tag, no Release, no
+artifact publication, no deployment, no host install, no shared-checkout
+cleanup. `WAVE_BUDGET=2`, zero workers dispatched — this satellite verifies and
+`RELEASE-TJ-023` already owns the only dispatchable work.
