@@ -1035,3 +1035,50 @@ nothing a user would feel, no `PERF-<n>` row.
 discovered, venv+pytest, gcc/g++ wrappers, make 4.3, jq 1.8.2), `fresh-install` **OK**
 (`Successfully installed PyYAML-6.0.3 terminal-jail-1.3.3`), `lint` N/A (no lint trigger declared).
 Battery still running at report time; evidence `/tmp/bunker-qa-evidence-20261114T101500Z-2836405.jsonl`.
+## 24. Run 2026-11-14 fire 5 — the modify path dies with `rc=126` and bash says it, not terminal-jail
+
+The allow path was walked again and holds (four documented verdicts, containment canary denied, fail-closed refusals
+readable). The finding of this run is on the **auto-sandbox (modify)** path, the one the README sells as "builds run
+sandboxed".
+
+### 24.1 The shape
+
+`terminal-jail make ok` in a directory with `ok: @echo PAYLOAD-RAN` on a default launch (all nine `TERMINAL_JAIL_*`
+unset) gives `rc=126`, empty stdout, one structured verdict event that reads like success
+(`{"event":"verdict","action":"modify","rule_id":"auto-make","reason":"Command modified by auto-sandbox"}`), and then:
+
+```
+bash: line 1: /home/kara/.hermes/hermes-agent/venv/bin/python3: Permission denied
+```
+
+No line on any surface says the command did not run, or that the sandbox could not provide the interpreter.
+
+### 24.2 Why it happens here and not in the test
+
+`/home/kara` is `drwxr-x--x`, but `/home/kara/.hermes` is `0700`, and this host's `python3` resolves inside it. The
+rewrite splices a bare `python3` (visible by driving the bridge directly: `unshare --user --pid --fork
+--kill-child=SIGKILL bash -c "python3 <landlock-loader.py> -- <cmd>"`), the preflight confirms it resolves **before**
+the Landlock domain is installed (`standalone/terminal-jail:1449-1487` is the tier branch, `:1267`/`:1280`/`:1294` are
+the named verdicts that never fire), and then the exec hits the tier. The test that pins the promise,
+`plugin/test_modify_preflight.py:291`, denies via a mode-`0644` shebang target with a stubbed `unshare` — the pre-tier
+shape. Same lesson as §9.1: a fix that only covers the shape it was built for.
+
+The switch is the tier, not the cwd and not the binary: tier off → `rc=0 PAYLOAD-RAN`; the installed `1.3.3` →
+`rc=0` only because its loader is unreadable and the tier degrades silently. And `TERMINAL_JAIL_PYTHON=/usr/bin/python3`
+changes nothing — the pin is ignored (live evidence for the pending `RELEASE-TJ-021`).
+
+### 24.3 Audit trail
+
+`probe12` captured every byte of stderr for a launch that never starts its payload: **one** JSON event (the verdict),
+**zero** outcome/exit-status events, two human lines. The trail cannot distinguish "ran inside the sandbox" from "never
+ran", which is the diagnosability half of the same defect.
+
+### 24.4 Timing
+
+The wrapper costs ~250 ms warm vs ~265 ms cold on a loaded 16-core host; the tier attach is +67 ms of it — same order
+as §23.6 and `TJ-DF-048`, and cold-vs-warm shows no page-cache cliff. Nothing a user would feel, so no `PERF-<n>` row.
+
+### 24.5 Install leg
+
+`bunker-mvp:8765/health` → **000** this fire, and the battery on file ran at `489bbd4` while the product moved at
+`88cf92f`/`a48809c`. Filed `TJ-DF-069` (SKIPPED-install-bunker) rather than pass the leg silently.

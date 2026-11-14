@@ -730,3 +730,34 @@ then `terminal-jail --version` → 1.3.1) and know what breaks before you trust 
 - For a fresh-machine battery, pull the failing cell's own log off the agent
   (`bunker exec --server <s> <agent> --raw -- tail <home>/qa-logs-*/tests.log`); the evidence JSONL
   truncates pytest output to progress dots.
+## Run 24 additions (2026-11-14 fire 5, verified live at 8aad6df)
+
+### When `terminal-jail make` returns 126 and the error mentions python3
+
+Symptom — build command, empty stdout, `rc=126`, and one line of stderr ending:
+
+```
+bash: line 1: /home/<you>/.hermes/.../venv/bin/python3: Permission denied
+```
+
+This is **not** your Makefile and not a missing interpreter. The `auto-make` rewrite runs the command through
+`unshare ... bash -c "python3 <landlock-loader.py> -- <cmd>"`, and the filesystem tier denies the interpreter path when
+`python3` resolves inside a directory the payload uid cannot traverse (`0700` home subdirectories are the usual case —
+`~/.hermes`, `~/.local/state/...`, any venv under a private dir).
+
+Diagnose in one command each:
+
+```bash
+command -v python3                      # which interpreter the rewrite will splice
+namei -l "$(command -v python3)"        # walk the modes; a 0700 ancestor is the smoking gun
+TERMINAL_JAIL_LANDLOCK=0 terminal-jail make   # works  -> the tier is the cause, not the build
+```
+
+Workaround that works today: run the build with `TERMINAL_JAIL_LANDLOCK=0` (you lose filesystem containment for that
+command). `TERMINAL_JAIL_PYTHON=/usr/bin/python3 terminal-jail make` does **not** work yet — the pin is ignored on the
+modify rewrite (pending `RELEASE-TJ-021`); tracked as `TJ-REVIEW-074-R2`.
+
+Read the verdict event with care: `{"event":"verdict","action":"modify",...,"reason":"Command modified by
+auto-sandbox"}` means *the rewrite was applied*, not *the command ran*. There is no outcome event for the modify path,
+so `rc` plus the presence of your own output is the only honest success signal. Assert on output, never on `rc=0`
+alone, and never on the verdict event.
