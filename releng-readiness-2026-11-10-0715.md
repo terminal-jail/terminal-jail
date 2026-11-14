@@ -1,6 +1,6 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
-Certified candidate (latest pass): `8dd90ab22cc7681606365838ae0df99936deeea5` (`origin/main`, pass 9); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea2455e5f1bac67`. Pass 8 certified `b31e286` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
+Certified candidate (latest pass): `6b12f6207d72ba7b049ccbb863715faac1075e6d` (`origin/main`, pass 10); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea2455e5f1bac67`. Pass 9 certified `8dd90ab` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -422,3 +422,43 @@ No worker wave was dispatched (`WAVE_BUDGET=2`); this is a verification-only pas
 UNVERIFIED: the only DuckBrain call sent during this tick was an unscoped empty
 `list_keys` invocation, which returned unrelated default-namespace keys; no project
 scoped release record was read or written.
+
+## Pass 10 — 2026-11-14T11:09 tick (re-anchored final tip)
+
+Certified candidate: `6b12f6207d72ba7b049ccbb863715faac1075e6d` (`origin/main`); baseline `v1.3.3` peels to `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. The shared checkout `/home/kara/terminal-jail` is behind origin/main by 9 commits and carries unrelated dirty paths; it was used for reads only. No tag, Release, artifact publication, deployment, or host mutation was performed.
+
+## Decision
+
+**NO CUT / NOT READY — propose patch `v1.3.4`; no tag or Release.** The exact non-merge census is 71 commits. The reconciled primary buckets are `fix=4`, `feat=0`, `perf=0`, `docs=15`, `test=0`, `ci=0`, `chore=19`, `refactor=0`, `other=33`; sum 71. No bang subjects or `BREAKING CHANGE` footers were found. PATCH is the correct semver magnitude; no major confirmation is required.
+
+The candidate CI is now terminal green, but the release remains blocked by missing version preparation, GitReins not bound to this candidate, and partial/open dogfood evidence. The repository-owned release workflow makes a tag the publication switch, so tagging is not a staging action.
+
+## Evidence table
+
+| Layer | Evidence | Verdict |
+|---|---|---|
+| Identity | `origin` = `git@github.com:terminal-jail/terminal-jail.git`; forge repo `terminal-jail/terminal-jail`; default branch `main`; candidate `6b12f6207d72ba7b049ccbb863715faac1075e6d`; baseline tag `v1.3.3` | PASS |
+| Commit census | `v1.3.3..6b12f62`: 71 non-merge commits; `fix=4`, `feat=0`, `perf=0`, `breaking=0`; primary sum reconciles to 71 | PATCH proposal |
+| Candidate CI | GitHub Actions run `43597991326` on exact candidate SHA; completed/success; Python 3.11/3.12/3.13, Lint, Audit, Drift guards all success | GREEN |
+| Version hygiene | candidate `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `[1.3.4]` CHANGELOG section; release-mode `install.sh` defaults to 1.3.1 at lines 15 and 306 | BLOCKED; `RELEASE-TJ-022` and `RELEASE-TJ-023` |
+| Release tooling | candidate contains `docs/releasing.md`, `scripts/release-cut-check.sh`, `.github/workflows/release.yml`, `.github/release.yml`; tag workflow triggers on `push.tags: ["v*"]`, builds sdist/wheel/checksums and creates/verifies a GitHub Release | PRESENT; withheld |
+| Repository pre-cut check | In a clean detached candidate worktree, `bash scripts/release-cut-check.sh v1.3.4` exited 1: 4 failures — absent-tag probe defect (`RELEASE-TJ-020`), pyproject mismatch, plugin manifest mismatch, missing CHANGELOG section; it independently printed `OK: CI green on HEAD 6b12f62` | BLOCKED |
+| Build strategy | `uv build --out-dir` completed 0 on the candidate and produced `terminal_jail-1.3.3.tar.gz` (282351 B) and `terminal_jail-1.3.3-py3-none-any.whl` (192533 B); this is strategy evidence only, not a v1.3.4 artifact; the build emitted setuptools license deprecation warnings | PASS for current package build; not release evidence |
+| Previous release | `v1.3.3` is published, non-draft/non-prerelease, with `SHA256SUMS` 196 B, wheel 192272 B, sdist 282056 B; no v1.3.4 tag or Release was created | VERIFIED / no new mutation |
+| GitReins | No stored verdict is bound to candidate `6b12f62`; latest stored verdict `79b49738` is a FAIL bound to `8c8097e`; latest stored PASS `f4c607eb` is bound to `f3f3763`; stale verdicts are not inherited | UNVERIFIED |
+| Dogfood/QA | Open findings at candidate include `TJ-DF-066` (unknown match.type silently no-ops), `TJ-DF-067` (stale quarterly CLI checklist), `TJ-DF-068` (seccomp `--`/traceback contract), `TJ-DF-069` (fresh-machine install proof skipped on current tree), `QA-TERMINAL-JAIL-32` (install battery red), plus other pending/blocked QA rows; the latest committed install ledger is partial rather than a clean product-use PASS | PARTIAL / BLOCKED |
+| Deployed binary | `/home/kara/.local/bin/terminal-jail --version` reports `terminal-jail 1.3.3`, mtime `2026-11-10 05:13:36 -0500`, matching the last published release; no host refresh was performed | CURRENT for v1.3.3 |
+
+## Release blockers
+
+1. `RELEASE-TJ-023` — version-prep worker row is pending; it must land 1.3.4 in pyproject, plugin manifest and CHANGELOG, then prove the repository checker and full suite. It must not tag or publish.
+2. `RELEASE-TJ-020` — `release-cut-check.sh` uses `git ls-remote --exit-code` and treats an absent tag as an unverifiable failure; current candidate check reproduces the defect.
+3. `RELCI-001` — tag-triggered publisher lacks effective `contents:write`; the workflow's preflight has previously red. The owner/app-admin fix or an explicitly authorized manual publish is required for a future tag.
+4. `RELEASE-TJ-022` — release-mode default remains 1.3.1 while v1.3.3 is latest, independent of the 1.3.4 cut.
+5. Dogfood/QA remains partial with open product-use and harness rows; no clean full dogfood verdict is available for this candidate.
+
+## Authorization and wave
+
+No major confirmation is needed because the measured bump is PATCH. No worker wave was dispatched (`WAVE_BUDGET=2`); version prep is already owned by `RELEASE-TJ-023`, and this satellite verifies rather than develops.
+
+Memory leg: UNVERIFIED. The required namespace resolution was not available from the lane record: the scheduler identifies `namespace_id="releases"`, but the only permitted namespace-list call was unscoped and returned the default namespace; an unscoped recall was also emitted by the runtime and returned unrelated default records. No project-scoped release memory was read or written, and no false durable claim is made.
