@@ -269,7 +269,9 @@ class TestNotDrift:
         assert "my-catch-all" in result.stdout
         assert "never drift" in result.stdout
 
-    def test_unsupported_non_builtin_match_type_is_problematic(self, tmp_path: Path) -> None:
+    def test_unsupported_non_builtin_match_type_is_problematic(
+        self, tmp_path: Path
+    ) -> None:
         user_dir = write_rules_dir(
             tmp_path / "user",
             {

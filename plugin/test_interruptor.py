@@ -3164,7 +3164,11 @@ rules:
         result = subprocess.run(
             [
                 "bash",
-                str(Path(__file__).resolve().parent.parent / "standalone" / "terminal-jail"),
+                str(
+                    Path(__file__).resolve().parent.parent
+                    / "standalone"
+                    / "terminal-jail"
+                ),
                 "uname",
                 "-s",
             ],
