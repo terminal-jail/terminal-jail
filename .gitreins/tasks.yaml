@@ -2401,3 +2401,13 @@ tasks:
     the tier'
   status: in_progress
   created_at: '2026-11-13T09:13:39.187733+00:00'
+- id: TJ-DF-064-R2
+  title: Verify TJ-DF-064 fix on published main
+  criteria:
+  - 'PROOF: published main contains the exact mapped Landlock warning fix and regression
+    test; focused acceptance tests pass and the committed trace marker binds to the
+    published implementation. FAILIF: false warning remains, missing-loader warning
+    is absent, or marker/commit binding is stale.'
+  status: complete
+  created_at: '2026-11-14T10:48:59.305508+00:00'
+  completed_at: '2026-11-14T10:49:05.787632+00:00'
