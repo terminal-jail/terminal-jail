@@ -292,3 +292,76 @@ Certified candidate: `98db469e372d42f831bc4794966ec44389e4650d` (`origin/main`);
 No explicit new owner authorization for `v1.3.4` was present in the triggering metadata or the canonical row. Regardless, this pass does not require authorization to refuse the cut: the version-prep, GitReins, dogfood, and publisher gates are not all green. No tag, Release, remote ref, artifact, deployment, or shared-checkout dirty path was mutated by this pass. `WAVE_BUDGET=2`; no worker wave was dispatched because this is a verification-only releng sweep and the blockers are not worker-ready from this lane.
 
 The canonical rolling row is `RELEASE-TJ-022`; this pass updates the existing evidence record rather than creating a duplicate readiness row. The board carrier and its final carrier CI receipt remain pending until the row/artifact correction is landed through the repository's normal writer path.
+
+## Pass 8 — 2026-11-14T12:27Z (third fire over an unchanged product tree)
+
+Premise stated before the sweep: passes 6 and 7 fired within the previous 45 minutes
+against the same product tree and both returned NO CUT. This pass re-derived every gate
+at the live tip `b31e286` rather than carrying either result. It does not change the
+verdict — it changes the shape of the outcome. The blocker all three of those passes
+name, the absent version-prep commit, had no board row requesting it, so no foreman
+could ever have executed it. Every prior pass wrote the requirement into a document and
+left the board untouched. Pass 8 files it as `RELEASE-TJ-023`.
+
+### Interval measurement
+
+| Layer | Evidence | Verdict |
+|---|---|---|
+| Last product-path commit | `8aad6df` 2026-11-14 06:13:29 -05 `docs(dogfood): fire 4` | baseline |
+| Commits since, all bookkeeping | 6: `c098846`, `46a218f`, `54d5994`, `98db469`, `774f220`, `b31e286` | zero product delta |
+| Releng fires in that interval | pass 6 11:49Z, pass 7 12:13Z, pass 8 12:27Z (this) | 3 fires, ~45 min |
+| Product tree delta across fires | `git diff --name-only 98db469..HEAD` minus board/docs/gitreins paths is empty | IDENTICAL |
+
+### Decision
+
+**NO CUT / NOT READY — the `v1.3.4` PATCH proposal is unchanged and still not tagged.**
+Re-derived, not inherited: `v1.3.3..b31e286` is 61 non-merge commits with `fix=4`
+(`88cf92f`, `a48809c`, `34bdb22`, `9020095`), `feat=0`, `perf=0`, `chore=19`, `docs=13`,
+and 25 non-conventional subjects; there is no bang subject and no real breaking footer
+(the single `BREAKING CHANGE` string in the range is the prose negation inside commit
+`7789fb3`'s own body: "feat/fix/perf/bang 0, no BREAKING CHANGE"). Class sum reconciles
+to 61. PATCH is the correct magnitude; no major confirmation is owed.
+
+Nothing in the four gates moved since pass 7. `release-cut-check.sh v1.3.4` still exits
+1 on the clean detached candidate with the same four named failures: the absent-tag probe
+(`RELEASE-TJ-020`), `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, and no `[1.3.4]`
+CHANGELOG section. The first of those is the checker defect, not a release condition —
+this pass observed the checker printing both "FAIL: could not verify whether tag
+'v1.3.4' exists remotely" and "OK: tag 'v1.3.4' does not exist yet" in one run, which is
+the defect stated as plainly as it can be: `git ls-remote --exit-code` returns 2 for an
+absent ref and the script treats that as an unverifiable probe. Do not buy a green here
+with the `TJ_RELEASE_TAG_EXISTS` seam; fix the probe.
+
+### New this pass: the version-prep requirement is now dispatchable
+
+`RELEASE-TJ-023` is filed pending with executable acceptance criteria: land the version-prep
+commit (`pyproject.toml` 1.3.4, `plugin/plugin.yaml` 1.3.4, `CHANGELOG.md` `[1.3.4]` section
+opened from the four `fix:` commits above), proven by `bash scripts/release-cut-check.sh
+v1.3.4` reporting the three version surfaces OK. It deliberately does not require
+`RELCI-001` — that row is P1, blocked, and owner-gated on the publisher; a worker can close
+version-prep without touching publication. Precedent for landing a version bump ahead of its
+tag is the repository's own: `290d9b0` bumped to 1.3.3 and opened its changelog section
+before `v1.3.3` was cut.
+
+### Why this lane should be gated
+
+Three passes in 45 minutes over a byte-identical product tree produced three decision
+documents and zero executed changes. The blockers are not discovered by more sweeps: one
+is a checker bug already tracked (`RELEASE-TJ-020`), one is owner-gated (`RELCI-001`), one
+needed a board row and now has it (`RELEASE-TJ-023`). Recommendation: gate this lane on a
+material product commit (or a 24h floor) rather than its current cadence, and treat a fire
+with no material delta as a no-op that appends nothing.
+
+| Layer | Evidence (pass 8) | Verdict |
+|---|---|---|
+| Remote identity | `git@github.com:terminal-jail/terminal-jail.git`; default branch `main`; candidate `b31e286`; remote tags stop at `v1.3.3`; no `v1.3.4` tag or Release | PASS / absent as expected |
+| Candidate CI | run `43593982061` on exact SHA `b31e286`, completed/success; runs `43592218327` (`98db469`) and `43593725366` (`774f220`) also success | GREEN |
+| Version hygiene | `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `[1.3.4]` CHANGELOG, `install.sh:15` still defaults to `1.3.1`; checker rc 1, four failures | BLOCKED |
+| GitReins | no verdict bound to `b31e286`; latest stored PASS `f4c607eb` binds `f3f3763`; stale PASS not inherited | UNVERIFIED |
+| Dogfood | committed 24-cell ledger 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED, unchanged; FAIL cluster is `plugin/test_install.py::test_successful_install` under `QA-TERMINAL-JAIL-32` | PARTIAL |
+| Deployed surfaces | `~/.local/bin/terminal-jail --version` = 1.3.3; `~/.hermes/plugins/terminal-jail/plugin.yaml` = 1.3.3 | CURRENT for v1.3.3 |
+| Board state | 394 rows at the candidate: 348 complete, 32 pending, 13 blocked, 1 unstatused; `RELEASE-TJ-023` next free id, now filed (HEAD after this pass: 397 rows, 35 pending) | HEALTHY |
+
+No tag, Release, remote ref, artifact, deployment, or shared-checkout path was mutated by
+this pass. `WAVE_BUDGET=2`; no worker was dispatched — the one worker-ready unit is now a
+board row for the foreman, which is the correct owner for it.
