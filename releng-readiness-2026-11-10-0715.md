@@ -1,6 +1,6 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
-Certified candidate (latest pass): `98db469e372d42f831bc4794966ec44389e4650d` (`origin/main`, pass 7); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 6 certified `46a218fa` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
+Certified candidate (latest pass): `8dd90ab22cc7681606365838ae0df99936deeea5` (`origin/main`, pass 9); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea2455e5f1bac67`. Pass 8 certified `b31e286` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -365,3 +365,60 @@ with no material delta as a no-op that appends nothing.
 No tag, Release, remote ref, artifact, deployment, or shared-checkout path was mutated by
 this pass. `WAVE_BUDGET=2`; no worker was dispatched — the one worker-ready unit is now a
 board row for the foreman, which is the correct owner for it.
+
+## Pass 9 — 2026-11-14T12:52Z (re-anchored final tip; no-cut readiness sweep)
+
+The forge default branch advanced from the prior recorded candidate `b31e286` to
+`8dd90ab` through two board-only commits. The product tree is unchanged across
+that interval, but all exact-head receipts were refreshed against the new full SHA.
+The shared checkout `/home/kara/terminal-jail` remains behind `origin/main` by two
+commits and has unrelated dirty files; it was not used for release writes.
+
+### Decision
+
+**NO CUT / NOT READY — propose patch `v1.3.4`; do not create a tag or Release.**
+The post-v1.3.3 range is 64 non-merge commits. The reconciled conventional buckets
+are `fix=4`, `feat=0`, `perf=0`, `docs=14`, `test=0`, `ci=0`, `chore=19`,
+`refactor=0`, `other=27`; the sum is 64. The four shipped-code fixes remain
+`88cf92f`, `a48809c`, `34bdb22`, and `9020095`. There are no bang subjects and no
+breaking footer. This is a PATCH proposal; no major confirmation is owed.
+
+The no-cut decision is not inherited from an older SHA. The final candidate has
+completed exact-SHA CI, but version preparation is absent, GitReins is not proven on
+this candidate, dogfood is partial with known failures, and tagging is the publication
+switch.
+
+### Evidence table
+
+| Layer | Evidence | Verdict |
+|---|---|---|
+| Identity | Release remote `origin` = `git@github.com:terminal-jail/terminal-jail.git`; forge repo `terminal-jail/terminal-jail`; default branch `main`; candidate `8dd90ab22cc7681606365838ae0df99936deeea5`; baseline `v1.3.3` peels to `290d9b0770bd826b2f188ea2455e5f1bac67` | PASS |
+| Release surface | `git ls-remote origin refs/tags/v1.3.4` returned empty with rc 0; `gh release view v1.3.4` returned `release not found`; existing v1.3.3 remains published, immutable, non-draft/non-prerelease with exactly three assets: `SHA256SUMS`, wheel, sdist | NO v1.3.4 mutation |
+| Commit census | `v1.3.3..8dd90ab`: 64 non-merge commits; `fix=4`, `feat=0`, `perf=0`, `breaking=0`; PATCH proposal | PATCH |
+| Candidate CI | GitHub Actions run `43596146807` on exact SHA `8dd90ab22cc7681606365838ae0df99936deeea5`, completed/success; check-runs total 6, all six completed/success: Python 3.11/3.12/3.13, Lint, Audit, Drift guards | GREEN |
+| Release tooling | Repository-owned `docs/releasing.md`, `scripts/release-cut-check.sh`, `.github/workflows/release.yml`, `.github/release.yml`; tag workflow triggers on `push.tags: ["v*"]`, builds sdist/wheel/checksums, creates Release; a tag is publication, not staging | PRESENT; withheld |
+| Version hygiene | Candidate still has `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `[1.3.4]` changelog section; release-mode default remains `install.sh:15=1.3.1`, usage line 306 repeats it, quickstart repeats 1.3.1 and stale 1.3.0 examples | BLOCKED; rows `RELEASE-TJ-023`, `RELEASE-TJ-022` |
+| Release checker | `bash scripts/release-cut-check.sh v1.3.4` was not a valid candidate probe from the detached worktree because the command was invoked outside its repository and returned rc 1 with `not a git repository`; independently, the known production defect remains: the checker uses `git ls-remote --exit-code`, while the direct absence probe returned rc 0 with empty output. Do not treat the invalid invocation as release evidence; row `RELEASE-TJ-020` remains open | UNVERIFIED for checker run |
+| GitReins | No verdict file is bound to exact candidate `8dd90ab`; latest exact stored PASS is `INT-CI-019-V-20261113`, run `f4c607eb`, bound to `f3f3763`; latest stored verdict `TJ-DF-064-R2`, run `79b49738`, is FAIL on `8c8097e`; stale PASS is not inherited | UNVERIFIED |
+| Dogfood | Latest committed 24-cell ledger: 12 OK, 7 N/A, 4 FAIL, 1 UNVERIFIED; shared root `plugin/test_install.py::test_successful_install` remains owned by `QA-TERMINAL-JAIL-32`; fire 5 skipped install proof because `bunkerd` was unreachable and the on-file proof predates the product changes; open product-use findings include `TJ-DF-066`, `TJ-DF-067`, `TJ-DF-068`, `TJ-DF-069` | PARTIAL / BLOCKED |
+| Deployed surfaces | `/home/kara/.local/bin/terminal-jail --version` = `terminal-jail 1.3.3`; `/home/kara/.hermes/plugins/terminal-jail/plugin.yaml` = `1.3.3`; PATH shadow/legacy residue remains owned by `OPS-TJ-001`; no host mutation | Current for v1.3.3; residual open |
+| Prior release | `gh release view v1.3.3` confirmed published, non-draft/non-prerelease, exact assets: `SHA256SUMS` 196 B, `terminal_jail-1.3.3-py3-none-any.whl` 192272 B, `terminal_jail-1.3.3.tar.gz` 282056 B | VERIFIED |
+
+### Known issues
+
+- `RELCI-001` remains blocked: tag-triggered publisher fails its `contents:write` preflight; manual publishing is required until owner/app-admin changes Actions permissions.
+- `RELEASE-TJ-020` remains open: the checker’s tag-absence implementation is not production-safe; fix it before relying on the pre-cut gate.
+- `RELEASE-TJ-021` remains open: in-jail Landlock/seccomp trampoline still hardcodes `python3` for the off-PATH case.
+- `RELEASE-TJ-022` remains open: release-mode install defaults to 1.3.1 while v1.3.3 is current; explicit `TERMINAL_JAIL_VERSION` is the workaround.
+- `QA-TERMINAL-JAIL-32` remains open: clean-machine install battery fails at `plugin/test_install.py::test_successful_install`; this is not cleared by the partial ledger.
+- `TJ-DF-069` remains open: install proof was skipped/unverified because `bunkerd` was unreachable and the prior proof predates the current product tree.
+- `TJ-DF-066`, `TJ-DF-067`, and `TJ-DF-068` remain open product-use findings.
+
+### Release authorization and mutations
+
+No tag, Release object, remote tag, artifact, deployment, or host surface was mutated.
+No worker wave was dispatched (`WAVE_BUDGET=2`); this is a verification-only pass and
+`RELEASE-TJ-023` already owns the dispatchable version-prep work. Memory persistence is
+UNVERIFIED: the only DuckBrain call sent during this tick was an unscoped empty
+`list_keys` invocation, which returned unrelated default-namespace keys; no project
+scoped release record was read or written.
