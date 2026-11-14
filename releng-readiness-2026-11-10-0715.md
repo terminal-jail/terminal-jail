@@ -1,6 +1,6 @@
 # Releng readiness — terminal-jail — 2026-11-10 (pass 2, 07:15Z)
 
-Certified candidate (latest pass): `46a218fa33e2482db39db6fc4bbe3912254e5a13` (`origin/main`, pass 6); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 5 certified `5c9b9d6` — superseded by board-only carriers; product tree is unchanged across the bookkeeping interval.
+Certified candidate (latest pass): `98db469e372d42f831bc4794966ec44389e4650d` (`origin/main`, pass 7); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 6 certified `46a218fa` — superseded by board/evidence-only carriers; product tree is unchanged across the bookkeeping interval.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -253,3 +253,42 @@ Version hygiene is not ready: `pyproject.toml` and `plugin/plugin.yaml` are 1.3.
 Deployed staleness: the primary `~/.local/bin/terminal-jail` and Hermes plugin manifest both report 1.3.3, so the formerly reported 1.2.0 primary-install finding is resolved. PATH-shadow and legacy `/usr/local` residue remain owned by `OPS-TJ-001`; this sweep did not mutate host installs or PATH configuration.
 
 No tag, Release, remote ref, or deployed surface was mutated. Memory write/readback was not verified in this pass. The board carrier and any final CI receipt remain pending; this pass is the readiness evidence that must be carried by the canonical rolling row, not a release authorization.
+
+
+## Pass 7 — 2026-11-14 releng tick (`terminal-jail-releng-2026-11-14-11-09-38`) — re-anchored final tip
+
+Certified candidate: `98db469e372d42f831bc4794966ec44389e4650d` (`origin/main`); baseline `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. The earlier Pass 6 candidate `46a218fa` was superseded by four board/evidence-only commits; the product diff from `46a218fa` to this candidate is empty, so the product census and build strategy carry. Candidate-specific hosted CI was re-derived rather than carried: GitHub Actions run `43592218327` is completed/success on this exact SHA with the CI workflow.
+
+## Decision
+
+**NO CUT / NOT READY — propose patch `v1.3.4`; do not create a tag or Release.** The material semver proposal remains PATCH: four conventional `fix:` commits are in the post-v1.3.3 range (`88cf92f`, `a48809c`, `34bdb22`, `9020095`); there are zero `feat`, `perf`, breaking footers, or bang subjects. The exact non-merge range contains 59 commits: 4 `fix`, 19 `chore`, 12 `docs`, and 24 non-conventional/other; the class sum reconciles to 59. All release mutations are withheld because the required version-prep surfaces, candidate-bound GitReins evidence, and clean dogfood disposition are absent, and the repository's release workflow is the publication switch on tag push.
+
+## Known issues
+
+- `RELCI-001` remains open: the tag-triggered publisher's effective Actions token lacks `contents:write`; prior tag workflow runs fail at the token preflight. Workaround: owner/app-admin must change repository/org Actions permissions, or an explicitly authorized hand-publish path must be used for a future immutable tag. Tracking row: `RELCI-001`.
+- `RELEASE-TJ-020` remains open: `scripts/release-cut-check.sh` treats an absent remote tag as an unverifiable probe (`git ls-remote --exit-code` returns 2 for an absent ref), so the clean `v1.3.4` check exits 1 even though the tag is absent. Workaround: fix the checker before the cut; do not use a seam as production evidence. Tracking row: `RELEASE-TJ-020`.
+- `RELEASE-TJ-021` remains open: the in-jail Landlock/seccomp trampoline still hardcodes `python3`; the latest dogfood/release evidence does not close it. Workaround: keep the existing interpreter-availability limitation explicit; tracking row: `RELEASE-TJ-021`.
+- `RELEASE-TJ-022` remains open: release-mode install defaults to `1.3.1` while the latest published release is `1.3.3`, and quickstart contains older version examples. Workaround: set `TERMINAL_JAIL_VERSION` explicitly; tracking row: `RELEASE-TJ-022`.
+- Dogfood is not clean: the 24-cell battery is `12 OK, 7 N/A, 4 FAIL, 1 UNVERIFIED`; the four FAIL cells share `plugin/test_install.py::test_successful_install`, and the isolation cell is UNVERIFIED on shared networking. Tracking rows: `QA-TERMINAL-JAIL-32`, `QA-TERMINAL-JAIL-11`, `QA-TERMINAL-JAIL-19-R2`.
+- Product-use fire 4 found `TJ-DF-066` (silent unknown `match.type` no-op), `TJ-DF-067` (stale quarterly CLI checklist), and `TJ-DF-068` (seccomp loader traceback/usage mismatch). These remain open and are not release waivers.
+
+## Evidence table
+
+| Layer | Evidence | Verdict |
+|---|---|---|
+| Remote identity | `git@github.com:terminal-jail/terminal-jail.git`; forge default branch `main`; candidate `98db469e`; no `v1.3.4` remote tag; no `v1.3.4` Release | PASS / absent as expected |
+| Commit census | `v1.3.3..98db469e`: 59 non-merge commits; `fix=4`, `feat=0`, `perf=0`, `breaking=0`; PATCH proposed | PATCH proposal |
+| Candidate CI | run `43592218327`, exact SHA `98db469e`, completed/success; six CI jobs are represented in the candidate run history | GREEN |
+| Repository release tooling | `docs/releasing.md`, `scripts/release-cut-check.sh`, `.github/workflows/release.yml`, `.github/release.yml`; workflow triggers on `push.tags: ["v*"]` and publishes sdist/wheel/checksums | PRESENT; tag is publication |
+| Version hygiene | `pyproject.toml=1.3.3`, `plugin/plugin.yaml=1.3.3`, no `[1.3.4]` CHANGELOG section, `install.sh` defaults to `1.3.1`; clean `release-cut-check.sh v1.3.4` returned rc 1 with four failures | BLOCKED |
+| Build strategy | `uv build` previously succeeded on the carried product tree and produced 1.3.3 artifacts; `python3 -m build` is unavailable in this environment (`No module named build`); no v1.3.4 artifact was built or published | UNVERIFIED for v1.3.4; no mutation |
+| Previous release | remote `v1.3.3` tag immutable at `290d9b0`; published, non-draft/non-prerelease; assets `SHA256SUMS` 196 B, wheel 192272 B, sdist 282056 B; downloaded checksums previously returned `OK` | VERIFIED |
+| GitReins | no verdict bound to `98db469e`; latest stored PASS `f4c607eb` is bound to `f3f3763`; a stale PASS is not inherited | UNVERIFIED |
+| Dogfood | committed 24-cell ledger: 12 OK, 7 N/A, 4 FAIL, 1 UNVERIFIED; fire 4 adds three open findings | PARTIAL / BLOCKED |
+| Deployed surfaces | primary `~/.local/bin/terminal-jail` and Hermes plugin manifest previously report 1.3.3; PATH-shadow/legacy residue remains with `OPS-TJ-001`; this pass did not mutate host state | primary current; residual open |
+
+## Release authorization and mutations
+
+No explicit new owner authorization for `v1.3.4` was present in the triggering metadata or the canonical row. Regardless, this pass does not require authorization to refuse the cut: the version-prep, GitReins, dogfood, and publisher gates are not all green. No tag, Release, remote ref, artifact, deployment, or shared-checkout dirty path was mutated by this pass. `WAVE_BUDGET=2`; no worker wave was dispatched because this is a verification-only releng sweep and the blockers are not worker-ready from this lane.
+
+The canonical rolling row is `RELEASE-TJ-022`; this pass updates the existing evidence record rather than creating a duplicate readiness row. The board carrier and its final carrier CI receipt remain pending until the row/artifact correction is landed through the repository's normal writer path.
