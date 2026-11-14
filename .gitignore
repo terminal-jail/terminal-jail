@@ -39,3 +39,6 @@ dagger.db-wal
 # identifiers (host paths, hostnames, worktree names). config.yaml and tasks.yaml
 # stay tracked; this directory does not (REVIEW-TJ-007).
 .gitreins/history/
+
+# gitreins judge token-usage log (churns every judge run; not a verdict artifact)
+.gitreins/usage.jsonl
