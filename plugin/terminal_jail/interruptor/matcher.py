@@ -29,6 +29,22 @@ from .parser import Segment, SegmentType, is_sensitive_path
 
 _QUOTED_TOKEN_RE = re.compile(r"^['\"](.*)['\"]$")
 
+SUPPORTED_MATCH_TYPES = frozenset(
+    {
+        "pattern",
+        "command",
+        "pipeline",
+        "subcommand",
+        "path",
+        "composite",
+        "syscall",
+        "network",
+        "heredoc",
+    }
+)
+
+SUPPORTED_MATCH_TYPES_TEXT = ", ".join(sorted(SUPPORTED_MATCH_TYPES))
+
 # Required-substring prefilters for the catastrophic-backtracking patterns
 # (TJ-DF-024). Each entry lists ALTERNATIVE required literals: the pattern
 # cannot match unless the candidate text contains AT LEAST ONE of them
@@ -156,7 +172,12 @@ class Matcher:
 
         handler = dispatch.get(match_type)
         if handler is None:
-            return MatchResult()
+            return MatchResult(
+                details=(
+                    f"Unknown match type {match_type!r}; accepted types: "
+                    f"{SUPPORTED_MATCH_TYPES_TEXT}"
+                )
+            )
 
         return handler(segment, match_def)
 

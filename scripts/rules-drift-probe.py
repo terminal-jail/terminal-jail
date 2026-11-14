@@ -27,8 +27,10 @@ Verdict rows:
       copy (includes the dirs-absent / dirs-empty case).
 
 Non-builtin ids in the rules dirs are the documented extension mechanism
-(rule packs, user catch-alls); they are counted as informational, never drift.
-An UNPARSEABLE rule file is a first-class finding (TJ-DF-039): it is counted in
+(rule packs, user catch-alls); valid extensions are counted as informational,
+never drift. An extension with an unsupported match.type is problematic because
+the engine cannot evaluate it and only emits a diagnostic. An UNPARSEABLE rule
+file is a first-class finding (TJ-DF-039): it is counted in
 the RESULT line as ``corrupt=N`` and the WARNING names it, because the loader
 gets ZERO rules out of it — on a host without PyYAML every ``.yaml`` rule file
 is in that state (rules.py falls back to stdlib json), so an entire installed
@@ -60,6 +62,10 @@ sys.path.insert(0, str(REPO_ROOT / "plugin"))
 from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
 from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
 from terminal_jail.interruptor.config import Config
+from terminal_jail.interruptor.matcher import (
+    SUPPORTED_MATCH_TYPES,
+    SUPPORTED_MATCH_TYPES_TEXT,
+)
 from terminal_jail.interruptor.rules import RuleLoader
 from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
 
@@ -120,11 +126,9 @@ def _installed_by_id(system_dir: str, user_dir: str) -> tuple[dict, list[str]]:
 def probe(system_dir: str, user_dir: str) -> tuple[list[str], int, int]:
     """Classify one host.
 
-    Returns (output_lines, drift_count, corrupt_count). Only ``drift`` counts
-    same-id ACTION deviations (the refused-vs-executed property this probe
-    exists for); ``corrupt`` counts installed rule files whose content never
-    became rules — reported, and failed under --fail-on-drift, but never
-    rendered as drift.
+    Returns (output_lines, drift_count, corrupt_count). ``problematic`` is
+    rendered in the RESULT line and is also a gate failure under
+    --fail-on-drift.
     """
     lines: list[str] = []
     sys_files = _yaml_files(system_dir)
@@ -156,6 +160,19 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int, int]:
     extras = sorted(set(installed) - set(ENGINE_RULES))
 
     drift = 0
+    problematic = 0
+    for rule_id, (rule, source) in installed.items():
+        if rule_id in ENGINE_RULES:
+            continue
+        match_type = rule.match.get("type", "pattern")
+        if match_type not in SUPPORTED_MATCH_TYPES:
+            problematic += 1
+            lines.append(
+                f"PROBLEM: non-builtin rule {rule_id}: unsupported match.type={match_type!r}; "
+                f"accepted types: {SUPPORTED_MATCH_TYPES_TEXT}"
+            )
+            lines.append(f"    installed rule: {source}")
+
     for rule_id in overridden:
         rule, source = installed[rule_id]
         engine_rule = ENGINE_RULES[rule_id]
@@ -186,8 +203,8 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int, int]:
         )
     lines.append(
         f"RESULT: drift={drift} overridden={len(overridden)} corrupt={len(corrupt)} "
-        f"unoverridden={len(ENGINE_RULES) - len(overridden)} "
-        f"non-builtin={len(extras)}"
+        f"unoverridden={len(ENGINE_RULES) - len(overridden)} non-builtin={len(extras)} "
+        f"problematic={problematic}"
     )
     if extras:
         lines.append(
@@ -211,11 +228,12 @@ def main() -> int:
     try:
         config = Config.from_environ()
         lines, drift, corrupt = probe(config.system_rules_dir, config.user_rules_dir)
+        problematic = sum(1 for line in lines if line.startswith("PROBLEM: "))
     except Exception as exc:  # noqa: BLE001 — classifier must never crash a host run
         print(f"UNKNOWN: probe error: {exc}")
         return 0
     print("\n".join(lines))
-    if args.fail_on_drift and (drift or corrupt):
+    if args.fail_on_drift and (drift or problematic or corrupt):
         return 1
     return 0
 
