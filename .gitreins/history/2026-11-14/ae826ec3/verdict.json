@@ -1,0 +1,372 @@
+{
+  "task_id": "TJ-DF-064-R3",
+  "task_title": "Verify corrected TJ-DF-064 trace marker binding",
+  "task_criteria": [
+    "PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3",
+  "branch": "wt/TJ-DF-064-marker-r3",
+  "commit": "cb3d3ef1f73e42b1fcc2bd0933cb5e62f3b5d233",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "aefdf6b9daa4b0d5a543aed6a37e2f0f8dfc31ca0709a3282ffddc99dad5e23c",
+  "working_tree_dirty_path_count": 3,
+  "items": [
+    {
+      "criterion": "PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change.",
+      "status": "PASS",
+      "detail": "All three limbs verified. (a) Marker binding: plugin/test_tjdf047_fs_degrade_plain_allow.py:38 now reads `commit=88cf92fecc085699e748019b8bc209d772b9b309` (was f4e540652e348d43e11bc8e681d276221efffc08); `git cat-file -t 88cf92f` -> `commit`; `git merge-base --is-ancestor 88cf92f HEAD` -> `ANCESTOR: yes`; `git merge-base --is-ancestor 88cf92f origin/main` -> `origin/main: yes`; `git log -1 88cf92f` -> `88cf92f fix: suppress false mapped Landlock degradation warning` with body `Addresses TJ-DF-064.` and files standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail. The old commit f4e5406 is reachable only from feature branch wt/TJ-DF-064 (`from origin/main: no`, `from HEAD: no`), which is the defect corrected here. (b) Focused test: `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` -> EXIT=0, `1 passed in 0.53s`; whole file `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py` -> EXIT=0, `13 passed, 1 skipped in 3.93s`. (c) No product source change: `git diff --name-only` -> only `.gitreins/tasks.yaml` and `plugin/test_tjdf047_fs_degrade_plain_allow.py`; grep for `^(standalone/|plugin/terminal_jail/|src/|bin/)` -> `NONE (no product source in diff)`; no staged or untracked files. The test-file diff is the single marker line (2 lines changed, 1 insertion/1 deletion). [resolution 0.31; plugin/test_tjdf047_fs_degrade_plain_allow.py]"
+    },
+    {
+      "criterion": "The marker's commit is reachable from the repository's shared integration ref (origin/main), not merely from a local/feature branch \u2014 i.e. the binding survives a fresh clone.",
+      "status": "PASS",
+      "detail": "`git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main` -> `origin/main: yes` (and `main: yes`). The named commit is on the shared integration ref, so a fresh clone resolves it. Contrast with the replaced commit: `git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 origin/main` -> `no`, and `git branch -a --contains f4e5406` -> only `wt/TJ-DF-064` / `remotes/origin/wt/TJ-DF-064`.",
+      "derived": true
+    },
+    {
+      "criterion": "The named commit is the commit that actually implements TJ-DF-064 (its product change is the mapped-substitution fix and is present in the current tree), so the marker binds the row to the right implementation, not an unrelated commit.",
+      "status": "PASS",
+      "detail": "`git show --name-only 88cf92f` -> `plugin/terminal_jail/_bundled/terminal-jail`, `standalone/terminal-jail`; the diff adds the `elif [ \"$TJ_LANDLOCK_MAPPED_SUBSTITUTION\" -eq 1 ]` silent arm that suppresses the false mapped Landlock warning. `git diff --stat 88cf92f HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail` -> EMPTY, so the named commit's product content is exactly what is in the current tree (standalone/terminal-jail:1463). `git diff --stat f4e5406 88cf92f -- <both files>` -> EMPTY, so the re-binding preserves the same implementation while fixing reachability.",
+      "derived": true
+    },
+    {
+      "criterion": "The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).",
+      "status": "PASS",
+      "detail": "`python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\"` -> `1 test collected in 0.01s`, EXIT=0. The node id in the marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 resolves to a real collected test, and running it passes (`1 passed in 0.53s`, EXIT=0).",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check",
+      "steps": [
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\nsh: 1: .venv/bin/python: not found\n",
+          "error": "",
+          "data": {
+            "exit_code": 127,
+            "pytest_outcome": {
+              "kind": "unknown",
+              "detail": "pytest exited with unexpected code 127",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            },
+            "skipped": true,
+            "skip_reason": "test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command"
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nscanners: nice=nice -n 10\n4:23PM INF scanned ~2865142 bytes (2.87 MB) in 271ms\n4:23PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 255 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change.: All three limbs verified. (a) Marker binding: plugin/test_tjdf047_fs_degrade_plain_allow.py:38 now reads `commit=88cf92fecc085699e748019b8bc209d772b9b309` (was f4e540652e348d43e11bc8e681d276221efffc08); `git cat-file -t 88cf92f` -> `commit`; `git merge-base --is-ancestor 88cf92f HEAD` -> `ANCESTOR: yes`; `git merge-base --is-ancestor 88cf92f origin/main` -> `origin/main: yes`; `git log -1 88cf92f` -> `88cf92f fix: suppress false mapped Landlock degradation warning` with body `Addresses TJ-DF-064.` and files standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail. The old commit f4e5406 is reachable only from feature branch wt/TJ-DF-064 (`from origin/main: no`, `from HEAD: no`), which is the defect corrected here. (b) Focused test: `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` -> EXIT=0, `1 passed in 0.53s`; whole file `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py` -> EXIT=0, `13 passed, 1 skipped in 3.93s`. (c) No product source change: `git diff --name-only` -> only `.gitreins/tasks.yaml` and `plugin/test_tjdf047_fs_degrade_plain_allow.py`; grep for `^(standalone/|plugin/terminal_jail/|src/|bin/)` -> `NONE (no product source in diff)`; no staged or untracked files. The test-file diff is the single marker line (2 lines changed, 1 insertion/1 deletion). [resolution 0.31; plugin/test_tjdf047_fs_degrade_plain_allow.py]\n  \u2713 The marker's commit is reachable from the repository's shared integration ref (origin/main), not merely from a local/feature branch \u2014 i.e. the binding survives a fresh clone.: `git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main` -> `origin/main: yes` (and `main: yes`). The named commit is on the shared integration ref, so a fresh clone resolves it. Contrast with the replaced commit: `git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 origin/main` -> `no`, and `git branch -a --contains f4e5406` -> only `wt/TJ-DF-064` / `remotes/origin/wt/TJ-DF-064`.\n  \u2713 The named commit is the commit that actually implements TJ-DF-064 (its product change is the mapped-substitution fix and is present in the current tree), so the marker binds the row to the right implementation, not an unrelated commit.: `git show --name-only 88cf92f` -> `plugin/terminal_jail/_bundled/terminal-jail`, `standalone/terminal-jail`; the diff adds the `elif [ \"$TJ_LANDLOCK_MAPPED_SUBSTITUTION\" -eq 1 ]` silent arm that suppresses the false mapped Landlock warning. `git diff --stat 88cf92f HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail` -> EMPTY, so the named commit's product content is exactly what is in the current tree (standalone/terminal-jail:1463). `git diff --stat f4e5406 88cf92f -- <both files>` -> EMPTY, so the re-binding preserves the same implementation while fixing reachability.\n  \u2713 The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).: `python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\"` -> `1 test collected in 0.01s`, EXIT=0. The node id in the marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 resolves to a real collected test, and running it passes (`1 passed in 0.53s`, EXIT=0).\nThe marker now binds TJ-DF-064 to commit 88cf92f, which is reachable from origin/main and carries the actual mapped-substitution fix present in the current tree; the focused test and the full file pass (13 passed, 1 skipped, EXIT=0) and the diff touches only the marker line plus the task ledger, with no product source changes.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change.: All three limbs verified. (a) Marker binding: plugin/test_tjdf047_fs_degrade_plain_allow.py:38 now reads `commit=88cf92fecc085699e748019b8bc209d772b9b309` (was f4e540652e348d43e11bc8e681d276221efffc08); `git cat-file -t 88cf92f` -> `commit`; `git merge-base --is-ancestor 88cf92f HEAD` -> `ANCESTOR: yes`; `git merge-base --is-ancestor 88cf92f origin/main` -> `origin/main: yes`; `git log -1 88cf92f` -> `88cf92f fix: suppress false mapped Landlock degradation warning` with body `Addresses TJ-DF-064.` and files standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail. The old commit f4e5406 is reachable only from feature branch wt/TJ-DF-064 (`from origin/main: no`, `from HEAD: no`), which is the defect corrected here. (b) Focused test: `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` -> EXIT=0, `1 passed in 0.53s`; whole file `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py` -> EXIT=0, `13 passed, 1 skipped in 3.93s`. (c) No product source change: `git diff --name-only` -> only `.gitreins/tasks.yaml` and `plugin/test_tjdf047_fs_degrade_plain_allow.py`; grep for `^(standalone/|plugin/terminal_jail/|src/|bin/)` -> `NONE (no product source in diff)`; no staged or untracked files. The test-file diff is the single marker line (2 lines changed, 1 insertion/1 deletion). [resolution 0.31; plugin/test_tjdf047_fs_degrade_plain_allow.py]\n\n\u2026 [1453 chars omitted \u2014 2 line(s)] \u2026\n  \u2713 The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).: `python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\"` -> `1 test collected in 0.01s`, EXIT=0. The node id in the marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 resolves to a real collected test, and running it passes (`1 passed in 0.53s`, EXIT=0).\nThe marker now binds TJ-DF-064 to commit 88cf92f, which is reachable from origin/main and carries the actual mapped-substitution fix present in the current tree; the focused test and the full file pass (13 passed, 1 skipped, EXIT=0) and the diff touches only the marker line plus the task ledger, with no product source changes.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change.",
+                "status": "PASS",
+                "detail": "All three limbs verified. (a) Marker binding: plugin/test_tjdf047_fs_degrade_plain_allow.py:38 now reads `commit=88cf92fecc085699e748019b8bc209d772b9b309` (was f4e540652e348d43e11bc8e681d276221efffc08); `git cat-file -t 88cf92f` -> `commit`; `git merge-base --is-ancestor 88cf92f HEAD` -> `ANCESTOR: yes`; `git merge-base --is-ancestor 88cf92f origin/main` -> `origin/main: yes`; `git log -1 88cf92f` -> `88cf92f fix: suppress false mapped Landlock degradation warning` with body `Addresses TJ-DF-064.` and files standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail. The old commit f4e5406 is reachable only from feature branch wt/TJ-DF-064 (`from origin/main: no`, `from HEAD: no`), which is the defect corrected here. (b) Focused test: `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` -> EXIT=0, `1 passed in 0.53s`; whole file `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py` -> EXIT=0, `13 passed, 1 skipped in 3.93s`. (c) No product source change: `git diff --name-only` -> only `.gitreins/tasks.yaml` and `plugin/test_tjdf047_fs_degrade_plain_allow.py`; grep for `^(standalone/|plugin/terminal_jail/|src/|bin/)` -> `NONE (no product source in diff)`; no staged or untracked files. The test-file diff is the single marker line (2 lines changed, 1 insertion/1 deletion). [resolution 0.31; plugin/test_tjdf047_fs_degrade_plain_allow.py]",
+                "resolution_probability": 0.31,
+                "cited_path": "plugin/test_tjdf047_fs_degrade_plain_allow.py"
+              },
+              {
+                "criterion": "The marker's commit is reachable from the repository's shared integration ref (origin/main), not merely from a local/feature branch \u2014 i.e. the binding survives a fresh clone.",
+                "status": "PASS",
+                "detail": "`git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main` -> `origin/main: yes` (and `main: yes`). The named commit is on the shared integration ref, so a fresh clone resolves it. Contrast with the replaced commit: `git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 origin/main` -> `no`, and `git branch -a --contains f4e5406` -> only `wt/TJ-DF-064` / `remotes/origin/wt/TJ-DF-064`.",
+                "derived": true
+              },
+              {
+                "criterion": "The named commit is the commit that actually implements TJ-DF-064 (its product change is the mapped-substitution fix and is present in the current tree), so the marker binds the row to the right implementation, not an unrelated commit.",
+                "status": "PASS",
+                "detail": "`git show --name-only 88cf92f` -> `plugin/terminal_jail/_bundled/terminal-jail`, `standalone/terminal-jail`; the diff adds the `elif [ \"$TJ_LANDLOCK_MAPPED_SUBSTITUTION\" -eq 1 ]` silent arm that suppresses the false mapped Landlock warning. `git diff --stat 88cf92f HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail` -> EMPTY, so the named commit's product content is exactly what is in the current tree (standalone/terminal-jail:1463). `git diff --stat f4e5406 88cf92f -- <both files>` -> EMPTY, so the re-binding preserves the same implementation while fixing reachability.",
+                "derived": true
+              },
+              {
+                "criterion": "The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).",
+                "status": "PASS",
+                "detail": "`python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\"` -> `1 test collected in 0.01s`, EXIT=0. The node id in the marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 resolves to a real collected test, and running it passes (`1 passed in 0.53s`, EXIT=0).",
+                "derived": true
+              }
+            ],
+            "summary": "The marker now binds TJ-DF-064 to commit 88cf92f, which is reachable from origin/main and carries the actual mapped-substitution fix present in the current tree; the focused test and the full file pass (13 passed, 1 skipped, EXIT=0) and the diff touches only the marker line plus the task ledger, with no product source changes.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"TJ-DF-064-R3\"}",
+          "exit_code": 0,
+          "output_sha": "8e7a83a4cb76d1c4e6225d600c53088138df5b699493e00d8f1ec4ed763766c7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /workspace 2>/dev/null || cd .; pwd; git log --oneline -5; echo \"---\"; git status --short | head -50",
+          "exit_code": 0,
+          "output_sha": "530bbbf8af4880329c03414c23f1a6186e58207bb4f4ee2e3f9691dd1a6860a9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; git cat-file -t 88cf92fecc085699e748019b8bc209d772b9b309 2>&1; echo \"exit=$?\"; echo \"---\"; git log --oneline -1 88cf92fecc085699e748019b8bc209d772b9b309 2>&1; echo \"---\"; git branch -a --contains 88cf92fecc085699e748019b8bc209d772b9b309 2>&1 | head -20",
+          "exit_code": 0,
+          "output_sha": "127f950776c9729d87118f57c4f73f25a462563902cf49973ac4008b93e85f47"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"plugin/test_tjdf047_fs_degrade_plain_allow.py\"}",
+          "exit_code": 0,
+          "output_sha": "242f271e904a4efc2852bd787902f20d37a612a587730138e02f41e4707406f4"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== is 88cf92f ancestor of HEAD? ===\"; git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 HEAD && echo \"ANCESTOR: yes\" || echo \"ANCESTOR: no\"; echo \"=== show commit ===\"; git show --stat --format='%H%n%an%n%ad%n%s' 88cf92fecc085699e748019b8bc209d772b9b309 | head -30",
+          "exit_code": 0,
+          "output_sha": "982bea7bfa8607133d1b0c732eb38ae1f40dbeddd86acf815cfcce83559f19a1"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; cat .gitreins/config.yaml 2>/dev/null | head -60",
+          "exit_code": 0,
+          "output_sha": "6cc1688073a1c9bd48209b4922e0b088770c492ef308e3388da6bad838a31837"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== diff of 88cf92f ===\"; git show 88cf92fecc085699e748019b8bc209d772b9b309 | head -120",
+          "exit_code": 0,
+          "output_sha": "1fea91b417df7914a3434e809043cc5a6ee163a789578fd185f08c09fd7e5839"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== working tree diff (product source?) ===\"; git diff --stat; echo \"=== staged ===\"; git diff --cached --stat; echo \"=== untracked ===\"; git status --porcelain --untracked-files=all | head -30",
+          "exit_code": 0,
+          "output_sha": "c645e7bfed1ca6b1ae71f6af8a5b1e81e30194cdc5ef6a9fbda10f7da7081ca7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== does 88cf92f touch the test file? ===\"; git show --name-only --format='' 88cf92fecc085699e748019b8bc209d772b9b309; echo \"=== does 88cf92f touch standalone/terminal-jail (product)? ===\"; git show --name-only --format='' 88cf92fecc085699e748019b8bc209d772b9b309 | grep -c 'standalone/terminal-jail'",
+          "exit_code": 0,
+          "output_sha": "79f3ae5c5e07b41c4accff86a13e35fd5dffe7ffd800b447492ec7ea19a91bdd"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; ls -la .venv/bin/python 2>&1; .venv/bin/python --version 2>&1",
+          "exit_code": 127,
+          "output_sha": "56d6c0793d39544ace4a745128bcf01ff13d79c2e62f2d4d601ea2b388ad36a7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; which python3; python3 --version; python3 -c \"import pytest; print(pytest.__version__)\" 2>&1",
+          "exit_code": 0,
+          "output_sha": "c5240e9598e92e52bbad5cc817068beb1bdfe5520746d9fd4c9104d40b116e21"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; grep -n \"TJ_LANDLOCK_MAPPED_SUBSTITUTION\" standalone/terminal-jail | head -20; echo \"=== count == mapped ===\"; grep -c '== \"mapped\"' standalone/terminal-jail; echo \"=== count != mapped ===\"; grep -c '!= \"mapped\"' standalone/terminal-jail",
+          "exit_code": 0,
+          "output_sha": "d3d34f5dc821028f694b8f301d4726826240f8542bbba40115f55c11ba9b6650"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; timeout 600 python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py 2>&1 | tail -30; echo \"EXIT=${PIPESTATUS[0]}\"",
+          "exit_code": 2,
+          "output_sha": "aa865df215e5da0af293cccc9c5e8e5faedf939215d18740f4a0f55659b2a103"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; timeout 600 python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py > /tmp/tj064.log 2>&1; echo \"EXIT=$?\"; tail -5 /tmp/tj064.log",
+          "exit_code": 0,
+          "output_sha": "03cefe7e598134ed919fca8c8daffcd18bae55c341dabe43d5f2adb0a8e01dee"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; timeout 600 python3 -m pytest -q \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\" -v > /tmp/tj064_focused.log 2>&1; echo \"EXIT=$?\"; cat /tmp/tj064_focused.log | tail -15",
+          "exit_code": 0,
+          "output_sha": "da27b2b64ded589e4d27f7a1532c4e0bc7ebb6f797d2af05562da363b70693c8"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: (1) marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 names commit=88cf92fecc085699e748019b8bc209d772b9b309; `git cat-file -t` -> commit, `git merge-base --is-ancestor 88cf92f HEAD` -> ANCESTOR: yes, `git log -1` -> \\\"88cf92f fix: suppress false mapped Landlock degradation warning\\\" touching standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail (the real TJ-DF-064 implementation). (2) focused test `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` EXIT=0 \\\"1 passed in 0.53s\\\"; whole file EXIT=0 \\\"13 passed, 1 skipped in 3.93s\\\". (3) `git diff --stat` = only .gitreins/tasks.yaml + plugin/test_tjdf047_fs_degrade_plain_allow.py (2 lines, marker only); no staged/untracked product files; 88cf92f's product edits are pre-existing history, not this task's diff.\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "632293fbc0148ca287e04f9c789d9b170c3c071aac9f8e407e713f3de3e2c4a8"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== marker line ===\"; grep -n \"ch:trace row=TJ-DF-064\" plugin/test_tjdf047_fs_degrade_plain_allow.py; echo \"=== other TJ-DF-064 markers in repo ===\"; grep -rn \"row=TJ-DF-064\" --include=*.py --include=*.md --include=*.yaml . | head -20",
+          "exit_code": 0,
+          "output_sha": "49ea06b0fd7c026246a88668d2f1786cbc11efbbe1dd3928fe581f3c5edff5e8"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== is 88cf92f reachable from origin/main? ===\"; git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main && echo \"origin/main: yes\" || echo \"origin/main: no\"; echo \"=== is it reachable from main? ===\"; git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 main && echo \"main: yes\" || echo \"main: no\"; echo \"=== old marker commit f4e5406 ===\"; git cat-file -t f4e540652e348d43e11bc8e681d276221efffc08 2>&1; git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 HEAD && echo \"f4e5406 ancestor: yes\" || echo \"f4e5406 ancestor: no\"",
+          "exit_code": 0,
+          "output_sha": "6af56183e9c669cea81d269c7d5b982782f2914b091b231495e9ccfe2b0c92b0"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== does 88cf92f's product change match current standalone/terminal-jail? ===\"; git diff --stat 88cf92fecc085699e748019b8bc209d772b9b309 HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail; echo \"=== current mapped-substitution block ===\"; sed -n '1440,1480p' standalone/terminal-jail",
+          "exit_code": 0,
+          "output_sha": "28b72a072cfb9faf63f15415353b81ece27189fe11fe2b6a2f06ca235bb3bf8a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== f4e5406 in any ref? ===\"; git branch -a --contains f4e540652e348d43e11bc8e681d276221efffc08 2>&1 | head; echo \"=== f4e5406 subject ===\"; git log -1 --format='%s' f4e540652e348d43e11bc8e681d276221efffc08 2>&1; echo \"=== f4e5406 files ===\"; git show --name-only --format='' f4e540652e348d43e11bc8e681d276221efffc08 2>&1 | head",
+          "exit_code": 0,
+          "output_sha": "ef382738c4898052f7dce4de77a14d6fdaa34a17e4f3ba37f8309ec8a8b5db99"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== trace marker validator? ===\"; grep -rln \"ch:trace\" --include=*.py --include=*.sh --include=*.yaml . 2>/dev/null | grep -v \"^./plugin/test_\" | head -20",
+          "exit_code": 0,
+          "output_sha": "f5ab192808257893bb9acd31f80bf1ca132ab64accf67653ae398c08cbca88a5"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== f4e5406 vs 88cf92f tree diff ===\"; git diff --stat f4e540652e348d43e11bc8e681d276221efffc08 88cf92fecc085699e748019b8bc209d772b9b309 -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail; echo \"(empty = identical product content)\"; echo \"=== f4e5406 parent ===\"; git log -1 --format='%H %P' f4e540652e348d43e11bc8e681d276221efffc08",
+          "exit_code": 0,
+          "output_sha": "bd015dba359d4560f2a518e0f7bad251d41ad4b2dcf6bf3f5369889a155fd7ac"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== trace marker checks in tests/test_composed_mode.py ===\"; grep -n \"ch:trace\" tests/test_composed_mode.py | head -20",
+          "exit_code": 0,
+          "output_sha": "8e6990d947fcb1c43aac4277b3e770673d3516df545fb2cf842eeff084f3e0b9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== is 88cf92f reachable from the branch that carries f4e5406 (wt/TJ-DF-064)? ===\"; git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 wt/TJ-DF-064 && echo \"yes\" || echo \"no\"; echo \"=== is f4e5406 reachable from origin/main? ===\"; git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 origin/main && echo \"yes\" || echo \"no\"; echo \"=== is f4e5406 reachable from HEAD? ===\"; git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 HEAD && echo \"yes\" || echo \"no\"",
+          "exit_code": 0,
+          "output_sha": "8835e73fdf1e27d2f272423a233bd4924bd9d773a636fc8329546f8f03f4d5c9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== git diff of the test file (full) ===\"; git diff plugin/test_tjdf047_fs_degrade_plain_allow.py",
+          "exit_code": 0,
+          "output_sha": "d7e48867bd1fec125aca39866ad05576c9784d010545e944144e034a3e0ec25c"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Derived criteria for TJ-DF-064-R3:\\n- derived_0: The marker's commit is reachable from the repository's shared integration ref (origin/main), not merely from a local/feature branch \\u2014 i.e. the binding survives a fresh clone.\\n- derived_1: The named commit is the commit that actually implements TJ-DF-064 (its product change is the mapped-substitution fix and is present in the current tree), so the marker binds the row to the right implementation, not an unrelated commit.\\n- derived_2: The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).\\n\", \"key\": \"derived_criteria\"}",
+          "exit_code": 0,
+          "output_sha": "079c196e5fa4b503efc19de5f8f4882d2c007341da227cec7cda57914ff7ffc6"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== collect-only: does the marker's test node exist? ===\"; python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\" 2>&1 | tail -5; echo \"EXIT=$?\"",
+          "exit_code": 0,
+          "output_sha": "22176e4194b744748707e933df25eb3cbba9b355ec95037cdd44ffc020a16c10"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: `git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main` -> \\\"origin/main: yes\\\" (also \\\"main: yes\\\"). The commit is on the shared integration ref, so the binding survives a fresh clone. Contrast: the OLD marker commit f4e540652e348d43e11bc8e681d276221efffc08 is reachable only from local/remote feature branch wt/TJ-DF-064 (\\\"f4e5406 reachable from origin/main: no\\\", \\\"from HEAD: no\\\") \\u2014 which is exactly the defect this task corrects.\", \"key\": \"verified_derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "cb8f8c3d51f50c61fd11ed0fe09a60b920cee8ba2620e4c368a5c57a352c613d"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: `git log -1 88cf92f` -> \\\"88cf92f fix: suppress false mapped Landlock degradation warning\\\", body \\\"Addresses TJ-DF-064.\\\"; `git show --name-only` -> standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail (the mapped-substitution gate). `git diff --stat 88cf92f HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail` -> EMPTY, so the named commit's product change is exactly what is in the current tree (standalone/terminal-jail:1463 `elif [ \\\"$TJ_LANDLOCK_MAPPED_SUBSTITUTION\\\" -eq 1 ]`). f4e5406 and 88cf92f have byte-identical product content (`git diff --stat f4e5406 88cf92f -- <both files>` empty), so the re-binding preserves the same implementation while fixing reachability.\", \"key\": \"verified_derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "2deba2523d0a82fca9042b3c655ca6a803c2c769d1ea37434559d1c17a9ae796"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: `python3 -m pytest -q --collect-only \\\"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\\\"` -> \\\"1 test collected in 0.01s\\\", EXIT=0. The node id in the marker (plugin/test_tjdf047_fs_degrade_plain_allow.py:38) resolves to a real collected test, and running it passes (\\\"1 passed in 0.53s\\\", EXIT=0).\", \"key\": \"verified_derived_2\"}",
+          "exit_code": 0,
+          "output_sha": "9994c7e32345800bc8aeda7690054ad1565603897fdc45787ec9665a064ddd42"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3; echo \"=== confirm no product source touched by this task's diff ===\"; git diff --name-only; echo \"--- any product path among them? ---\"; git diff --name-only | grep -E '^(standalone/|plugin/terminal_jail/|src/|bin/)' || echo \"NONE (no product source in diff)\"",
+          "exit_code": 0,
+          "output_sha": "43cbc6e1e72b5fbca0e390f93de393da1bbd5ad04a7c06e69e94a1e7f6a7a4e2"
+        }
+      ]
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The change only updates a trace-marker commit hash in a test docstring, appends bookkeeping entries to .gitreins/tasks.yaml and .gitreins/usage.jsonl, and touches no product code or test logic, so there is nothing to flag."
+  },
+  "summary": "Stage tier1: PASS\n    ~ tests: skipped (test interpreter '.venv/bin/python' not found (looked for /home/kara/worktrees/terminal-jail-TJ-DF-064-marker-r3/.venv/bin/python) \u2014 create the environment (`uv sync`, or `python -m venv .venv && .venv/bin/pip install -e .[dev]`), or set guards.test_command)\n  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: plugin/test_tjdf047_fs_degrade_plain_allow.py binds TJ-DF-064 to reachable implementation commit 88cf92fecc085699e748019b8bc209d772b9b309; the focused regression test passes; no product source changes are made. FAILIF: the marker names an unreachable commit, the focused test fails, or product source files change.: All three limbs verified. (a) Marker binding: plugin/test_tjdf047_fs_degrade_plain_allow.py:38 now reads `commit=88cf92fecc085699e748019b8bc209d772b9b309` (was f4e540652e348d43e11bc8e681d276221efffc08); `git cat-file -t 88cf92f` -> `commit`; `git merge-base --is-ancestor 88cf92f HEAD` -> `ANCESTOR: yes`; `git merge-base --is-ancestor 88cf92f origin/main` -> `origin/main: yes`; `git log -1 88cf92f` -> `88cf92f fix: suppress false mapped Landlock degradation warning` with body `Addresses TJ-DF-064.` and files standalone/terminal-jail + plugin/terminal_jail/_bundled/terminal-jail. The old commit f4e5406 is reachable only from feature branch wt/TJ-DF-064 (`from origin/main: no`, `from HEAD: no`), which is the defect corrected here. (b) Focused test: `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning` -> EXIT=0, `1 passed in 0.53s`; whole file `python3 -m pytest -q plugin/test_tjdf047_fs_degrade_plain_allow.py` -> EXIT=0, `13 passed, 1 skipped in 3.93s`. (c) No product source change: `git diff --name-only` -> only `.gitreins/tasks.yaml` and `plugin/test_tjdf047_fs_degrade_plain_allow.py`; grep for `^(standalone/|plugin/terminal_jail/|src/|bin/)` -> `NONE (no product source in diff)`; no staged or untracked files. The test-file diff is the single marker line (2 lines changed, 1 insertion/1 deletion). [resolution 0.31; plugin/test_tjdf047_fs_degrade_plain_allow.py]\n  \u2713 The marker's commit is reachable from the repository's shared integration ref (origin/main), not merely from a local/feature branch \u2014 i.e. the binding survives a fresh clone.: `git merge-base --is-ancestor 88cf92fecc085699e748019b8bc209d772b9b309 origin/main` -> `origin/main: yes` (and `main: yes`). The named commit is on the shared integration ref, so a fresh clone resolves it. Contrast with the replaced commit: `git merge-base --is-ancestor f4e540652e348d43e11bc8e681d276221efffc08 origin/main` -> `no`, and `git branch -a --contains f4e5406` -> only `wt/TJ-DF-064` / `remotes/origin/wt/TJ-DF-064`.\n  \u2713 The named commit is the commit that actually implements TJ-DF-064 (its product change is the mapped-substitution fix and is present in the current tree), so the marker binds the row to the right implementation, not an unrelated commit.: `git show --name-only 88cf92f` -> `plugin/terminal_jail/_bundled/terminal-jail`, `standalone/terminal-jail`; the diff adds the `elif [ \"$TJ_LANDLOCK_MAPPED_SUBSTITUTION\" -eq 1 ]` silent arm that suppresses the false mapped Landlock warning. `git diff --stat 88cf92f HEAD -- standalone/terminal-jail plugin/terminal_jail/_bundled/terminal-jail` -> EMPTY, so the named commit's product content is exactly what is in the current tree (standalone/terminal-jail:1463). `git diff --stat f4e5406 88cf92f -- <both files>` -> EMPTY, so the re-binding preserves the same implementation while fixing reachability.\n  \u2713 The marker's `test=` node id resolves to a real, collected test in the named file (no dangling test reference).: `python3 -m pytest -q --collect-only \"plugin/test_tjdf047_fs_degrade_plain_allow.py::TestFsDegradePlainAllow::test_mapped_bwrap_substitution_does_not_emit_false_fs_warning\"` -> `1 test collected in 0.01s`, EXIT=0. The node id in the marker at plugin/test_tjdf047_fs_degrade_plain_allow.py:38 resolves to a real collected test, and running it passes (`1 passed in 0.53s`, EXIT=0).\nThe marker now binds TJ-DF-064 to commit 88cf92f, which is reachable from origin/main and carries the actual mapped-substitution fix present in the current tree; the focused test and the full file pass (13 passed, 1 skipped, EXIT=0) and the diff touches only the marker line plus the task ledger, with no product source changes.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-14T21:24:32.251626",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-14T21:24:32.272917+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 4112,
+        "truncated": false,
+        "source": "git show cb3d3ef1f73e"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 3453,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-064-R3"
+  }
+}
