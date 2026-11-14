@@ -1009,3 +1009,4 @@
 {"id":1008,"timestamp":"2026-11-14 10:23:52+00:00","event_type":"task_created","task_id":"TJ-DF-066","actor":"dogfood","detail":"{\"id\":\"TJ-DF-066\",\"status\":\"pending\",\"priority\":\"P2\",\"source\":\"dogfood tick terminal-jail-dogfood-2026-11-14-10-01-04\"}","tick_number":null}
 {"id":1009,"timestamp":"2026-11-14 11:09:34+00:00","event_type":"task_created","task_id":"TJ-DF-067","actor":"foreman","detail":"{\"id\":\"TJ-DF-067\",\"status\":\"pending\"}","tick_number":null}
 {"id":1010,"timestamp":"2026-11-14 11:09:58+00:00","event_type":"task_created","task_id":"TJ-DF-068","actor":"foreman","detail":"{\"id\":\"TJ-DF-068\",\"status\":\"pending\"}","tick_number":null}
+{"id":1011,"timestamp":"2026-11-14 11:52:38+00:00","event_type":"task_updated","task_id":"RELEASE-TJ-022","actor":"foreman","detail":"{\"status\":\"pending\"}","tick_number":null}
