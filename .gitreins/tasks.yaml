@@ -2431,3 +2431,14 @@ tasks:
   status: complete
   created_at: '2026-11-15T20:20:59.830151+00:00'
   completed_at: '2026-11-15T20:51:42.194457+00:00'
+- id: PERF-002
+  title: Remove redundant allow-path verdict parse
+  criteria:
+  - 'PROOF: standalone/terminal-jail removes the allow-path second python3 JSON parse
+    and preserves the reason-present distinction with a fixed-input regression matrix;
+    the repository test suite and ruff checks pass. FAILIF: a second allow-path verdict
+    parse remains, testing reason emptiness regresses empty-reason behavior, or any
+    required acceptance arm is unexecuted.'
+  status: complete
+  created_at: '2026-11-15T21:31:17.607110+00:00'
+  completed_at: '2026-11-15T22:21:56.746945+00:00'
