@@ -941,3 +941,14 @@ work a worker could do here. Evidence: this artifact, the two board rows, scratc
 `/home/kara/.hermes/cache/scratch/tj-releng-pass16.txt`, `…-census.txt`, `…-final.txt`,
 `…-external.txt`, `/tmp/tj_cut.txt`, and the DuckBrain key
 `/releases/terminal-jail/2026-11-15-readiness` (namespace `releases`).
+
+### Carrier advance (post-artifact)
+
+The carrier commit `90b33edf49e14cf1378c57406b7c300513659ed3` ("pass 16 fourth
+fire — no product delta at dfbc367, CUT DUE carried") is green on its own:
+run `43724053892` on the exact SHA, `completed/success`, 6/6 jobs
+(`2026-11-15T14:22:59Z` → `14:25:48Z`), pushed as `origin/main`. The committed
+tree, not the working tree, carries the rebind: `git show
+90b33ed:.coding-hermes/board/tasks.jsonl` reads `RELEASE-TJ-022` `status=pending`
+with the pass-16 title. This addendum commit is the new tip and its own CI is not
+claimed here.
