@@ -98,10 +98,10 @@ def _patch_tails(monkeypatch, fs_tail: str, net_tail: str) -> None:
     )
 
 
-# ch:trace row=PERF-001 spec=none:performance-finding wave=none:serial-worker test=plugin/test_interruptor.py::TestLazyCapabilityProbes doc=none evidence=none:worker-evidence witness=pytest plugin/test_interruptor.py -k LazyCapabilityProbes verdict=none:foreman-judge commit=none memory=none:foreman-closeout
+# ch:trace row=PERF-001 spec=none:performance-finding wave=none:serial-worker test=plugin/test_interruptor.py::TestLazyCapabilityProbes,plugin/test_install.py::test_installed_wrapper_surfaces_bridge_stderr doc=none evidence=none:worker-evidence witness=pytest-focused-tests;ab-import-probe;verdict-matrix-diff verdict=none:foreman-judge commit=b37d6de9a564bd29947d9c0e358c27709c587b1f memory=none:foreman-closeout
 # STATUS: complete
 # TIER: T3
-# EVIDENCE: focused lazy-probe tests and full-suite output reported to foreman
+# EVIDENCE: import 53-58ms/2 child spawns -> 35-43ms/0 spawns (base 4ca2e1f vs b37d6de); allow path probes=0; first wrap probes once in order; 20/20 verdict-matrix records identical across both TERMINAL_JAIL_LANDLOCK_NET modes; full CI-equivalent suite 2032 passed / 12 skipped / 72 deselected, coverage 75.94% >= 74%; ruff 0.16.8 check+format clean
 
 
 class TestLazyCapabilityProbes:
