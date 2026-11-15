@@ -338,6 +338,73 @@ _interruptor_evaluate() {
         "$_TJ_BRIDGE_PY" "$bridge" || return 1
 }
 
+# RELEASE-TJ-021: the in-jail trampolines below (seccomp and Landlock tiers)
+# splice the SAME interpreter the bridge runs under — `$_TJ_BRIDGE_PY` above.
+# Before this they spliced a literal `python3`, so in the wheel / install.sh
+# layouts — where the installing venv is not on PATH — the launch died with a
+# bare 127 instead of running the command, even after TJ-DF-061 fixed the
+# bridge half. One variable, one resolution scheme.
+#
+# An explicitly set TERMINAL_JAIL_PYTHON that cannot be executed must fail
+# loudly HERE too, exactly like the bridge: exec'ing a nonexistent interpreter
+# inside the launch is an unexplained 127, and substituting PATH's python3
+# would silently run the loaders under an interpreter the operator did not
+# choose. Unset/empty keeps the historical bare `python3`.
+_tj_interpreter_fault() {
+    # Echo "<pin> (<reason>)" when TERMINAL_JAIL_PYTHON cannot be executed;
+    # echo nothing when it is unset/empty (historical resolution) or usable.
+    local pinned="${TERMINAL_JAIL_PYTHON:-}"
+    [ -n "$pinned" ] || return 0
+    case "$pinned" in
+        */*)
+            if [ -e "$pinned" ]; then
+                [ -x "$pinned" ] || printf '%s (not executable)' "$pinned"
+                return 0
+            fi
+            printf '%s (no such file)' "$pinned"
+            ;;
+        *)
+            command -v "$pinned" >/dev/null 2>&1 || printf '%s (not on PATH)' "$pinned"
+            ;;
+    esac
+    return 0
+}
+
+_tj_interpreter_fault_note() {
+    # One line naming the pinned interpreter, printed only when that is the
+    # cause. The bridge box above explains the bridge; this explains WHY.
+    local fault
+    fault=$(_tj_interpreter_fault)
+    [ -n "$fault" ] || return 0
+    echo "terminal-jail: TERMINAL_JAIL_PYTHON=$fault — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3" >&2
+}
+
+_tj_require_interpreter() {
+    # Launch preflight: refuse to splice an interpreter that cannot execute.
+    local fault
+    fault=$(_tj_interpreter_fault)
+    [ -n "$fault" ] || return 0
+    if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+        echo "terminal-jail: WARNING — TERMINAL_JAIL_PYTHON=$fault; the in-jail loader cannot start under it, keeping the historical python3 resolution (warn mode)" >&2
+        _TJ_BRIDGE_PY="python3"
+        return 0
+    fi
+    {
+        echo "+--------------------------------------------------------------+"
+        echo "|  COMMAND BLOCKED — interpreter-unavailable                    |"
+        echo "+--------------------------------------------------------------+"
+        echo "|  TERMINAL_JAIL_PYTHON names a program that cannot be executed |"
+        echo "|  here, so the seccomp/Landlock loader could not be started.   |"
+        echo "|                                                               |"
+        echo "|  Fix: point TERMINAL_JAIL_PYTHON at an executable python, or  |"
+        echo "|  unset it to keep the historical python3 resolution.          |"
+        echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+        echo "+--------------------------------------------------------------+"
+        echo "|  TERMINAL_JAIL_PYTHON=$fault"
+    } >&2
+    exit 126
+}
+
 # --- argument parsing ---------------------------------------------------------
 
 if [ $# -eq 0 ]; then
@@ -479,6 +546,7 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
         if [ "$INTERRUPTOR_MODE" = "warn" ]; then
             # Warn mode: user explicitly accepted unguarded execution.
             echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)" >&2
+            _tj_interpreter_fault_note
         else
             # Enforce mode: FAIL CLOSED. A security tool that silently stops
             # protecting after the documented install is worse than none.
@@ -495,6 +563,7 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
                 echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
                 echo "+--------------------------------------------------------------+"
             } >&2
+            _tj_interpreter_fault_note
             exit 126
         fi
     }
@@ -1217,10 +1286,11 @@ _tj_launch_composed() {
     # (Landlock restricts the calling process), so it attaches here too — the
     # operator's opt-in is honored in every launch shape, and the layer report
     # above stays accurate because the tier is stated separately below.
+    _tj_require_interpreter
     _tj_egress_tier_decide --here
     if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
         echo "terminal-jail: composed layers — egress: enforced by terminal-jail (kernel Landlock TCP-connect allowlist; this tier needs no namespace)" >&2
-        exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+        exec bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"
     fi
     exec bash -c 'exec "$@"' terminal-jail "$@"
 }
@@ -1390,6 +1460,12 @@ if [ "${_TJ_COMPOSED_NS_FAILED:-0}" -eq 1 ]; then
     esac
 fi
 
+# RELEASE-TJ-021: every in-jail trampoline below splices `$_TJ_BRIDGE_PY`, so
+# a pinned interpreter that cannot execute is refused BEFORE the launch (the
+# alternative inside the launch is a bare 127 with no explanation). The rewrite
+# path (MODIFIED=1) splices nothing here — the bridge applied its own prefix.
+_tj_require_interpreter
+
 if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
     if [ ! -f "$SECCOMP_LOADER" ]; then
         echo "terminal-jail: seccomp loader not found at ${SECCOMP_LOADER}" >&2
@@ -1409,21 +1485,21 @@ if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
         _tj_egress_tier_decide "$_TJ_BWRAP_BIN" $BWRAP_FLAGS --
         if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
             exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+                bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$SECCOMP_LOADER" "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"
         fi
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+            bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$SECCOMP_LOADER" "$@"
     fi
     echo "terminal-jail: proc_view=host (unshare backend: the host /proc view is exposed — documented known limit, docs/backend-parity.md (a))" >&2
     _tj_egress_tier_decide unshare $UNSHARE_FLAGS
     if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
         exec unshare \
             $UNSHARE_FLAGS \
-            bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"
+            bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$SECCOMP_LOADER" "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"
     fi
     exec unshare \
         $UNSHARE_FLAGS \
-        bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+        bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$SECCOMP_LOADER" "$@"
 elif [ "$MODIFIED" -eq 1 ]; then
     # The bridge already prepended its own unshare prefix — run as-is,
     # no additional wrapping (double unshare → EPERM).
@@ -1451,7 +1527,7 @@ elif [ "$MODIFIED" -eq 1 ]; then
     # auto-sandboxed command with Errno 13 (the TJ-DF-019 shape).
     if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
         if unshare ${_tj_prefix_flags:-} test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
-            TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
+            TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
         fi
     fi
     exec bash -c "$CMD_STR"
@@ -1480,10 +1556,10 @@ else
             elif "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
                 if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
                     exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                        bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"
                 fi
                 exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                    bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                    bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"
             elif [ "$TJ_LANDLOCK_MAPPED_SUBSTITUTION" -eq 1 ]; then
                 # The mapped preflight already reported the deliberate bwrap
                 # (the legacy != "mapped" gate remains represented here).
@@ -1498,7 +1574,7 @@ else
         # the launch (knob on the allow path — the verdict that never rewrote).
         if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
             exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
-                bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+                bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"
         fi
         exec "$_TJ_BWRAP_BIN" $BWRAP_FLAGS -- \
             bash -c 'exec "$@"' terminal-jail "$@"
@@ -1532,11 +1608,11 @@ else
                     if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
                         exec unshare \
                             $UNSHARE_FLAGS \
-                            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"
+                            bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"
                     fi
                     exec unshare \
                         $UNSHARE_FLAGS \
-                        bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"
+                        bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"
                 else
                     # TJ-DF-047: the tier cannot attach on THIS launch — say why
                     # (unreadable = the TJ-DF-019 shape; the payload runs with the
@@ -1555,7 +1631,7 @@ else
     if [ "$TJ_EGRESS_TIER_ATTACH" -eq 1 ]; then
         exec unshare \
             $UNSHARE_FLAGS \
-            bash -c 'exec "$@"' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"
+            bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"
     fi
     exec unshare \
         $UNSHARE_FLAGS \

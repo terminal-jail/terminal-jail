@@ -24,6 +24,23 @@ its version-prep commit (2026-10-08) and was not reopened at the cut._
 
 ### Fixed
 
+- **In-jail trampolines resolve the same interpreter as the bridge
+  (`RELEASE-TJ-021`):** TJ-DF-061 fixed the bridge half only — the seccomp and
+  Landlock trampolines the wrapper splices still carried a literal `python3`,
+  so on the layouts this tool actually installs into (a wheel or `install.sh`
+  tree whose venv is not on PATH, or a host whose first `python3` is broken)
+  the ALLOW path exited 127 *after* a good verdict: the firewall decided, the
+  launch could not start its loader. Every tier splice site (bwrap and unshare
+  seccomp tunnels, filesystem tier, egress tier, composed egress) in both
+  shipped copies now exec `$_TJ_BRIDGE_PY` — one resolution scheme, the
+  bridge's own: `TERMINAL_JAIL_PYTHON` when set/non-empty, else the historical
+  `python3`. An explicitly set but unexecutable pin is refused before the
+  launch (exit 126, `interpreter-unavailable`, naming the path and the cause —
+  missing / not-executable / not-on-PATH) instead of an unexplained 127 or a
+  silent fallback to PATH's `python3`; warn mode states the degradation
+  instead of blocking. Pinned by `plugin/test_wrapper_landlock_interpreter.py`
+  (both copies; a broken `python3` first on PATH on the filesystem-tier and
+  `--seccomp` arms, plus the fail-loud arms).
 - **Parity-battery portability on composed hosts (`QA-TERMINAL-JAIL-21`):**
   three battery cells graded a containerized host's CORRECT behavior as
   `DIFFERS`, failing
