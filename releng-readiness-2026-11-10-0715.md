@@ -1,6 +1,6 @@
-# Releng readiness — terminal-jail — 2026-11-14 (pass 12)
+# Releng readiness — terminal-jail — 2026-11-15 (pass 13)
 
-Certified candidate (latest pass): `5a51e0f8dc5cbfbb277be62af0512602dcc6a731` (`origin/main`, pass 12); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 11 certified `889abcba` — superseded only by board/evidence bookkeeping (`5a51e0f` moves no product path). Pass 10 certified `6b12f620` — superseded by later board/evidence-only carriers and the current fresh candidate.
+Certified candidate (latest pass): `0c4bc5fe2e5639f9c3f1901f9be2945d2bc89376` (`origin/main`, pass 13, fetched 2026-11-15T12:34Z); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 12 certified `5a51e0f8dc5cbfbb277be62af0512602dcc6a731` — superseded by exactly one material fix (`6373928`, TJ-DF-066) that moves `decider.py`/`matcher.py`; pass 11 certified `889abcba` and pass 10 `6b12f620`, both superseded by bookkeeping carriers.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -561,3 +561,127 @@ No mutation was authorized or performed this pass: no tag, no Release, no
 artifact publication, no deployment, no host install, no shared-checkout
 cleanup. `WAVE_BUDGET=2`, zero workers dispatched — this satellite verifies and
 `RELEASE-TJ-023` already owns the only dispatchable work.
+
+---
+
+## Pass 13 — 2026-11-15T12:36Z — tick `terminal-jail-releng-2026-11-15-12-30-46` — CUT DUE, BLOCKED ON VERSION PREP
+
+Pass 12 was a `NO MATERIAL DELTA` against a byte-identical product tree and said a
+new decision was owed only when a material path moved. **One moved.** `6373928`
+(`fix: surface unsupported user match types`, TJ-DF-066) landed on
+`plugin/terminal_jail/interruptor/{decider,matcher}.py`,
+`scripts/rules-drift-probe.py` and three test modules — 82 insertions, 27
+deletions. So this pass owes a decision, and the decision changed shape: the
+patch is not merely *proposed*, it is **due and mechanically blocked**.
+
+### Decision
+
+**CUT DUE — PATCH `v1.3.4` — NOT TAGGED.** Five shipped-code `fix` commits have
+accumulated since `v1.3.3`, with zero `feat`, zero `perf`, zero `!` subjects and
+zero `BREAKING CHANGE` footers, so the semver driver is unambiguously a patch.
+No tag, no Release, no artifact publication, no deployment was performed: the
+version-prep surfaces are still at `1.3.3`, so a tag today would publish
+`1.3.3` artifacts under a `v1.3.4` name. `RELEASE-TJ-023` owns that prep and is
+`pending` — it is the single dispatchable step between this tick and a cut.
+
+### Census — `v1.3.3` (`290d9b0`) .. `0c4bc5f`
+
+105 commits, 103 non-merge, classified by conventional-commit prefix:
+
+| Prefix | Count | Semver weight |
+|---|---|---|
+| `fix` | 5 | PATCH — all five material (table below) |
+| `feat` | 0 | — |
+| `perf` | 0 | — |
+| `docs` | 19 | none (release/readiness artifacts, runbooks) |
+| `chore` | 25 | none (board, GitReins lifecycle, evidence) |
+| `style` | 1 | none (format-only, `39e8017`) |
+| breaking (`!` / `BREAKING CHANGE`) | 0 | no major driver; no confirmation sought |
+| non-conventional | 53 | none (`board:`/`foreman:` bookkeeping) |
+
+Material-only is the release contract's rule: a commit earns a bump only if it
+changes what an installed artifact does.
+
+| Commit | Date (-05) | Material | Why it reaches an installed artifact |
+|---|---|---|---|
+| `9020095` | 2026-11-11 20:57 | **yes** | unknown `action:` in a user rule now diagnosed instead of failing open to ALLOW (`QA-TERMINAL-JAIL-30`) — `decider.py`, `interruptor_bridge.py`, `standalone/terminal-jail` |
+| `34bdb22` | 2026-11-12 13:40 | **yes** | resyncs `plugin/terminal_jail/_bundled/terminal-jail` to `standalone/` (`INT-CI-019`); the bundled copy is the shipped fallback binary |
+| `88cf92f` | 2026-11-14 05:48 | **yes** | suppresses a false mapped-Landlock degradation warning — `standalone/terminal-jail` + bundled copy (53 lines each) |
+| `a48809c` | 2026-11-14 05:48 | **yes** | same fix, landed with its regression pin `test_tjdf047_fs_degrade_plain_allow.py`; counts as one logical fix with `88cf92f`, two commits |
+| `6373928` | 2026-11-14 17:21 | **yes** | user rule with an unknown `match.type` now warns instead of loading silently and never firing (`TJ-DF-066`) — `decider.py`, `matcher.py`, `rules-drift-probe.py` |
+
+**4 logical fixes, 5 commits → PATCH.** Remaining 98 commits are board,
+GitReins-lifecycle, evidence and release-artifact bookkeeping.
+
+### Interval since pass 12 — `5a51e0f` .. `0c4bc5f`
+
+| Measure | Value |
+|---|---|
+| Commits (all / non-merge) | 27 / 26 |
+| Material paths | **7** — `.gitignore`, `plugin/terminal_jail/interruptor/decider.py`, `.../matcher.py`, `plugin/test_interruptor.py`, `plugin/test_rules_drift_probe.py`, `plugin/test_tjdf047_fs_degrade_plain_allow.py`, `scripts/rules-drift-probe.py` |
+| Tree objects | 31 entries both sides; `5a51e0f` tree `1408b945`, `0c4bc5f` tree `317bb2d5` |
+| Material fix in interval | exactly one — `6373928` (TJ-DF-066) |
+
+### Evidence table
+
+| Gate | Evidence | Verdict |
+|---|---|---|
+| Candidate | `0c4bc5fe2e5639f9c3f1901f9be2945d2bc89376` (`origin/main`, fetched 12:34Z), tree `317bb2d5` | PINNED |
+| CI truth on candidate | GitHub Actions run `43709280798` on the **exact** SHA; `completed / success`; 6/6 jobs green with executed steps (9, 11, 11, 13, 11, 8) | GREEN |
+| Version hygiene | `pyproject.toml:7 = 1.3.3`, `plugin/plugin.yaml:2 = "1.3.3"`, `CHANGELOG.md` has no `[1.3.4]`, `git ls-remote origin refs/tags/v1.3.4` → no ref, no `v1.3.4` Release object | **PREP ABSENT** — `RELEASE-TJ-023` |
+| Pre-cut checker | `bash scripts/release-cut-check.sh v1.3.4` → rc=1: 4 FAIL (`could not verify tag` = `RELEASE-TJ-020` checker defect; pyproject; plugin.yaml; CHANGELOG), 4 OK (tag absent, tree clean, CI green on `0c4bc5f`) | BLOCKS THE TAG |
+| Release tooling (repo-owned) | `docs/releasing.md`, `scripts/release-cut-check.sh`, `.github/workflows/release.yml` (tag-triggered, `contents: write`), `.github/release.yml` all present | PRESENT — use theirs |
+| Previous release | `v1.3.3`: published `2026-11-10T07:53:18Z`, not draft/prerelease, exactly 3 assets (`SHA256SUMS` 196 B, wheel 192272 B, sdist 282056 B); tag immutable at `290d9b0` | VERIFIED |
+| GitReins | No stored verdict binds `0c4bc5f`. Newest stored: `4d7e9166` PASS @ `0e23195`, `18612c01` FAIL @ `0e23195`, `ae826ec3` PASS @ `cb3d3ef`, `79b49738` FAIL @ `8c8097e`; verdicts are not inherited across SHAs | UNVERIFIED |
+| Dogfood / QA | Newest committed ledger: 24 cells — 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED; fire 5 `SKIPPED-install-bunker` (`TJ-DF-069`) because bunkerd was unreachable and the install proof predates `88cf92f`'s 53-line binary change; new QA rows `-27-R2`, `-19-R2`, `-14-R2`, `-37` filed | PARTIAL / BLOCKED |
+| Deployed surfaces | `~/.local/bin/terminal-jail --version` → `terminal-jail 1.3.3` (`VERSION_DEFAULT="1.3.3"`); Hermes plugin manifest `version: "1.3.3"`. Installed binary sha `bcd111f8…` no longer matches repo `standalone/terminal-jail` sha `bc8200bd…`, i.e. the host runs a pre-`88cf92f` build of 1.3.3 | CURRENT for v1.3.3, one fix behind the tree |
+| Board backlog | 401 rows — 349 `complete`, 38 `pending`, 13 `blocked` | TRACKED |
+
+### Open blockers, by class
+
+* **Mechanical (owns the cut):** `RELEASE-TJ-023` version prep — `pending`, P2.
+  Nothing else gates the tag: CI is green on the exact candidate, the tree is
+  clean, and the previous release is verified.
+* **Publication path:** `RELCI-001` (P1, `blocked`) — the tag-triggered workflow
+  fails its own `contents: write` preflight, so even a correct tag needs the
+  documented manual publish step.
+* **Version-surface drift (not the cut itself):** `install.sh:15` still defaults
+  `TERMINAL_JAIL_VERSION=1.3.1` (usage line at `:306` repeats it) while `v1.3.3`
+  is published — in release mode that default *selects the wheel*, so it is a
+  real install-path defect and belongs in the same prep commit; `docs/quickstart.md`
+  (lines 76, 101, 735), `README-14`, `README-15`, `DOC-27`, `DOC-28`, `DOC-29`,
+  `DOC-30`, `DOC-14-R2`, `DOC-4-R2` carry stale release identity.
+* **Missing evidence:** GitReins unverified on any current SHA; dogfood ledger
+  predates the current product tree; `perf_*` rows `PERF-001`/`PERF-002` are new
+  measurements, not regressions of the release gate.
+* **Product defects still open on the candidate:** `TJ-DF-066` is landed but not
+  closed; `QA-TERMINAL-JAIL-30`, `-36`, `-37`, `-27-R2`, `-19-R2`, `-14-R2`,
+  `TJ-DF-067`, `TJ-DF-068`, `TJ-REVIEW-074-R2`, `QA-TERMINAL-JAIL-32/34/35`,
+  `TJ-DF-062`, `TJ-DF-063`, `QA-TERMINAL-JAIL-29/31` remain open. None of these
+  is newly discovered by this pass; all are carried with their own owners.
+* **Harness, not repo:** `QA-TERMINAL-JAIL-14`, `-14-R2`, `-24`, `-25`, `-27`,
+  `QA-TERMINAL-JAIL-FOREMAN-1`, `TJ-DF-059`, `TJ-GAP-098`, `OPS-TJ-001`.
+
+### Falsified premises carried forward
+
+`QA-TERMINAL-JAIL-33` (shared checkout parked on a divergent unpushed main that
+would revert the published release) **no longer holds**: the canonical checkout
+is clean at `0c4bc5f` with zero uncommitted paths, and this pass worked in a
+detached worktree rather than in that tree. The row stays open for its owner to
+close with evidence; it is not a release blocker today.
+
+`RELEASE-TJ-020` is real and reproducible — `git ls-remote --exit-code` returns
+**2** for an *absent* ref, so the checker's tag-absence gate emits `FAIL: could
+not verify` on every fresh tag, including `v1.3.4`. It is a checker defect, not
+a tag-state fact; the tag genuinely does not exist (`git ls-remote origin
+refs/tags/v1.3.4` returned nothing, `gh release view v1.3.4` returned not-found).
+
+### Release authorization and mutations
+
+A PATCH needs no major-version confirmation. **No release mutation was
+authorized or performed by this pass**: no tag, no Release, no asset upload, no
+deployment, no host install, no shared-checkout cleanup, no branch deletion.
+`WAVE_BUDGET=2` and zero workers were dispatched — this satellite verifies, and
+`RELEASE-TJ-023` already owns the only dispatchable work. The readiness evidence
+is this artifact plus the `RELEASE-TJ-022` row; the DuckBrain ledger entry is
+`/releases/terminal-jail/2026-11-15-readiness` in namespace `releases`.
