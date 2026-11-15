@@ -1,0 +1,17 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-15-05-10-36",
+  "tick_type": "verification-only",
+  "source_sha": "5b676ee455da27643fbf5746e9c44607b2bf9242",
+  "selected_row": "INT-CI-020",
+  "board_rows": 399,
+  "pending_actionable_rows": 29,
+  "eligible_independent": 0,
+  "wave_budget": 12,
+  "wave_size": 0,
+  "workers": [],
+  "reason": "Highest-priority pending row is an already-landed CI/board evidence defect whose writer is upstream-owned by coding-hermes/boardctl. A live boardctl P1 create probe still writes created_by=null and description=null and fails terminal-jail board_id_guard; no terminal-jail implementation worker is dispatchable.",
+  "direct_acceptance": "not run: verification-only selection; current terminal-jail light gates recorded in tick evidence",
+  "owner_or_scope": "boardctl repository (/home/kara/coding-hermes-boardctl), not terminal-jail",
+  "ci_state_before_closeout": "latest 3 main runs success; final closeout SHA requires a new run",
+  "status": "open"
+}
