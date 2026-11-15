@@ -434,6 +434,16 @@ class TestTierComposedProbeThroughCli:
             os.chmod(parent, 0o755)
 
         launch_python = TestJailedProbesThroughCli._launch_python()
+        # The composed launch's tier tail resolves bare ``python3`` from
+        # PATH (QA-TERMINAL-JAIL-18), so the payload interpreter is the
+        # FIRST python3 on PATH unless the env is normalised. A test
+        # session that inherits a harness/venv PATH (a 0700/0750 home, an
+        # agent install venv) therefore hands the nobody uid an
+        # unexecutable interpreter and the probe dies 126 with no output —
+        # the failure this test exists to catch. Drive the same contract as
+        # ``_run_probe_through_cli``: system paths first.
+        env = dict(os.environ)
+        env["PATH"] = "/usr/bin:/bin:" + env.get("PATH", "")
         for script in (PIDNS_PROBE, FS_PROBE):
             rel = script.relative_to(PROJECT_ROOT)
             result = subprocess.run(
@@ -447,6 +457,7 @@ class TestTierComposedProbeThroughCli:
                 text=True,
                 timeout=120,
                 check=False,
+                env=env,
             )
             self._skip_degradation(result)
             assert result.returncode == 0, (

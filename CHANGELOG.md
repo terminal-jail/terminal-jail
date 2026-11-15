@@ -78,6 +78,40 @@ its version-prep commit (2026-10-08) and was not reopened at the cut._
     tree under a `0700` parent yields the identical o+x warning, and the
     env-pin restores the byte-identical refusal.
 
+## [1.3.4] — 2026-11-15
+
+Release range v1.3.3..HEAD: 6 `fix` commits forming 4 distinct fixes
+(semver PATCH). Board/harness bookkeeping commits are not listed.
+
+### Fixed
+
+- **Landlock degradation warnings tell the truth about loader reachability
+  (`TJ-DF-064`, `ae8524e`, `a48809c`, `88cf92f`):** the tail appended to the
+  degradation warning no longer offers `TERMINAL_JAIL_LANDLOCK=0` as the way
+  out and instead points at the capability probe plus the loader path and
+  launch context. The reachability decision probes the actual launch context
+  rather than owner-uid ancestor mode bits — the engine runs as the owner while
+  a uid-mapped launch changes the payload uid, so private-home ancestors are
+  not evidence of unreadability — and the bwrap backend now preserves the
+  filesystem-isolation result already established by the mapped preflight
+  instead of treating its subordinate-id loader-readability probe as a second
+  filesystem verdict. Missing or genuinely unreadable loaders still produce
+  their existing warnings.
+- **Unsupported user-rule match types are surfaced instead of silently not
+  matching (`TJ-DF-066`, `6373928`):** the matcher now reports an unknown
+  `match.type` together with the accepted set (`pattern`, `command`,
+  `pipeline`, `subcommand`, `path`, `composite`, `syscall`, `network`,
+  `heredoc`) as the reason on a fail-safe `ALLOW` verdict that still names the
+  offending rule id, and the rules-drift probe now counts an unsupported
+  `match.type` as a finding, so a mistyped rule is visible rather than inert.
+- **The bundled CLI is resynchronized with the standalone CLI (`INT-CI-019`,
+  `34bdb22`):** the wheel-bundled wrapper is restored to byte-identical
+  parity with `standalone/terminal-jail`, including its executable mode.
+- **Unknown user-rule actions remain visible and fail-safe (`QA-TERMINAL-JAIL-30`,
+  `9020095`):** an unknown action still allows the command, but retains the
+  matched rule id and surfaces the reason through bridge stderr, structured
+  verdict logging, and the CLI.
+
 ## [1.3.3] — 2026-11-10
 
 Release range v1.3.2..HEAD: 2 material commits, both `fix` (semver PATCH).
