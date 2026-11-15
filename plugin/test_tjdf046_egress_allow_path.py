@@ -259,17 +259,22 @@ class TestWiring:
         assert "--here) ;" in text or '"${1:-}" = "--here"' in text
 
     def test_attach_decision_precedes_every_payload_exec(self) -> None:
-        """Probe before wrap: the decision call sits ahead of each exec site."""
+        """Probe before wrap: the decision call sits ahead of each exec site.
+
+        The interpreter each trampoline exec's is the one resolver
+        ``$_TJ_BRIDGE_PY`` (RELEASE-TJ-021); the splice shape is otherwise
+        the TJ-DF-046 one.
+        """
         text = CLI_SCRIPT.read_text(encoding="utf-8")
         exec_sites = [
             # composed launch (payload runs without an inner namespace)
-            'exec bash -c \'exec "$@"\' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"',
+            'exec bash -c \'exec "$@"\' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"',
             # seccomp trampoline (the loader chain the trampoline exec's)
-            'bash -c \'exec python3 "$@"\' terminal-jail "$SECCOMP_LOADER" python3 "$LANDLOCK_NET_LOADER" -- "$@"',
+            'bash -c \'exec "$@"\' terminal-jail "$_TJ_BRIDGE_PY" "$SECCOMP_LOADER" "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"',
             # fs tier composed with the egress tier (egress outermost)
-            'bash -c \'exec "$@"\' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- python3 "$LANDLOCK_LOADER" -- "$@"',
+            'bash -c \'exec "$@"\' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"',
             # egress tier alone, unshare arm
-            'exec unshare \\\n            $UNSHARE_FLAGS \\\n            bash -c \'exec "$@"\' terminal-jail python3 "$LANDLOCK_NET_LOADER" -- "$@"',
+            'exec unshare \\\n            $UNSHARE_FLAGS \\\n            bash -c \'exec "$@"\' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_NET_LOADER" -- "$@"',
         ]
         for site in exec_sites:
             assert site in text, site
@@ -282,11 +287,16 @@ class TestWiring:
         assert "TERMINAL_JAIL_LANDLOCK_NET=0" in text
 
     def test_fs_tier_seam_is_untouched(self) -> None:
-        """The filesystem tier's own attach shape must not drift."""
+        """The filesystem tier's own attach shape must not drift.
+
+        Its trampoline splices the shared interpreter resolver
+        (``$_TJ_BRIDGE_PY``, RELEASE-TJ-021) instead of a literal ``python3``;
+        everything else about the seam is the pre-TJ-DF-046 shape.
+        """
         text = CLI_SCRIPT.read_text(encoding="utf-8")
         assert text.count('!= "mapped"') == 4  # 1 bwrap selection + 3 fs attaches
         assert (
-            'bash -c \'exec "$@"\' terminal-jail python3 "$LANDLOCK_LOADER" -- "$@"'
+            'bash -c \'exec "$@"\' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- "$@"'
             in text
         )
         assert text.count('if [ "$TJ_LANDLOCK_ON" -eq 1 ]') == 3
