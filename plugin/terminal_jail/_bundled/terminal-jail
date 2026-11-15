@@ -514,7 +514,10 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
         # silently allowed the command in enforce mode.
         #
         # Exit codes: 0 = parsed (line 1 PARSE-OK, line 2 action, line 3 rule_id,
-        # line 4 reason), 1 = stdout is empty or not a JSON object.
+        # line 4 reason-present flag, optional line 5 reason), 1 = stdout is
+        # empty or not a JSON object. The explicit flag distinguishes an empty
+        # reason from a missing reason line after command substitution strips
+        # trailing newlines.
         _tj_verdict=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c '
 import json, sys
 try:
@@ -526,7 +529,10 @@ except Exception:
 print("PARSE-OK")
 print(d.get("action") or "")
 print(d.get("rule_id") or "unknown")
-print(d.get("reason") or "Command blocked by security policy")
+reason = d.get("reason") or ""
+print("1" if reason else "0")
+if reason:
+    print(reason)
 ' 2>/dev/null) || _tj_verdict=""
 
         if [ -z "$_tj_verdict" ]; then
@@ -548,10 +554,10 @@ print(d.get("reason") or "Command blocked by security policy")
                 } >&2
                 exit 126
             fi
-            _tj_verdict=$'PARSE-OK\nallow\nunknown\nCommand blocked by security policy'
+            _tj_verdict=$'PARSE-OK\nallow\nunknown\n0'
         fi
 
-        # Split the four lines with bash builtins only: the wrapper runs under a
+        # Split the parser output with bash builtins only: the wrapper runs under a
         # stripped PATH where external tools may be absent (see the
         # no-external-commands note at the top of this file; test_standalone_cli
         # and test_modify_preflight both exercise exactly that PATH).
@@ -559,10 +565,18 @@ print(d.get("reason") or "Command blocked by security policy")
         action="${_tj_action%%$'\n'*}"
         _tj_rest="${_tj_action#*$'\n'}"
         rule_id="${_tj_rest%%$'\n'*}"
-        # Everything after the rule_id line is the reason — a reason may itself
-        # contain newlines (a JSON "\n" escape decodes to a real newline).
-        reason="${_tj_rest#*$'\n'}"
-        unset -v _tj_verdict _tj_action _tj_rest
+        _tj_reason_meta="${_tj_rest#*$'\n'}"
+        reason_present="${_tj_reason_meta%%$'\n'*}"
+        # Everything after the reason-present flag is the reason — a reason may
+        # itself contain newlines (a JSON "\n" escape decodes to a real
+        # newline). Do not infer presence from the reason: command
+        # substitution strips the empty reason's trailing newline.
+        if [ "$reason_present" = "1" ]; then
+            reason="${_tj_reason_meta#*$'\n'}"
+        else
+            reason=""
+        fi
+        unset -v _tj_verdict _tj_action _tj_rest _tj_reason_meta
 
         # TJ-GAP-070: a [bridge-error] reason is an engine/transport failure,
         # not a policy match. The bridge now emits it as action=block, but an
@@ -585,9 +599,20 @@ print(d.get("reason") or "Command blocked by security policy")
             # for us — we use the output module separately, or just print a
             # simple message here for speed).
             if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                # The block box and the warn line must never print an empty
+                # reason. Key the fallback on the parser's reason-present flag,
+                # never on the reason string itself: command substitution
+                # strips the empty reason's trailing newline, so an emptiness
+                # test cannot tell "no reason" from "empty reason".
+                if [ "$reason_present" != "1" ]; then
+                    reason="Command blocked by security policy"
+                fi
                 echo "[terminal-jail] WARN: Would have blocked ($rule_id): $reason" >&2
             else
                 # Simple ASCII block box (no python dependency for formatting)
+                if [ "$reason_present" != "1" ]; then
+                    reason="Command blocked by security policy"
+                fi
                 {
                     echo "+--------------------------------------------------------------+"
                     echo "|  COMMAND BLOCKED — ${rule_id}                                "
@@ -625,13 +650,12 @@ print(r.get('modified') or r.get('command', ''))
             # with action=warn evaluates to ALLOW with a would-have-blocked
             # reason (TJ-DF-012). Surface either on stderr; the command
             # runs and we exit 0.
-            warn_reason=$(echo "$bridge_result" | "$_TJ_BRIDGE_PY" -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
-            if [ -n "$warn_reason" ]; then
+            if [ "$reason_present" = "1" ]; then
                 # Any non-empty allow reason is operator-visible provenance,
                 # including fail-safe unknown user-rule actions. Keep the
                 # existing warning wording for warn-mode downgrades while also
                 # surfacing malformed action values.
-                echo "terminal-jail: WARNING — $warn_reason" >&2
+                echo "terminal-jail: WARNING — $reason" >&2
             fi
         fi
     fi

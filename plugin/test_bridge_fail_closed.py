@@ -776,6 +776,145 @@ class TestWrapperVerdictHardening:
         assert "COMMAND BLOCKED" in result.stderr
 
 
+class TestAllowPathReasonProtocol:
+    """PERF-002: the allow path reuses the FIRST parse's reason.
+
+    The wrapper used to pay a second ``python3``/``json.loads`` call just to
+    recover ``reason`` for the allow-path warning. It now carries a
+    reason-present flag out of the first parse, because command substitution
+    strips the trailing newline of an empty reason: without the flag an empty
+    reason is indistinguishable from a missing reason line and the rule_id can
+    leak into the operator's warning.
+
+    These are the behavioural pins for that protocol — presence, exact
+    wording, and multiline fidelity — driven through the same fake-bridge
+    control as the hardening class above.
+    """
+
+    @staticmethod
+    def _run(tmp_path: Path, verdict: dict, mode: str) -> subprocess.CompletedProcess:
+        bridge = TestWrapperVerdictHardening._fake_bridge(
+            tmp_path, json.dumps(verdict) + "\n"
+        )
+        return subprocess.run(
+            [str(CLI_SCRIPT), "true"],
+            cwd=str(PROJECT_ROOT),
+            env=os.environ
+            | {
+                "TERMINAL_JAIL_BRIDGE": str(bridge),
+                "USE_INTERRUPTOR": "1",
+                "TERMINAL_JAIL_INTERRUPTOR_MODE": mode,
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_allow_reason_keeps_the_exact_warning_wording(self, tmp_path: Path) -> None:
+        reason = "would have blocked: listed path"
+        result = self._run(
+            tmp_path,
+            {
+                "action": "allow",
+                "command": "",
+                "modified": None,
+                "rule_id": "allow-ls",
+                "reason": reason,
+            },
+            "warn",
+        )
+        assert f"terminal-jail: WARNING — {reason}" in result.stderr, (
+            f"stderr={result.stderr!r}"
+        )
+        assert "COMMAND BLOCKED" not in result.stderr
+        assert result.returncode != 126
+
+    def test_allow_empty_reason_emits_no_warning_and_no_rule_id(
+        self, tmp_path: Path
+    ) -> None:
+        """An empty reason is NOT a reason line: no warning, no rule_id leak."""
+        result = self._run(
+            tmp_path,
+            {
+                "action": "allow",
+                "command": "",
+                "modified": None,
+                "rule_id": "rule-empty",
+                "reason": "",
+            },
+            "warn",
+        )
+        assert "WARNING —" not in result.stderr, f"stderr={result.stderr!r}"
+        assert "rule-empty" not in result.stderr, f"stderr={result.stderr!r}"
+        assert result.returncode != 126
+
+    def test_allow_multiline_reason_preserved_verbatim(self, tmp_path: Path) -> None:
+        """A JSON ``\\n`` in the reason decodes to a real newline and survives."""
+        reason = "line one\nline two"
+        result = self._run(
+            tmp_path,
+            {
+                "action": "allow",
+                "command": "",
+                "modified": None,
+                "rule_id": "allow-ls",
+                "reason": reason,
+            },
+            "warn",
+        )
+        assert f"terminal-jail: WARNING — {reason}" in result.stderr, (
+            f"stderr={result.stderr!r}"
+        )
+        assert result.returncode != 126
+
+    def test_block_empty_reason_falls_back_to_policy_text(self, tmp_path: Path) -> None:
+        result = self._run(
+            tmp_path,
+            {
+                "action": "block",
+                "command": "true",
+                "modified": None,
+                "rule_id": "rule-x",
+                "reason": "",
+            },
+            "enforce",
+        )
+        assert result.returncode == 126
+        assert "COMMAND BLOCKED — rule-x" in result.stderr, f"stderr={result.stderr!r}"
+        assert "Command blocked by security policy" in result.stderr, (
+            f"stderr={result.stderr!r}"
+        )
+
+    def test_block_warn_empty_reason_falls_back_to_policy_text(
+        self, tmp_path: Path
+    ) -> None:
+        result = self._run(
+            tmp_path,
+            {
+                "action": "block",
+                "command": "true",
+                "modified": None,
+                "rule_id": "rule-x",
+                "reason": "",
+            },
+            "warn",
+        )
+        assert (
+            "WARN: Would have blocked (rule-x): Command blocked by security policy"
+            in result.stderr
+        ), f"stderr={result.stderr!r}"
+        assert result.returncode != 126
+
+    def test_wrapper_does_not_reparse_the_reason_with_another_interpreter(
+        self,
+    ) -> None:
+        """No second ``json.loads`` reason parse may creep back in (PERF-002)."""
+        text = CLI_SCRIPT.read_text()
+        assert "warn_reason=" not in text
+        assert "get('reason','')" not in text
+        assert "reason_present" in text
+
+
 # ── C/D. Loader: load-time schema pass refuses bad-typed rule files ─────────
 
 
