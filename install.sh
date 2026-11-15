@@ -9,11 +9,13 @@ set -eu
 # release mode downloads the published wheel and its SHA256SUMS manifest.
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
 # This is the newest published release represented by the repository's release
-# surface. It is intentionally independent of pyproject.toml: checkout installs
-# read their version from that file, while release installs need a tag with
-# downloadable assets. A leading `v` is accepted for explicit overrides.
-TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.1}"
+# surface (v1.3.3 at the time of this release). It is intentionally independent
+# of pyproject.toml: checkout installs read their version from that file, while
+# release installs need a tag with downloadable assets. A leading `v` is
+# accepted for explicit overrides.
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.3}"
 TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
+TERMINAL_JAIL_RELEASE_TAG="v${TERMINAL_JAIL_RELEASE_VERSION}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
 # (default) = derive from the install scope: the live user rules dir
@@ -111,7 +113,7 @@ path_normalize() {
     esac
     printf '%s\n' "$output"
 }
-TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/terminal-jail/terminal-jail/releases/download/v${TERMINAL_JAIL_RELEASE_VERSION}}"
+TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/terminal-jail/terminal-jail/releases/download/${TERMINAL_JAIL_RELEASE_TAG}}"
 
 # --- installer flags (TJ-GAP-061) --------------------------------------------
 # The installer stays env-var driven; these flags only add the opt-in rule-pack
@@ -303,7 +305,7 @@ Environment (all optional):
                                (default: derived from the install scope)
   TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
                                local checkout (rule packs need the checkout)
-  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.1,
+  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.3,
                                the newest published asset release; accepts an
                                optional leading 'v'; checkout installs use
                                the pyproject version)
@@ -1347,13 +1349,15 @@ else
     # package also preserves the bridge, rules, and tier loaders needed by the
     # installed layout. Do not fall back to PyPI or generic binary names.
     release_asset="terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl"
-    echo "terminal-jail installer: downloading release v${TERMINAL_JAIL_RELEASE_VERSION} (${release_asset})..."
-    if ! download "${TERMINAL_JAIL_BASE_URL}/${release_asset}" "$tmp_wheel"; then
-        echo "terminal-jail installer: release asset unavailable: ${release_asset} (version ${TERMINAL_JAIL_VERSION})" >&2
+    release_asset_url="${TERMINAL_JAIL_BASE_URL}/${release_asset}"
+    release_checksum_url="${TERMINAL_JAIL_BASE_URL}/SHA256SUMS"
+    echo "terminal-jail installer: downloading release ${TERMINAL_JAIL_RELEASE_TAG} (${release_asset})..."
+    if ! download "$release_asset_url" "$tmp_wheel"; then
+        echo "terminal-jail installer: release asset download failed: URL=${release_asset_url}; asset=${release_asset}; version=${TERMINAL_JAIL_VERSION}" >&2
         exit 1
     fi
-    if ! download "${TERMINAL_JAIL_BASE_URL}/SHA256SUMS" "$tmp_checksum"; then
-        echo "terminal-jail installer: release checksum manifest unavailable: SHA256SUMS (version ${TERMINAL_JAIL_VERSION})" >&2
+    if ! download "$release_checksum_url" "$tmp_checksum"; then
+        echo "terminal-jail installer: release checksum manifest download failed: URL=${release_checksum_url}; asset=SHA256SUMS; version=${TERMINAL_JAIL_VERSION}" >&2
         exit 1
     fi
 

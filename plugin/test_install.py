@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import json
 import os
 import re
 import shutil
@@ -85,13 +86,13 @@ def _link_tools(test_bin: Path, *tools: str) -> None:
 
 
 def _make_server_dir(tmp_path: Path, binary_content: str = FAKE_BINARY) -> Path:
-    """Create the default published-release fixture (v1.3.1)."""
+    """Create the default published-release fixture (v1.3.3)."""
     return _make_release_server_dir(tmp_path, binary_content=binary_content)
 
 
 def _make_release_server_dir(
     tmp_path: Path,
-    versions: tuple[str, ...] = ("1.3.1",),
+    versions: tuple[str, ...] = ("1.3.3",),
     binary_content: str = FAKE_BINARY,
 ) -> Path:
     """Create wheel-shaped local release assets and a GitHub-style manifest."""
@@ -300,7 +301,7 @@ def test_release_mode_explicit_version_uses_versioned_wheel(
 ) -> None:
     """An explicit tag selects its matching published wheel asset."""
     install_dir = tmp_path / "install-dir"
-    server_dir = _make_release_server_dir(tmp_path, versions=("1.3.1", "1.3.0"))
+    server_dir = _make_release_server_dir(tmp_path, versions=("1.3.3", "1.3.0"))
     test_bin = _setup_full_testbin(tmp_path, server_dir)
     result = _run_install(
         install_script,
@@ -340,8 +341,10 @@ def test_release_mode_missing_asset_has_named_failure(
     )
     out = (result.stdout + result.stderr).decode("utf-8", "replace")
     assert result.returncode == 1, out
-    assert "release asset unavailable" in out, out
-    assert "terminal_jail-9.9.9-py3-none-any.whl" in out, out
+    assert "release asset download failed" in out, out
+    assert "URL=file://" in out, out
+    assert "asset=terminal_jail-9.9.9-py3-none-any.whl" in out, out
+    assert "version=9.9.9" in out, out
     assert not (install_dir / "terminal-jail").exists()
 
 
@@ -355,6 +358,32 @@ def test_release_asset_contract_is_versioned_wheel_and_sha256sums(
     assert '"${TERMINAL_JAIL_BASE_URL}/SHA256SUMS"' in source
     assert '"${TERMINAL_JAIL_BASE_URL}/terminal-jail"' not in source
     assert '"${TERMINAL_JAIL_BASE_URL}/terminal-jail.sha256"' not in source
+
+
+def test_release_asset_names_match_captured_github_release(
+    install_script: Path,
+) -> None:
+    """Keep install.sh's expected names aligned with GitHub's published assets."""
+    source = install_script.read_text(encoding="utf-8")
+    default_version = re.search(
+        r'TERMINAL_JAIL_VERSION="\$\{TERMINAL_JAIL_VERSION:-([^}]+)\}"', source
+    )
+    assert default_version, "install.sh default release version is missing"
+    version = default_version.group(1)
+    expected_wheel = f"terminal_jail-{version}-py3-none-any.whl"
+    expected_assets = {"SHA256SUMS", expected_wheel}
+
+    fixture_path = PROJECT_ROOT / "plugin" / "fixtures" / "github-release-v1.3.3.json"
+    release = json.loads(fixture_path.read_text(encoding="utf-8"))
+    published_assets = {asset["name"] for asset in release["assets"]}
+    assert release["tagName"] == f"v{version}", (
+        f"install.sh default tag v{version} differs from captured GitHub release "
+        f"{release['tagName']}"
+    )
+    assert expected_assets <= published_assets, (
+        f"installer expects {sorted(expected_assets)} but GitHub publishes "
+        f"{sorted(published_assets)}"
+    )
 
 
 @pytest.mark.standalone_cli
@@ -395,7 +424,7 @@ def test_checksum_fail(install_script: Path, tmp_path: Path) -> None:
     # Corrupt the published checksum manifest
     (server_dir / "SHA256SUMS").write_text(
         "0000000000000000000000000000000000000000000000000000000000000000  "
-        "terminal_jail-1.3.1-py3-none-any.whl\n"
+        "terminal_jail-1.3.3-py3-none-any.whl\n"
     )
 
     result = subprocess.run(
