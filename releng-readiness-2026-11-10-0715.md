@@ -842,3 +842,13 @@ the only work a worker could do here. Evidence: this artifact, `RELEASE-TJ-022`,
 bundle `/home/kara/.hermes/cache/scratch/tj-releng-2026-11-15-1230`,
 `/home/kara/.hermes/cache/scratch/tj-cut-check-pass15.txt`, and the DuckBrain key
 `/releases/terminal-jail/2026-11-15-readiness` (namespace `releases`).
+
+### Carrier advance (post-artifact, same pass)
+
+This pass's own board+artifact commit moved the tip `a628849` -> `fce9559` (`chore(releng):
+pass 15 re-fire`). Its CI run `43722379896` on `fce9559` completed **success**, 6/6 jobs
+(Drift guards, Lint, Python 3.11/3.12/3.13, Audit), `14:04:56Z` -> `14:07:48Z`. So the new
+tip is green in its own right and the candidate pin simply follows the carrier: no product
+path changed, no verdict changes, no tag created. CI history on the tip line is now
+`43722379896` (fce9559) / `43720306929` (a628849) / `43718396880` (ade0aca) /
+`43715214618` (26f8781) / `43709280798` (0c4bc5f) — five consecutive green runs.
