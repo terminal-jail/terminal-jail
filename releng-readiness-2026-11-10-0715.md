@@ -764,3 +764,81 @@ A PATCH needs no major-version confirmation. `WAVE_BUDGET=2` and **zero workers 
 dispatched** — this satellite verifies, `RELEASE-TJ-023` owns the only dispatchable step,
 and dispatching it as an independent landing is exactly what the sequencing hazard above
 forbids.
+
+## Pass 15 — third fire, tip advanced over bookkeeping only — verdict unchanged
+
+Tick `terminal-jail-releng-2026-11-15-12-30-46` fired a third time. Measured at
+`2026-11-15T13:55Z`. Passes 13 and 14 already own this tick's decision; this addendum
+carries the decision forward and re-takes only what moved. **No new `RELEASE-*` row was
+minted, no count was re-derived from stale data, and no release mutation was performed.**
+
+### What actually moved since pass 14 (`26f8781` .. `a628849`)
+
+| Commit | Time (Z) | Subject | Files |
+|---|---|---|---|
+| `ade0aca5` | 13:33 | `chore(releng): rebind RELEASE-TJ-022` | `releng-readiness-2026-11-10-0715.md` (+81/−2) |
+| `a6288498` | 13:41 | `board(ops): OPS-TJ-001 pass 2 — all measurable arms re-measured` | `events.jsonl` (+3/−0), `tasks.jsonl` (+2/−2), artifact (+123/−2) |
+
+Product identity is unchanged and proven, not assumed:
+
+```
+git diff --quiet 0c4bc5f a628849 -- ':(exclude).coding-hermes/' \
+                                   ':(exclude)releng-readiness-2026-11-10-0715.md'
+rc=0
+```
+
+`a628849` carries the same tree as the previously certified `0c4bc5f` for every path
+outside the board carriers and this artifact. The drift-guard CI job agrees ("Robot
+files match pyproject deps" family all green).
+
+### Decision — carry pass 13's, unchanged
+
+**CUT DUE — PATCH `v1.3.4` — NOT TAGGED.** The semver driver is still purely `fix`:
+census over `v1.3.3` (`290d9b0`) .. `a628849` is 110 commits / **108 non-merge**, with
+`fix` 5, `feat` 0, `perf` 0, `style` 1, `docs` 21, `chore` 26, `board` 38, `dogfood` 5,
+`ops` 4, `qa` 3, `supervisor` 1, `foreman` 1, non-conventional 3 — **zero** `!` subjects
+and **zero** `BREAKING CHANGE` footers, so no major confirmation is in scope. The five
+`fix` commits (`9020095`, `34bdb22`, `88cf92f`, `a48809c`, `6373928`) are the same four
+logical fixes tabulated in pass 13; nothing new is material, so the bump does not widen.
+
+The cut stays mechanically blocked on `RELEASE-TJ-023` — the version surfaces are still
+`1.3.3`, so tagging today would publish `1.3.3` artifacts under a `v1.3.4` name.
+
+### Evidence table (re-taken this pass)
+
+| Gate | Evidence | Verdict |
+|---|---|---|
+| Candidate | `a62884987d94cc79f1a45c859d27edcbf1288415` — `origin/main`, canonical checkout fast-forwarded `ade0aca..a628849`, `## main...origin/main` clean | PINNED |
+| CI truth on candidate | run `43720306929` on the **exact** SHA: `completed / success`, 6/6 jobs (Lint, Drift guards, Audit, Python 3.11, Python 3.12, Python 3.13), started `2026-11-15T13:41:26Z`, finished `13:44:34Z` (188 s) | GREEN |
+| CI history | most recent runs on tip line: `43720306929` success `a628849`; `43718396880` success `ade0aca`; `43715214618` success `26f8781`; `43709280798` success `0c4bc5f` | GREEN STREAK |
+| Pre-cut checker | `bash scripts/release-cut-check.sh v1.3.4` (detached worktree at `a628849`) → **rc=1**, 4 FAIL / 4 OK; log digest `1c4016a5…`. Digest differs from pass 14's `d8ecf9c0…` only because the OK line now names the new HEAD; the four FAILs are unchanged | **STILL BLOCKS THE TAG** |
+| Version hygiene | `pyproject.toml:7 = 1.3.3`; `plugin/plugin.yaml:2 = "1.3.3"`; `CHANGELOG.md` has no `[1.3.4]` section (0 matches); `install.sh:15` still defaults `TERMINAL_JAIL_VERSION=1.3.1` | **PREP ABSENT** — `RELEASE-TJ-023` |
+| Tag / Release state | `git ls-remote --tags origin 'refs/tags/v1.3.4*'` → empty; `gh release view v1.3.4` → not found. Published tags immutable: `v1.3.0` `ae1642b9`→`be643a8`, `v1.3.1` `1d3947a1`→`e474191`, `v1.3.2` `5e6d675a`→`f7ce3ef`, `v1.3.3` `c5b1c609`→`290d9b0` | ABSENT / IMMUTABLE |
+| Previous release | `v1.3.3` Release id `440076088`, published `2026-11-10T07:53:18Z`, not draft, not prerelease; the release object chain (`v1.2.0` `395923213`, `v1.3.0` `433350938`, `v1.3.1` `434095616`, `v1.3.2` `438788698`, `v1.3.3` `440076088`) is intact and none was force-moved | VERIFIED |
+| GitReins | Newest stored verdict `2026-11-14T18:17Z` binds `0e23195`; nothing binds `a628849` or `0c4bc5f`. Verdicts are not inherited across SHAs | **UNVERIFIED** (carried) |
+| Dogfood / QA | Newest committed ledger is fire 5 (`4f2656b`, `2026-11-14T07:26Z`) — predates the current product tree; 24 cells: 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED | PARTIAL / BLOCKED (carried) |
+| Deployed surfaces | `~/.local/bin/terminal-jail` sha `bcd111f8…`, mtime `2026-11-10T05:13:36-05:00`, `--version` → `terminal-jail 1.3.3`. Repo `standalone/terminal-jail` sha `bc8200bd…` (mtime `2026-11-14T05:48:15-05:00`), and both `a628849:standalone/terminal-jail` and `0c4bc5f:standalone/terminal-jail` resolve to blob `99a44eb8`, so the worktree binary at the candidate hashes to the same `bc8200bd` the repo tracks. Host runs a pre-`88cf92f` build | CURRENT for v1.3.3, one fix behind |
+| Board backlog | `tasks.jsonl`: 401 rows — 349 `complete`, 38 `pending`, 13 `blocked`, 1 record with no `status` (the `events`-shaped stray at `tasks.jsonl:213`, numeric id `787`, present since `546bc184`). `RELEASE-TJ-022` `pending`, `RELEASE-TJ-023` `pending`, `RELEASE-TJ-020`/`021`/`015` `pending`, `RELCI-001` `blocked` | TRACKED |
+
+### Blocker set — unchanged from pass 13, re-verified present
+
+`RELEASE-TJ-023` (version prep, P2, `pending`) is still the only dispatchable step
+between this lane and a cut. `RELCI-001` (P1, `blocked`) still owns the publication
+path: the tag-triggered workflow fails its own `contents: write` preflight, so a
+correct tag would still need the documented manual publish. `RELEASE-TJ-020` (P2,
+`pending`) still reproduces — `git ls-remote --exit-code` returns **2** for an absent
+ref, so the checker reports a tag-verification failure that is a checker defect, not a
+tag-state fact. Missing evidence (GitReins on a current SHA, dogfood on the current
+tree) is unchanged; neither is a tag gate in this repo's release contract, but both are
+named here so a future pass cannot mistake "not measured" for "measured clean".
+
+### Mutations
+
+**None beyond this artifact and the `RELEASE-TJ-022` note.** No tag was created or
+moved, no Release object was created, no artifact was built or uploaded, no deployment,
+no host install, no branch deletion, no shared-checkout cleanup. `WAVE_BUDGET=2`,
+workers dispatched: **0** — this satellite verifies, and `RELEASE-TJ-023` already owns
+the only work a worker could do here. Evidence: this artifact, `RELEASE-TJ-022`, scratch
+bundle `/home/kara/.hermes/cache/scratch/tj-releng-2026-11-15-1230`,
+`/home/kara/.hermes/cache/scratch/tj-cut-check-pass15.txt`, and the DuckBrain key
+`/releases/terminal-jail/2026-11-15-readiness` (namespace `releases`).
