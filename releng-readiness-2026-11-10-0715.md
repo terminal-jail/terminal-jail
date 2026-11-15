@@ -1,6 +1,6 @@
-# Releng readiness — terminal-jail — 2026-11-15 (pass 13)
+# Releng readiness — terminal-jail — 2026-11-15 (pass 14 — re-fire carrying pass 13)
 
-Certified candidate (latest pass): `0c4bc5fe2e5639f9c3f1901f9be2945d2bc89376` (`origin/main`, pass 13, fetched 2026-11-15T12:34Z); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 12 certified `5a51e0f8dc5cbfbb277be62af0512602dcc6a731` — superseded by exactly one material fix (`6373928`, TJ-DF-066) that moves `decider.py`/`matcher.py`; pass 11 certified `889abcba` and pass 10 `6b12f620`, both superseded by bookkeeping carriers.
+Certified candidate (latest pass): `0c4bc5fe2e5639f9c3f1901f9be2945d2bc89376` (`origin/main`, pass 13, fetched 2026-11-15T12:34Z; re-verified by the pass 14 re-fire at tip `26f8781`, see *Pass 14 — re-fire* below); baseline remains `v1.3.3` at `290d9b0770bd826b2f188ea245e8fdae38da9c9f`. Pass 12 certified `5a51e0f8dc5cbfbb277be62af0512602dcc6a731` — superseded by exactly one material fix (`6373928`, TJ-DF-066) that moves `decider.py`/`matcher.py`; pass 11 certified `889abcba` and pass 10 `6b12f620`, both superseded by bookkeeping carriers.
 
 **Supersedes** `releng-readiness-2026-11-10-0541.md` (pass 1 of the same tick).
 Pass 1 set NO CUT because the version-prep commit was absent. That premise was
@@ -685,3 +685,82 @@ deployment, no host install, no shared-checkout cleanup, no branch deletion.
 `RELEASE-TJ-023` already owns the only dispatchable work. The readiness evidence
 is this artifact plus the `RELEASE-TJ-022` row; the DuckBrain ledger entry is
 `/releases/terminal-jail/2026-11-15-readiness` in namespace `releases`.
+
+## Pass 14 — re-fire over a materially identical tree
+
+Tick `terminal-jail-releng-2026-11-15-12-30-46` fired twice. The first fire produced
+pass 13 above (`RELEASE-TJ-022` detail `pass: 13`, event `1046` at `2026-11-15T12:42:07Z`,
+artifact commit `8e45fc9`, carrier `26f8781`). This addendum is the re-fire, measured at
+`2026-11-15T13:08Z`. **No new readiness row was minted and no count was re-derived:**
+material identity licenses the carry, and only the time-dependent readings were re-taken.
+
+### Material identity proof (the carry's licence)
+
+```
+git diff --quiet 0c4bc5f 26f8781 -- ':(exclude).coding-hermes/' \
+                                       ':(exclude)releng-readiness-2026-11-10-0715.md'
+rc=0
+```
+
+Named pathspec exclusions: `.coding-hermes/` (board carrier) and this artifact. The
+enumerated delta between candidate and tip is exactly those two board lines plus this
+file:
+
+| Path | numstat |
+|---|---|
+| `.coding-hermes/board/events.jsonl` | +1 / −0 |
+| `.coding-hermes/board/tasks.jsonl` | +1 / −1 |
+| `releng-readiness-2026-11-10-0715.md` | +126 / −2 (pass 13 section, then this addendum) |
+
+Whole-tree entry digests differ for that reason only — `git ls-tree -r 0c4bc5f | sha256sum`
+= `84fdcefca…` versus `78c2a7f32…` at `26f8781` — so the entry digest is *not* the carry
+proof here; the product-source exclusion diff is, and it returns 0. Shipped product
+content is byte-identical to the tree pass 13 censused.
+
+### Re-measured readings (nothing carried where time moves)
+
+| Reading | Pass 13 | Pass 14 (re-fire) |
+|---|---|---|
+| Candidate `0c4bc5f` CI | run `43709280798` success | run `43709280798` `completed`/`success` (`2026-11-15T11:30:52Z`) — re-read, unchanged |
+| Tip `26f8781` CI (carrier, not product evidence) | not present at pass 13 | run `43715214618` `completed`/`success` (`2026-11-15T12:42:33Z`) |
+| `scripts/release-cut-check.sh v1.3.4` | rc=1, 4 failures | rc=1, **4 failures**, output sha256 `d8ecf9c08d7b9feee28d0179e8461a829e6cacea53be6be90279ec5451841fb0` |
+| Deployed CLI | `bcd111f8…`, reports 1.3.3 | `/home/kara/.local/bin/terminal-jail` sha256 `bcd111f8603e665fb694e1554300a68c0fc43ca7f192fd741d0a676812ee0c3f`, `terminal-jail --version` → `terminal-jail 1.3.3`, mtime 2026-11-10T05:13 |
+| Repo standalone binary | `bc8200bd…` | sha256 `bc8200bdcc88a50a391a478ffb2225f67a67f72ba0fcd4705e5d7c247b6bb455`, mtime 2026-11-14T05:48 |
+| Hermes plugin | `plugin.yaml` 1.3.3 | `/home/kara/.hermes/plugins/terminal-jail/plugin.yaml:2` = `1.3.3` |
+| GitReins verdict | UNVERIFIED for candidate | UNVERIFIED — newest stored verdicts bind `0e23195`/`cb3d3ef` (2026-11-14); none binds `0c4bc5f` |
+| Dogfood | PARTIAL 12 OK / 7 N/A / 4 FAIL / 1 UNVERIFIED | carried; install leg still blocked on unreachable `bunkerd` (`TJ-DF-069`), so it cannot speak for `88cf92f` |
+
+The checker's four failures are the same four pass 13 named, in the same order: the
+absent-tag probe (`RELEASE-TJ-020` — `git ls-remote --exit-code` returns 2 for an
+*absent* ref) plus the three version surfaces (`pyproject.toml` 1.3.3, `plugin/plugin.yaml`
+1.3.3, no `[1.3.4]` section). The repeat is a measurement with a digest, not a
+transcription.
+
+### Decision (carried, unchanged)
+
+**CUT v1.3.4 (PATCH) is DUE and mechanically BLOCKED on `RELEASE-TJ-023`.** Baseline
+`v1.3.3` is still the newest tag; `git ls-remote --tags origin 'v1.3.4*'` returns nothing.
+No tag, no Release, no asset upload, no deployment, no host install, no checkout cleanup
+was performed by either fire.
+
+### New finding this pass — the version-prep sequencing hazard
+
+`RELEASE-TJ-022`'s acceptance text requires `install.sh:15` to move *in the same prep
+commit* as `pyproject.toml`/`plugin.yaml`, while `RELEASE-TJ-023`'s acceptance list names
+only the three version surfaces. Both are wrong about ordering. `install.sh:15` is not a
+label — release mode builds
+`releases/download/v${TERMINAL_JAIL_RELEASE_VERSION}` and fetches
+`terminal_jail-${VERSION}-py3-none-any.whl` (line 1349, `SHA256SUMS` at 1356) — so its
+default **selects which wheel is downloaded**. Bumping it to `1.3.4` before that release
+exists converts today's stale-but-working release-mode install (it fetches the `1.3.1`
+wheel, precisely the artifact `TJ-DF-060`/`TJ-DF-061` were filed against) into a hard
+404 for every fresh-machine install. Landing the bump therefore must be inseparable from
+the cut, or the bump must move at cut time inside the tag. `RELEASE-TJ-023`'s reasoning
+carries this amendment.
+
+### Authorization
+
+A PATCH needs no major-version confirmation. `WAVE_BUDGET=2` and **zero workers were
+dispatched** — this satellite verifies, `RELEASE-TJ-023` owns the only dispatchable step,
+and dispatching it as an independent landing is exactly what the sequencing hazard above
+forbids.
