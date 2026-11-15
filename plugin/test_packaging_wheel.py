@@ -10,7 +10,12 @@ pyproject/layout pins for the editable install live in test_packaging.py
 (TJ-DF-006). The TJ-DF-061 pins are the exception in DEPTH, not in
 network use: they drive the console script END-TO-END from a synthetic
 installed-wheel venv (stdlib ``venv`` module plus a file copy — still no
-pip, no network) with the venv absent from PATH.
+pip, no network) with the venv absent from PATH. That arm is also
+HERMETIC over the host's config dir (QA-TERMINAL-JAIL-29): every child
+gets a private HOME/XDG_CONFIG_HOME and explicitly pinned rule
+directories inside the pytest tmp tree, so an installed
+``~/.config/terminal-jail/rules.d/00-builtins.yaml`` on the host can
+never decide the verdict.
 """
 
 from __future__ import annotations
@@ -39,6 +44,11 @@ BUNDLED_FILES = {
     "landlock-net-loader.py": PROJECT_ROOT / "standalone" / "landlock-net-loader.py",
     "seccomp-loader.py": PROJECT_ROOT / "standalone" / "seccomp-loader.py",
 }
+
+# The rule-file name install.sh drops into the user rules dir (the shipped
+# mirror). It matters to the TJ-DF-061 arms because it is the file that
+# makes the bridge read YAML at all — the trigger of QA-TERMINAL-JAIL-29.
+SHIPPED_MIRROR_NAME = "00-builtins.yaml"
 
 
 def _sha256(path: Path) -> str:
@@ -332,7 +342,9 @@ if __name__ == '__main__':
 """
 
 
-def _build_installed_venv(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _build_installed_venv(
+    tmp_path: Path, *, system_site_packages: bool = True
+) -> tuple[Path, Path, Path]:
     """Synthetic installed-wheel venv: stdlib ``venv`` module + file copy.
 
     The real pip install stays the foreman's separate leg (RELPKG-001);
@@ -342,12 +354,16 @@ def _build_installed_venv(tmp_path: Path) -> tuple[Path, Path, Path]:
     absent before the copy) and a pip-shaped console script at
     ``<venv>/bin/terminal-jail``. ``system_site_packages`` lets the venv
     interpreter resolve PyYAML the same way the installing interpreter
-    did. Returns (venv_dir, console_script, site_packages).
+    did; ``False`` is the deterministic DEPS-FREE shape (a venv disables
+    the user site too, so ``yaml`` is unreachable) used by the fail-closed
+    arm. Returns (venv_dir, console_script, site_packages).
     """
     import venv as venv_module
 
     venv_dir = tmp_path / "venv"
-    venv_module.create(venv_dir, with_pip=False, system_site_packages=True)
+    venv_module.create(
+        venv_dir, with_pip=False, system_site_packages=system_site_packages
+    )
     venv_python = venv_dir / "bin" / "python3"
     assert venv_python.is_file(), f"venv has no bin/python3: {venv_dir}"
     site = (
@@ -396,25 +412,90 @@ def _unactivated_testbin(base: Path) -> str:
     return str(test_bin)
 
 
-def _unactivated_env(test_bin: str) -> dict[str, str]:
+def _isolated_home(base: Path) -> Path:
+    """A private HOME inside the pytest tmp tree (QA-TERMINAL-JAIL-29).
+
+    The child is the REAL console script, so it resolves its policy the
+    way a production launch does: ``Config.user_rules_dir`` defaults to
+    ``Path.home()/.config/terminal-jail/rules.d`` and the system dir to
+    ``/etc/terminal-jail/rules.d``. Inheriting the host HOME made these
+    arms read whatever the host had installed — on any host that ran
+    install.sh that is the 00-builtins.yaml mirror, and the wheel venv
+    then needs PyYAML to parse it (a deps-free venv fails closed with a
+    ``[bridge-error]``/rc 126 that has nothing to do with the code under
+    test).
+
+    Both rule directories are created EMPTY here and pinned through the
+    child env, so the engine's own builtins (``allow-echo``,
+    ``builtin-rm-rf-root``) decide — the rules are NOT disabled, the
+    engine simply has no installed mirror to read.
+    """
+    home = base / "home"
+    _user_rules_dir(home).mkdir(parents=True, exist_ok=True)
+    _system_rules_dir(home).mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def _user_rules_dir(home: Path) -> Path:
+    """The documented user rules dir under an isolated HOME."""
+    return home / ".config" / "terminal-jail" / "rules.d"
+
+
+def _system_rules_dir(home: Path) -> Path:
+    """A private stand-in for ``/etc/terminal-jail/rules.d``."""
+    return home / "system-rules.d"
+
+
+def _unactivated_env(
+    test_bin: str, home: Path, *, user_rules_dir: Path | None = None
+) -> dict[str, str]:
     """Scrubbed env: no inherited TERMINAL_JAIL_* (the wrapper keeps those
     verbatim), the minimal PATH, and the Landlock tiers off — the subject
     is the BRIDGE interpreter handoff (TJ-DF-061), not the tier launch
-    tails, which resolve python3 from PATH by design."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith("TERMINAL_JAIL_")}
+    tails, which resolve python3 from PATH by design.
+
+    Hermeticity (QA-TERMINAL-JAIL-29): HOME, XDG_CONFIG_HOME and both rule
+    directory knobs point into the pytest tmp tree, so a host-installed
+    ``rules.d`` can never be read. The ``PYTHON*`` family goes with
+    ``TERMINAL_JAIL_*`` for the same reason — a host PYTHONPATH/
+    PYTHONSTARTUP can put a different ``terminal_jail`` (or PyYAML) in
+    front of the wheel install and change the verdict for a reason that is
+    not under test.
+
+    ``user_rules_dir`` overrides the pinned user dir (the fail-closed arm
+    points it OUTSIDE the private HOME, which also proves the knob's
+    plumbing: a bridge that ignored it would read the empty default and
+    ALLOW).
+    """
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("TERMINAL_JAIL_", "PYTHON"))
+    }
     env["PATH"] = test_bin
+    env["HOME"] = str(home)
+    env["XDG_CONFIG_HOME"] = str(home / ".config")
+    env["TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR"] = str(
+        user_rules_dir or _user_rules_dir(home)
+    )
+    env["TERMINAL_JAIL_INTERRUPTOR_RULES_DIR"] = str(_system_rules_dir(home))
     env["TERMINAL_JAIL_LANDLOCK"] = "0"
     env["TERMINAL_JAIL_LANDLOCK_NET"] = "0"
     return env
 
 
 def _run_console(
-    console: Path, base: Path, test_bin: str, *args: str
+    console: Path,
+    base: Path,
+    test_bin: str,
+    home: Path,
+    *args: str,
+    user_rules_dir: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(console), *args],
         cwd=str(base),
-        env=_unactivated_env(test_bin),
+        env=_unactivated_env(test_bin, home, user_rules_dir=user_rules_dir),
         capture_output=True,
         text=True,
         check=False,
@@ -455,6 +536,13 @@ class TestUnactivatedVenvBridgeInterpreter:
     (bare mode, or the established --user degradation) and skip only when
     the host denies namespaces outright (HOST-DEGRADED-PIDNS, TJ-GAP-042);
     the verdict-path arms run on every Linux host.
+
+    Every child runs with a private HOME/XDG_CONFIG_HOME and explicitly
+    pinned rule dirs inside the pytest tmp tree (QA-TERMINAL-JAIL-29), so
+    a host-installed ``~/.config/terminal-jail/rules.d/00-builtins.yaml``
+    can never decide a verdict here; the fail-closed
+    ``[bridge-error]`` envelope that config used to inject is asserted on
+    its own arm instead of being mistaken for host degradation.
     """
 
     # ch:trace row=TJ-DF-061 spec=board:TJ-DF-061 wave=none:serial test=plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter::test_allow_verdict_runs_command_with_venv_absent_from_path evidence=plugin/test_packaging_wheel.py witness=none:worker-local verdict=PASS:cf28005b evidence=.gitreins/history/2026-11-09/cf28005b/verdict.json commit=15fe8f9b7858e29f5f79f3c1e68255693bcec181 memory=none:foreman-closeout-pending
@@ -521,7 +609,8 @@ class TestUnactivatedVenvBridgeInterpreter:
         console = wheel_install[1]
         base = tmp_path_factory.mktemp("tjdf061-badpy")
         test_bin = _unactivated_testbin(base)
-        env = _unactivated_env(test_bin)
+        home = _isolated_home(base)
+        env = _unactivated_env(test_bin, home)
         env["TERMINAL_JAIL_PYTHON"] = str(base / "nonexistent" / "python3")
         result = subprocess.run(
             [str(console), "echo", "tj-df061-must-not-run"],
@@ -539,6 +628,88 @@ class TestUnactivatedVenvBridgeInterpreter:
         # nonexistent interpreter was honored (had the entry point or the
         # wrapper replaced it with a working python, rc would be 0).
         assert "tj-df061-must-not-run" not in result.stdout
+
+    @pytest.mark.standalone_cli
+    def test_pyyaml_less_installed_rules_fail_closed_with_bridge_error(
+        self,
+        deps_free_wheel_install: tuple[Path, Path, Path],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        """QA-TERMINAL-JAIL-29 — the fail-closed path, asserted on purpose.
+
+        A rule FILE in the user rules dir forces the bridge to parse YAML.
+        This arm gives it a wheel venv that can never import PyYAML, so
+        the JSON fallback refuses and the engine fails CLOSED
+        (``RuleFallbackParseError`` → ``[bridge-error]`` verdict, rc 126)
+        rather than running on an unloaded policy. That envelope is
+        exactly what a host-installed ``rules.d`` used to inject into the
+        healthy arms through the inherited HOME; the launch-mode probe
+        then collapsed it into "rc != 2" and nothing named it. The arm
+        also pins the rule-dir knob: the file lives OUTSIDE the private
+        HOME, so a bridge that ignored
+        ``TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR`` would read the empty
+        default dir and allow the command (rc 0).
+
+        This is the DEPS-FREE shape (``system_site_packages=False``) — the
+        one the py3.12/py3.13 CI legs provide — and it is a positive
+        control for the isolation: the pinned dir IS read, the shipped
+        engine is NOT running with rules disabled.
+        """
+        venv_dir, console, _ = deps_free_wheel_install
+        venv_python = venv_dir / "bin" / "python3"
+        base = tmp_path_factory.mktemp("tjdf061-noyaml")
+        test_bin = _unactivated_testbin(base)
+        home = _isolated_home(base)
+        # Premise check, under the CHILD's env: user site is HOME-derived,
+        # so ``system_site_packages=True`` venvs lose a host user-site
+        # PyYAML as soon as HOME is isolated. If some other interpreter
+        # layer still makes yaml importable, this arm would pass for the
+        # wrong reason — fail loudly instead of depending on host packaging.
+        import_check = subprocess.run(
+            [str(venv_python), "-c", "import yaml"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+            env=_unactivated_env(test_bin, home),
+        )
+        assert import_check.returncode != 0, (
+            "this arm needs a PyYAML-free wheel venv; the fixture "
+            f"interpreter resolved yaml: rc={import_check.returncode} "
+            f"stdout={import_check.stdout!r} stderr={import_check.stderr!r}"
+        )
+
+        operator_rules = base / "operator-rules.d"
+        operator_rules.mkdir()
+        shutil.copyfile(
+            PACKAGE_DIR / "rules" / SHIPPED_MIRROR_NAME,
+            operator_rules / SHIPPED_MIRROR_NAME,
+        )
+        result = _run_console(
+            console,
+            base,
+            test_bin,
+            home,
+            "echo",
+            "tj-qatj29-must-not-run",
+            user_rules_dir=operator_rules,
+        )
+        assert result.returncode == 126, result.stderr
+        assert "COMMAND BLOCKED" in result.stderr
+        # The engine's fail-closed vocabulary, not a policy match: the
+        # installed rule file could not be read and the refusal names it.
+        assert "[bridge-error]" in result.stderr
+        assert "RuleFallbackParseError" in result.stderr
+        assert "UNPARSEABLE rule file" in result.stderr
+        assert SHIPPED_MIRROR_NAME in result.stderr
+        assert str(operator_rules) in result.stderr
+        # Fail-closed: the command never ran.
+        assert "tj-qatj29-must-not-run" not in result.stdout
+        # ...and the structured verdict log carries the error envelope.
+        verdicts = _verdict_log_entries(result.stderr)
+        assert verdicts, f"no verdict log entry on stderr: {result.stderr!r}"
+        assert verdicts[0].get("action") == "block"
+        assert verdicts[0].get("rule_id") == "[bridge-error]"
 
     def test_entry_point_exports_installing_interpreter_unless_overridden(
         self,
@@ -571,6 +742,24 @@ def wheel_install(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path,
 
 
 @pytest.fixture(scope="module")
+def deps_free_wheel_install(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[Path, Path, Path]:
+    """A wheel install on an interpreter that can NEVER import PyYAML.
+
+    ``system_site_packages=False`` is the deterministic deps-free shape (a
+    venv disables the user site as well), i.e. what the deps-free CI legs
+    hand the bridge: no pip, no PyYAML, nothing but the wheel copy. The
+    fail-closed arm needs exactly this so it cannot pass or fail because
+    of the host's interpreter packaging (QA-TERMINAL-JAIL-29).
+    """
+    return _build_installed_venv(
+        tmp_path_factory.mktemp("tjdf061-venv-depsfree"),
+        system_site_packages=False,
+    )
+
+
+@pytest.fixture(scope="module")
 def run_unactivated(
     wheel_install: tuple[Path, Path, Path],
     tmp_path_factory: pytest.TempPathFactory,
@@ -578,9 +767,12 @@ def run_unactivated(
     console = wheel_install[1]
     base = tmp_path_factory.mktemp("tjdf061-run")
     test_bin = _unactivated_testbin(base)
+    # Private HOME + pinned rule dirs: the host's installed rules.d is out
+    # of reach, so the engine's own builtins decide (QA-TERMINAL-JAIL-29).
+    home = _isolated_home(base)
 
     def _run(*args: str) -> subprocess.CompletedProcess[str]:
-        return _run_console(console, base, test_bin, *args)
+        return _run_console(console, base, test_bin, home, *args)
 
     return _run
 
@@ -598,16 +790,36 @@ def launch_mode(
     (HOST-DEGRADED-PIDNS). A healthy host also proves the whole console
     chain (entry point → exports → wrapper → bridge → verdict → launch)
     before any arm runs; only a rc=2 degradation counts as degraded —
-    anything else is a loud fixture failure, never a masked skip."""
+    anything else is a loud fixture failure, never a masked skip.
+
+    The probe runs under the same isolated HOME as the arms, so a host
+    ``rules.d`` cannot turn it into a spurious "unexpected fixture
+    failure" (QA-TERMINAL-JAIL-29). A fail-closed ``[bridge-error]``
+    (rc 126) is NOT degradation and must never be classified as one — the
+    explicit fail-closed arm owns that path.
+    """
     console = wheel_install[1]
     base = tmp_path_factory.mktemp("tjdf061-probe")
     test_bin = _unactivated_testbin(base)
-    bare = _run_console(console, base, test_bin, "true")
+    home = _isolated_home(base)
+    bare = _run_console(console, base, test_bin, home, "true")
     if bare.returncode == 0:
         return ()
-    user_mode = _run_console(console, base, test_bin, "--user", "true")
+    user_mode = _run_console(console, base, test_bin, home, "--user", "true")
     if user_mode.returncode == 0:
         return ("--user",)
+    # Classify BEFORE the degradation branch: a fail-closed bridge refusal
+    # (rc 126, [bridge-error]) is an engine/policy failure, not a host
+    # without namespaces. Naming it here keeps it from ever being read as
+    # "degraded" or as an unexplained fixture error
+    # (QA-TERMINAL-JAIL-29); the explicit fail-closed arm owns the path.
+    for shape, probe in (("bare", bare), ("--user", user_mode)):
+        assert "[bridge-error]" not in probe.stderr, (
+            f"the launch probe hit the fail-closed bridge path in {shape} "
+            f"mode (rc={probe.returncode}) — that is NOT host degradation; "
+            f"see test_pyyaml_less_installed_rules_fail_closed_with_bridge_"
+            f"error; stderr={probe.stderr!r}"
+        )
     assert bare.returncode == 2 and user_mode.returncode == 2, (
         f"fixture probe failed unexpectedly (bare rc={bare.returncode}, "
         f"user rc={user_mode.returncode}): {bare.stderr!r} / {user_mode.stderr!r}"
