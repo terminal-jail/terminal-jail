@@ -2420,3 +2420,14 @@ tasks:
   status: complete
   created_at: '2026-11-14T21:52:27.512314+00:00'
   completed_at: '2026-11-14T22:33:19.609976+00:00'
+- id: PERF-001
+  title: Lazy capability probes
+  criteria:
+  - 'FAILIF: importing terminal_jail.interruptor.decider resolves capability prefixes
+    or spawns probe subprocesses; FAILIF: an ALLOW-path evaluation touches unshare/landlock/landlock-net
+    probes; FAILIF: wrap output, probe order or verdict matrix changes for any command
+    with TERMINAL_JAIL_LANDLOCK_NET unset or =1; FAILIF: test suite or lint red; PASSIF:
+    probes resolve once lazily on first wrap and all gates green'
+  status: complete
+  created_at: '2026-11-15T20:20:59.830151+00:00'
+  completed_at: '2026-11-15T20:51:42.194457+00:00'
