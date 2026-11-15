@@ -6,6 +6,7 @@ and the top-level intercept() entry point.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -82,19 +83,103 @@ def mask_landlock_tails(text: str) -> str:
 
 
 def _patch_tails(monkeypatch, fs_tail: str, net_tail: str) -> None:
-    """Re-point the decider's import-time tier tails (test-only seam).
+    """Re-point the decider's cached tier tuple (test-only seam).
 
-    The decider snapshots ``landlock_sandbox_prefix()`` /
-    ``landlock_net_sandbox_prefix()`` at import time; a test that wants a
-    specific tier shape monkeypatches the MODULE ATTRIBUTES the wrap
-    paths actually read, then restores them. Tier state on this checkout
-    is otherwise frozen at first use (``_SANDBOX_PREFIX_CACHE``), so this
-    is the only seam that reaches the composed string without re-exec.
+    The decider resolves tier prefixes at first wrap; tests inject a specific
+    cached tuple so no host capability probes are required.
     """
     import terminal_jail.interruptor.decider as decider_module
 
-    monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", fs_tail)
-    monkeypatch.setattr(decider_module, "_LANDLOCK_NET_TAIL", net_tail)
+    unshare_tail = decider_module._unshare_prefix()
+    monkeypatch.setattr(
+        decider_module,
+        "_capability_prefixes",
+        lambda: (unshare_tail, fs_tail, net_tail),
+    )
+
+
+# ch:trace row=PERF-001 spec=none:performance-finding wave=none:serial-worker test=plugin/test_interruptor.py::TestLazyCapabilityProbes doc=none evidence=none:worker-evidence witness=pytest plugin/test_interruptor.py -k LazyCapabilityProbes verdict=none:foreman-judge commit=none memory=none:foreman-closeout
+# STATUS: complete
+# TIER: T3
+# EVIDENCE: focused lazy-probe tests and full-suite output reported to foreman
+
+
+class TestLazyCapabilityProbes:
+    def test_import_does_not_probe_capabilities(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from terminal_jail.interruptor import landlock as landlock_module
+        from terminal_jail.interruptor import landlock_net as landlock_net_module
+        from terminal_jail.interruptor import userns as userns_module
+
+        calls: list[str] = []
+        original_unshare = userns_module.unshare_prefix
+        original_landlock = landlock_module.sandbox_prefix
+        original_net = landlock_net_module.sandbox_prefix
+        monkeypatch.setattr(
+            userns_module, "unshare_prefix", lambda: calls.append("unshare") or "u"
+        )
+        monkeypatch.setattr(
+            landlock_module, "sandbox_prefix", lambda: calls.append("landlock") or "l"
+        )
+        monkeypatch.setattr(
+            landlock_net_module, "sandbox_prefix", lambda: calls.append("net") or "n"
+        )
+        import terminal_jail.interruptor.decider as decider_module
+
+        importlib.reload(decider_module)
+        assert calls == []
+        monkeypatch.setattr(userns_module, "unshare_prefix", original_unshare)
+        monkeypatch.setattr(landlock_module, "sandbox_prefix", original_landlock)
+        monkeypatch.setattr(landlock_net_module, "sandbox_prefix", original_net)
+        importlib.reload(decider_module)
+
+    def test_allow_does_not_probe_capabilities(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import terminal_jail.interruptor.decider as decider_module
+
+        calls: list[str] = []
+        for name in (
+            "unshare_prefix",
+            "landlock_sandbox_prefix",
+            "landlock_net_sandbox_prefix",
+        ):
+            monkeypatch.setattr(
+                decider_module,
+                name,
+                lambda name=name: calls.append(name) or "unused",
+            )
+        monkeypatch.setattr(decider_module, "_CAPABILITY_PREFIXES", None)
+        assert intercept("ls -la").action == Action.ALLOW
+        assert calls == []
+
+    def test_first_wrap_probes_once_in_order_and_reuses_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import terminal_jail.interruptor.decider as decider_module
+
+        calls: list[str] = []
+
+        def probe(name: str, value: str):
+            def run() -> str:
+                calls.append(name)
+                return value
+
+            return run
+
+        monkeypatch.setattr(decider_module, "unshare_prefix", probe("unshare", "u"))
+        monkeypatch.setattr(
+            decider_module, "landlock_sandbox_prefix", probe("landlock", "l")
+        )
+        monkeypatch.setattr(
+            decider_module, "landlock_net_sandbox_prefix", probe("net", "n")
+        )
+        monkeypatch.setattr(decider_module, "_CAPABILITY_PREFIXES", None)
+
+        assert decider_module._wrap_payload("first") == "lnfirst"
+        assert decider_module._wrap_payload("second") == "lnsecond"
+        assert calls == ["unshare", "landlock", "net"]
 
 
 # =============================================================================

@@ -153,9 +153,8 @@ class TestUsernsHelper:
         assert prefix == f"unshare {userns.LEGACY_USER_FLAGS} bash -c "
 
     def test_decider_prefix_matches_helper(self) -> None:
-        # The decider's module-level prefix must be exactly what the helper
-        # decides for this host (single source of truth, engine parity).
-        assert decider_module._UNSHARE_PREFIX == userns.unshare_prefix()
+        # The decider's lazy prefix seam must match the helper's decision.
+        assert decider_module._unshare_prefix() == userns.unshare_prefix()
 
 
 class TestFileAccessPreflight:

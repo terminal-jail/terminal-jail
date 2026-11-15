@@ -1025,11 +1025,21 @@ def test_installed_wrapper_surfaces_bridge_stderr(
 ) -> None:
     """TJ-DF-044 (cause 2): the installed wrapper must NOT discard the
     bridge's stderr. Probe: install to a scratch prefix with the net-loader
-    REMOVED from LIB_DIR and TERMINAL_JAIL_LANDLOCK_NET=1 — the bridge's
-    loud "landlock-net-loader.py not found next to the plugin" degradation
-    must reach the wrapper's stderr (previously it vanished under
-    `2>/dev/null` at BOTH the _interruptor_evaluate pipeline and the caller's
-    command substitution).
+    REMOVED from LIB_DIR and TERMINAL_JAIL_LANDLOCK_NET=1 — the loud
+    "… not found …" degradation must reach the wrapper's stderr (previously
+    it vanished under `2>/dev/null` at BOTH the _interruptor_evaluate
+    pipeline and the caller's command substitution).
+
+    PERF-001: the capability probes are resolved LAZILY on the wrap path, so
+    the allow verdict this probe exercises no longer pays them (importing the
+    plugin performs no host probe). On this allow path the cause line is
+    therefore the WRAPPER's own preflight — `landlock-net-loader.py not found
+    (searched <script dir> and <lib dir>)` — instead of the plugin's
+    `landlock-net-loader.py not found next to the plugin`, which now only
+    surfaces when a wrap actually probes (pinned by
+    plugin/test_landlock_net.py::TestDegradation). What this regression pins
+    is the TJ-DF-044 surface itself: the wrapper keeps SOME cause-naming
+    net-tier degradation line on stderr instead of swallowing it.
 
     QA-TERMINAL-JAIL-20: the contract is split into two arms.
 
@@ -1093,10 +1103,17 @@ def test_installed_wrapper_surfaces_bridge_stderr(
     stderr = run.stderr.decode("utf-8", "replace")
     # (a) The degradation warning reaches the operator, on EVERY host class
     # — stderr is the TJ-DF-044 regression surface itself.
-    assert "landlock-net-loader.py not found next to the plugin" in stderr, (
-        f"bridge degradation warning lost by the wrapper: stderr={stderr!r}"
-    )
     assert "Landlock network (egress) tier not applied" in stderr
+    # PERF-001: allow path pays no probe, so the cause line here is the
+    # wrapper's preflight ("searched <dirs>"); the plugin's own
+    # "not found next to the plugin" wording still fires whenever a wrap
+    # probes. Both name the same cause — require one of them, so a wrapper
+    # that silently swallowed the degrade line still fails this test.
+    assert re.search(
+        r"landlock-net-loader\.py not found"
+        r"(?: next to the plugin| \(searched )",
+        stderr,
+    ), f"bridge degradation cause lost by the wrapper: stderr={stderr!r}"
     if not _mapped_launch_creatable():
         pytest.skip(f"{HOST_DENIED_USERNS_SKIP} (observed stderr: {stderr!r})")
     # (b) ...the command still executed (degrade, not block)...

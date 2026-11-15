@@ -749,16 +749,24 @@ class TestWiring:
         # spelling its own tail logic.
         decider_text = (interruptor_dir / "decider.py").read_text(encoding="utf-8")
         assert "landlock_sandbox_prefix" in decider_text
-        assert "_LANDLOCK_TAIL = landlock_sandbox_prefix()" in decider_text
+        assert "landlock_sandbox_prefix()" in decider_text
+        assert "_CAPABILITY_PREFIXES" in decider_text
 
     def test_wrap_payload_quotes_the_runner_into_the_command(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """With the tier active the loader is part of the PAYLOAD string
         (quoted as one), never loose argv of the outer bash -c."""
-        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "python3 /l.py -- ")
+        prefix = decider_module._unshare_prefix()
+        monkeypatch.setattr(
+            decider_module,
+            "_capability_prefixes",
+            lambda: (prefix, "python3 /l.py -- ", ""),
+        )
         assert decider_module._wrap_payload("make") == "python3 /l.py -- make"
-        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "")
+        monkeypatch.setattr(
+            decider_module, "_capability_prefixes", lambda: (prefix, "", "")
+        )
         assert decider_module._wrap_payload("make") == "make"
 
     def test_wrapper_source_carries_loader_wiring(self) -> None:

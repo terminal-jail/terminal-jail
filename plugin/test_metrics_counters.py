@@ -146,8 +146,12 @@ class TestInterceptWrapCounters:
 
         monkeypatch.setattr(
             decider_module,
-            "_UNSHARE_PREFIX",
-            "unshare --user --map-users=65534:100000:1 bash -c ",
+            "_capability_prefixes",
+            lambda: (
+                "unshare --user --map-users=65534:100000:1 bash -c ",
+                "",
+                "",
+            ),
         )
         result = intercept("pytest -q")
         assert result.action == Action.MODIFY

@@ -720,8 +720,12 @@ class TestWiring:
     def test_wrap_payload_composes_both_tails_in_order(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "python3 /fs.py -- ")
-        monkeypatch.setattr(decider_module, "_LANDLOCK_NET_TAIL", "python3 /net.py -- ")
+        prefix = decider_module._unshare_prefix()
+        monkeypatch.setattr(
+            decider_module,
+            "_capability_prefixes",
+            lambda: (prefix, "python3 /fs.py -- ", "python3 /net.py -- "),
+        )
         payload = decider_module._wrap_payload("make")
         assert payload == "python3 /fs.py -- python3 /net.py -- make"
         # the net loader runs INSIDE the fs domain (fs tail first)
@@ -729,10 +733,16 @@ class TestWiring:
     def test_wrap_payload_unchanged_without_the_net_tier(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "python3 /fs.py -- ")
-        monkeypatch.setattr(decider_module, "_LANDLOCK_NET_TAIL", "")
+        prefix = decider_module._unshare_prefix()
+        monkeypatch.setattr(
+            decider_module,
+            "_capability_prefixes",
+            lambda: (prefix, "python3 /fs.py -- ", ""),
+        )
         assert decider_module._wrap_payload("make") == "python3 /fs.py -- make"
-        monkeypatch.setattr(decider_module, "_LANDLOCK_TAIL", "")
+        monkeypatch.setattr(
+            decider_module, "_capability_prefixes", lambda: ("unused", "", "")
+        )
         assert decider_module._wrap_payload("make") == "make"
 
     def test_net_tail_single_sourced(self) -> None:
@@ -740,7 +750,8 @@ class TestWiring:
             PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor" / "decider.py"
         ).read_text(encoding="utf-8")
         assert "landlock_net_sandbox_prefix" in decider_text
-        assert "_LANDLOCK_NET_TAIL = landlock_net_sandbox_prefix()" in decider_text
+        assert "landlock_net_sandbox_prefix()" in decider_text
+        assert "_CAPABILITY_PREFIXES" in decider_text
         interruptor_dir = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor"
         for path in sorted(interruptor_dir.glob("*.py")):
             if path.name in ("landlock_net.py", "decider.py"):

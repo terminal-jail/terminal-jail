@@ -43,12 +43,23 @@ from .types import Action, InterceptResult, Layer
 from .userns import unshare_prefix
 
 # The unshare namespace prefix used by both the built-in auto-sandbox
-# layer and user-defined modify rules (identical wrap semantics). Built
-# once per process by userns.unshare_prefix(): a MAPPED user namespace
-# (real filesystem isolation) when the host permits it, the legacy
-# mapping-less flags otherwise — see plugin/terminal_jail/interruptor/
-# userns.py and scripts/fs-isolation-probe.py (TJ-DF-015).
-_UNSHARE_PREFIX = unshare_prefix()
+# layer and user-defined modify rules (identical wrap semantics). Capability
+# prefixes are resolved lazily so importing the decider does not execute host
+# probes on the allow path. Probe order remains user namespace, filesystem
+# Landlock, then network Landlock, and values remain cached once.
+_CAPABILITY_PREFIXES: tuple[str, str, str] | None = None
+
+
+def _capability_prefixes() -> tuple[str, str, str]:
+    global _CAPABILITY_PREFIXES
+    if _CAPABILITY_PREFIXES is None:
+        _CAPABILITY_PREFIXES = (
+            unshare_prefix(),
+            landlock_sandbox_prefix(),
+            landlock_net_sandbox_prefix(),
+        )
+    return _CAPABILITY_PREFIXES
+
 
 # TJ-GAP-082: the kernel-enforced Landlock filesystem tier, composed onto
 # the SAME seam as the namespace prefix — ``landlock_sandbox_prefix()``
@@ -60,7 +71,6 @@ _UNSHARE_PREFIX = unshare_prefix()
 # degradation prints ONE loud warning naming the cause; behavior
 # unchanged). Single-sourced here: no literal tier prefix anywhere else
 # in the engine.
-_LANDLOCK_TAIL = landlock_sandbox_prefix()
 
 # TJ-GAP-083: the kernel-enforced Landlock TCP-connect (network egress)
 # tier, composed AFTER the fs tier's tail — the wrap's payload becomes
@@ -73,7 +83,10 @@ _LANDLOCK_TAIL = landlock_sandbox_prefix()
 # when enabled but not applicable, degradation is loud (one warning) and
 # the tail is empty. Single-sourced here: no literal tier prefix anywhere
 # else in the engine.
-_LANDLOCK_NET_TAIL = landlock_net_sandbox_prefix()
+
+
+def _unshare_prefix() -> str:
+    return _capability_prefixes()[0]
 
 
 def _wrap_payload(raw: str) -> str:
@@ -88,7 +101,8 @@ def _wrap_payload(raw: str) -> str:
     egress domain stacks inside the filesystem domain. Without the tiers
     the payload is the command unchanged.
     """
-    return f"{_LANDLOCK_TAIL}{_LANDLOCK_NET_TAIL}{raw}"
+    _, landlock_tail, landlock_net_tail = _capability_prefixes()
+    return f"{landlock_tail}{landlock_net_tail}{raw}"
 
 
 # The file name install.sh gives every rule pack it installs into a
@@ -401,7 +415,9 @@ class Decider:
             rebuilt = rebuild_command(original, replacements)
             if rebuilt is not None and structure_preserved(original, rebuilt):
                 return rebuilt
-        return f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(original.strip()))}"
+        return (
+            f"{_unshare_prefix()}{_escape_for_shell(_wrap_payload(original.strip()))}"
+        )
 
     def _evaluate_segment(self, segment: Segment) -> InterceptResult:
         """Evaluate a single command segment against all rule layers."""
@@ -487,7 +503,7 @@ class Decider:
                 layer=layer,
             )
         if rule.action in (Action.MODIFY, Action.SANDBOX):
-            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(_wrap_payload(raw))}"
+            modified = f"{_unshare_prefix()}{_escape_for_shell(_wrap_payload(raw))}"
             return InterceptResult(
                 action=Action.MODIFY,
                 command=raw,
