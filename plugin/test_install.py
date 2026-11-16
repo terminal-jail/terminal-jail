@@ -238,6 +238,7 @@ def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
         test_bin,
         "sh",
         "bash",
+        "python3",
         "uname",
         "unshare",
         "head",
@@ -256,6 +257,33 @@ def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
     )
     _make_mock_curl(test_bin, server_dir)
     return test_bin
+
+
+@pytest.mark.standalone_cli
+def test_release_wheel_install_without_unzip_uses_python_zipfile(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A wheel payload must not require the optional external unzip command."""
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    server_dir = _make_server_dir(tmp_path)
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+    (test_bin / "unzip").unlink()
+
+    result = _run_install(
+        install_script,
+        install_dir=str(install_dir),
+        test_bin=str(test_bin),
+        extra_env={
+            "HOME": str(tmp_path),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+        },
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    assert "extracted release wheel with python3 -m zipfile" in out
+    assert (install_dir / "terminal-jail").is_file(), out
 
 
 @pytest.mark.standalone_cli

@@ -726,10 +726,6 @@ if [ -z "$LOCAL_WRAPPER" ]; then
         exit 1
     fi
 
-    if ! command -v unzip >/dev/null 2>&1; then
-        echo "terminal-jail installer: release asset is a wheel and requires unzip (not found)" >&2
-        exit 1
-    fi
 fi
 
 download() {
@@ -1385,8 +1381,23 @@ else
     echo "terminal-jail installer: checksum OK (${release_asset})"
 
     mkdir -p "$tmp_extract"
-    if ! unzip -q "$tmp_wheel" -d "$tmp_extract"; then
-        echo "terminal-jail installer: release wheel could not be extracted: ${release_asset}" >&2
+    wheel_extracted=0
+    if command -v python3 >/dev/null 2>&1; then
+        if python3 -m zipfile -e "$tmp_wheel" "$tmp_extract"; then
+            wheel_extracted=1
+            echo "terminal-jail installer: extracted release wheel with python3 -m zipfile"
+        else
+            echo "terminal-jail installer: python3 -m zipfile could not extract ${release_asset}; trying unzip" >&2
+        fi
+    fi
+    if [ "$wheel_extracted" -eq 0 ] && command -v unzip >/dev/null 2>&1; then
+        if unzip -q "$tmp_wheel" -d "$tmp_extract"; then
+            wheel_extracted=1
+            echo "terminal-jail installer: extracted release wheel with unzip"
+        fi
+    fi
+    if [ "$wheel_extracted" -eq 0 ]; then
+        echo "terminal-jail installer: release wheel could not be extracted: tried python3 -m zipfile and unzip; install python3 or unzip and retry (${release_asset})" >&2
         exit 1
     fi
     release_wrapper="${tmp_extract}/terminal_jail/_bundled/terminal-jail"
