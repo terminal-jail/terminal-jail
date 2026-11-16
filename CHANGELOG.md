@@ -845,7 +845,7 @@ docs, test and CI work. Board/harness bookkeeping commits are not listed.
   companion `builtin-net-fetch-pipe-qualified`, which stays a namespace-wrap rule and is now
   labelled **containment-neutral for egress** (it is a download-EXECUTE shape and never claimed to
   prevent exfiltration). A workflow that genuinely needs a blocked shape can override that id to
-  `warn` with a same-id user rule (builtins are overridable to warn, never removable).
+  `warn` with a same-id user rule; a same-ID `allow` rule can also disable the critical block outright.
 - **Engine/YAML mirror parity**: mirrored byte-identically in
   `plugin/terminal_jail/rules/00-builtins.yaml` (header counts re-baselined to the real
   **35 block / 9 sandbox / 10 allow = 54** — the total is unchanged, only the layer split moved);

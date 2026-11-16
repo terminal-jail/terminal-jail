@@ -37,6 +37,55 @@ from terminal_jail.interruptor.userns import unshare_prefix
 # test can load the mirror exactly the way an installed host does.
 RULES_MIRROR_DIR = Path(__file__).resolve().parent / "terminal_jail" / "rules"
 
+_STALE_BUILTIN_CONTRACT_RE = re.compile(
+    r"cannot\s+be\s+removed|only\s+be\s+overridden|"
+    r"only\s+overridden\s+to|may\s+downgrade\s+one\s+to|"
+    r"never\s+remov(?:able|ed)",
+    re.IGNORECASE,
+)
+
+
+def _shipped_contract_surfaces(repo_root: Path) -> list[tuple[str, str]]:
+    """Discover every shipped Markdown contract surface and rules mirror."""
+    markdown_paths = [repo_root / "README.md"]
+    markdown_paths.extend(sorted((repo_root / "docs").glob("**/*.md")))
+    markdown_paths.extend(sorted((repo_root / "specs").glob("**/*.md")))
+    surfaces = [
+        (str(path.relative_to(repo_root)), path.read_text()) for path in markdown_paths
+    ]
+    surfaces.append(
+        (
+            "plugin/terminal_jail/rules/00-builtins.yaml",
+            (repo_root / "plugin/terminal_jail/rules/00-builtins.yaml").read_text(),
+        )
+    )
+    from terminal_jail.interruptor import blocklist
+
+    surfaces.append(
+        (
+            "plugin/terminal_jail/interruptor/blocklist.py docstring",
+            blocklist.__doc__ or "",
+        )
+    )
+    return surfaces
+
+
+def _assert_no_stale_builtin_contract(surfaces: list[tuple[str, str]]) -> None:
+    """Reject the old non-removable builtin claim on same-ID surfaces."""
+    for surface_name, surface in surfaces:
+        normalized = " ".join(surface.casefold().split())
+        describes_same_id_user_rule = re.search(
+            r"same[- ]id.*user\s+rule|user\s+rule.*same[- ]id", normalized
+        )
+        if not describes_same_id_user_rule:
+            continue
+        stale_match = _STALE_BUILTIN_CONTRACT_RE.search(normalized)
+        assert stale_match is None, (
+            f"{surface_name} still contains the stale builtin contract "
+            f"{stale_match.group(0)!r}"
+        )
+
+
 # =============================================================================
 # Landlock tier tail (QA-TERMINAL-JAIL-18): pin the CONTRACT, not the string
 # =============================================================================
@@ -3126,28 +3175,36 @@ rules:
         assert result.rule_id == "builtin-rm-rf-root"
         assert result.layer == "user"
 
-    def test_same_id_allow_builtin_contract_matches_shipped_docs(self) -> None:
+    def test_same_id_allow_builtin_contract_matches_shipped_docs(
+        self, tmp_path
+    ) -> None:
         """T-I38's ALLOW consequence stays aligned with all contract surfaces."""
-        from terminal_jail.interruptor import blocklist
-
         repo_root = Path(__file__).resolve().parents[1]
-        yaml_text = (
-            repo_root / "plugin/terminal_jail/rules/00-builtins.yaml"
-        ).read_text()
-        spec_text = (repo_root / "specs/interruptor.md").read_text()
-        for surface_name, surface in (
-            ("blocklist.py", blocklist.__doc__ or ""),
-            ("00-builtins.yaml", yaml_text),
-            ("specs/interruptor.md", spec_text),
-        ):
-            normalized = " ".join(surface.lower().split())
-            assert "same-id" in normalized, f"{surface_name} omits same-ID replacement"
-            assert "allow" in normalized, f"{surface_name} omits ALLOW behavior"
-            assert "disables" in normalized and "outright" in normalized, (
-                f"{surface_name} must say a same-ID ALLOW disables the block outright"
+        surfaces = _shipped_contract_surfaces(repo_root)
+        _assert_no_stale_builtin_contract(surfaces)
+
+        normalized_surfaces = " ".join(surface.casefold() for _, surface in surfaces)
+        assert "same-id user rule" in normalized_surfaces
+        assert "allow" in normalized_surfaces
+        assert "disables the critical block outright" in normalized_surfaces
+        assert "warn" in normalized_surfaces
+
+        scratch_readme = tmp_path / "README.md"
+        scratch_text = (
+            (repo_root / "README.md")
+            .read_text()
+            .replace(
+                "A same-ID user rule replaces the builtin in its layer: `allow` disables "
+                "the critical block outright; `warn` only downgrades it to a warning.",
+                "cannot be "
+                + "removed — only overridden to `warn` by a same-"
+                + "ID user rule.",
             )
-            assert "cannot be removed" not in normalized, (
-                f"{surface_name} still claims builtins cannot be removed"
+        )
+        scratch_readme.write_text(scratch_text)
+        with pytest.raises(AssertionError, match="stale builtin contract"):
+            _assert_no_stale_builtin_contract(
+                [("scratch README.md", scratch_readme.read_text())]
             )
 
     def test_same_id_override_does_not_affect_other_builtins(self, tmp_path) -> None:
@@ -3372,9 +3429,9 @@ rules:
     ) -> None:
         """TJ-DF-012 (P1): a same-ID user warn rule must surface a warning.
 
-        blocklist.py's contract says builtins "cannot be removed — only
-        overridden to warn level by user rules", so action: warn is the
-        sanctioned downgrade path. Previously `warn` fell into the
+        blocklist.py's contract says a same-ID user rule replaces the builtin:
+        action: warn is the sanctioned downgrade path, while action: allow
+        disables the critical block outright. Previously `warn` fell into the
         unknown-action fail-safe branch with a misleading "unknown action
         'warn'" reason, and evaluate() dropped the reason entirely, so
         `rm -rf /` executed with ZERO warning (live, 2026-08-19 dogfood).

@@ -624,7 +624,7 @@ This list is the whole firewall on a fresh install. Optional per-host policy shi
 
 ### 36 critical blocklist rules
 
-Priority 1000, evaluated first, cannot be removed — only overridden to `warn` by a same-ID user rule.
+Priority 1000, evaluated first. A same-ID user rule replaces the builtin in its layer: `allow` disables the critical block outright; `warn` only downgrades it to a warning.
 
 | Rule ID | Blocks |
 |---|---|
@@ -761,7 +761,7 @@ All four are **shape** rules: they fire on non-secret files and on ordinary dest
 
 **Excluded by design and pinned by tests:** plain downloads (`curl <url>`, `wget -O <path> <url>`), inline bodies (`curl -X POST -d '{"job":1}' <url>`, `--data-binary '{…}'`), inline multipart fields (`curl -F 'name=value' <url>`), curl's literal `--form-string`, scoped copies (`rsync -a /srv/data/ host:/srv/backup/`, `scp file host:/srv/file`), local copies (`rsync -a src/ dst/`), `ssh`, and `git push`.
 
-A workflow that genuinely needs one of the blocked shapes can install a same-ID user rule that overrides it to `warn` (the blocklist contract is "overridable to warn, never removable").
+A workflow that genuinely needs one of the blocked shapes can install a same-ID user rule that replaces it in its layer: `warn` downgrades the verdict to a warning, while `allow` disables the critical block outright.
 
 > **Upgrading?** Re-run `./install.sh` so the installed mirror (`~/.config/terminal-jail/rules.d/00-builtins.yaml`) carries the BLOCK actions — a mirror installed before DF-TERMINAL-JAIL-20 still lists these four ids at `action: sandbox`, and a same-ID user entry replaces the builtin in its layer. Then verify in one command (TJ-GAP-069): `.venv/bin/python scripts/rules-drift-probe.py` — it compares every builtin rule id present in the host's resolved rules dirs against the engine constant and prints a `DRIFT` row (id, engine action, installed action, both file paths) for each mismatch. The bare run is a classifier and always exits 0; CI can pass `--fail-on-drift` to fail on any drift row.
 
