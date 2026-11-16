@@ -6,7 +6,7 @@
   "base_sha": "505cba2",
   "wave_budget": 12,
   "width": 4,
-  "status": "dispatched",
+  "status": "complete",
   "worker_model": "openai/gpt-6.1-terra",
   "worker_provider": "xkiro",
   "workers": [
@@ -17,8 +17,19 @@
       "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-31",
       "branch": "wt/QA-TERMINAL-JAIL-31",
       "base_sha": "505cba2",
-      "files_owned": ["plugin/terminal_jail/interruptor/blocklist.py", "plugin/terminal_jail/rules/00-builtins.yaml", "specs/interruptor.md", "plugin/test_interruptor.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/briefs/QA-TERMINAL-JAIL-31.md"
+      "files_owned": [
+        "plugin/terminal_jail/interruptor/blocklist.py",
+        "plugin/terminal_jail/rules/00-builtins.yaml",
+        "specs/interruptor.md",
+        "plugin/test_interruptor.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/QA-TERMINAL-JAIL-31.md",
+      "sha": "c3d4f95",
+      "merge": "merged",
+      "judge": "PASS",
+      "verdict_run": "9b84a1ab",
+      "attempts": 3,
+      "note": "attempt 1 (56bd1e3) judged FAIL: README.md:627 + specs/integration.md:184 still carried the old contract and the guard hardcoded 3 paths. Rework worker widened the sweep (README, specs, CHANGELOG, discovering guard + negative control). Attempt 2 judged FAIL: docs/rule-catalog.md:101 still stale and the regex missed that phrasing. Foreman fixed the generator scripts/rule-catalog.py, regenerated the catalog, widened the regex; attempt 3 PASS."
     },
     {
       "task_id": "TJ-DF-065",
@@ -27,8 +38,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-065",
       "branch": "wt/TJ-DF-065",
       "base_sha": "505cba2",
-      "files_owned": ["docs/quickstart.md"],
-      "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-DF-065.md"
+      "files_owned": [
+        "docs/quickstart.md"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-DF-065.md",
+      "sha": "8deabeb",
+      "merge": "merged",
+      "judge": "PASS",
+      "verdict_run": "8b530dcc",
+      "attempts": 1
     },
     {
       "task_id": "DOC-29",
@@ -37,8 +55,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-DOC-29",
       "branch": "wt/DOC-29",
       "base_sha": "505cba2",
-      "files_owned": ["docs/COMPATIBILITY.md"],
-      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-29.md"
+      "files_owned": [
+        "docs/COMPATIBILITY.md"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-29.md",
+      "sha": "aa81eb8",
+      "merge": "merged",
+      "judge": "PASS",
+      "verdict_run": "5de7dbfa",
+      "attempts": 1
     },
     {
       "task_id": "DOC-14-R2",
@@ -47,14 +72,45 @@
       "worktree": "/home/kara/worktrees/terminal-jail-DOC-14-R2",
       "branch": "wt/DOC-14-R2",
       "base_sha": "505cba2",
-      "files_owned": ["README.md", "scripts/docs-check.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-14-R2.md"
+      "files_owned": [
+        "README.md",
+        "scripts/docs-check.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-14-R2.md",
+      "sha": "492915b",
+      "merge": "merged",
+      "judge": "PASS",
+      "verdict_run": "47e0fde3",
+      "attempts": 1
     }
   ],
   "independence_check": "No depends_on edges among the four rows (all null or []); file sets are disjoint (interruptor code vs docs/quickstart.md vs docs/COMPATIBILITY.md vs README.md+scripts/docs-check.py); each worker owns its own worktree/branch off origin/main@505cba2",
   "verification_only_closures": [
-    {"task_id": "QA-TERMINAL-JAIL-30", "reason": "already landed at 505cba2: decider.py unknown-action branch emits rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed (incl. CLI stderr arm)"},
-    {"task_id": "TJ-DF-063", "reason": "already landed at 505cba2: battery._docker_available() daemon probe + pinned skip tests at tests/test_composed_mode.py:431-524; target selector = 1 passed"},
-    {"task_id": "QA-TERMINAL-JAIL-33", "reason": "refuted at 505cba2: local main == origin/main, 0 unpushed, pyproject 1.3.4, OPS-TJ-001 + RELEASE-TJ-018..022 rows present"}
-  ]
+    {
+      "task_id": "QA-TERMINAL-JAIL-30",
+      "reason": "already landed at 505cba2: decider.py unknown-action branch emits rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed (incl. CLI stderr arm)"
+    },
+    {
+      "task_id": "TJ-DF-063",
+      "reason": "already landed at 505cba2: battery._docker_available() daemon probe + pinned skip tests at tests/test_composed_mode.py:431-524; target selector = 1 passed"
+    },
+    {
+      "task_id": "QA-TERMINAL-JAIL-33",
+      "reason": "refuted at 505cba2: local main == origin/main, 0 unpushed, pyproject 1.3.4, OPS-TJ-001 + RELEASE-TJ-018..022 rows present"
+    }
+  ],
+  "finished_at": "2026-11-16T07:14:54-05:00",
+  "merged_main": "c3d4f95",
+  "outcome": {
+    "merged": 4,
+    "judged_pass": 4,
+    "failed_attempts": 2,
+    "merged_gate": "per-merge: pytest -q plugin/test_interruptor.py 529 passed, scripts/docs-check.py overall PASS, rule-catalog.py --check OK, doc tests 15 passed; gitreins tier-1 DEGRADED PASS (static_analysis skipped - no packaging marker)",
+    "evidence_dir": "/home/kara/.hermes/qa/evidence/tj-foreman-2026-11-16-10-04-27",
+    "board_commit": "5044723",
+    "open_notes": [
+      "build/ (gitignored, untracked) holds a stale copy of the retired contract wording if an sdist/wheel is built from it",
+      "README says 36 critical blocklist rules while the generator reports 55 total (36 block / 9 sandbox / 10 allow) - the block-layer count agrees"
+    ]
+  }
 }
