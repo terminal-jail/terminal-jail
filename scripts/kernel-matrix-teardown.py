@@ -270,6 +270,11 @@ def _proc_has_marker(pid: int, marker: str) -> bool:
     return f"TERMINAL_JAIL_MATRIX_MARKER={marker}".encode() in environ.split(b"\0")
 
 
+def _launcher_marker(launcher_pid: int) -> str:
+    """Return the marker the standalone launcher derives from its own PID."""
+    return f"launcher-{launcher_pid}"
+
+
 def _owned_marked_sleep300_pids(marker: str) -> set[int]:
     """Return same-UID sleep payloads carrying this cell's unique marker."""
     uid = os.getuid()
@@ -390,10 +395,15 @@ def _run_backend_cell(backend: str, marker: str) -> dict:
             exit_code=None,
             evidence=f"launcher could not start: {exc}",
         )
+    # The wrapper replaces any caller-provided marker with one derived from
+    # its own PID. Never use the inherited input marker for selection or
+    # cleanup: it is deliberately attacker-inheritable and is only a launch
+    # request, not payload identity.
+    launch_marker = _launcher_marker(launcher.pid)
     payload: int | None = None
     t0 = time.monotonic()
     while time.monotonic() - t0 < LAUNCH_WAIT:
-        candidates = _owned_descendant_sleep300_pids(launcher.pid, marker)
+        candidates = _owned_descendant_sleep300_pids(launcher.pid, launch_marker)
         if candidates:
             payload = min(candidates)
             break
@@ -443,10 +453,10 @@ def _run_backend_cell(backend: str, marker: str) -> dict:
                 f"in {survival * 1000:.0f} ms"
             ),
         )
-    candidates = _owned_marked_pids(marker)
+    candidates = _owned_marked_pids(launch_marker)
     cleanup_conditions: list[str] = []
     for pid in candidates:
-        condition = _cleanup_pid(pid, launcher.pid, marker)
+        condition = _cleanup_pid(pid, launcher.pid, launch_marker)
         if condition:
             cleanup_conditions.append(f"{condition}={pid}")
     if payload not in candidates:
