@@ -1,0 +1,20 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-15-22-43-54",
+  "project": "terminal-jail",
+  "base": "origin/main",
+  "base_sha": "354958c",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "wave_budget": 12,
+  "composed": 3,
+  "rationale": "Repo doctrine (skill references/wave-and-judge-lifecycle-tick420.md) caps this repo's waves: tier-1 lane runs the pinned full suite (test_timeout 900) and every judge is SERIAL. Three is the largest set of genuinely independent, premised-live rows with disjoint file scopes.",
+  "independence": "deps=[] on all three rows, verified local+origin; disjoint file scopes (wrapper bundle / install.sh+docs+tests / packaging-wheel test)",
+  "tasks": [
+    {"id": "RELEASE-TJ-021", "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-021-w22", "branch": "wt/RELEASE-TJ-021-w22", "scope": ["plugin/terminal_jail/_bundled/terminal-jail", "standalone/terminal-jail", "plugin/test_wrapper_landlock_interpreter.py"]},
+    {"id": "TJ-DF-062", "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-062-w22", "branch": "wt/TJ-DF-062-w22", "scope": ["install.sh", "README.md", "docs/quickstart.md", "plugin/test_install.py"]},
+    {"id": "QA-TERMINAL-JAIL-29", "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-29-w22", "branch": "wt/QA-TERMINAL-JAIL-29-w22", "scope": ["plugin/test_packaging_wheel.py"]}
+  ],
+  "merge_order": ["RELEASE-TJ-021", "TJ-DF-062", "QA-TERMINAL-JAIL-29"],
+  "gate_per_merge": true,
+  "judges": "serial, never parallel"
+}

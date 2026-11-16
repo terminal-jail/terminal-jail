@@ -762,3 +762,15 @@
 {"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.config","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/test_landlock_net.py","to":"pkg:terminal_jail.interruptor.parser","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/test_interruptor.py","to":"pkg:importlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_wrapper_landlock_interpreter.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_install.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"scripts/rules-drift-probe.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_seccomp.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/interruptor/rules.py","to":"pkg:plugin.terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}

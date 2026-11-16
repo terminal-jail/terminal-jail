@@ -2467,3 +2467,45 @@ tasks:
   status: complete
   created_at: '2026-11-15T23:11:41.041715+00:00'
   completed_at: '2026-11-15T23:43:26.685200+00:00'
+- id: RELEASE-TJ-020
+  title: release-cut-check.sh tag-absence gate can never pass
+  criteria:
+  - Absent tag yields OK/exit 0 without TJ_RELEASE_TAG_EXISTS; unreachable remote
+    still fails closed with named error; regression in tests/test_release_workflow.py
+    fails pre-fix
+  status: complete
+  created_at: '2026-11-16T00:51:40.560864+00:00'
+  completed_at: '2026-11-16T01:15:53.580039+00:00'
+- id: QA-TERMINAL-JAIL-36
+  title: kernel teardown verifier adopts unbound global sleep-300 PIDs then aborts
+    on EPERM
+  criteria:
+  - Payload selection bound to launcher descendants/identity; cleanup EPERM captured
+    as structured evidence not an abort; regression asserts no foreign PID adopted
+    or signalled
+  status: in_progress
+  created_at: '2026-11-16T00:51:41.510584+00:00'
+- id: TJ-DF-068
+  title: --seccomp missing command raw traceback and -- terminator ignored
+  criteria:
+  - No command yields repo usage diagnostic with no traceback; -- terminator honoured
+    for flag-shaped payloads; regressions assert exit code and diagnostic text
+  status: complete
+  created_at: '2026-11-16T00:51:42.507993+00:00'
+  completed_at: '2026-11-16T02:01:34.106247+00:00'
+- id: QA-TERMINAL-JAIL-32
+  title: install.sh wheel path hard-requires unzip
+  criteria:
+  - Wheel install succeeds with a PATH lacking unzip via stdlib extraction fallback;
+    regression fails pre-fix; suite clean
+  status: complete
+  created_at: '2026-11-16T00:51:43.461287+00:00'
+  completed_at: '2026-11-16T01:45:47.147683+00:00'
+- id: TJ-DF-066
+  title: unknown match.type loads silently with no load-time warning
+  criteria:
+  - Load emits WARN naming rule id and offending type for unknown match.type; no warning
+    for supported/absent types; drift probe unchanged; tests assert both arms
+  status: complete
+  created_at: '2026-11-16T00:51:44.409407+00:00'
+  completed_at: '2026-11-16T01:26:20.420915+00:00'

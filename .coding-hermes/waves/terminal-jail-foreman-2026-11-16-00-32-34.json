@@ -1,0 +1,70 @@
+{
+  "tick_id": "terminal-jail-foreman-2026-11-16-00-32-34",
+  "kind": "foreman-wave",
+  "started_at": "2026-11-16T00:32:34-05:00",
+  "base_ref": "origin/main",
+  "base_sha_full": "0797b9df624599a0e27acd2e9f0b63cdd6ebf22c",
+  "base_sha": "0797b9d",
+  "wave_budget": 6,
+  "width": 5,
+  "status": "dispatched",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "workers": [
+    {
+      "task_id": "RELEASE-TJ-020",
+      "title": "release-cut-check.sh tag-absence gate can never pass (ls-remote --exit-code returns 2 for an absent ref)",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-020",
+      "branch": "wt/RELEASE-TJ-020",
+      "base_sha": "0797b9d",
+      "files_owned": ["scripts/release-cut-check.sh", "tests/test_release_workflow.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/RELEASE-TJ-020.txt"
+    },
+    {
+      "task_id": "QA-TERMINAL-JAIL-36",
+      "title": "Kernel teardown verifier selects unbound global sleep-300 PIDs and aborts on cleanup EPERM",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-36",
+      "branch": "wt/QA-TERMINAL-JAIL-36",
+      "base_sha": "0797b9d",
+      "files_owned": ["scripts/kernel-matrix-teardown.py", "tests/test_kernel_matrix_teardown.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-36.txt"
+    },
+    {
+      "task_id": "TJ-DF-068",
+      "title": "--seccomp turns a missing command into a raw traceback (rc 1) and ignores the -- terminator",
+      "priority": "P3",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-068",
+      "branch": "wt/TJ-DF-068",
+      "base_sha": "0797b9d",
+      "files_owned": ["standalone/seccomp-loader.py", "tests/test_seccomp_loader.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-068.txt"
+    },
+    {
+      "task_id": "QA-TERMINAL-JAIL-32",
+      "title": "install.sh wheel path hard-requires unzip while the install test builds a PATH without one",
+      "priority": "P3",
+      "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-32",
+      "branch": "wt/QA-TERMINAL-JAIL-32",
+      "base_sha": "0797b9d",
+      "files_owned": ["install.sh", "plugin/test_install.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-32.txt"
+    },
+    {
+      "task_id": "TJ-DF-066",
+      "title": "unknown match.type in a user rule loads silently (no warning); drift probe surface",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-066",
+      "branch": "wt/TJ-DF-066",
+      "base_sha": "0797b9d",
+      "files_owned": ["plugin/terminal_jail/interruptor/rules.py", "scripts/rules-drift-probe.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-066.txt"
+    }
+  ],
+  "independence_check": "No depends_on edges among the five rows (all null or []); file sets are disjoint; each worker owns its own worktree/branch off origin/main@0797b9d",
+  "verification_only_closures": [
+    {"task_id": "TJ-DF-063", "reason": "already landed: tests/test_composed_mode.py has battery._docker_available() daemon probe + 2 passing selectors at HEAD 0797b9d"},
+    {"task_id": "QA-TERMINAL-JAIL-30", "reason": "already landed: decider.py:532 emits unknown-action rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed at HEAD 0797b9d"}
+  ]
+}
