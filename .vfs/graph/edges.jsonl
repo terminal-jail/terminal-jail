@@ -777,3 +777,5 @@
 {"from":"scripts/kernel-matrix-teardown.py","to":"pkg:uuid","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"tests/test_kernel_matrix_teardown.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"tests/test_kernel_matrix_teardown.py","to":"pkg:os","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
+{"from":"scripts/docs-check.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"scripts/docs-check.py","to":"pkg:tomllib","rel":"imports","provenance":"ast_exact","confidence":1.0}

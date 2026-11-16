@@ -2552,22 +2552,29 @@ tasks:
   created_at: '2026-11-16T11:20:28.918704+00:00'
   completed_at: '2026-11-16T11:20:29.937142+00:00'
 - id: QA-TERMINAL-JAIL-31
-  title: Interruptor contract must say a same-ID user ALLOW disables a builtin block
-    outright
+  title: Every shipped contract surface states that a same-ID user ALLOW disables
+    a builtin block outright
   criteria:
-  - 'C1: blocklist.py module docstring and plugin/terminal_jail/rules/00-builtins.yaml
-    and specs/interruptor.md all state that a same-ID user rule replaces the builtin
-    and that ALLOW disables the block outright; fail if any surface still says builtins
-    ''cannot be removed'' or ''only overridden to warn''; proof: grep -rn ''cannot
-    be removed'' plugin/terminal_jail/interruptor/blocklist.py specs/interruptor.md
-    plugin/terminal_jail/rules/00-builtins.yaml. C2: a regression test asserts the
-    ALLOW-disables-builtin behavior with verdict allow, rule_id builtin-rm-rf-root,
-    layer user; proof: .venv/bin/python -m pytest -q plugin/test_interruptor.py -k
-    same_id. C3: full interruptor suite passes; proof: .venv/bin/python -m pytest
-    -q plugin/test_interruptor.py exits 0 (529 passed).'
+  - 'C1: no shipped surface that discusses same-ID user rules claims a builtin cannot
+    be removed or can only be softened to warn; fail if any README.md, docs/**/*.md,
+    specs/**/*.md, 00-builtins.yaml or the blocklist.py docstring carries such wording;
+    proof: grep -rn -i -E ''cannot be removed|only be overridden|may downgrade one
+    to|no way to remove|soften a built-in|softened to'' README.md docs specs plugin/terminal_jail/interruptor/blocklist.py
+    plugin/terminal_jail/rules/00-builtins.yaml returns nothing. C2: the generated
+    rule catalog carries the shipped contract and its generator emits it; fail if
+    docs/rule-catalog.md disagreements survive regeneration; proof: .venv/bin/python
+    scripts/rule-catalog.py --check reports OK and scripts/rule-catalog.py''s template
+    contains the replaces/downgrade/disable wording. C3: the contract guard discovers
+    its surfaces and its stale-wording regex covers the retired phrasings, tripping
+    on a reintroduced sentence; proof: pytest -q plugin/test_interruptor.py -k same_id
+    (5 passed, includes the scratch-README negative control). C4: ALLOW-disables-builtin
+    still proven through intercept() with verdict allow, rule_id builtin-rm-rf-root,
+    layer user; proof: pytest -q plugin/test_interruptor.py -k same_id_override_builtin_blocklist.
+    C5: full interruptor suite and docs-check pass; proof: pytest -q plugin/test_interruptor.py
+    exits 0 (529 passed) and .venv/bin/python scripts/docs-check.py exits 0.'
   status: complete
-  created_at: '2026-11-16T11:24:17.788115+00:00'
-  completed_at: '2026-11-16T11:24:18.690262+00:00'
+  created_at: '2026-11-16T12:09:15.817834+00:00'
+  completed_at: '2026-11-16T12:09:16.980620+00:00'
 - id: DOC-14-R2
   title: README version cell must be derived and guarded by docs-check
   criteria:
@@ -2581,3 +2588,28 @@ tasks:
   status: complete
   created_at: '2026-11-16T11:28:16.643799+00:00'
   completed_at: '2026-11-16T11:28:18.058948+00:00'
+- id: TJ-DF-063
+  title: The composed-mode battery must skip, not false-fail, when the docker daemon
+    is absent
+  criteria:
+  - 'C1: tests/test_composed_mode.py detects the docker DAEMON (not just the binary)
+    before attempting a live composed run; fail if a live cell can raise instead of
+    skipping when the daemon is unreachable; proof: the module defines _docker_available()
+    and the live three-cell test is guarded by it. C2: the composed/docker selection
+    passes or skips on this tree; fail on any error; proof: .venv/bin/python -m pytest
+    -q tests/test_composed_mode.py -k ''docker or composed'' exits 0 with skips allowed.'
+  status: complete
+  created_at: '2026-11-16T12:19:33.368530+00:00'
+  completed_at: '2026-11-16T12:19:34.303143+00:00'
+- id: QA-TERMINAL-JAIL-33
+  title: Release and ops board state must be internally consistent on main
+  criteria:
+  - 'C1: the working tree has no unpushed commits relative to origin/main; fail if
+    git rev-list --count origin/main..HEAD is non-zero; proof: run that command. C2:
+    the shipped version in pyproject.toml matches plugin/plugin.yaml; fail on mismatch;
+    proof: grep ''^version'' pyproject.toml and ''version:'' plugin/plugin.yaml. C3:
+    the release/ops rows named by the premise (OPS-TJ-001, RELEASE-TJ-018..022) exist
+    on the board; fail if any is missing; proof: jq over .coding-hermes/board/tasks.jsonl.'
+  status: complete
+  created_at: '2026-11-16T12:24:47.859818+00:00'
+  completed_at: '2026-11-16T12:24:48.844858+00:00'
