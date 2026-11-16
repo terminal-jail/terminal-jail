@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -22,6 +23,27 @@ from terminal_jail.seccomp import (
     seccomp_enabled_from_environment,
     supported_architectures,
 )
+
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+SECCOMP_LOADER = PROJECT_ROOT / "standalone" / "seccomp-loader.py"
+
+
+def _run_loader(
+    *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    child_env = os.environ.copy()
+    child_env["TERMINAL_JAIL_SECCOMP"] = "0"
+    if env:
+        child_env.update(env)
+    return subprocess.run(
+        [sys.executable, str(SECCOMP_LOADER), *args],
+        cwd=str(PROJECT_ROOT),
+        env=child_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
 
 # ── Environment variable parsing ──────────────────────────────────────────────
 
@@ -367,6 +389,67 @@ class TestStandaloneCliSeccomp:
         )
         assert result.returncode == 0
         assert "--seccomp" in result.stdout
+
+    def test_loader_without_command_reports_usage_and_exits_2(self) -> None:
+        result = _run_loader()
+        assert result.returncode == 2
+        assert result.stderr == "Usage: seccomp-loader.py [--] <command> [args...]\n"
+        assert "Traceback" not in result.stderr
+
+    def test_loader_unknown_command_reports_not_found_and_exits_127(self) -> None:
+        command = "tj-seccomp-command-that-does-not-exist"
+        result = _run_loader(command)
+        assert result.returncode == 127
+        assert result.stderr == f"terminal-jail: {command}: command not found\n"
+        assert "Traceback" not in result.stderr
+
+    def test_loader_separator_passes_flag_like_payload_unchanged(self) -> None:
+        result = _run_loader(
+            "--",
+            sys.executable,
+            "-c",
+            "import sys; print(sys.argv[1])",
+            "--help",
+        )
+        assert result.returncode == 0
+        assert result.stdout == "--help\n"
+        assert result.stderr == ""
+
+    def test_loader_help_still_works(self) -> None:
+        result = _run_loader("--help")
+        assert result.returncode == 0
+        assert "seccomp-loader.py [--] <command> [args...]" in result.stdout
+        assert result.stderr == ""
+
+    def test_loader_short_help_still_works(self) -> None:
+        result = _run_loader("-h")
+        assert result.returncode == 0
+        assert "seccomp-loader.py [--] <command> [args...]" in result.stdout
+        assert result.stderr == ""
+
+    def test_loader_flag_like_command_is_not_reparsed(self, tmp_path) -> None:
+        payload = tmp_path / "-x"
+        payload.write_text("#!/bin/sh\nprintf 'payload=%s\\n' \"$@\"\n")
+        payload.chmod(0o755)
+        result = _run_loader(
+            "--", "-x", "--help", env={"PATH": f"{tmp_path}:{os.environ['PATH']}"}
+        )
+        assert result.returncode == 0
+        assert result.stdout == "payload=--help\n"
+        assert result.stderr == ""
+
+    def test_loader_separator_missing_payload_reports_usage(self) -> None:
+        result = _run_loader("--")
+        assert result.returncode == 2
+        assert result.stderr == "Usage: seccomp-loader.py [--] <command> [args...]\n"
+        assert "Traceback" not in result.stderr
+
+    def test_loader_separator_missing_binary_reports_not_found(self) -> None:
+        command = "tj-seccomp-payload-that-does-not-exist"
+        result = _run_loader("--", command)
+        assert result.returncode == 127
+        assert result.stderr == f"terminal-jail: {command}: command not found\n"
+        assert "Traceback" not in result.stderr
 
     def test_seccomp_without_command_exits_2(self) -> None:
         """--seccomp without a command should exit 2."""
