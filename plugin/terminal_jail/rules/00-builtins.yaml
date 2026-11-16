@@ -6,11 +6,14 @@
 # These reflect the same 55 rules hardcoded in the Python engine
 # (36 blocklist / 9 sandbox / 10 allow). Rule ids AND pattern strings must stay
 # byte-identical to the engine constants: install.sh copies this file into the
-# user rules dir, where same-id override REPLACES the builtin.
+# user rules dir, where a same-id user rule REPLACES the builtin in its layer.
+# An ALLOW replacement disables that critical block outright; WARN only
+# downgrades it to a warning.
 
 rules:
   # =============================================================================
-  # Critical Blocklist (priority 1000) — ALWAYS block, never override to allow
+  # Critical Blocklist (priority 1000) — blocks by default; a same-ID user
+  # ALLOW replacement disables the matching critical block outright.
   # =============================================================================
   - id: "builtin-kill-all"
     description: "Mass process kill"

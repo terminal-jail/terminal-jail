@@ -484,11 +484,11 @@ class Decider:
           namespace (the same prefix the built-in auto-sandbox layer uses)
         - warn: ALLOW carrying a would-have-blocked reason (TJ-DF-012) —
           the command runs, but the wrapper surfaces the warning on stderr.
-          Same-ID user rules may override a builtin to warn (blocklist.py
-          contract: builtins "cannot be removed — only overridden to warn
-          level by user rules"); previously this fell into the unknown-
-          action branch with a misleading "unknown action 'warn'" reason
-          and the reason was dropped, so the override ran silently.
+          Same-ID user rules may override a builtin to warn; an ``allow``
+          replacement disables that critical block outright (blocklist.py
+          contract). Previously this fell into the unknown-action branch with
+          a misleading "unknown action 'warn'" reason and the reason was
+          dropped, so the override ran silently.
         - allow: ALLOW (rule id retained for traceability)
         - anything else: fail-safe ALLOW with a warning reason (never block
           on an unknown action value)
