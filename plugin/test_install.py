@@ -386,6 +386,84 @@ def test_release_asset_names_match_captured_github_release(
     )
 
 
+def test_release_assets_and_default_match_live_github_release(
+    install_script: Path,
+) -> None:
+    """Ensure the installer's default and assets match GitHub's live release."""
+    gh = shutil.which("gh")
+    if gh is None:
+        pytest.skip("gh unavailable: executable not found")
+
+    source = install_script.read_text(encoding="utf-8")
+    default_version = re.search(
+        r'TERMINAL_JAIL_VERSION="\$\{TERMINAL_JAIL_VERSION:-([^}]+)\}"', source
+    )
+    assert default_version, "install.sh default release version is missing"
+    version = default_version.group(1).removeprefix("v")
+
+    def run_gh(*args: str) -> subprocess.CompletedProcess[str]:
+        try:
+            result = subprocess.run(
+                [gh, *args],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=SUBPROCESS_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired as exc:
+            detail = (exc.stderr or exc.stdout or "").strip()
+            pytest.skip(
+                "gh unavailable: command timed out" + (f": {detail}" if detail else "")
+            )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            pytest.skip(f"gh unavailable: {detail}")
+        return result
+
+    latest_result = run_gh(
+        "release",
+        "list",
+        "--repo",
+        "terminal-jail/terminal-jail",
+        "--limit",
+        "1",
+        "--json",
+        "tagName",
+    )
+    latest = json.loads(latest_result.stdout)
+    assert latest and latest[0].get("tagName"), (
+        f"gh release list returned no newest tag: {latest_result.stdout!r}"
+    )
+    latest_version = latest[0]["tagName"].removeprefix("v")
+    assert latest_version == version, (
+        f"install.sh default version {version} is stale; newest GitHub release is "
+        f"{latest[0]['tagName']}"
+    )
+
+    release_result = run_gh(
+        "release",
+        "view",
+        f"v{version}",
+        "--repo",
+        "terminal-jail/terminal-jail",
+        "--json",
+        "tagName,assets",
+    )
+    release = json.loads(release_result.stdout)
+    expected_assets = {
+        "SHA256SUMS",
+        f"terminal_jail-{version}-py3-none-any.whl",
+    }
+    published_assets = {asset["name"] for asset in release.get("assets", [])}
+    assert release.get("tagName") == f"v{version}", (
+        f"gh returned release {release.get('tagName')!r} for expected v{version}"
+    )
+    assert expected_assets <= published_assets, (
+        f"installer expects {sorted(expected_assets)} but GitHub publishes "
+        f"{sorted(published_assets)}"
+    )
+
+
 @pytest.mark.standalone_cli
 def test_bad_shebang_rejected(install_script: Path, tmp_path: Path) -> None:
     install_dir = tmp_path / "install-dir"
