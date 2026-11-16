@@ -27,7 +27,6 @@ import json
 import os
 import pathlib
 import shutil
-import signal
 import subprocess
 import sys
 
@@ -487,7 +486,9 @@ def test_selftest_mode_is_non_vacuous() -> None:
     assert "SELFTEST PASS" in result.stdout
 
 
-def test_foreign_sleep_shapes_are_not_adopted_or_signalled(harness, monkeypatch) -> None:
+def test_foreign_sleep_shapes_are_not_adopted_or_signalled(
+    harness, monkeypatch
+) -> None:
     """A payload-shaped process without this run's marker is never selected."""
     foreign = subprocess.Popen(["sleep", "300"])
     selected_signals: list[int] = []
@@ -496,10 +497,15 @@ def test_foreign_sleep_shapes_are_not_adopted_or_signalled(harness, monkeypatch)
         monkeypatch.setattr(harness, "_sleep300_pids", lambda: {foreign.pid})
         monkeypatch.setattr(harness, "_proc_uid", lambda _pid: os.getuid())
         monkeypatch.setattr(harness, "_proc_has_marker", lambda _pid, _marker: False)
-        monkeypatch.setattr(harness.os, "kill", lambda pid, _signal: selected_signals.append(pid))
+        monkeypatch.setattr(
+            harness.os, "kill", lambda pid, _signal: selected_signals.append(pid)
+        )
 
         assert harness._owned_descendant_sleep300_pids(999999, marker) == set()
-        assert harness._cleanup_pid(foreign.pid, 999999, marker) == "cleanup_identity_mismatch"
+        assert (
+            harness._cleanup_pid(foreign.pid, 999999, marker)
+            == "cleanup_identity_mismatch"
+        )
         assert selected_signals == []
     finally:
         foreign.kill()
@@ -525,13 +531,17 @@ def test_unavailable_launcher_does_not_adopt_concurrent_foreign_sleep(
             return self.returncode
 
     try:
-        monkeypatch.setattr(harness.subprocess, "Popen", lambda **_kwargs: FakeLauncher())
+        monkeypatch.setattr(
+            harness.subprocess, "Popen", lambda *_args, **_kwargs: FakeLauncher()
+        )
         foreign_pids = {process.pid for process in foreign}
         monkeypatch.setattr(harness, "_sleep300_pids", lambda: foreign_pids)
         monkeypatch.setattr(harness, "_proc_uid", lambda _pid: os.getuid())
         monkeypatch.setattr(harness, "_proc_has_marker", lambda _pid, _marker: False)
         monkeypatch.setattr(harness, "LAUNCH_WAIT", 0)
-        monkeypatch.setattr(harness.os, "kill", lambda pid, _signal: signals.append(pid))
+        monkeypatch.setattr(
+            harness.os, "kill", lambda pid, _signal: signals.append(pid)
+        )
         row = harness.run_backend_cell("unshare")
         assert row["verdict"] == "UNAVAILABLE"
         assert not ({process.pid for process in foreign} & set(signals))
@@ -543,14 +553,18 @@ def test_unavailable_launcher_does_not_adopt_concurrent_foreign_sleep(
             process.wait()
 
 
-def test_cleanup_eperm_is_structured_and_human_visible(harness, monkeypatch, capsys) -> None:
+def test_cleanup_eperm_is_structured_and_human_visible(
+    harness, monkeypatch, capsys
+) -> None:
     monkeypatch.setattr(harness, "_proc_uid", lambda _pid: os.getuid())
     monkeypatch.setattr(harness, "_proc_has_marker", lambda _pid, _marker: True)
     monkeypatch.setattr(harness, "_is_descendant", lambda _pid, _ancestor: True)
     monkeypatch.setattr(
         harness.os,
         "kill",
-        lambda _pid, _signal: (_ for _ in ()).throw(PermissionError(1, "Operation not permitted")),
+        lambda _pid, _signal: (_ for _ in ()).throw(
+            PermissionError(1, "Operation not permitted")
+        ),
     )
 
     assert harness._cleanup_pid(4321, 100, "marker") == "cleanup_eperm"
