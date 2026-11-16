@@ -1070,3 +1070,7 @@
 {"id":1074,"timestamp":"2026-11-16 03:42:32+00:00","event_type":"task_updated","task_id":"QA-TERMINAL-JAIL-36","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":1075,"timestamp":"2026-11-16 04:27:48+00:00","event_type":"task_updated","task_id":"QA-TERMINAL-JAIL-36","actor":"foreman","detail":"{\"status\":\"pending\"}","tick_number":null}
 {"id":1076,"timestamp":"2026-11-16 04:42:07+00:00","event_type":"task_completed","task_id":"QA-TERMINAL-JAIL-36","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":1077,"timestamp":"2026-11-16 11:01:15+00:00","event_type":"task_completed","task_id":"QA-TERMINAL-JAIL-30","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":1078,"timestamp":"2026-11-16 11:36:19+00:00","event_type":"task_completed","task_id":"TJ-DF-065","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":1079,"timestamp":"2026-11-16 11:36:19+00:00","event_type":"task_completed","task_id":"DOC-29","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":1080,"timestamp":"2026-11-16 11:36:57+00:00","event_type":"task_completed","task_id":"DOC-14-R2","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}

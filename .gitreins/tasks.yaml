@@ -2510,3 +2510,74 @@ tasks:
   status: complete
   created_at: '2026-11-16T00:51:44.409407+00:00'
   completed_at: '2026-11-16T01:26:20.420915+00:00'
+- id: QA-TERMINAL-JAIL-30
+  title: Unknown action value in a user rule is diagnosed, not silent fail-open
+  criteria:
+  - 'At repo root: (1) plugin/terminal_jail/interruptor/decider.py carries an unknown-match
+    diagnostic path that attaches a rule id and reason to the verdict instead of silently
+    returning a bare ALLOW; (2) .venv/bin/python -m pytest -x -q plugin/test_interruptor.py
+    -k unknown_rule_action exits 0 and prints ''2 passed''; (3) the two selected tests
+    are test_unknown_rule_action_fails_open and test_unknown_rule_action_is_visible_on_cli_stderr,
+    the latter asserting the CLI stderr names the offending action value and the verdict
+    carries a non-null rule id.'
+  status: complete
+  created_at: '2026-11-16T10:54:14.447588+00:00'
+  completed_at: '2026-11-16T10:54:15.491411+00:00'
+- id: TJ-DF-065
+  title: docs/quickstart.md must not pin a stale --version literal
+  criteria:
+  - 'At repo root: (1) grep -n ''1\.3\.0'' docs/quickstart.md returns no line asserting
+    the current repo or shipped version is 1.3.0; (2) the expected --version output
+    in docs/quickstart.md either matches the version printed by ./standalone/terminal-jail
+    --version from this tree or states no literal version at all; (3) any worked example
+    that names a repo version is consistent with pyproject.toml; (4) .venv/bin/python
+    scripts/docs-check.py exits 0 and .venv/bin/python -m pytest -q tests/test_quickstart_doc.py
+    tests/test_composed_doc.py exits 0.'
+  status: complete
+  created_at: '2026-11-16T11:03:49.930071+00:00'
+  completed_at: '2026-11-16T11:03:50.943808+00:00'
+- id: DOC-29
+  title: docs/COMPATIBILITY.md must not contradict itself or carry stale suite counts
+  criteria:
+  - 'C1: docs/COMPATIBILITY.md contains no statement claiming the page predates the
+    v1.2 backend split while also describing post-split behavior; fail if both remain;
+    proof: grep -n ''predates the v1.2 backend split'' docs/COMPATIBILITY.md returns
+    nothing. C2: no hand-pinned unit/integration test counts that contradict the current
+    tree (2162 collected); fail if ''108 unit'' or ''25 integration'' remain; proof:
+    grep -nE ''108 unit|25 integration'' docs/COMPATIBILITY.md returns nothing. C3:
+    any ''Last verified'' date/version reference is consistent with pyproject version
+    1.3.4; proof: grep -n ''Last verified'' docs/COMPATIBILITY.md. C4: .venv/bin/python
+    scripts/docs-check.py exits 0 on this tree.'
+  status: complete
+  created_at: '2026-11-16T11:20:28.918704+00:00'
+  completed_at: '2026-11-16T11:20:29.937142+00:00'
+- id: QA-TERMINAL-JAIL-31
+  title: Interruptor contract must say a same-ID user ALLOW disables a builtin block
+    outright
+  criteria:
+  - 'C1: blocklist.py module docstring and plugin/terminal_jail/rules/00-builtins.yaml
+    and specs/interruptor.md all state that a same-ID user rule replaces the builtin
+    and that ALLOW disables the block outright; fail if any surface still says builtins
+    ''cannot be removed'' or ''only overridden to warn''; proof: grep -rn ''cannot
+    be removed'' plugin/terminal_jail/interruptor/blocklist.py specs/interruptor.md
+    plugin/terminal_jail/rules/00-builtins.yaml. C2: a regression test asserts the
+    ALLOW-disables-builtin behavior with verdict allow, rule_id builtin-rm-rf-root,
+    layer user; proof: .venv/bin/python -m pytest -q plugin/test_interruptor.py -k
+    same_id. C3: full interruptor suite passes; proof: .venv/bin/python -m pytest
+    -q plugin/test_interruptor.py exits 0 (529 passed).'
+  status: complete
+  created_at: '2026-11-16T11:24:17.788115+00:00'
+  completed_at: '2026-11-16T11:24:18.690262+00:00'
+- id: DOC-14-R2
+  title: README version cell must be derived and guarded by docs-check
+  criteria:
+  - 'C1: README.md no longer pins a literal release version in its Version cell; fail
+    if a v1.x.y literal appears there; proof: sed -n ''19p'' README.md. C2: scripts/docs-check.py
+    fails when the README Version cell disagrees with pyproject.toml; proof: pin v0.0.9
+    in the cell and observe docs-check overall FAIL naming pyproject 1.3.4, then restore.
+    C3: no hand-pinned collected/passed counts remain in README; proof: grep -nE ''2074
+    collected|1900 passed'' README.md returns nothing. C4: .venv/bin/python scripts/docs-check.py
+    exits 0 on the merged tree.'
+  status: complete
+  created_at: '2026-11-16T11:28:16.643799+00:00'
+  completed_at: '2026-11-16T11:28:18.058948+00:00'
