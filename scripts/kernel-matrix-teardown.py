@@ -92,6 +92,7 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "standalone" / "terminal-jail"
@@ -158,6 +159,9 @@ def validate_row(row: object) -> tuple[dict | None, str]:
         "captured": row["captured"].strip(),
         "evidence": row["evidence"],
     }
+    for field in ("cleanup_eperm", "cleanup_conditions"):
+        if field in row:
+            canonical[field] = row[field]
     return canonical, ""
 
 
@@ -197,7 +201,54 @@ def host_kernel() -> str:
         return "unknown"
 
 
+def _proc_info(pid: int) -> tuple[int, int] | None:
+    """Return (parent_pid, start_time) for a host /proc process.
+
+    The start time is part of the process identity: a PID can be recycled
+    while a teardown cell is running.  Parsing ``stat`` from the last closing
+    parenthesis keeps command names containing spaces from shifting fields.
+    """
+    proc = pathlib.Path(f"/proc/{pid}")
+    try:
+        stat = (proc / "stat").read_text(encoding="ascii")
+        closing = stat.rfind(")")
+        fields = stat[closing + 2 :].split()
+        # fields[0] is state (stat field 3), fields[1] is ppid (field 4),
+        # and fields[19] is starttime (stat field 22).
+        return int(fields[1]), int(fields[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _proc_uid(pid: int) -> int | None:
+    try:
+        return pathlib.Path(f"/proc/{pid}").stat().st_uid
+    except OSError:
+        return None
+
+
+def _is_descendant(pid: int, ancestor: int) -> bool:
+    """Return whether pid is currently descended from ancestor."""
+    seen: set[int] = set()
+    current = pid
+    while current not in seen and current > 1:
+        if current == ancestor:
+            return True
+        seen.add(current)
+        info = _proc_info(current)
+        if info is None:
+            return False
+        current = info[0]
+    return current == ancestor
+
+
 def _sleep300_pids() -> set[int]:
+    """Find command-shaped processes, without asserting ownership.
+
+    This is intentionally only a raw observation helper.  Callers that may
+    signal a process must additionally prove both UID ownership and launcher
+    ancestry; a command line is not an identity.
+    """
     out: set[int] = set()
     for proc in pathlib.Path("/proc").iterdir():
         if not proc.name.isdigit():
@@ -211,11 +262,79 @@ def _sleep300_pids() -> set[int]:
     return out
 
 
-def _cli_env(backend: str) -> dict[str, str]:
+def _proc_has_marker(pid: int, marker: str) -> bool:
+    try:
+        environ = (pathlib.Path(f"/proc/{pid}") / "environ").read_bytes()
+    except OSError:
+        return False
+    return f"TERMINAL_JAIL_MATRIX_MARKER={marker}".encode() in environ.split(b"\0")
+
+
+def _owned_marked_sleep300_pids(marker: str) -> set[int]:
+    """Return same-UID sleep payloads carrying this cell's unique marker."""
+    uid = os.getuid()
+    return {
+        pid
+        for pid in _sleep300_pids()
+        if _proc_uid(pid) == uid and _proc_has_marker(pid, marker)
+    }
+
+
+def _owned_descendant_sleep300_pids(launcher_pid: int, marker: str) -> set[int]:
+    """Return only marked, same-UID payloads descended from this launcher."""
+    return {
+        pid
+        for pid in _owned_marked_sleep300_pids(marker)
+        if _is_descendant(pid, launcher_pid)
+    }
+
+
+def _owned_marked_pids(marker: str) -> set[int]:
+    """Observe marker-owned processes for cleanup after launcher death."""
+    return {
+        pid
+        for pid in _sleep300_pids()
+        if _proc_uid(pid) == os.getuid() and _proc_has_marker(pid, marker)
+    }
+
+
+def _record_cleanup(pid: int, launcher_pid: int, marker: str) -> str | None:
+    """Record refusal instead of aborting when cleanup cannot signal a PID."""
+    if _proc_uid(pid) != os.getuid():
+        return "cleanup_no_permission"
+    if not _proc_has_marker(pid, marker) or not _is_descendant(pid, launcher_pid):
+        return "cleanup_identity_mismatch"
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        return "cleanup_eperm"
+    return None
+
+
+def _namespace_prerequisite_evidence(stderr: bytes) -> str | None:
+    text = stderr.decode("utf-8", errors="replace").lower()
+    if any(
+        token in text
+        for token in ("namespace", "unshare", "bubblewrap", "operation not permitted")
+    ):
+        detail = stderr.decode("utf-8", errors="replace").strip()
+        return "unsupported namespace prerequisites" + (f": {detail}" if detail else "")
+    return None
+
+
+def _cli_env(backend: str, marker: str = "") -> dict[str, str]:
     env = dict(os.environ)
     env["TERMINAL_JAIL_JAIL_BACKEND"] = backend
     env["TERMINAL_JAIL_INTERRUPTOR_MODE"] = "disabled"
+    if marker:
+        env["TERMINAL_JAIL_MATRIX_MARKER"] = marker
     return env
+
+
+def _cleanup_pid(pid: int, launcher_pid: int, marker: str) -> str | None:
+    return _record_cleanup(pid, launcher_pid, marker)
 
 
 def _measured_row(
@@ -225,6 +344,7 @@ def _measured_row(
     survival: float | None,
     exit_code: int | None,
     evidence: str,
+    **extra: object,
 ) -> dict:
     row = {
         "kernel": host_kernel(),
@@ -234,6 +354,7 @@ def _measured_row(
         "exit_code": exit_code,
         "captured": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "evidence": evidence,
+        **extra,
     }
     canonical, reason = validate_row(row)
     assert canonical is not None, f"harness produced an invalid row: {reason}"
@@ -241,16 +362,23 @@ def _measured_row(
 
 
 def run_backend_cell(backend: str) -> dict:
-    """Measure one backend's orphan teardown on THIS host. Never guesses: a
-    launch failure is UNAVAILABLE, a surviving payload is FAIL."""
-    before = _sleep300_pids()
+    """Measure one backend's orphan teardown on THIS host.
+
+    Payload identity is bound to a unique environment marker, same UID, and
+    launcher ancestry. Cleanup is evidence-producing and cannot abort the
+    verifier on EPERM or unsupported namespace prerequisites.
+    """
+    return _run_backend_cell(backend, uuid.uuid4().hex)
+
+
+def _run_backend_cell(backend: str, marker: str) -> dict:
     try:
         launcher = subprocess.Popen(
             [str(CLI), "--no-interruptor", "--user", "sleep", "300"],
             cwd=str(PROJECT_ROOT),
-            env=_cli_env(backend),
+            env=_cli_env(backend, marker),
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
         )
@@ -265,24 +393,28 @@ def run_backend_cell(backend: str) -> dict:
     payload: int | None = None
     t0 = time.monotonic()
     while time.monotonic() - t0 < LAUNCH_WAIT:
-        new = _sleep300_pids() - before
-        if new:
-            payload = min(new)
+        candidates = _owned_descendant_sleep300_pids(launcher.pid, marker)
+        if candidates:
+            payload = min(candidates)
             break
         time.sleep(0.05)
     if payload is None:
         launcher.kill()
         launcher.wait()
+        prereq = _namespace_prerequisite_evidence(launcher.stderr.read() if launcher.stderr else b"")
+        evidence = (
+            f"no marked 'sleep 300' payload appeared within {LAUNCH_WAIT:.0f}s; "
+            "wrapper exited without launching the jail "
+            f"(launcher return code {launcher.returncode})"
+        )
+        if prereq:
+            evidence += f"; {prereq}"
         return _measured_row(
             backend,
             verdict="UNAVAILABLE",
             survival=None,
             exit_code=None,
-            evidence=(
-                f"no 'sleep 300' payload appeared within {LAUNCH_WAIT:.0f}s; "
-                "wrapper exited without launching the jail "
-                f"(launcher return code {launcher.returncode})"
-            ),
+            evidence=evidence,
         )
     try:
         os.kill(launcher.pid, signal.SIGKILL)
@@ -305,19 +437,21 @@ def run_backend_cell(backend: str) -> dict:
             exit_code=exit_code,
             evidence=(
                 f"wrapper pid {launcher.pid} SIGKILLed; payload pid {payload} "
-                f"(cmdline 'sleep 300', host-side, diffed against the "
-                f"pre-launch /proc scan) disappeared in {survival * 1000:.0f} ms"
+                "matched this launch's marker, UID, and ancestry and disappeared "
+                f"in {survival * 1000:.0f} ms"
             ),
         )
-    leftover = _sleep300_pids() - before
-    try:
-        # cleanup, not the contract: do not leave an orphan behind
-        os.kill(payload, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    candidates = _owned_marked_pids(marker)
+    cleanup_conditions: list[str] = []
+    for pid in candidates:
+        condition = _cleanup_pid(pid, launcher.pid, marker)
+        if condition:
+            cleanup_conditions.append(f"{condition}={pid}")
+    if payload not in candidates:
+        cleanup_conditions.append(f"cleanup_identity_mismatch={payload}")
     note = (
-        f"leftover 'sleep 300' pids after cleanup: {sorted(leftover)}"
-        if leftover
+        f"cleanup conditions: {', '.join(cleanup_conditions)}"
+        if cleanup_conditions
         else "payload reaped during cleanup"
     )
     return _measured_row(
@@ -329,6 +463,8 @@ def run_backend_cell(backend: str) -> dict:
             f"ORPHAN: payload pid {payload} survived the wrapper's SIGKILL "
             f"for the full {TEARDOWN_BUDGET:.0f}s budget; {note}"
         ),
+        cleanup_eperm=any("cleanup_eperm" in item for item in cleanup_conditions),
+        cleanup_conditions=cleanup_conditions,
     )
 
 
@@ -401,6 +537,13 @@ def print_human(rows: list[dict], summary: dict, *, show_raw: bool) -> None:
             f"{_fmt_survival(row):>10} {_fmt_exit(row):>5}  "
             f"{row['captured']}{marker}"
         )
+        if row.get("cleanup_eperm"):
+            print("  cleanup/permission condition: cleanup_eperm (payload not signalable)")
+        elif row.get("cleanup_conditions"):
+            print(
+                "  cleanup/permission condition: "
+                + ", ".join(row["cleanup_conditions"])
+            )
     print()
     print("summary:")
     complete = summary["kernels_with_complete_measured_pair"]
