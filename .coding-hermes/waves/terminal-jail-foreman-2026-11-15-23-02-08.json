@@ -1,0 +1,47 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-15-23-02-08",
+  "project": "terminal-jail",
+  "kind": "wave",
+  "budget": 10,
+  "dispatched": 3,
+  "worker": {
+    "model": "openai/gpt-6.1-terra",
+    "provider": "xkiro",
+    "skill": "coding-hermes-worker"
+  },
+  "base_commit": "354958c",
+  "tasks": [
+    {
+      "id": "RELEASE-TJ-021",
+      "priority": "P2",
+      "title": "in-jail Landlock/seccomp trampoline still hardcodes python3",
+      "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-021-w22",
+      "branch": "wt/RELEASE-TJ-021-w22",
+      "depends_on": [],
+      "brief": "/home/kara/.hermes/cache/scratch/tj-w22/RELEASE-TJ-021.brief.md",
+      "log": "/home/kara/.hermes/cache/scratch/tj-w22/RELEASE-TJ-021.log"
+    },
+    {
+      "id": "TJ-DF-062",
+      "priority": "P2",
+      "title": "release mode cannot install from this project own releases",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-062-w22",
+      "branch": "wt/TJ-DF-062-w22",
+      "depends_on": [],
+      "brief": "/home/kara/.hermes/cache/scratch/tj-w22/TJ-DF-062.brief.md",
+      "log": "/home/kara/.hermes/cache/scratch/tj-w22/TJ-DF-062.log"
+    },
+    {
+      "id": "QA-TERMINAL-JAIL-29",
+      "priority": "P3",
+      "title": "test_packaging_wheel is not hermetic over the host config dir",
+      "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-29-w22",
+      "branch": "wt/QA-TERMINAL-JAIL-29-w22",
+      "depends_on": [],
+      "brief": "/home/kara/.hermes/cache/scratch/tj-w22/QA-TERMINAL-JAIL-29.brief.md",
+      "log": "/home/kara/.hermes/cache/scratch/tj-w22/QA-TERMINAL-JAIL-29.log"
+    }
+  ],
+  "merge_policy": "serial, gate each merge, push after each commit",
+  "board_events": [1063, 1064, 1065]
+}

@@ -2339,14 +2339,17 @@ tasks:
   created_at: '2026-11-09T19:24:15.414016+00:00'
   completed_at: '2026-11-09T19:56:45.572231+00:00'
 - id: TJ-DF-062
-  title: Release-mode installer uses published assets
+  title: Release mode installs from this project own releases
   criteria:
-  - With release mode enabled, install.sh installs from the published v1.3.1 assets
-    for default and explicit versions; errors are named; docs and tests prevent asset-name
-    drift.
+  - TERMINAL_JAIL_USE_RELEASE=1 with no version override completes (rc=0) against
+    the newest release real assets with a named error path; an explicit published
+    TERMINAL_JAIL_VERSION completes; default TERMINAL_JAIL_VERSION equals the newest
+    published tag and install.sh:21 comment agrees; README:190 and docs/quickstart.md:69-72
+    no longer claim no release assets are published; a test asserts the installer
+    expected asset names against gh release view assets so the surfaces cannot drift.
   status: complete
-  created_at: '2026-11-09T20:11:52.208274+00:00'
-  completed_at: '2026-11-09T20:46:42.214501+00:00'
+  created_at: '2026-11-15T23:11:32.926615+00:00'
+  completed_at: '2026-11-16T00:15:20.169165+00:00'
 - id: TJ-DF-062-R1
   title: Verify TJ-DF-062 release installer fix
   criteria:
@@ -2442,3 +2445,25 @@ tasks:
   status: complete
   created_at: '2026-11-15T21:31:17.607110+00:00'
   completed_at: '2026-11-15T22:21:56.746945+00:00'
+- id: RELEASE-TJ-021
+  title: In-jail Landlock/seccomp trampoline must not hardcode python3
+  criteria:
+  - With a wheel/layout install and a broken python3 shadowing PATH, terminal-jail
+    --interruptor /bin/true exits 0, prints the allow verdict and runs the command;
+    trampolines resolve TERMINAL_JAIL_PYTHON then python3; an explicitly set nonexistent
+    interpreter fails loudly; regression test pins the two-arm shape (built bundle
+    + PATH-shadowed python3) in plugin/test_wrapper_landlock_interpreter.py and passes.
+  status: complete
+  created_at: '2026-11-15T23:11:32.042674+00:00'
+  completed_at: '2026-11-16T00:03:58.681383+00:00'
+- id: QA-TERMINAL-JAIL-29
+  title: test_packaging_wheel must be hermetic over the host config dir
+  criteria:
+  - pytest plugin/test_packaging_wheel.py::TestUnactivatedVenvBridgeInterpreter passes
+    on py3.13 on a host that has ~/.config/terminal-jail/rules.d/00-builtins.yaml
+    because the fixture isolates HOME, XDG_CONFIG_HOME and TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR;
+    the fail-closed bridge-error path is asserted explicitly instead of collapsing
+    into the rc=2 degradation branch.
+  status: complete
+  created_at: '2026-11-15T23:11:41.041715+00:00'
+  completed_at: '2026-11-15T23:43:26.685200+00:00'
