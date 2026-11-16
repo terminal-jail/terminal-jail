@@ -19,6 +19,8 @@ Exit:
   its exit code.
   If the filter cannot be applied, a warning is written to stderr and
   the command is exec'd without seccomp.
+  A missing command is a usage error (exit 2).  A command that cannot be
+  found exits 127; a command that cannot be executed exits 126.
 """
 
 from __future__ import annotations
@@ -55,7 +57,40 @@ def _setup_path() -> None:
         current = parent
 
 
+def _payload_args(argv: list[str]) -> list[str]:
+    """Return the payload, consuming one leading ``--`` separator."""
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    return argv
+
+
+def _print_help() -> None:
+    print("Usage: seccomp-loader.py [--] <command> [args...]")
+    print("       seccomp-loader.py -h|--help")
+
+
+def _exec_payload(args: list[str]) -> None:
+    """Exec the payload, preserving the shell-compatible failure contract."""
+    if not args:
+        print("Usage: seccomp-loader.py [--] <command> [args...]", file=sys.stderr)
+        raise SystemExit(2)
+
+    try:
+        os.execvp(args[0], args)
+    except FileNotFoundError:
+        print(f"terminal-jail: {args[0]}: command not found", file=sys.stderr)
+        raise SystemExit(127) from None
+    except PermissionError:
+        print(f"terminal-jail: {args[0]}: Permission denied", file=sys.stderr)
+        raise SystemExit(126) from None
+
+
 def _main() -> None:
+    raw_args = sys.argv[1:]
+    if raw_args and raw_args[0] in ("-h", "--help"):
+        _print_help()
+        return
+
     _setup_path()
 
     from terminal_jail.seccomp import seccomp_enabled_from_environment, try_apply
@@ -69,12 +104,7 @@ def _main() -> None:
                 file=sys.stderr,
             )
 
-    args = sys.argv[1:]
-    if not args:
-        print("Usage: seccomp-loader.py [--] <command> [args...]", file=sys.stderr)
-        sys.exit(2)
-
-    os.execvp(args[0], args)
+    _exec_payload(_payload_args(sys.argv[1:]))
 
 
 if __name__ == "__main__":
