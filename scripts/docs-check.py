@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""README docs check for terminal-jail (README-5): fences + pinned commands.
+"""README docs check for terminal-jail (README-5): fences, version, commands.
 
 Nothing else in CI reads README.md (verified 2026-10-27: the "Drift guards"
 job runs rule-catalog / yaml-mirror-parity / rules-drift / backend-parity /
@@ -46,14 +46,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 COMMAND_TIMEOUT_S = 60
+
+VERSION_LITERAL_RE = re.compile(r"v?[0-9]+[.][0-9]+[.][0-9]+")
 
 BRIDGE_STDIN = '{"command": "ls -la"}\n'
 
@@ -105,6 +109,46 @@ def check_fence_balance(readme: Path) -> tuple[bool, str]:
         f"block opened at line {open_at} of {readme} is never closed "
         f"(EOF inside a fence)"
     )
+
+
+def check_version_cell(
+    readme: Path, pyproject: Path = REPO_ROOT / "pyproject.toml"
+) -> tuple[bool, str]:
+    """Reject hard-coded README Version-cell values that differ from pyproject."""
+    try:
+        version = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"][
+            "version"
+        ]
+        lines = readme.read_text(encoding="utf-8").splitlines()
+    except (
+        KeyError,
+        OSError,
+        TypeError,
+        UnicodeDecodeError,
+        tomllib.TOMLDecodeError,
+    ) as exc:
+        return False, f"[FAIL] README Version cell: cannot read version sources: {exc}"
+
+    version_lines = [line for line in lines if line.startswith("| **Version** |")]
+    if len(version_lines) != 1:
+        return False, (
+            "[FAIL] README Version cell: expected exactly one "
+            f"Version row, found {len(version_lines)}"
+        )
+
+    expected = f"v{version}"
+    literals = VERSION_LITERAL_RE.findall(version_lines[0])
+    stale = sorted(
+        set(literal for literal in literals if literal.removeprefix("v") != version)
+    )
+    if stale:
+        return False, (
+            f"[FAIL] README Version cell: pyproject.toml says {expected}; "
+            f"README contains stale version(s): {', '.join(stale)}"
+        )
+    if literals:
+        return True, f"[PASS] README Version cell matches pyproject.toml ({expected})"
+    return True, "[PASS] README Version cell has no hard-coded version literal"
 
 
 def _first_line(proc: subprocess.CompletedProcess[str]) -> str:
@@ -219,19 +263,23 @@ def main(argv: list[str] | None = None) -> int:
     print(f"docs-check[check1] {fence_msg}")
     all_ok = all_ok and fence_ok
 
+    version_ok, version_msg = check_version_cell(args.readme)
+    print(f"docs-check[check2] {version_msg}")
+    all_ok = all_ok and version_ok
+
     if skip_commands_requested():
         print(
-            "docs-check[check2] [SKIP] pinned commands skipped "
+            "docs-check[check3] [SKIP] pinned commands skipped "
             "(TERMINAL_JAIL_DOCS_CHECK_SKIP_COMMANDS is set); "
             "check 1 remains enforced"
         )
     else:
         cmds_ok, cmd_msgs = run_pinned_commands()
         for msg in cmd_msgs:
-            print(f"docs-check[check2] {msg}")
+            print(f"docs-check[check3] {msg}")
         status = "PASS" if cmds_ok else "FAIL"
         print(
-            f"docs-check[check2] [{status}] pinned commands "
+            f"docs-check[check3] [{status}] pinned commands "
             f"({len(PINNED_COMMANDS)} pinned)"
         )
         all_ok = all_ok and cmds_ok
