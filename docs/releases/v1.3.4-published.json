@@ -1,0 +1,51 @@
+{
+  "tag": "v1.3.4",
+  "name": "terminal-jail v1.3.4",
+  "url": "https://github.com/terminal-jail/terminal-jail/releases/tag/v1.3.4",
+  "release_id": 447116982,
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-11-16T14:01:04Z",
+  "published_by": "totalwindupflightsystems",
+  "publish_path": "hand publish per docs/releasing.md step 5b (the Release workflow cannot publish: RELCI-001)",
+  "tagged_commit": "ac503565334ced94634e2511f53470d063564f7e",
+  "candidate_ci_run": 43867293778,
+  "candidate_ci_conclusion": "success — CI workflow, six completed checks (Python 3.11, Python 3.12, Python 3.13, Lint, Audit, Drift guards)",
+  "tag_ci_run": 43881210634,
+  "tag_ci_conclusion": "failure at step 'Preflight — verify the token may create releases': GITHUB_TOKEN lacks contents:write — RELCI-001, not a product red",
+  "semver": "patch",
+  "commit_census": {
+    "baseline_tag": "v1.3.3",
+    "fix": 17,
+    "feat": 0,
+    "breaking": 0,
+    "material_paths_changed": 44
+  },
+  "body_sha256": "b3559a67854c11bd48f1d198b65917b707dbbf9e2e241d66ca281d0bba098ed1",
+  "body_bytes": 1906,
+  "assets": [
+    {
+      "name": "terminal_jail-1.3.4.tar.gz",
+      "bytes": 287047,
+      "sha256": "f0930681808188c1d55de4437ef887bc2226d6a87aadeaf4c63d23c92ecc92bf"
+    },
+    {
+      "name": "terminal_jail-1.3.4-py3-none-any.whl",
+      "bytes": 195922,
+      "sha256": "4a19d7fff3009f29f2836a1d52fd364aa5a379155cb3c3ae068d2f9286c6f8f2"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 196,
+      "sha256": null
+    }
+  ],
+  "checks": {
+    "sha256sum_c": "OK for both artifacts after re-download from the release host (2026-11-16)",
+    "wheel_install": "fresh uv venv (python 3.11): importlib.metadata.version('terminal_jail')=1.3.4 and terminal-jail --version='terminal-jail 1.3.4'",
+    "release_cut_check": "scripts/release-cut-check.sh v1.3.4 exited 0 in a detached candidate worktree",
+    "suite": "2148 passed, 15 skipped on a clean detached worktree at the tagged commit",
+    "gitreins": "Tier 1 DEGRADED PASS on the candidate worktree; no verdict bound to the tagged commit exists — not claimed as coverage",
+    "residual": "install.sh still defaults to the v1.3.3 asset URLs (RELEASE-TJ-026); gitreins Tier-1 static_analysis silently skipped despite pyproject.toml (RELEASE-TJ-027)"
+  }
+}
