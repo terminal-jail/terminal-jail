@@ -2734,9 +2734,8 @@ class TestUserRules:
 
     Spec §4(d): user rules evaluate after builtins, highest priority
     first, first match wins. Spec §3: "User rules override system rules."
-    blocklist.py contract: builtins "cannot be removed — only overridden
-    to warn level by user rules" — same-ID user rules REPLACE the builtin
-    entry (spec T-I38).
+    Same-ID user rules REPLACE the builtin entry (spec T-I38): ``warn``
+    downgrades the verdict, while ``allow`` disables the builtin block outright.
     """
 
     @staticmethod
@@ -3103,7 +3102,7 @@ rules:
             _assert_sandboxed_modify(result, "danger-tool --wipe")
 
     def test_same_id_override_builtin_blocklist(self, tmp_path) -> None:
-        """T-I38: a same-ID user allow rule replaces a builtin block rule.
+        """T-I38: a same-ID ALLOW disables a builtin block outright.
 
         The builtin is removed from the blocklist layer, so its pattern no
         longer fires for that rule id — the user allow rule wins.
@@ -3112,11 +3111,11 @@ rules:
 rules:
   - id: builtin-rm-rf-root
     description: User override — allow rm -rf / (dogfood override)
-    priority: 100
+    priority: 999
     action: allow
     match:
       type: pattern
-      pattern: 'rm\s+-rf\s+/'
+      pattern: '^rm\s+-rf\s+/$'
 """
         config = _write_user_rules(tmp_path, yaml_text)
         result = intercept("rm -rf /", config=config)
@@ -3124,6 +3123,32 @@ rules:
             f"Expected ALLOW (same-ID override of builtin-rm-rf-root), got "
             f"{result.action} (rule={result.rule_id!r})"
         )
+        assert result.rule_id == "builtin-rm-rf-root"
+        assert result.layer == "user"
+
+    def test_same_id_allow_builtin_contract_matches_shipped_docs(self) -> None:
+        """T-I38's ALLOW consequence stays aligned with all contract surfaces."""
+        from terminal_jail.interruptor import blocklist
+
+        repo_root = Path(__file__).resolve().parents[1]
+        yaml_text = (
+            repo_root / "plugin/terminal_jail/rules/00-builtins.yaml"
+        ).read_text()
+        spec_text = (repo_root / "specs/interruptor.md").read_text()
+        for surface_name, surface in (
+            ("blocklist.py", blocklist.__doc__ or ""),
+            ("00-builtins.yaml", yaml_text),
+            ("specs/interruptor.md", spec_text),
+        ):
+            normalized = " ".join(surface.lower().split())
+            assert "same-id" in normalized, f"{surface_name} omits same-ID replacement"
+            assert "allow" in normalized, f"{surface_name} omits ALLOW behavior"
+            assert "disables" in normalized and "outright" in normalized, (
+                f"{surface_name} must say a same-ID ALLOW disables the block outright"
+            )
+            assert "cannot be removed" not in normalized, (
+                f"{surface_name} still claims builtins cannot be removed"
+            )
 
     def test_same_id_override_does_not_affect_other_builtins(self, tmp_path) -> None:
         """Overriding one builtin leaves the other builtins fully active."""

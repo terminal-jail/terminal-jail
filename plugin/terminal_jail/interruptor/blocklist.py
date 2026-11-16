@@ -1,7 +1,8 @@
 """Built-in critical blocklist rules for the interruptor.
 
-These rules are ALWAYS active and cannot be removed — only overridden to
-``warn`` level by user rules. They ship with the interruptor package.
+These rules are active by default. A same-ID user rule replaces the builtin in
+its layer: ``warn`` downgrades the verdict to a warning, while ``allow``
+disables the critical block outright. They ship with the interruptor package.
 """
 
 from __future__ import annotations
@@ -586,8 +587,8 @@ BUILTIN_BLOCKLIST: list[Rule] = [
     # ──     (plain curl/wget downloads, inline bodies/fields, `--form-string`,
     # ──     scoped rsync/scp/ssh/git traffic).
     # ── A legitimate workflow that genuinely needs one of the shapes below can
-    # ── install a same-id user rule that overrides it to `warn` (blocklist.py
-    # ── contract: builtins can be overridden to warn, never removed).
+    # ── install a same-id user rule: `warn` downgrades the verdict, while
+    # ── `allow` disables the matching critical block outright.
     # ──
     # ── Every pattern joins its arms with the quote-aware gap
     # ── `(?:[^|;&]|'[^']*'|"[^"]*")*?`: the usual `[^|;&]*` cannot cross a

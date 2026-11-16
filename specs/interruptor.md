@@ -249,7 +249,10 @@ to it, and the user-dir pack would override that same-id system rule.
 
 ## 4. Built-in Default Rules
 
-These ship with the interruptor and CANNOT be removed (only overridden to `warn` level):
+These ship with the interruptor and are active by default. A same-ID user rule
+replaces the builtin in its layer: `warn` downgrades the verdict to a warning,
+while `allow` disables the critical block outright. The latter is an explicit
+escape hatch, not merely a warning-level override.
 
 ### 4.1 Critical Blocklist (always block)
 
