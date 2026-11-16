@@ -40,8 +40,9 @@ fi
 
 # --- 1. tag must not already exist ---------------------------------------
 # Probe the LOCAL refs first; fall back to `git ls-remote origin` because
-# CI checkouts (actions/checkout@v4) do not fetch tags. A failed remote
-# probe is a failure: this check must never guess that a tag is absent.
+# CI checkouts (actions/checkout@v4) do not fetch tags. A successful remote
+# probe with no matching output means the tag is absent; a failed probe is a
+# failure because this check must never guess that a tag is absent.
 tag_exists=""
 if [ "${TJ_RELEASE_TAG_EXISTS:-}" = "absent" ]; then
   : # Hermetic test seam: the caller supplied a verified absent-tag result.
@@ -49,10 +50,23 @@ elif [ "${TJ_RELEASE_TAG_EXISTS:-}" = "local" ]; then
   tag_exists=local
 elif git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
   tag_exists=local
-elif git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-  tag_exists=remote
 else
-  fail "could not verify whether tag '${TAG}' exists remotely — refusing to guess"
+  remote_probe_stderr=""
+  if ! remote_probe_stderr="$(mktemp "${TMPDIR:-/tmp}/terminal-jail-release-tag.XXXXXX")"; then
+    fail "could not probe remote 'origin' for tag '${TAG}': unable to create a temporary stderr file"
+  elif remote_refs="$(git ls-remote origin "refs/tags/${TAG}" 2>"${remote_probe_stderr}")"; then
+    if [ -n "${remote_refs}" ]; then
+      tag_exists=remote
+    fi
+    rm -f "${remote_probe_stderr}"
+  else
+    remote_error="$(cat "${remote_probe_stderr}")"
+    rm -f "${remote_probe_stderr}"
+    if [ -z "${remote_error}" ]; then
+      remote_error="git ls-remote exited non-zero"
+    fi
+    fail "could not verify whether tag '${TAG}' exists on remote 'origin': ${remote_error}"
+  fi
 fi
 if [ -n "${tag_exists}" ]; then
   fail "tag '${TAG}' already exists (${tag_exists}) — a release tag is never reused. Pick the next version."
