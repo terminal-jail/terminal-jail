@@ -63,8 +63,8 @@ from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
 from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
 from terminal_jail.interruptor.config import Config
 from terminal_jail.interruptor.matcher import (
-    SUPPORTED_MATCH_TYPES,
     SUPPORTED_MATCH_TYPES_TEXT,
+    unsupported_match_type,
 )
 from terminal_jail.interruptor.rules import RuleLoader
 from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
@@ -164,8 +164,8 @@ def probe(system_dir: str, user_dir: str) -> tuple[list[str], int, int]:
     for rule_id, (rule, source) in installed.items():
         if rule_id in ENGINE_RULES:
             continue
-        match_type = rule.match.get("type", "pattern")
-        if match_type not in SUPPORTED_MATCH_TYPES:
+        match_type = unsupported_match_type(rule.match)
+        if match_type is not None:
             problematic += 1
             lines.append(
                 f"PROBLEM: non-builtin rule {rule_id}: unsupported match.type={match_type!r}; "

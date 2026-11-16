@@ -1071,6 +1071,176 @@ rules:
         assert "bool-prio.yaml" in stderr.getvalue()
 
 
+# ── D2. Loader: a rule that can never fire is LOUD at load (TJ-DF-066) ──────
+
+
+class TestLoaderUnknownMatchTypeIsLoud:
+    """TJ-DF-066: an unsupported ``match.type`` used to load SILENTLY.
+
+    ``Matcher.match_segment`` has a handler per dispatched type and returns
+    an unmatched result for anything else, so a user rule whose ``type`` is
+    a typo (``patern``, ``regex``) is inert: it loads, it is counted, and it
+    never blocks/sandboxes/allows. Nothing told the operator. The sibling
+    typo class — an unknown ``action`` — already warned at load with rule id
+    and reason (decider.py), so the divergence was the defect.
+
+    The loader now emits ONE loud stderr line in that same shape (rule id,
+    offending value, why it will never fire) and keeps the rule in the set
+    exactly as before — a warning, not a refusal. Every supported type, an
+    absent type, and the shipped builtin mirror stay silent.
+    """
+
+    def test_unknown_type_warns_with_rule_id_and_offending_type(
+        self, tmp_path: Path
+    ) -> None:
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(
+            rules_dir,
+            "99-typo.yaml",
+            """\
+rules:
+  - id: user-typo-rule
+    description: Typo'd type — dead on arrival
+    priority: 100
+    action: block
+    match:
+      type: patern
+      pattern: "rm -rf /"
+""",
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            from terminal_jail.interruptor.rules import RuleLoader
+
+            loader = RuleLoader(
+                system_dir=str(rules_dir), user_dir=str(tmp_path / "absent")
+            )
+            ruleset = loader.load_all()
+
+        err = stderr.getvalue()
+        # The two facts the operator needs: WHICH rule, and WHICH value is dead.
+        assert "user-typo-rule" in err
+        assert "patern" in err
+        # …and why that matters: the rule will never fire.
+        assert "never fire" in err
+        # One line, in the load-note convention, carrying the accepted set so
+        # the fix is in the message itself.
+        assert "terminal-jail: WARNING" in err
+        assert "accepted types:" in err
+        assert "pattern" in err
+        assert len([ln for ln in err.splitlines() if ln.strip()]) == 1, err
+        assert loader.type_notes == [ln for ln in err.splitlines() if ln.strip()]
+
+        # Behaviour is UNCHANGED: the dead rule still loads (no refusal) —
+        # the diagnostic is the whole fix.
+        assert ruleset.by_id("user-typo-rule") is not None
+
+    def test_supported_and_absent_types_load_silently(self, tmp_path: Path) -> None:
+        """A dispatched type and an omitted type stay noise-free."""
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(
+            rules_dir,
+            "99-ok.yaml",
+            """\
+rules:
+  - id: user-explicit-pattern
+    priority: 100
+    action: block
+    match:
+      type: pattern
+      pattern: "danger-tool"
+  - id: user-implicit-pattern
+    priority: 90
+    action: block
+    match:
+      pattern: "other-danger-tool"
+""",
+        )
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            from terminal_jail.interruptor.rules import RuleLoader
+
+            loader = RuleLoader(
+                system_dir=str(rules_dir), user_dir=str(tmp_path / "absent")
+            )
+            ruleset = loader.load_all()
+
+        assert stderr.getvalue() == "", "no new noise for evaluable rules"
+        assert loader.type_notes == []
+        assert ruleset.by_id("user-explicit-pattern") is not None
+        assert ruleset.by_id("user-implicit-pattern") is not None
+
+    def test_shipped_mirror_loads_silently(self) -> None:
+        """The shipped builtin mirror still loads with zero stderr."""
+        builtins_dir = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules"
+        # Anti-vacuity: the mirror really parsed (a dir that silently loaded
+        # nothing would make "no warning" meaningless).
+        declared = (builtins_dir / "00-builtins.yaml").read_text(encoding="utf-8")
+        expected = declared.count("\n  - id:")
+        assert expected > 0, "mirror fixture is empty"
+
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "stderr", stderr):
+            from terminal_jail.interruptor.rules import RuleLoader
+
+            loader = RuleLoader(system_dir=str(builtins_dir), user_dir="/nonexistent")
+            ruleset = loader.load_all()
+
+        assert stderr.getvalue() == "", stderr.getvalue()
+        assert loader.type_notes == []
+        assert len(ruleset) == expected
+        assert ruleset.by_id("builtin-fork-bomb") is not None
+
+    def test_predicate_agrees_with_the_dispatch_vocabulary(self) -> None:
+        """One predicate, one type list: no second hand-written copy."""
+        from terminal_jail.interruptor.matcher import (
+            SUPPORTED_MATCH_TYPES,
+            unsupported_match_type,
+        )
+
+        for match_type in SUPPORTED_MATCH_TYPES:
+            assert unsupported_match_type({"type": match_type}) is None
+        # Absent type = the dispatch default (``pattern``).
+        assert unsupported_match_type({}) is None
+        assert unsupported_match_type(None) is None
+        # The documented trap: ``regex`` is a FIELD, not a type.
+        assert unsupported_match_type({"type": "regex", "regex": "x"}) == "regex"
+        assert unsupported_match_type({"type": "patern"}) == "patern"
+
+    def test_bridge_load_emits_the_warning_and_still_answers(
+        self, tmp_path: Path
+    ) -> None:
+        """The real per-command load path (bridge) warns on stderr and the
+        verdict is still produced — an unsupported type is never a refusal."""
+        rules_dir = tmp_path / "rules.d"
+        _write_rule_file(
+            rules_dir,
+            "99-typo.yaml",
+            """\
+rules:
+  - id: user-bridge-typo
+    priority: 100
+    action: block
+    match:
+      type: patern
+      pattern: "rm -rf /"
+""",
+        )
+        result = _bridge_main_inproc(
+            '{"command": "echo hi"}',
+            {
+                "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(rules_dir),
+                "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(tmp_path / "absent"),
+            },
+        )
+        err = result.stderr.decode()
+        assert "user-bridge-typo" in err, err
+        assert "patern" in err, err
+        assert "never fire" in err, err
+        verdict = json.loads(result.stdout.decode())
+        assert "action" in verdict, verdict
+
+
 # ── E. Loader: PyYAML-less host — the inert mirror is now LOUD (TJ-DF-039) ──
 
 

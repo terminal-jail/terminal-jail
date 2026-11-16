@@ -45,6 +45,28 @@ SUPPORTED_MATCH_TYPES = frozenset(
 
 SUPPORTED_MATCH_TYPES_TEXT = ", ".join(sorted(SUPPORTED_MATCH_TYPES))
 
+
+def unsupported_match_type(match: dict[str, Any] | None) -> str | None:
+    """Return the declared ``match.type`` when the engine CANNOT dispatch it.
+
+    ``None`` means evaluable: an absent ``type`` falls back to ``pattern``
+    (the dispatch default in ``match_segment``) and every member of
+    ``SUPPORTED_MATCH_TYPES`` has a handler. Anything else — a typo such as
+    ``patern``, or a future type this engine predates — returns the offending
+    value so a caller can say WHICH value is dead.
+
+    One predicate, two callers: the load-time warning in ``rules.py``
+    (TJ-DF-066) and ``scripts/rules-drift-probe.py``. They must never
+    disagree about which rules can never fire.
+    """
+    if not isinstance(match, dict):
+        return None
+    match_type = match.get("type", "pattern")
+    if isinstance(match_type, str) and match_type in SUPPORTED_MATCH_TYPES:
+        return None
+    return match_type
+
+
 # Required-substring prefilters for the catastrophic-backtracking patterns
 # (TJ-DF-024). Each entry lists ALTERNATIVE required literals: the pattern
 # cannot match unless the candidate text contains AT LEAST ONE of them
