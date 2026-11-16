@@ -281,6 +281,124 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     assert "READY:" in proc.stdout
 
 
+def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -> None:
+    """The remote tag probe distinguishes all three outcomes without a seam."""
+    fixture = tmp_path / "probe"
+    subprocess.run(
+        ["git", "clone", "--shared", "--quiet", str(PROJECT_ROOT), str(fixture)],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True, timeout=30)
+    subprocess.run(
+        ["git", "remote", "set-url", "origin", str(remote)],
+        cwd=fixture,
+        check=True,
+        timeout=30,
+    )
+    pp = fixture / "pyproject.toml"
+    new_text, n = re.subn(
+        r'(?m)^version = ".*"$', 'version = "9.9.9"', pp.read_text(), count=1
+    )
+    assert n == 1
+    pp.write_text(new_text)
+    manifest = fixture / "plugin" / "plugin.yaml"
+    manifest.write_text(
+        re.sub(
+            r'(?m)^version:\s*["\']?.*$',
+            'version: "9.9.9"',
+            manifest.read_text(),
+            count=1,
+        )
+    )
+    changelog = fixture / "CHANGELOG.md"
+    changelog.write_text(
+        "## [9.9.9] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
+        + changelog.read_text()
+    )
+    subprocess.run(
+        [
+            "git",
+            "add",
+            "scripts/release-cut-check.sh",
+            "pyproject.toml",
+            "plugin/plugin.yaml",
+            "CHANGELOG.md",
+        ],
+        cwd=fixture,
+        check=True,
+        timeout=30,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "user.email=tj-release-test@example.invalid",
+            "-c",
+            "user.name=tj-release-test",
+            "commit",
+            "-qm",
+            "scratch release fixture",
+        ],
+        cwd=fixture,
+        check=True,
+        timeout=60,
+    )
+    subprocess.run(
+        ["git", "push", "-q", "origin", "HEAD"],
+        cwd=fixture,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    ci = {
+        "TJ_RELEASE_TAG_EXISTS": "",
+        "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]',
+    }
+
+    absent = _run_script(fixture, "v9.9.9", env_extra=ci)
+    assert absent.returncode == 0, f"stdout:\n{absent.stdout}\nstderr:\n{absent.stderr}"
+    assert "OK: tag 'v9.9.9' does not exist yet" in absent.stdout
+    assert "READY:" in absent.stdout
+
+    subprocess.run(["git", "tag", "v9.9.9"], cwd=fixture, check=True, timeout=30)
+    subprocess.run(
+        ["git", "push", "-q", "origin", "refs/tags/v9.9.9"],
+        cwd=fixture,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    subprocess.run(["git", "tag", "-d", "v9.9.9"], cwd=fixture, check=True, timeout=30)
+    present = _run_script(fixture, "v9.9.9", env_extra=ci)
+    assert present.returncode == 1
+    assert "tag 'v9.9.9' already exists (remote)" in present.stderr
+
+    unreachable = tmp_path / "missing-remote.git"
+    subprocess.run(
+        ["git", "remote", "set-url", "origin", str(unreachable)],
+        cwd=fixture,
+        check=True,
+        timeout=30,
+    )
+    failed = _run_script(fixture, "v9.9.9", env_extra=ci)
+    assert failed.returncode == 1
+    assert (
+        "could not verify whether tag 'v9.9.9' exists on remote 'origin'"
+        in failed.stderr
+    )
+    assert "repository exists" in failed.stderr
+
+
 def test_check_script_fails_clearly_on_existing_tag() -> None:
     """FAILURE path: an already-existing tag must fail with the reason named.
 
