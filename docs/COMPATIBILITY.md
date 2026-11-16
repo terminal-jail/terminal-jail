@@ -97,8 +97,16 @@ Consistent with the README backend table: bubblewrap is an optional runtime depe
 
 ## Test Compatibility Notes
 
-- 108 unit/functional tests run on any system with Python ≥ 3.9
-- 25 integration tests require `unshare --user --pid --fork --mount-proc` support and will skip otherwise
+The repository currently declares version 1.3.4 and requires Python ≥ 3.11. The test count below is a collection snapshot, not a permanent promise: run the command from the repository root whenever the test surface changes.
+
+```bash
+.venv/bin/python -m pytest plugin tests --collect-only -q
+```
+
+Measured on 2026-11-16: `2162 tests collected`; collection duration varies by host.
+
+This command reports the complete collected scope; it does not claim a fixed unit/integration split. Tests that require unavailable host capabilities report their own skip or failure when the full suite is run.
+
 - Fork bomb containment test (`test_t32_fork_bomb_containment`) requires `ulimit -u` support
 - Performance benchmark test requires ≥ 100 iterations for statistical significance
 
@@ -112,4 +120,4 @@ If terminal-jail doesn't work on your system:
 
 ---
 
-Last verified: 2026-09-24 against v1.2.0. This document predates the v1.2 backend split and is stale for pre-1.2 releases: earlier versions had no `TERMINAL_JAIL_JAIL_BACKEND` selection, no bwrap backend, and no Interruptor firewall.
+Last verified: 2026-11-16 against the published v1.3.3 release and repository version 1.3.4. The backend split described above is present in v1.2.0 and later; this document is current for the v1.3.x source tree and does not describe pre-v1.2 behavior.
