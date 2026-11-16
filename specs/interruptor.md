@@ -470,8 +470,7 @@ a legitimate backup host), and the block messages say so. Excluded by design (pi
 plain downloads (`curl <url>`, `wget -O <path> <url>`), inline bodies (`curl -X POST -d '{"job":1}' <url>`),
 inline multipart fields (`curl -F 'name=value' <url>`), curl's literal `--form-string`, scoped copies
 (`rsync -a /srv/data/ host:/srv/backup/`, `scp file host:/srv/file`), local copies, `ssh`, and
-`git push`. A legitimate workflow can override a specific id to `warn` with a same-id user rule
-(builtins are overridable to warn, never removable). An END-TO-END no-delivery proof for the
+`git push`. A legitimate workflow can override a specific id with a same-id user rule that replaces the builtin in its layer: `warn` downgrades the verdict to a warning, while `allow` disables the critical block outright. An END-TO-END no-delivery proof for the
 collector shape lives in `plugin/test_egress_no_delivery.py` (loopback `http.server` collector only —
 no external host is contacted).
 
