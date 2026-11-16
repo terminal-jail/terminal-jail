@@ -284,19 +284,27 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
 def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -> None:
     """The remote tag probe distinguishes all three outcomes without a seam."""
     fixture = tmp_path / "probe"
-    subprocess.run(
-        ["git", "clone", "--shared", "--quiet", str(PROJECT_ROOT), str(fixture)],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+    # Build the fixture from the versioned surfaces instead of cloning the
+    # checkout. CI clones are SHALLOW (actions/checkout fetch-depth 1), and a
+    # shallow source makes `git clone --shared` inherit the shallow boundary,
+    # so every push to the bare remote below is rejected with "shallow update
+    # not allowed" — the fixture never needs history, so it never inherits it.
+    (fixture / "scripts").mkdir(parents=True)
+    (fixture / "plugin").mkdir()
+    for src, dst in (
+        (CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh"),
+        (PROJECT_ROOT / "pyproject.toml", fixture / "pyproject.toml"),
+        (PROJECT_ROOT / "plugin" / "plugin.yaml", fixture / "plugin" / "plugin.yaml"),
+        (PROJECT_ROOT / "CHANGELOG.md", fixture / "CHANGELOG.md"),
+    ):
+        assert src.is_file(), f"missing fixture input: {src}"
+        shutil.copy2(src, dst)
+    subprocess.run(["git", "init", "-q"], cwd=fixture, check=True, timeout=30)
 
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True, timeout=30)
     subprocess.run(
-        ["git", "remote", "set-url", "origin", str(remote)],
+        ["git", "remote", "add", "origin", str(remote)],
         cwd=fixture,
         check=True,
         timeout=30,
@@ -351,17 +359,19 @@ def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -
         check=True,
         timeout=60,
     )
-    subprocess.run(
-        # Explicit refspec: CI checks out a detached HEAD, where a bare `git push
-        # origin HEAD` has no branch name to resolve and exits 1. Naming the
-        # destination makes the fixture independent of HEAD/upstream state.
+    push = subprocess.run(
+        # Explicit refspec: the fixture's HEAD has no upstream (it is a fresh
+        # `git init`), and a bare `git push origin HEAD` is resolved as a
+        # refname guess that fails there. Naming the destination keeps the
+        # push independent of branch/upstream state.
         ["git", "push", "-q", "origin", "HEAD:refs/heads/release-fixture"],
         cwd=fixture,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         timeout=60,
     )
+    assert push.returncode == 0, f"git push failed: {push.stderr}"
     ci = {
         "TJ_RELEASE_TAG_EXISTS": "",
         "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]',
