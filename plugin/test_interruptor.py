@@ -3111,11 +3111,11 @@ rules:
 rules:
   - id: builtin-rm-rf-root
     description: User override — allow rm -rf / (dogfood override)
-    priority: 999
+    priority: 100
     action: allow
     match:
       type: pattern
-      pattern: '^rm\s+-rf\s+/$'
+      pattern: 'rm\s+-rf\s+/'
 """
         config = _write_user_rules(tmp_path, yaml_text)
         result = intercept("rm -rf /", config=config)
