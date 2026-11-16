@@ -7,7 +7,7 @@
   "base_sha": "0797b9d",
   "wave_budget": 6,
   "width": 5,
-  "status": "dispatched",
+  "status": "recovered",
   "worker_model": "openai/gpt-6.1-terra",
   "worker_provider": "xkiro",
   "workers": [
@@ -18,8 +18,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-020",
       "branch": "wt/RELEASE-TJ-020",
       "base_sha": "0797b9d",
-      "files_owned": ["scripts/release-cut-check.sh", "tests/test_release_workflow.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/RELEASE-TJ-020.txt"
+      "files_owned": [
+        "scripts/release-cut-check.sh",
+        "tests/test_release_workflow.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/RELEASE-TJ-020.txt",
+      "merge": "merged",
+      "judge": "PASS",
+      "note": "commit is an ancestor of main HEAD (verified merge-base --is-ancestor); board row complete with guard PASS",
+      "sha": "42c95f3b0686f4dfc70466f06cfacd332334bc9e"
     },
     {
       "task_id": "QA-TERMINAL-JAIL-36",
@@ -28,8 +35,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-36",
       "branch": "wt/QA-TERMINAL-JAIL-36",
       "base_sha": "0797b9d",
-      "files_owned": ["scripts/kernel-matrix-teardown.py", "tests/test_kernel_matrix_teardown.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-36.txt"
+      "files_owned": [
+        "scripts/kernel-matrix-teardown.py",
+        "tests/test_kernel_matrix_teardown.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-36.txt",
+      "merge": "merged",
+      "judge": "PASS",
+      "note": "commit is an ancestor of main HEAD (verified merge-base --is-ancestor); board row complete with guard PASS",
+      "sha": "1df2c4d7f70bf4ea97517bfe53016ab9a177c718"
     },
     {
       "task_id": "TJ-DF-068",
@@ -38,8 +52,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-068",
       "branch": "wt/TJ-DF-068",
       "base_sha": "0797b9d",
-      "files_owned": ["standalone/seccomp-loader.py", "tests/test_seccomp_loader.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-068.txt"
+      "files_owned": [
+        "standalone/seccomp-loader.py",
+        "tests/test_seccomp_loader.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-068.txt",
+      "merge": "merged",
+      "judge": "PASS",
+      "note": "commit is an ancestor of main HEAD (verified merge-base --is-ancestor); board row complete with guard PASS",
+      "sha": "3a50e3b684f96ece320a978ba31bad863f9ac942"
     },
     {
       "task_id": "QA-TERMINAL-JAIL-32",
@@ -48,8 +69,15 @@
       "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-32",
       "branch": "wt/QA-TERMINAL-JAIL-32",
       "base_sha": "0797b9d",
-      "files_owned": ["install.sh", "plugin/test_install.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-32.txt"
+      "files_owned": [
+        "install.sh",
+        "plugin/test_install.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/QA-TERMINAL-JAIL-32.txt",
+      "merge": "merged",
+      "judge": "PASS",
+      "note": "commit is an ancestor of main HEAD (verified merge-base --is-ancestor); board row complete with guard PASS",
+      "sha": "16f03bf3914a43a7d0c750fc44abf86efba1083a"
     },
     {
       "task_id": "TJ-DF-066",
@@ -58,13 +86,34 @@
       "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-066",
       "branch": "wt/TJ-DF-066",
       "base_sha": "0797b9d",
-      "files_owned": ["plugin/terminal_jail/interruptor/rules.py", "scripts/rules-drift-probe.py"],
-      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-066.txt"
+      "files_owned": [
+        "plugin/terminal_jail/interruptor/rules.py",
+        "scripts/rules-drift-probe.py"
+      ],
+      "brief": "/home/kara/.hermes/cache/scratch/terminal-jail-foreman-2026-11-16-00-32-34/attempt-1/briefs/TJ-DF-066.txt",
+      "merge": "merged",
+      "judge": "PASS",
+      "note": "commit is an ancestor of main HEAD (verified merge-base --is-ancestor); board row complete with guard PASS",
+      "sha": "583ee1627460ef2c030b416ae28f13354abc5cec"
     }
   ],
   "independence_check": "No depends_on edges among the five rows (all null or []); file sets are disjoint; each worker owns its own worktree/branch off origin/main@0797b9d",
   "verification_only_closures": [
-    {"task_id": "TJ-DF-063", "reason": "already landed: tests/test_composed_mode.py has battery._docker_available() daemon probe + 2 passing selectors at HEAD 0797b9d"},
-    {"task_id": "QA-TERMINAL-JAIL-30", "reason": "already landed: decider.py:532 emits unknown-action rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed at HEAD 0797b9d"}
-  ]
+    {
+      "task_id": "TJ-DF-063",
+      "reason": "already landed: tests/test_composed_mode.py has battery._docker_available() daemon probe + 2 passing selectors at HEAD 0797b9d"
+    },
+    {
+      "task_id": "QA-TERMINAL-JAIL-30",
+      "reason": "already landed: decider.py:532 emits unknown-action rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed at HEAD 0797b9d"
+    }
+  ],
+  "finished_at": "2026-11-16T05:51:31-05:00",
+  "recovery": {
+    "tick": "terminal-jail-foreman-2026-11-16-10-04-27",
+    "method": "verified landed commits in HEAD ancestry + gates re-run on merged tree",
+    "merged_gate": "gitreins guard --full on merged main: DEGRADED PASS (secrets clean, lint ok, tests full pass; static_analysis skipped by pre-existing config quirk)",
+    "landed_commit": "ff9a187",
+    "evidence_dir": "/home/kara/.hermes/qa/evidence/tj-foreman-2026-11-16-10-04-27/"
+  }
 }
