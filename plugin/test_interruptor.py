@@ -40,7 +40,8 @@ RULES_MIRROR_DIR = Path(__file__).resolve().parent / "terminal_jail" / "rules"
 _STALE_BUILTIN_CONTRACT_RE = re.compile(
     r"cannot\s+be\s+removed|only\s+be\s+overridden|"
     r"only\s+overridden\s+to|may\s+downgrade\s+one\s+to|"
-    r"never\s+remov(?:able|ed)",
+    r"never\s+remov(?:able|ed)|no\s+way\s+to\s+remove|"
+    r"soften\s+a\s+built-?in|softened\s+to\s+`?warn`?",
     re.IGNORECASE,
 )
 

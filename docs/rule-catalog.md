@@ -98,7 +98,7 @@ Verdict on match: allow; further evaluation stops.
 ## Reading the catalog
 
 - The decider evaluates blocklist → allowlist → auto-sandbox → user rules; **first match wins**. Priorities order rules within a layer; they do not move a rule between layers.
-- A user rule under `~/.config/terminal-jail/rules.d/` (or `/etc/terminal-jail/rules.d/`) whose id matches one of these ids **replaces** the built-in in its layer — that is the supported way to soften a built-in to `warn`. There is no way to remove one.
+- A user rule under `~/.config/terminal-jail/rules.d/` (or `/etc/terminal-jail/rules.d/`) whose id matches one of these ids **replaces** the built-in in its layer: `warn` downgrades the verdict to a warning, while `allow` disables the critical block outright.
 - A command matching **no** rule at all is ALLOWED (default-allow posture); `"rule_id": null` on an allow verdict is that case, not an approved decision.
 - All built-in rules are `match: type: pattern` rules (regex over the command, engine matcher semantics: `re.search` with `re.IGNORECASE`).
 - Opt-in rule packs install additional rules with `pack-<name>-*` ids and never grow this set (see README *Rule packs*).

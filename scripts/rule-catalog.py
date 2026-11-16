@@ -132,8 +132,9 @@ def render(rules: list[dict]) -> str:
     out.append(
         "- A user rule under `~/.config/terminal-jail/rules.d/` (or "
         "`/etc/terminal-jail/rules.d/`) whose id matches one of these ids "
-        "**replaces** the built-in in its layer — that is the supported way "
-        "to soften a built-in to `warn`. There is no way to remove one."
+        "**replaces** the built-in in its layer: `warn` downgrades the "
+        "verdict to a warning, while `allow` disables the critical block "
+        "outright."
     )
     out.append(
         "- A command matching **no** rule at all is ALLOWED (default-allow "
