@@ -352,7 +352,10 @@ def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -
         timeout=60,
     )
     subprocess.run(
-        ["git", "push", "-q", "origin", "HEAD"],
+        # Explicit refspec: CI checks out a detached HEAD, where a bare `git push
+        # origin HEAD` has no branch name to resolve and exits 1. Naming the
+        # destination makes the fixture independent of HEAD/upstream state.
+        ["git", "push", "-q", "origin", "HEAD:refs/heads/release-fixture"],
         cwd=fixture,
         check=True,
         capture_output=True,
