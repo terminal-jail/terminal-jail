@@ -573,6 +573,10 @@ def test_cleanup_eperm_is_structured_and_human_visible(
         assert "cleanup_eperm" in row["evidence"] or row["cleanup_conditions"]
         assert "cleanup/permission condition: cleanup_eperm" in out
     finally:
+        # The harness patch replaces os.kill itself, so tear it down before
+        # reaping the foreign payload; otherwise cleanup raises the same EPERM
+        # this test is asserting on.
+        monkeypatch.undo()
         foreign.kill()
         foreign.wait()
 
