@@ -26,17 +26,22 @@ from terminal_jail.seccomp import (
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 SECCOMP_LOADER = PROJECT_ROOT / "standalone" / "seccomp-loader.py"
+BUNDLED_SECCOMP_LOADER = (
+    PROJECT_ROOT / "plugin" / "terminal_jail" / "_bundled" / "seccomp-loader.py"
+)
 
 
 def _run_loader(
-    *args: str, env: dict[str, str] | None = None
+    *args: str,
+    env: dict[str, str] | None = None,
+    loader: pathlib.Path = SECCOMP_LOADER,
 ) -> subprocess.CompletedProcess[str]:
     child_env = os.environ.copy()
     child_env["TERMINAL_JAIL_SECCOMP"] = "0"
     if env:
         child_env.update(env)
     return subprocess.run(
-        [sys.executable, str(SECCOMP_LOADER), *args],
+        [sys.executable, str(loader), *args],
         cwd=str(PROJECT_ROOT),
         env=child_env,
         capture_output=True,
@@ -414,6 +419,15 @@ class TestStandaloneCliSeccomp:
         assert result.returncode == 0
         assert result.stdout == "--help\n"
         assert result.stderr == ""
+        bundled = _run_loader(
+            "--",
+            sys.executable,
+            "-c",
+            "import sys; print(sys.argv[1])",
+            "--help",
+            loader=BUNDLED_SECCOMP_LOADER,
+        )
+        assert bundled.stdout == result.stdout
 
     def test_loader_help_still_works(self) -> None:
         result = _run_loader("--help")
