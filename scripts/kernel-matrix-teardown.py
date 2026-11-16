@@ -401,7 +401,9 @@ def _run_backend_cell(backend: str, marker: str) -> dict:
     if payload is None:
         launcher.kill()
         launcher.wait()
-        prereq = _namespace_prerequisite_evidence(launcher.stderr.read() if launcher.stderr else b"")
+        prereq = _namespace_prerequisite_evidence(
+            launcher.stderr.read() if launcher.stderr else b""
+        )
         evidence = (
             f"no marked 'sleep 300' payload appeared within {LAUNCH_WAIT:.0f}s; "
             "wrapper exited without launching the jail "
@@ -538,7 +540,9 @@ def print_human(rows: list[dict], summary: dict, *, show_raw: bool) -> None:
             f"{row['captured']}{marker}"
         )
         if row.get("cleanup_eperm"):
-            print("  cleanup/permission condition: cleanup_eperm (payload not signalable)")
+            print(
+                "  cleanup/permission condition: cleanup_eperm (payload not signalable)"
+            )
         elif row.get("cleanup_conditions"):
             print(
                 "  cleanup/permission condition: "

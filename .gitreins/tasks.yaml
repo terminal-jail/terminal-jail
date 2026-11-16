@@ -2483,8 +2483,9 @@ tasks:
   - Payload selection bound to launcher descendants/identity; cleanup EPERM captured
     as structured evidence not an abort; regression asserts no foreign PID adopted
     or signalled
-  status: in_progress
+  status: complete
   created_at: '2026-11-16T00:51:41.510584+00:00'
+  completed_at: '2026-11-16T02:55:54.826455+00:00'
 - id: TJ-DF-068
   title: --seccomp missing command raw traceback and -- terminator ignored
   criteria:
