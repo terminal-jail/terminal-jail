@@ -88,15 +88,21 @@
   "verification_only_closures": [
     {
       "task_id": "QA-TERMINAL-JAIL-30",
-      "reason": "already landed at 505cba2: decider.py unknown-action branch emits rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed (incl. CLI stderr arm)"
+      "reason": "already landed at 505cba2: decider.py unknown-action branch emits rule id + reason; plugin/test_interruptor.py -k unknown_rule_action = 2 passed (incl. CLI stderr arm)",
+      "judge": "PASS",
+      "verdict_run": "c2c83e55"
     },
     {
       "task_id": "TJ-DF-063",
-      "reason": "already landed at 505cba2: battery._docker_available() daemon probe + pinned skip tests at tests/test_composed_mode.py:431-524; target selector = 1 passed"
+      "reason": "already landed at 505cba2: battery._docker_available() daemon probe + pinned skip tests at tests/test_composed_mode.py:431-524; target selector = 21 passed, 3 skipped",
+      "judge": "PASS",
+      "verdict_run": "c0ef5cfa"
     },
     {
       "task_id": "QA-TERMINAL-JAIL-33",
-      "reason": "refuted at 505cba2: local main == origin/main, 0 unpushed, pyproject 1.3.4, OPS-TJ-001 + RELEASE-TJ-018..022 rows present"
+      "reason": "refuted at 505cba2: local main == origin/main, 0 unpushed, pyproject 1.3.4, OPS-TJ-001 + RELEASE-TJ-018..022 rows present",
+      "judge": "PASS",
+      "verdict_run": "cf01db9b"
     }
   ],
   "finished_at": "2026-11-16T07:14:54-05:00",
