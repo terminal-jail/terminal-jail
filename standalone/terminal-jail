@@ -77,6 +77,16 @@ while IFS= read -r -d '' _tj_entry; do
 done < /proc/self/environ
 unset -v _TJ_HOOK_RE _TJ_VAR_KEEP_RE _tj_entry _tj_name _tj_val
 
+# TJ-DF-037: the teardown verifier may start with a marker in the caller's
+# environment, but that value is not launcher identity. Replace it here, at
+# the actual payload-launch boundary, with a value derived from this wrapper's
+# own PID. A sibling process that merely inherited the caller's environment
+# therefore cannot carry this launcher's marker. The verifier also checks the
+# /proc PPID chain; the marker is an additional launch-local discriminator,
+# never a substitute for ancestry.
+TERMINAL_JAIL_MATRIX_MARKER="launcher-${BASHPID:-$$}"
+export TERMINAL_JAIL_MATRIX_MARKER
+
 # The installer replaces the empty default with pyproject.toml's version.
 # In a checkout, read that same authority relative to this script instead.
 VERSION_DEFAULT=""
