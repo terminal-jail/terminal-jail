@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .matcher import SUPPORTED_MATCH_TYPES_TEXT, unsupported_match_type
+
 # The placeholder shown when a rule declares no block_message of its own. It is
 # deliberately generic, so it must never REPLACE a message that names the shape
 # and scope of a policy — see ``inherit_override_message``.
@@ -179,9 +181,12 @@ _SCHEMA_TOP_LEVEL: dict[str, tuple[str, type | tuple[type, ...]]] = {
     "modify": ("a mapping", (dict, type(None))),
 }
 
-# Nested MATCH fields the Matcher actually reads (matcher.py dispatch). An
-# unknown ``match.type`` is a no-op today (MatchResult() with matched=False),
-# so only the TYPES of the keys present are validated here.
+# Nested MATCH fields the Matcher actually reads (matcher.py dispatch). Only
+# the TYPES of the keys present are validated here: an unknown ``match.type``
+# VALUE is not a malformed document — it is a rule that can never fire, which
+# the loader reports with one loud warning at load time (TJ-DF-066,
+# ``_warn_unsupported_match_types``) from the same predicate the drift probe
+# uses.
 _SCHEMA_MATCH: dict[str, tuple[str, type | tuple[type, ...]]] = {
     "type": ("a string", str),
     "pattern": ("a string", str),
@@ -323,7 +328,10 @@ class RuleLoader:
 
     ``schema_notes`` collects the loud notes so callers/tests can assert
     them without capturing stderr. ``parse_notes`` collects the same for
-    the parse-side failures (TJ-DF-039).
+    the parse-side failures (TJ-DF-039). ``type_notes`` collects the
+    load-time warnings for rules that load but can never fire because
+    their ``match.type`` is not one the matcher dispatches (TJ-DF-066) —
+    a warning, not a refusal: the rule stays in the set exactly as before.
     """
 
     def __init__(
@@ -337,6 +345,7 @@ class RuleLoader:
         )
         self.schema_notes: list[str] = []
         self.parse_notes: list[str] = []
+        self.type_notes: list[str] = []
 
     def load_all(self) -> RuleSet:
         """Load all rules from system and user directories.
@@ -382,8 +391,53 @@ class RuleLoader:
             if file_path.suffix not in (".yaml", ".yml"):
                 continue
             file_rules = self._load_file(str(file_path))
+            # TJ-DF-066: a rule that loaded but can never fire is the
+            # silent-dead-policy shape — announce it HERE, where the file
+            # name is known, rather than inside ``_parse_file`` (which the
+            # drift probe also calls per file and which renders its own
+            # PROBLEM row; the probe's output must stay the probe's).
+            self._warn_unsupported_match_types(str(file_path), file_rules)
             rules.extend(file_rules)
         return rules
+
+    def _warn_unsupported_match_types(self, file_path: str, rules: list[Rule]) -> None:
+        """Warn about loaded rules whose ``match.type`` can never fire.
+
+        ``Matcher.match_segment`` returns an unmatched result (with a
+        details string nobody reads at load) for a ``match.type`` it has no
+        handler for. Such a rule is inert: it occupies a slot in the set,
+        never blocks, never sandboxes, never allows — and before TJ-DF-066
+        the operator got no signal at all, so a typo silently disabled the
+        policy they thought they had installed.
+
+        This is the load-time half of the finding
+        ``scripts/rules-drift-probe.py`` prints as ``PROBLEM: non-builtin
+        rule ...: unsupported match.type``. Both call
+        ``matcher.unsupported_match_type``, so they cannot disagree and
+        neither keeps its own copy of the type list.
+
+        Shape follows the unknown-ACTION warning (``decider.py``): rule id,
+        the offending value, and what it means for the operator. One line
+        per rule — the bridge loads the ruleset per command, so a
+        multi-line note would drown the verdict log.
+
+        Builtin ids never reach this path with an unsupported type (the
+        engine constants all use dispatched types), and a supported or
+        absent ``type`` returns ``None`` from the predicate, so those stay
+        silent.
+        """
+        for rule in rules:
+            offending = unsupported_match_type(rule.match)
+            if offending is None:
+                continue
+            note = (
+                f"terminal-jail: WARNING - user rule {rule.id!r} has unknown "
+                f"match.type {offending!r} — it will never fire (the engine "
+                f"cannot evaluate that type); accepted types: "
+                f"{SUPPORTED_MATCH_TYPES_TEXT} (file: {file_path})"
+            )
+            self.type_notes.append(note)
+            print(note, file=sys.stderr, flush=True)
 
     def _load_file(self, file_path: str) -> list[Rule]:
         """Load rules from a single file (TJ-DF-040 posture).
