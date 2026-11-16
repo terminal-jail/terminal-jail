@@ -774,3 +774,6 @@
 {"from":"plugin/test_seccomp.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/test_bridge_fail_closed.py","to":"pkg:terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/terminal_jail/interruptor/rules.py","to":"pkg:plugin.terminal_jail.interruptor.matcher","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"scripts/kernel-matrix-teardown.py","to":"pkg:uuid","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"tests/test_kernel_matrix_teardown.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"tests/test_kernel_matrix_teardown.py","to":"pkg:os","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
