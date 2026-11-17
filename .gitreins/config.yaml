@@ -28,7 +28,9 @@ guards:
   # plus `gitreins guard --full` still grade the whole tree on every push.
   allow_skips: true
 evaluator:
-  max_iterations: 300  # TICK-312: 200 exhausted on REVIEW-TJ-002 (5-row blocked-premise audit) -> INCOMPLETE by cap
+  max_iterations: 600  # tick 2026-11-17-11-52: 300 exhausted on TJ-REVIEW-074-R2 (single multi-clause criterion,
+                       # live landlock repro + red-first + gates) -> INCOMPLETE by cap with the criterion already
+                       # graded PASS. 600 leaves room for one multi-clause row without hitting the wall.
   max_time: 135m  # 90m exhausted on RELTOOL (a2537729) INCOMPLETE-by-cap; prior: 60m exhausted on TJ-DF-029 (ff0ddbe3)
   # TIME RUNG (tick #302): the DF-TERMINAL-JAIL-31 tier2 judge hit `Time cap (45m)
   # exceeded (45m5s elapsed)` -> INCOMPLETE with 4/5 criteria PASS, but that run
