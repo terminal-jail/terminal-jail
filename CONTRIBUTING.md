@@ -55,15 +55,25 @@ terminal-jail/
 │   ├── __init__.py           # Hook registration manifest
 │   ├── terminal_jail/
 │   │   ├── __init__.py
+│   │   ├── cli.py            # Wheel console-script: execs the bundled bash CLI
+│   │   ├── interruptor/      # Bash command firewall: parser, matcher, rule
+│   │   │                     #   engine, decider, allow/block lists, sandbox
+│   │   │                     #   (landlock, landlock-net, userns), output
+│   │   ├── interruptor_bridge.py    # stdin/stdout JSON verdict bridge
+│   │   ├── interruptor_resident.py  # Resident AF_UNIX daemon bridge (TJ-GAP-084)
+│   │   ├── rules/            # Built-in rule packs (00-builtins.yaml, packs/)
+│   │   ├── seccomp.py        # seccomp BPF filter tier (T9.5)
 │   │   └── plugin.py         # Core plugin: hooks, metrics, transform
 │   ├── test_plugin.py        # Unit tests (16 tests)
-│   ├── ...                   # 21 further test modules; real-unshare integration
-│   │                         #   tests are marked @pytest.mark.integration
+│   ├── ...                   # 36 further test modules (40 in total); real-unshare
+│   │                         #   integration tests are marked @pytest.mark.integration
 │   │                         #   (test_env_scrub, test_userns, test_backend_parity,
 │   │                         #   test_backend_selection, test_host_probes)
-│   ├── test_install.py       # install.sh tests (66 tests)
-│   ├── test_standalone_cli.py # CLI tests (21 tests)
+│   ├── test_install.py       # install.sh tests (106 tests)
+│   ├── test_standalone_cli.py # CLI tests (23 tests)
 │   └── test_metrics_export.py # Metrics export tests (21 tests)
+├── tests/                     # Repo-level guards (12 modules): docs pins, version,
+│                              #   release workflow, board schema, kernel matrix
 ├── standalone/terminal-jail   # Portable CLI wrapper (bash)
 ├── systemd/                   # systemd hardening drop-in files
 ├── scripts/                   # Utility scripts
