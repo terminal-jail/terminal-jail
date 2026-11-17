@@ -1,0 +1,140 @@
+{
+  "tick_id": "terminal-jail-foreman-2026-11-17-21-16-30",
+  "kind": "foreman-wave",
+  "started_at": "2026-11-17T16:42:00-05:00",
+  "base_ref": "origin/main",
+  "base_sha": "7b6e561",
+  "wave_budget": 12,
+  "width": 6,
+  "status": "complete",
+  "worker_model": "openai/gpt-6.1-terra → RE-DISPATCHED (see dispatch_log)",
+  "worker_provider": "xkiro → openai-codex / deepseek",
+  "dispatch_log": [
+    "attempt 1 (16:42Z): 6 workers on openai/gpt-6.1-terra @ xkiro — xkiro answered 503 'Model \"openai/gpt-6.1-terra\" is temporarily unavailable for scheduled maintenance. Service is expected to resume by 2026-11-19T16:2x'. All six sat in 503→fallback retry loops for ~10 min with message_count=1 / api_call_count=0 and zero worktree writes; killed the six wrapper processes at 16:53Z. Worktrees verified spotless (0 dirty files) before and after.",
+    "probes (16:54Z): `hermes -m gpt-6.1-sol --provider openai-codex -z` -> READY; `hermes -m deepseek-flash --provider deepseek -z` -> READY.",
+    "attempt 2 (16:55Z): same six briefs, split lanes — DOC-32 / DOC-33 / DOC-34 on gpt-6.1-sol @ openai-codex ($0 marginal seat, reasoning-heavy rows); DOC-2-R2 / DOC-29-R2 / DOC-31 on deepseek-flash @ deepseek (counting rows). Model switch is the brief's sanctioned 'actual unavailable' condition, not a preference change."
+  ],
+  "workers": [
+    {
+      "task_id": "DOC-2-R2",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-2-R2",
+      "branch": "wt/DOC-2-R2",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-2-R2.md",
+      "files": [
+        "CONTRIBUTING.md"
+      ],
+      "sha": "45b1a0c (first) + eba3c32 (rework merged)",
+      "judge": "FAIL on first commit (integration-marker list named 5 of 6 marked modules; test_private_proc_demand.py missing) -> rework dispatched, re-judge in flight",
+      "merge": "merged (45b1a0c, then rework eba3c32)",
+      "attempts": 2,
+      "verdict_run_failed": [
+        "cb3d1c3d: INCOMPLETE — 'names 5 of the 6 plugin/test_*.py modules that carry @pytest.mark.integration'"
+      ]
+    },
+    {
+      "task_id": "DOC-29-R2",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-29-R2",
+      "branch": "wt/DOC-29-R2",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-29-R2.md",
+      "files": [
+        "docs/COMPATIBILITY.md"
+      ],
+      "sha": "d6c3789",
+      "judge": "PASS",
+      "merge": "merged (d6c3789)",
+      "attempts": 1,
+      "verdict_run": "a1157495"
+    },
+    {
+      "task_id": "DOC-31",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-31",
+      "branch": "wt/DOC-31",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-31.md",
+      "files": [
+        "docs/supply-chain.md"
+      ],
+      "sha": "328f884",
+      "judge": "PASS",
+      "merge": "merged (328f884)",
+      "attempts": 1,
+      "verdict_run": "95688d20"
+    },
+    {
+      "task_id": "DOC-32",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-32",
+      "branch": "wt/DOC-32",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-32.md",
+      "files": [
+        "docs/dependency-audit.md"
+      ],
+      "sha": "c1fa417",
+      "judge": "PASS",
+      "merge": "merged (c1fa417) — worker produced a complete edit and per-claim measurements but its session ended before committing; foreman re-verified every cited file:line and committed",
+      "attempts": 1,
+      "verdict_run": "853a5188"
+    },
+    {
+      "task_id": "DOC-33",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-33",
+      "branch": "wt/DOC-33",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-33.md",
+      "files": [
+        "specs/cli.md"
+      ],
+      "sha": "79ac239",
+      "judge": "PASS",
+      "merge": "merged (79ac239)",
+      "attempts": 1,
+      "verdict_run": "4c571916"
+    },
+    {
+      "task_id": "DOC-34",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-34",
+      "branch": "wt/DOC-34",
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/DOC-34.md",
+      "files": [
+        "specs/interruptor.md",
+        "specs/integration.md"
+      ],
+      "sha": "efe1f17",
+      "judge": "PASS",
+      "merge": "merged (efe1f17)",
+      "attempts": 1,
+      "verdict_run": "7867239f"
+    }
+  ],
+  "independence_check": "No depends_on edges on any of the six rows (verified in .coding-hermes/board/tasks.jsonl). File sets are pairwise disjoint: CONTRIBUTING.md / docs/COMPATIBILITY.md / docs/supply-chain.md / docs/dependency-audit.md / specs/cli.md / (specs/interruptor.md + specs/integration.md). All six are documentation-truth corrections whose acceptance is a re-derived measurement, so none can invalidate another's premise. DOC-35 excluded: it pins specs/integration.md, which DOC-34 owns this wave.",
+  "excluded_with_reasons": {
+    "DOC-35": "collides with DOC-34 on specs/integration.md",
+    "DOC-36": "P5 one-line version pin; foreman-direct this tick",
+    "INT-CI-020": "writer-side defect lives in the fleet boardctl, not this repo; needs a contract decision first",
+    "QA-TERMINAL-JAIL-26": "no description/acceptance on the row; premise needs a live repro before dispatch",
+    "PERF-003": "needs foreman-authored paired benchmark arms (perf-acceptance-proof doctrine)",
+    "RELEASE-TJ-027": "GitReins upstream surface outside this repo"
+  },
+  "finished_at": "2026-11-17T22:56:00Z",
+  "outcome": {
+    "merged": 7,
+    "judged_pass": 5,
+    "judged_fail_then_reworked": 1,
+    "foreman_direct": 1,
+    "merged_gate": "merged tree at eba3c32: pytest -q -> 2152 passed, 15 skipped, 0 failed (249s); ruff check plugin/ clean; ruff format --check . 185 files formatted; docs-check overall PASS at every branch tip and at main",
+    "board_rows_closed": [
+      "DOC-2-R2 (pending re-judge)",
+      "DOC-29-R2",
+      "DOC-31",
+      "DOC-32",
+      "DOC-33",
+      "DOC-34",
+      "DOC-36"
+    ],
+    "ci": "hosted CI green on all eight runs from 21:44Z to 22:19Z (every merge + the DOC-36 commit)",
+    "unpushed": 0
+  }
+}

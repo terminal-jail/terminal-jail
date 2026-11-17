@@ -2705,3 +2705,59 @@ tasks:
   status: complete
   created_at: '2026-11-17T12:01:31.184282+00:00'
   completed_at: '2026-11-17T13:51:46.540351+00:00'
+- id: DOC-2-R2
+  title: DOC-2-R2 doc claim correction
+  criteria:
+  - CONTRIBUTING.md project-structure census matches the shipped tree; docs-check.py
+    and ruff clean; test-only docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:16.821421+00:00'
+  completed_at: '2026-11-17T22:53:47.674393+00:00'
+- id: DOC-29-R2
+  title: DOC-29-R2 doc claim correction
+  criteria:
+  - docs/COMPATIBILITY.md Python support table matches the shipped floor and CI matrix;
+    docs-check.py and ruff clean; test-only docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:17.779609+00:00'
+  completed_at: '2026-11-17T22:09:21.032235+00:00'
+- id: DOC-31
+  title: DOC-31 doc claim correction
+  criteria:
+  - docs/supply-chain.md figures match the shipped installer and pyproject; docs-check.py
+    and ruff clean; test-only docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:18.788421+00:00'
+  completed_at: '2026-11-17T22:18:17.895471+00:00'
+- id: DOC-32
+  title: DOC-32 doc claim correction
+  criteria:
+  - docs/dependency-audit.md verdict matches pyproject requirements and runtime file
+    access; docs-check.py and ruff clean; test-only docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:19.835916+00:00'
+  completed_at: '2026-11-17T22:25:25.551836+00:00'
+- id: DOC-33
+  title: DOC-33 doc claim correction
+  criteria:
+  - specs/cli.md line pins resolve at HEAD; docs-check.py and ruff clean; test-only
+    docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:21.065845+00:00'
+  completed_at: '2026-11-17T22:35:05.766175+00:00'
+- id: DOC-34
+  title: DOC-34 doc claim correction
+  criteria:
+  - spec rule census matches the shipped engine; docs-check.py and ruff clean; test-only
+    docs diff
+  status: complete
+  created_at: '2026-11-17T21:37:22.270227+00:00'
+  completed_at: '2026-11-17T22:45:11.735489+00:00'
+- id: DOC-36
+  title: DOC-36 doc claim correction
+  criteria:
+  - docs/deploy-to-karahermes.md version pin matches install.sh TERMINAL_JAIL_VERSION
+    default; docs-check PASS; ruff clean
+  status: complete
+  created_at: '2026-11-17T21:39:32.440132+00:00'
+  completed_at: '2026-11-17T21:39:55.664325+00:00'
