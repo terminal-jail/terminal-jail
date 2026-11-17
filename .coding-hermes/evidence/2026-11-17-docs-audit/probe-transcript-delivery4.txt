@@ -1,0 +1,117 @@
+# terminal-jail docs audit — delivery 4 of tick terminal-jail-docs-2026-11-17-15-26-50
+# generated: 2026-11-17T12:01:04
+# audited tip: 08a35a684493d538cf2f51d18a9a93313332c336 (v1.3.4-34-g08a35a6)
+# `git status --porcelain` at probe time: ''
+
+## A1 — dead relative link: quickstart cites specs/integration.md from inside docs/
+$ cd /home/kara/terminal-jail && grep -n specs/integration.md docs/quickstart.md
+[rc=0]
+978:- [specs/integration.md](specs/integration.md) — architecture & defense-in-depth layers
+
+## A2 — that repo-relative path from docs/ does not resolve
+$ cd /home/kara/terminal-jail && test -e docs/specs/integration.md; echo "docs/specs/integration.md exists?: rc=$?"
+[rc=0]
+docs/specs/integration.md exists?: rc=1
+
+## A3 — the target DOES exist at repo root, so the link is one ../ short
+$ cd /home/kara/terminal-jail && test -e specs/integration.md; echo "specs/integration.md exists?: rc=$?"; wc -l specs/integration.md
+[rc=0]
+specs/integration.md exists?: rc=0
+509 specs/integration.md
+
+## A4 — CONTROL: same-family links authored correctly from docs/
+$ cd /home/kara/terminal-jail && grep -n ](../specs/ docs/pentest-plan.md
+[rc=0]
+1123:- [Plugin Specification](../specs/plugin.md) — Plugin design and hook gap
+1124:- [systemd Specification](../specs/systemd.md) — Drop-in directives
+1125:- [Integration Specification](../specs/integration.md) — Layer composition
+
+## B1 — COMPATIBILITY Python table (shipped text)
+$ cd /home/kara/terminal-jail && grep -nE '^\| 3\.[0-9]+ \|' docs/COMPATIBILITY.md
+[rc=0]
+91:| 3.9 | ✅ | ✅ (CI) |
+92:| 3.10 | ✅ | ✅ (CI) |
+93:| 3.11 | ✅ | ✅ (CI, primary dev) |
+94:| 3.12 | ✅ | Planned |
+95:| 3.13 | ✅ | Planned |
+96:| 3.14 | ✅ | Planned |
+
+## B2 — declared python floor
+$ cd /home/kara/terminal-jail && grep -n requires-python pyproject.toml
+[rc=0]
+14:requires-python = ">=3.11"
+
+## B3 — CI matrix actually exercised
+$ cd /home/kara/terminal-jail && grep -n python-version: \[ .github/workflows/ci.yml
+[rc=0]
+16:        python-version: ["3.11", "3.12", "3.13"]
+
+## B4 — the SAME page states the >=3.11 floor in prose below the table
+$ cd /home/kara/terminal-jail && grep -n requires Python docs/COMPATIBILITY.md
+[rc=0]
+100:The repository currently declares version 1.3.4 and requires Python ≥ 3.11. The test count below is a collection snapshot, not a permanent promise: run the command from the repository root whenever the test surface changes.
+
+## C1 — README kernel/util-linux floors
+$ cd /home/kara/terminal-jail && grep -nE 'kernel 3\.8|kernel 4\.3|util-linux. 2\.3[0-9]' README.md
+[rc=0]
+20:| **Platform** | Linux, `bash`, `util-linux` 2.32+ (`unshare`); `bubblewrap` optional |
+884:- Linux (kernel 3.8+ for user namespaces, 4.3+ for `--kill-child`)
+885:- `util-linux` 2.32+ (`unshare` with `--kill-child`); the uid-mapped launch additionally uses `setpriv --pdeathsig` (util-linux 2.36+ — same package; without it the mapped preflight fails and the launch falls back mapping-less loudly, TJ-DF-043)
+
+## C2 — COMPATIBILITY util-linux table + prose floor
+$ cd /home/kara/terminal-jail && sed -n '56p;62,71p' docs/COMPATIBILITY.md
+[rc=0]
+| `unshare` | util-linux ≥ 2.38 (≥ 2.34 without `--kill-child`) | ❌ (shared host procfs) | ✅ | `TERMINAL_JAIL_JAIL_BACKEND=unshare` | exits 2 naming the fallback |
+## util-linux (unshare) Compatibility
+
+| util-linux Version | --pid | --fork | --mount-proc | --kill-child |
+|-------------------|-------|--------|-------------|-------------|
+| 2.34+ | ✅ | ✅ | ✅ | ❌ |
+| 2.38+ | ✅ | ✅ | ✅ | ✅ |
+| 2.40+ | ✅ | ✅ | ✅ | ✅ |
+
+`--kill-child=SIGKILL` requires util-linux ≥ 2.38. Earlier versions will still create the PID namespace but cannot guarantee child process cleanup on jail exit.
+
+## C3 — SUPPORT.md kernel floor
+$ cd /home/kara/terminal-jail && grep -n Linux kernel SUPPORT.md
+[rc=0]
+21:- Linux kernel 5.11+ (PID namespace support)
+
+## C4 — pentest-plan kernel + util-linux floors
+$ cd /home/kara/terminal-jail && sed -n '27,28p' docs/pentest-plan.md
+[rc=0]
+| Test host | Linux kernel 5.15+ with unprivileged user namespaces enabled |
+| unshare | util-linux 2.39+ (required for `--kill-child=SIGKILL`) |
+
+## C5 — wrapper source names a '< 2.36 ... documented floor'
+$ cd /home/kara/terminal-jail && sed -n '850,858p' standalone/terminal-jail
+[rc=0]
+    # util-linux arms the child-termination flag ($_KC) BEFORE those
+    # changes — so on hosts that reach the mapped launch (e.g. Debian 13,
+    # kernel 6.12) the payload was namespace PID 1 with NO parent-death
+    # linkage: the launcher's SIGKILL left a real orphan. setpriv
+    # --pdeathsig re-arms after the cred change and preserves the payload
+    # argv; it ships in util-linux itself. A host whose setpriv lacks
+    # --pdeathsig (util-linux < 2.36, below the documented floor) fails the
+    # flag-identical probe and the launch falls back mapping-less with the
+    # existing loud warning. The tail lives inside $_TJ_MAPPED_FLAGS so the
+
+## D1 — repo's own doc-contract gate, run at this tip (T3: binary executed)
+$ cd /home/kara/terminal-jail && .venv/bin/python scripts/docs-check.py
+[rc=0]
+docs-check[check1] [PASS] fenced-block balance: 46 fence lines (23 blocks), all closed
+docs-check[check2] [PASS] README Version cell has no hard-coded version literal
+docs-check[check3] [PASS] ./standalone/terminal-jail --version -> rc=0 | first line: terminal-jail 1.3.4
+docs-check[check3] [PASS] ./standalone/terminal-jail --help -> rc=0 | first line: Usage: terminal-jail <command> [args...]
+docs-check[check3] [PASS] python3 scripts/rule-catalog.py --check -> rc=0 | first line: [catalog] OK — 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date
+docs-check[check3] [PASS] python3 plugin/terminal_jail/interruptor_bridge.py -> rc=0 | first line: {"action": "allow", "command": "ls -la", "modified": null, "rule_id": "allow-ls", "reason": "", "layer": "yaml"}
+docs-check[check3] [PASS] pinned commands (4 pinned)
+docs-check[check4] [PASS] ./standalone/terminal-jail --help -> rc=0 | stdout: Usage: terminal-jail <command> [args...]
+docs-check[check4] [PASS] ./standalone/terminal-jail --version -> rc=0 | stdout: terminal-jail 1.3.4
+docs-check[check4] [PASS] ./standalone/terminal-jail echo hello -> rc=0 | stdout: hello
+docs-check[check4] [PASS] ./standalone/terminal-jail --user printenv TERMINAL_JAIL_FS_ISOLATION -> rc=0 | stdout: degraded
+docs-check[check4] [PASS] ./standalone/terminal-jail --seccomp printenv TERMINAL_JAIL_SECCOMP -> rc=0 | stdout: 1
+docs-check[check4] [PASS] ./standalone/terminal-jail --user --seccomp echo hello -> rc=0 | stdout: hello
+docs-check[check4] [PASS] quarterly-review §3 CLI checklist
+docs-check: overall PASS
+
