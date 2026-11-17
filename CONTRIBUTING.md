@@ -68,7 +68,8 @@ terminal-jail/
 │   ├── ...                   # 36 further test modules (40 in total); real-unshare
 │   │                         #   integration tests are marked @pytest.mark.integration
 │   │                         #   (test_env_scrub, test_userns, test_backend_parity,
-│   │                         #   test_backend_selection, test_host_probes)
+│   │                         #   test_backend_selection, test_host_probes,
+│   │                         #   test_private_proc_demand)
 │   ├── test_install.py       # install.sh tests (106 tests)
 │   ├── test_standalone_cli.py # CLI tests (23 tests)
 │   └── test_metrics_export.py # Metrics export tests (21 tests)
