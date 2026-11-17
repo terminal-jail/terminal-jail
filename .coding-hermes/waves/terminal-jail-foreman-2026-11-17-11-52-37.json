@@ -7,6 +7,7 @@
   "wave_budget": 9,
   "width": 4,
   "status": "complete",
+  "finished_at": "2026-11-17T21:38:00Z",
   "worker_model": "openai/gpt-6.1-terra",
   "worker_provider": "xkiro",
   "workers": [
@@ -70,7 +71,14 @@
     "merged_gate": "per-merge on the merged tree: docs-check overall PASS incl. new check4 (six quarterly commands rc 0), 206 passed / 1 skipped (modify_preflight, landlock, packaging_wheel, standalone_cli, board_id_guard), ruff check + format clean",
     "board_commit": "a42b0fd",
     "unpushed": 0,
-    "ci": "e14280a + f00967d success; a42b0fd in progress at close"
+    "ci": "e14280a + f00967d success; a42b0fd in progress at close",
+    "recovery_2026_11_17T21_38Z": {
+      "verified": "all 4 branches ancestors of main (ahead=0 each), all 4 board rows status=complete with commit_hash, local==origin/main (0/0), hosted CI green on the 4 runs at 16:51-17:28Z",
+      "gates_on_merged_tree": "repo .venv/bin/python -m pytest -q -> 2151 passed, 15 skipped, 0 failed; ruff check plugin/ clean; ruff format --check . 185 files already formatted; scripts/docs-check.py overall PASS (check4 six quarterly commands rc=0)",
+      "ambient_env_failure_filed": "INT-CI-021: the same suite under the agent runner venv goes red on plugin/test_modify_preflight.py::test_tier_on_pinned_interpreter_runs_the_payload because the skip-guard classifies the interpreter lexically while the tier denies its realpath",
+      "reaped": ["/home/kara/worktrees/terminal-jail-RELEASE-TJ-026", "/home/kara/worktrees/terminal-jail-README-14", "/home/kara/worktrees/terminal-jail-TJ-REVIEW-074-R2", "/home/kara/worktrees/terminal-jail-TJ-DF-067"],
+      "branches_deleted_merged": ["wt/RELEASE-TJ-026", "wt/README-14", "wt/TJ-REVIEW-074-R2", "wt/TJ-DF-067"]
+    }
   },
   "notes": "slots left unfilled with cited reasons: PERF-003 requires foreman-authored paired benchmark arms (perf-acceptance-proof); RELEASE-TJ-027 / QA-TERMINAL-JAIL-19-R2 / 27-R2 / 34 / 35 / 26 are harness or upstream-gitreins surfaces outside this repo; OPS-TJ-001 + TJ-DF-069 are host/bunker-bound; RELEASE-TJ-025 + RELEASE-TJ-029 + RELEASE-TJ-015 need owner decisions; DOC-28 / DOC-27 / DOC-4-R2 / README-15 / DOC-30 collide on files owned by this wave"
 }
