@@ -67,14 +67,14 @@ with its reason, and the installer exits `2` at the end with a summary
 (`--unrule-pack` needs no Python at all).
 
 Release-mode downloads are **opt-in** and use the published GitHub Release
-wheel plus its checksum manifest. The current release `v1.3.3` publishes
-`SHA256SUMS`, `terminal_jail-1.3.3-py3-none-any.whl`, and
-`terminal_jail-1.3.3.tar.gz`. The installer downloads the wheel, verifies its
+wheel plus its checksum manifest. The current release `v1.3.4` publishes
+`SHA256SUMS`, `terminal_jail-1.3.4-py3-none-any.whl`, and
+`terminal_jail-1.3.4.tar.gz`. The installer downloads the wheel, verifies its
 matching entry in `SHA256SUMS`, and extracts the bundled wrapper/support files.
 Other published versions use the same naming pattern:
 
 ```bash
-TERMINAL_JAIL_USE_RELEASE=1 ./install.sh                    # default: 1.3.3
+TERMINAL_JAIL_USE_RELEASE=1 ./install.sh                    # default: 1.3.4
 TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.2 ./install.sh
 ```
 
