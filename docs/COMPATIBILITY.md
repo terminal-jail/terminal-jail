@@ -86,14 +86,30 @@ Consistent with the README backend table: bubblewrap is an optional runtime depe
 
 ## Python Compatibility
 
+The package declares `requires-python = ">=3.11"` (`pyproject.toml:14`), so **Python 3.9 and 3.10 are not
+supported**: `pip` refuses the install rather than installing and failing later. This is a *Python*
+floor only — the kernel, Landlock and `util-linux` requirements in the sections above are independent of
+it, so a 3.11+ interpreter on an old kernel still needs the namespace prerequisites listed there, and a
+new interpreter does not raise the kernel floor.
+
+The `Tests` column is justified by the job matrix in `.github/workflows/ci.yml` — the authority for what
+CI actually executes — and never by the classifier list in `pyproject.toml`:
+
+```bash
+grep -n -A 3 'python-version: \[' .github/workflows/ci.yml
+```
+
 | Python Version | Plugin | Tests |
 |---------------|--------|-------|
-| 3.9 | ✅ | ✅ (CI) |
-| 3.10 | ✅ | ✅ (CI) |
-| 3.11 | ✅ | ✅ (CI, primary dev) |
-| 3.12 | ✅ | Planned |
-| 3.13 | ✅ | Planned |
-| 3.14 | ✅ | Planned |
+| 3.11 | ✅ | ✅ CI — matrix entry `"3.11"` (primary dev interpreter) |
+| 3.12 | ✅ | ✅ CI — matrix entry `"3.12"` |
+| 3.13 | ✅ | ✅ CI — matrix entry `"3.13"` |
+| 3.14 | ⚠️ untested — installable (≥ floor) but no CI job runs it | ⚠️ untested — absent from the CI matrix |
+
+A row only carries a ✅ in `Tests` when the matrix names that interpreter; anything above the newest
+matrix entry is installable by metadata alone and has no test verdict. Note that `pyproject.toml`'s
+classifier list is publication metadata, not a test record — it currently lists 3.11 and 3.12 while CI
+executes 3.13, so this table follows the matrix.
 
 ## Test Compatibility Notes
 
