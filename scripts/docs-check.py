@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""README docs check for terminal-jail (README-5): fences, version, commands.
+"""Docs check for terminal-jail (README-5, TJ-DF-067): README fences, version,
+pinned commands, and the quarterly-review §3 standalone-CLI checklist.
 
 Nothing else in CI reads README.md (verified 2026-10-27: the "Drift guards"
 job runs rule-catalog / yaml-mirror-parity / rules-drift / backend-parity /
 kernel-matrix-teardown; none of them touches README.md), so README rot —
 stale fences, broken quickstart commands — shipped undetected. This script
-is the missing guard. Stdlib only.
+is the missing guard. docs/quarterly-review.md §3 was the same hole on the
+release-checklist side (TJ-DF-067: five CLI lines nobody could pass, executed
+by nothing), so CHECK 4 now runs that checklist straight out of the document.
+Stdlib only.
 
 CHECK 1 — fenced-block balance in README.md
     A line starting with ``` at COLUMN 0 toggles a fenced block (this is
@@ -23,19 +27,45 @@ CHECK 2 — pinned read-only README commands
     namespaces, no bubblewrap, no root, no network, no writable install
     dir — a stock CI runner passes them all.
 
+CHECK 4 — quarterly-review §3 standalone-CLI checklist
+    Extracts every `- [ ]` line of docs/quarterly-review.md section 3
+    ("Standalone CLI"), takes the FIRST inline-code span of the line as its
+    argv, and executes it from the repo root. The DOCUMENT is the source of
+    truth: the checker keeps no second copy of the command, so a checklist
+    line cannot drift from what CI actually runs. Each command must exit 0,
+    be registered in QUARTERLY_EXPECT (the table stating what the line
+    CLAIMS: usage text, version string, printed isolation marker), and
+    satisfy that claim. A command that is missing from the table fails
+    loudly instead of passing on exit status alone — "it happens to exit 0"
+    is exactly how the stale `--` invocations survived.
+
+    Unlike CHECK 2 these commands DO use namespaces, so they cannot be
+    promised passable on every runner. Two honest non-pass classes are
+    reported as SKIP with the reason, never as PASS (same doctrine as
+    scripts/kernel-matrix-teardown.py --gate): the wrapper refusing for an
+    environment reason (exit 2 + "command not run" — no namespaces on this
+    host, isolation never silently downgraded), and a per-entry
+    `skip_if_stderr_contains` marker (composed mode, where --seccomp is
+    documented as NOT applied by this tool). When every line skips, the check
+    says so: "0 of N commands could be verified on this host".
+
 ESCAPE HATCH
     Set TERMINAL_JAIL_DOCS_CHECK_SKIP_COMMANDS=1 (or true/yes/on, any
-    case) to skip CHECK 2 ONLY — CHECK 1 is always enforced. Intended for
-    local runs in sandboxes where the pinned commands cannot execute; CI
-    never sets it.
+    case) to skip CHECK 3 and CHECK 4 ONLY — CHECK 1 and CHECK 2 are always
+    enforced. Intended for local runs in sandboxes where the pinned commands
+    cannot execute; CI never sets it.
 
 CLI
-    docs-check.py [--readme PATH]    # default: <repo root>/README.md
+    docs-check.py [--readme PATH] [--quarterly PATH]
+                   # defaults: <repo root>/README.md, docs/quarterly-review.md
 
-Negative controls, without editing this file or the real README:
+Negative controls, without editing this file or the real docs:
   * fence control: point --readme at a mutated COPY of the README;
   * command control: import this module and call
-    run_pinned_commands(commands=[{"id": ..., "argv": ["false"]}]).
+    run_pinned_commands(commands=[{"id": ..., "argv": ["false"]}]);
+  * checklist control: point --quarterly at a COPY of the quarterly review
+    with a stale invocation reinserted into §3 (e.g. `-- echo hello`, which
+    the wrapper answers with rc 127 "command not found").
 
 Exit 0 only if every enforced check passes; exit 1 otherwise, with one
 self-explaining PASS/FAIL line per check (and per pinned command).
@@ -60,6 +90,56 @@ COMMAND_TIMEOUT_S = 60
 VERSION_LITERAL_RE = re.compile(r"v?[0-9]+[.][0-9]+[.][0-9]+")
 
 BRIDGE_STDIN = '{"command": "ls -la"}\n'
+
+QUARTERLY_DOC = REPO_ROOT / "docs" / "quarterly-review.md"
+
+#: §3 of the quarterly review is the standalone-CLI checklist (TJ-DF-067).
+QUARTERLY_SECTION_RE = re.compile(r"^##\s+3\.\s+Standalone CLI\b")
+SECTION_HEADING_RE = re.compile(r"^##\s+")
+CHECKBOX_RE = re.compile(r"^\s*-\s+\[ \]\s+(?P<body>.*)$")
+INLINE_CODE_RE = re.compile(r"`([^`]+)`")
+
+#: Only the wrapper is ever executed from the checklist. A line naming any
+#: other program is refused before it runs: the document is editable by hand
+#: and this check must never become a way to execute an arbitrary command in
+#: CI just by adding a bullet.
+QUARTERLY_WRAPPER = "./standalone/terminal-jail"
+
+#: The wrapper's documented fail-closed refusal: exit 2 plus this marker
+#: means "command not run" because the host cannot provide the isolation, an
+#: environment limit rather than a doc regression (never silently downgraded,
+#: see standalone/terminal-jail and scripts/kernel-matrix-teardown.py --gate).
+WRAPPER_REFUSAL_RC = 2
+WRAPPER_REFUSAL_MARKER = "command not run"
+
+#: TJ-DF-067: what each docs/quarterly-review.md §3 line CLAIMS, keyed by the
+#: exact command text the document shows. A checklist command absent from this
+#: table fails CHECK 4 instead of passing on exit status alone — the stale
+#: `-- echo hello` lines this table replaced either failed outright (rc 127) or
+#: exited 0 for the wrong reason (`--seccomp -- echo hello`: the loader, not
+#: the wrapper, ate the `--`), so nothing ever tested a claim.
+#: Keys: stdout_equals (one line, `{version}` rendering the pyproject
+#: version), stdout_contains (all substrings), stdout_one_of (exact match
+#: against a set), skip_if_stderr_contains (documented degradation markers).
+QUARTERLY_EXPECT = {
+    "./standalone/terminal-jail --help": {
+        "stdout_contains": ["Usage:", "--user", "--seccomp"],
+    },
+    "./standalone/terminal-jail --version": {
+        "stdout_equals": "terminal-jail {version}",
+    },
+    "./standalone/terminal-jail echo hello": {"stdout_contains": ["hello"]},
+    "./standalone/terminal-jail --user printenv TERMINAL_JAIL_FS_ISOLATION": {
+        "stdout_one_of": ["mapped", "degraded"],
+    },
+    "./standalone/terminal-jail --seccomp printenv TERMINAL_JAIL_SECCOMP": {
+        "stdout_equals": "1",
+        "skip_if_stderr_contains": ["seccomp filter is NOT applied in composed mode"],
+    },
+    "./standalone/terminal-jail --user --seccomp echo hello": {
+        "stdout_contains": ["hello"],
+    },
+}
 
 # Data structure, not code: a future README audit extends this list.
 # Keys: id (display name), argv (required), stdin (optional),
@@ -139,7 +219,7 @@ def check_version_cell(
     expected = f"v{version}"
     literals = VERSION_LITERAL_RE.findall(version_lines[0])
     stale = sorted(
-        set(literal for literal in literals if literal.removeprefix("v") != version)
+        {literal for literal in literals if literal.removeprefix("v") != version}
     )
     if stale:
         return False, (
@@ -156,6 +236,13 @@ def _first_line(proc: subprocess.CompletedProcess[str]) -> str:
         if stream and stream.strip():
             return stream.strip().splitlines()[0]
     return "(no output)"
+
+
+def _diagnostic_line(proc: subprocess.CompletedProcess[str]) -> str:
+    """The wrapper's own error line: verdict JSON first, real diagnosis last."""
+    lines = [ln.strip() for ln in (proc.stderr or "").splitlines() if ln.strip()]
+    lines = [ln for ln in lines if not ln.startswith("{")]
+    return lines[-1] if lines else _first_line(proc)
 
 
 def _validate_expectation(
@@ -240,6 +327,171 @@ def run_pinned_commands(
     return all_ok, messages
 
 
+def pyproject_version(path: Path = REPO_ROOT / "pyproject.toml") -> str:
+    """Project version from pyproject.toml — the value the docs must match."""
+    return str(tomllib.loads(path.read_text(encoding="utf-8"))["project"]["version"])
+
+
+def _quarterly_section_lines(doc: Path) -> list[str]:
+    """Body lines of the "## 3. Standalone CLI" section (heading excluded)."""
+    lines = doc.read_text(encoding="utf-8").splitlines()
+    start: int | None = None
+    for index, line in enumerate(lines):
+        if QUARTERLY_SECTION_RE.match(line):
+            start = index + 1
+            break
+    if start is None:
+        raise ValueError(f"no '## 3. Standalone CLI' section in {doc}")
+    body: list[str] = []
+    for line in lines[start:]:
+        if SECTION_HEADING_RE.match(line):
+            break
+        body.append(line)
+    return body
+
+
+def quarterly_commands(doc: Path | None = None) -> list[str]:
+    """Commands the §3 checklist asks a reviewer to run, in document order.
+
+    The FIRST inline-code span of each `- [ ]` line is its command. A
+    checklist line with no command span raises: an item nobody can execute is
+    the rot this check exists to catch, so it must not be skipped silently.
+    """
+    doc = QUARTERLY_DOC if doc is None else doc
+    commands: list[str] = []
+    for line in _quarterly_section_lines(doc):
+        match = CHECKBOX_RE.match(line)
+        if match is None:
+            continue
+        span = INLINE_CODE_RE.search(match.group("body"))
+        if span is None:
+            raise ValueError(
+                f"checklist line carries no inline-code command: {line.strip()!r}"
+            )
+        commands.append(span.group(1).strip())
+    return commands
+
+
+def _validate_quarterly_expectation(
+    expect: dict, proc: subprocess.CompletedProcess[str], display: str, version: str
+) -> tuple[bool, str]:
+    """Compare a checklist command's stdout with what its line claims."""
+    stdout = proc.stdout or ""
+    out = stdout.strip()
+    want_equals = expect.get("stdout_equals")
+    if want_equals is not None:
+        want = want_equals.format(version=version)
+        if out != want:
+            return False, f"[FAIL] {display}: expected stdout {want!r}, got {out!r}"
+    for needle in expect.get("stdout_contains", ()):
+        if needle not in stdout:
+            return False, f"[FAIL] {display}: stdout is missing {needle!r}"
+    one_of = expect.get("stdout_one_of")
+    if one_of is not None and out not in one_of:
+        return False, f"[FAIL] {display}: expected stdout one of {one_of}, got {out!r}"
+    return True, f"[PASS] {display} -> rc=0 | stdout: {_first_line(proc)}"
+
+
+def check_quarterly_cli(doc: Path | None = None) -> tuple[bool, list[str]]:
+    """Run every §3 checklist command and assert the claim its line makes."""
+    doc = QUARTERLY_DOC if doc is None else doc
+    try:
+        commands = quarterly_commands(doc)
+        version = pyproject_version()
+    except (
+        KeyError,
+        OSError,
+        TypeError,
+        UnicodeDecodeError,
+        ValueError,
+        tomllib.TOMLDecodeError,
+    ) as exc:
+        return False, [f"[FAIL] quarterly §3 CLI checklist: cannot read inputs: {exc}"]
+    if not commands:
+        return False, [
+            f"[FAIL] quarterly §3 CLI checklist: no '- [ ]' command lines in {doc}"
+        ]
+
+    all_ok = True
+    verified = 0
+    messages: list[str] = []
+    for command in commands:
+        try:
+            argv = shlex.split(command)
+        except ValueError as exc:
+            all_ok = False
+            messages.append(f"[FAIL] {command}: cannot parse as argv: {exc}")
+            continue
+        if not argv or argv[0] != QUARTERLY_WRAPPER:
+            all_ok = False
+            messages.append(
+                f"[FAIL] {command}: §3 executes only {QUARTERLY_WRAPPER} "
+                "invocations; this line was NOT run"
+            )
+            continue
+        try:
+            proc = subprocess.run(
+                argv,
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=COMMAND_TIMEOUT_S,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            all_ok = False
+            messages.append(f"[FAIL] {command} -> TIMEOUT after {COMMAND_TIMEOUT_S}s")
+            continue
+        except OSError as exc:
+            all_ok = False
+            messages.append(f"[FAIL] {command} -> could not exec: {exc}")
+            continue
+
+        stderr = proc.stderr or ""
+        if proc.returncode == WRAPPER_REFUSAL_RC and WRAPPER_REFUSAL_MARKER in stderr:
+            messages.append(
+                f"[SKIP] {command} -> rc={proc.returncode}, the wrapper refused to "
+                f"run it (environment, not a doc regression): "
+                f"{_diagnostic_line(proc)}"
+            )
+            continue
+        if proc.returncode != 0:
+            all_ok = False
+            messages.append(
+                f"[FAIL] {command} -> rc={proc.returncode} | "
+                f"first line: {_diagnostic_line(proc)}"
+            )
+            continue
+        expect = QUARTERLY_EXPECT.get(command)
+        if expect is None:
+            all_ok = False
+            messages.append(
+                f"[FAIL] {command}: exits 0 but is not registered in "
+                "QUARTERLY_EXPECT, so the claim its line makes is unchecked"
+            )
+            continue
+        marker = next(
+            (m for m in expect.get("skip_if_stderr_contains", ()) if m in stderr),
+            None,
+        )
+        if marker is not None:
+            messages.append(
+                f"[SKIP] {command} -> documented degradation ({marker}); "
+                f"not counted as PASS: {_first_line(proc)}"
+            )
+            continue
+        ok, message = _validate_quarterly_expectation(expect, proc, command, version)
+        all_ok = all_ok and ok
+        verified += 1
+        messages.append(message)
+    if verified == 0:
+        messages.append(
+            f"[SKIP] 0 of {len(commands)} quarterly §3 commands could be verified on "
+            "this host — a skip is never coverage"
+        )
+    return all_ok, messages
+
+
 def skip_commands_requested() -> bool:
     raw = os.environ.get("TERMINAL_JAIL_DOCS_CHECK_SKIP_COMMANDS", "")
     return raw.strip().lower() in {"1", "true", "yes", "on"}
@@ -254,6 +506,12 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=REPO_ROOT / "README.md",
         help="README to check (default: <repo root>/README.md)",
+    )
+    parser.add_argument(
+        "--quarterly",
+        type=Path,
+        default=QUARTERLY_DOC,
+        help="quarterly review to check (default: <repo root>/docs/quarterly-review.md)",
     )
     args = parser.parse_args(argv)
 
@@ -273,6 +531,11 @@ def main(argv: list[str] | None = None) -> int:
             "(TERMINAL_JAIL_DOCS_CHECK_SKIP_COMMANDS is set); "
             "check 1 remains enforced"
         )
+        print(
+            "docs-check[check4] [SKIP] quarterly §3 CLI checklist skipped "
+            "(TERMINAL_JAIL_DOCS_CHECK_SKIP_COMMANDS is set); "
+            "checks 1 and 2 remain enforced"
+        )
     else:
         cmds_ok, cmd_msgs = run_pinned_commands()
         for msg in cmd_msgs:
@@ -283,6 +546,13 @@ def main(argv: list[str] | None = None) -> int:
             f"({len(PINNED_COMMANDS)} pinned)"
         )
         all_ok = all_ok and cmds_ok
+
+        quarterly_ok, quarterly_msgs = check_quarterly_cli(args.quarterly)
+        for msg in quarterly_msgs:
+            print(f"docs-check[check4] {msg}")
+        status = "PASS" if quarterly_ok else "FAIL"
+        print(f"docs-check[check4] [{status}] quarterly-review §3 CLI checklist")
+        all_ok = all_ok and quarterly_ok
 
     print(f"docs-check: overall {'PASS' if all_ok else 'FAIL'}")
     return 0 if all_ok else 1
