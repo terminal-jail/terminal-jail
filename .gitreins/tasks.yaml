@@ -2633,8 +2633,9 @@ tasks:
     the merged tree; fail if any of them exits non-zero; proof: .venv/bin/python -m
     pytest -q plugin/test_install.py plugin/test_standalone_cli.py and .venv/bin/ruff
     check plugin/ standalone/ scripts/ and ruff format --check.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-17T12:01:28.855984+00:00'
+  completed_at: '2026-11-17T13:20:42.558494+00:00'
 - id: README-14
   title: README release identity still names v1.3.3 asset release after v1.3.4 published
   criteria:
@@ -2652,8 +2653,9 @@ tasks:
     | head -3. C4: the README still states that the checkout-detected install probe
     does not verify the release-download branch; fail if that distinction was dropped;
     proof: grep -n -i ''checkout'' README.md and scripts/docs-check.py exiting 0.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-17T12:01:29.564376+00:00'
+  completed_at: '2026-11-17T13:30:56.354664+00:00'
 - id: TJ-REVIEW-074-R2
   title: auto-sandbox modify interpreter preflight still leaks a bare rc=126 Permission
     denied instead of a named unavailability verdict
@@ -2680,8 +2682,9 @@ tasks:
     on any non-zero; proof: .venv/bin/python -m pytest -q plugin/test_modify_preflight.py
     plugin/test_landlock.py and .venv/bin/ruff check plugin/ standalone/ and ruff
     format --check.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-17T12:01:30.383064+00:00'
+  completed_at: '2026-11-17T13:10:42.258441+00:00'
 - id: TJ-DF-067
   title: docs/quarterly-review.md section 3 CLI checklist cannot pass on a working
     build and nothing executes it
@@ -2699,5 +2702,6 @@ tasks:
     control. C4: whole-tree gates green; fail on any non-zero; proof: .venv/bin/python
     -m pytest -q plugin/test_board_id_guard.py and any docs-check test, plus .venv/bin/ruff
     check scripts/ and ruff format --check.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-17T12:01:31.184282+00:00'
+  completed_at: '2026-11-17T13:51:46.540351+00:00'
