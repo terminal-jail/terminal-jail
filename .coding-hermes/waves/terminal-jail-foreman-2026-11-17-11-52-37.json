@@ -1,0 +1,64 @@
+{
+  "tick_id": "terminal-jail-foreman-2026-11-17-11-52-37",
+  "kind": "foreman-wave",
+  "started_at": "2026-11-17T07:05:00-05:00",
+  "base_ref": "origin/main",
+  "base_sha": "9aff5bd",
+  "wave_budget": 9,
+  "width": 4,
+  "status": "dispatched",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "workers": [
+    {
+      "task_id": "RELEASE-TJ-026",
+      "title": "install.sh still pins the v1.3.3 asset URLs, so the documented installer serves one release behind the published v1.3.4",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-026",
+      "branch": "wt/RELEASE-TJ-026",
+      "base_sha": "9aff5bd",
+      "files_owned": ["install.sh", "docs/releasing.md", "docs/quickstart.md", "plugin/test_install.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/RELEASE-TJ-026.md",
+      "merge": "pending",
+      "judge": "pending"
+    },
+    {
+      "task_id": "README-14",
+      "title": "README release identity still names the v1.3.3 asset release after v1.3.4 was published",
+      "priority": "P4",
+      "worktree": "/home/kara/worktrees/terminal-jail-README-14",
+      "branch": "wt/README-14",
+      "base_sha": "9aff5bd",
+      "files_owned": ["README.md"],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/README-14.md",
+      "merge": "pending",
+      "judge": "pending"
+    },
+    {
+      "task_id": "TJ-REVIEW-074-R2",
+      "title": "auto-sandbox modify interpreter preflight still passes a python3 the filesystem tier cannot reach (bare rc=126, no named verdict)",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-074-R2",
+      "branch": "wt/TJ-REVIEW-074-R2",
+      "base_sha": "9aff5bd",
+      "files_owned": ["standalone/terminal-jail", "plugin/terminal_jail/_bundled/terminal-jail", "plugin/test_modify_preflight.py", "plugin/terminal_jail/**"],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-REVIEW-074-R2.md",
+      "merge": "pending",
+      "judge": "pending"
+    },
+    {
+      "task_id": "TJ-DF-067",
+      "title": "docs/quarterly-review.md section 3 CLI checklist cannot pass on a working build and nothing executes docs outside README.md",
+      "priority": "P3",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-067",
+      "branch": "wt/TJ-DF-067",
+      "base_sha": "9aff5bd",
+      "files_owned": ["docs/quarterly-review.md", "scripts/docs-check.py"],
+      "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-DF-067.md",
+      "merge": "pending",
+      "judge": "pending"
+    }
+  ],
+  "independence_check": "No depends_on edges among the four rows (all []); file sets disjoint (install.sh+docs/releasing.md+docs/quickstart.md+plugin/test_install.py vs README.md vs standalone wrapper+plugin modify tests vs docs/quarterly-review.md+scripts/docs-check.py); each worker owns its own worktree/branch off origin/main@9aff5bd",
+  "notes": "slots left unfilled with cited reasons: PERF-003 requires foreman-authored paired benchmark arms (project skill perf-acceptance-proof); RELEASE-TJ-027 / QA-TERMINAL-JAIL-19-R2 / 27-R2 / 34 / 35 / 26 are harness or upstream-gitreins surfaces outside this repo; OPS-TJ-001 + TJ-DF-069 are host/bunker-bound; RELEASE-TJ-025 + RELEASE-TJ-029 + RELEASE-TJ-015 need owner decisions (PyPI trusted publisher, Dependabot settings, release-object edit = public surface); DOC-28 / DOC-27 / DOC-4-R2 collide on files owned by this wave"
+}

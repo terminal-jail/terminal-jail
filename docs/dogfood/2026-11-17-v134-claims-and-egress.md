@@ -237,3 +237,30 @@ directory — reproduced this run on the 1.3.4 install),
 - `.coding-hermes/evidence/2026-11-17-v134/` — the probe scripts and their raw outputs,
 - `.coding-hermes/dogfood-log.md` — the run entry,
 - board rows `TJ-REVIEW-072-R2` and `TJ-DF-071`.
+
+## Addendum (same tick, after the push) — main moved under this run
+
+Two facts changed or became explicit between the measurement SHA and the published tip, and both
+are stated here rather than left inside an earlier sentence:
+
+1. **Main moved.** Everything above was measured at **`9aff5bd`**. While this fire was writing, a
+   sibling lane landed `f7fb7b2` *fix(installer): default release pin serves v1.3.4 assets — Addresses
+   RELEASE-TJ-026* and the merge `e91348b`, and my `git push origin HEAD:main` published all three
+   commits (`9aff5bd..e91348b`). **`f7fb7b2` and `e91348b` are not this lane's work** — the author
+   identity is the fleet's, the change set is `install.sh`, `plugin/test_install.py`,
+   `plugin/fixtures/github-release-v1.3.4.json`, `README.md`, `docs/quickstart.md`,
+   `docs/releasing.md`, `CONTRIBUTING.md`.
+2. **The `RELEASE-TJ-026` citation above is scoped to `9aff5bd`.** At the published tip
+   `install.sh:16` now reads `TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"`, so the
+   documented release-mode install serves v1.3.4 assets; the board row is nevertheless still
+   `pending` at `e91348b` (fix landed, row unclosed — a foreman closeout, not a dogfood write).
+
+**Both findings survive the move**, re-checked against the committed tree at `e91348b`:
+
+- `TJ-REVIEW-072-R2`: `grep -c 'terminal-jail v1.3.0 loaded'` = 1 in each of `plugin/__init__.py`
+  and `plugin/terminal_jail/__init__.py`; `'"1.3.0"'` = 1 in `scripts/metrics-export.py`; `== "1.3.0"`
+  = 1 in `plugin/test_metrics_export.py`.
+- `TJ-DF-071`: `_link_tools` is unchanged (`if real: symlink_to(real)`) and the unlink is now at
+  `plugin/test_install.py:295` (line numbers shifted by the sibling's edits; the mechanism and the
+  `FileNotFoundError` are identical). A worker should fix it at HEAD, not at the line number quoted
+  from `9aff5bd`.
