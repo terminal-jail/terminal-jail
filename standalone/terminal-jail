@@ -1266,6 +1266,111 @@ _tj_fs_degrade() {
     echo "terminal-jail: WARNING: Landlock filesystem tier not applied ($1); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning" >&2
 }
 
+# TJ-REVIEW-074: the interpreter at the head of an auto-sandbox rewrite's
+# payload.
+#
+# A `modify` rewrite is `<unshare prefix> bash -c '<payload>'`. When the
+# Landlock tier applies, the engine splices its launch tail INTO that payload
+# (decider.py `_wrap_payload`):
+#     bash -c 'python3 <landlock-loader.py> -- <command>'
+# Two consequences for THIS wrapper:
+#
+#   * that head `python3` is the last interpreter in the launch that ignores
+#     TERMINAL_JAIL_PYTHON (RELEASE-TJ-021 owns replacing it engine-side), so a
+#     wheel/venv pin never reached the payload;
+#   * bash resolves it AFTER the ruleset is installed, and the tier's ruleset
+#     is an ALLOWLIST. A `python3` on PATH under a path the tier never grants
+#     (the harness shape: a venv under ~/.hermes, a CREDENTIAL surface; any
+#     ungranted home subtree) is then unreadable INSIDE the domain, so the exec
+#     dies EACCES and bash leaks `Permission denied` + rc=126 after a clean
+#     `Command modified by auto-sandbox` verdict: no line says the command
+#     never ran, and nothing names the interpreter. The pre-tier `[ -x ]`
+#     preflight above cannot catch it — the file IS executable, it is the
+#     domain that denies the read.
+#
+# So, whenever the filesystem tier is about to be installed for a modify
+# rewrite: splice the pin over the literal head (the same "one variable, one
+# resolution scheme" the wrapper's own trampolines follow) and PROVE the
+# resulting interpreter starts inside the domain this launch installs. A proof
+# that fails is a named `auto-sandbox modify unavailable` verdict — never an
+# exec into EACCES.
+_tj_modify_tier_head() {
+    # Echo the interpreter token the rewrite's payload starts with when the
+    # engine spliced its fs-tier tail there (`<interp> <landlock-loader.py>
+    # -- …`); echo nothing when the payload starts with the command itself, or
+    # when the head is not a bare token (then nothing is pinned or proven —
+    # the launch keeps its historical behavior).
+    local payload second head
+    case "${1-}" in
+        *" bash -c "*) payload="${1#*" bash -c "}" ;;
+        *) return 0 ;;
+    esac
+    payload="${payload#"'"}"
+    head="${payload%% *}"
+    second="${payload#* }"
+    second="${second%% *}"
+    case "$second" in
+        *landlock-loader.py)
+            case "$head" in
+                "" | *[\'\"[:space:]]*) return 0 ;;
+            esac
+            printf '%s' "$head"
+            ;;
+    esac
+}
+
+_tj_modify_tier_head_startable() {
+    # $1 = the payload's head token. Prove it STARTS inside the domain this
+    # attach installs: the filesystem loader applies the ruleset with the
+    # layout this attach computes (a `bash -c …` payload) and is exec'd from
+    # THIS context — the same un-namespaced one the attach's own trampoline
+    # uses below, because the loader's enforcement proof needs a
+    # caller-owned ungranted path (`/run/user/<uid>`) that a nested
+    # `unshare --user` would hide behind the overflow uid. A shell then
+    # resolves and execs the token in-domain, which is exactly what bash does
+    # with the payload's first word — only after the tier is in place.
+    # Landlock's decisions are path-based, so the payload's later uid mapping
+    # does not change them. Success = the payload can run.
+    local head="${1-}"
+    "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- bash -c '
+        _tj_head_path=$(command -v "$1" 2>/dev/null) || exit 127
+        case "$_tj_head_path" in
+            /*) ;;
+            *) exit 127 ;;
+        esac
+        exec "$_tj_head_path" -c "pass"
+    ' terminal-jail "$head" >/dev/null 2>&1
+}
+
+_tj_modify_tier_head_prepare() {
+    # Splice the pin over the engine's literal head and prove the resulting
+    # interpreter starts under the tier the caller is about to install.
+    # Mutates CMD_STR; exits 2 through the named verdict when it cannot start.
+    # The caller has already proven the rewrite's prefix and the loader.
+    local head pin pinned resolved
+    head=$(_tj_modify_tier_head "$CMD_STR")
+    [ -n "$head" ] || return 0
+    pin="${TERMINAL_JAIL_PYTHON:-}"
+    if [ -n "$pin" ]; then
+        case "$pin" in
+            # Not spliceable into the payload's single-quoted word without
+            # re-quoting an arbitrary command (and re-quoting one is not this
+            # function's job): leave the rewrite untouched and let the proof
+            # below refuse loudly rather than launch something mangled.
+            *[\'[:space:]]*) ;;
+            *)
+                pinned="${CMD_STR%%" bash -c '${head} "*} bash -c '${pin} ${CMD_STR#*" bash -c '${head} "}"
+                CMD_STR="$pinned"
+                head="$pin"
+                ;;
+        esac
+    fi
+    _tj_modify_tier_head_startable "$head" && return 0
+    resolved=$(command -v "$head" 2>/dev/null) || resolved="not resolvable on PATH"
+    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter '${head}' (${resolved}), which the filesystem tier's Landlock domain cannot execute for '${MODIFIED_COMMAND}'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter the payload can read (e.g. /usr/bin/python3) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README \"Graceful Degradation\")" >&2
+    exit 2
+}
+
 _tj_launch_composed() {
     # Run the payload WITHOUT creating an inner namespace. States every layer
     # honestly and never claims what it does not provide:
@@ -1537,6 +1642,12 @@ elif [ "$MODIFIED" -eq 1 ]; then
     # auto-sandboxed command with Errno 13 (the TJ-DF-019 shape).
     if [ "$TJ_LANDLOCK_ON" -eq 1 ] && [ -n "$LANDLOCK_LOADER" ] && [ -f "$LANDLOCK_LOADER" ] && [ "${TERMINAL_JAIL_FS_ISOLATION:-}" != "mapped" ]; then
         if unshare ${_tj_prefix_flags:-} test -r "$LANDLOCK_LOADER" >/dev/null 2>&1; then
+            # TJ-REVIEW-074: the tier is about to be installed over a payload
+            # whose head interpreter bash resolves only AFTER the ruleset
+            # exists. Pin it and prove it starts inside the domain; a proof
+            # that fails refuses here, with the interpreter named (see the
+            # helpers above). No-op when the engine spliced no tier tail.
+            _tj_modify_tier_head_prepare
             TERMINAL_JAIL_LANDLOCK_PAYLOAD="$CMD_STR" exec bash -c 'exec "$@"' terminal-jail "$_TJ_BRIDGE_PY" "$LANDLOCK_LOADER" -- bash -c 'eval "$TERMINAL_JAIL_LANDLOCK_PAYLOAD"'
         fi
     fi
