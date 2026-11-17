@@ -85,17 +85,41 @@ def _link_tools(test_bin: Path, *tools: str) -> None:
             (test_bin / tool).symlink_to(real)
 
 
+_DEFAULT_RELEASE_VERSION_RE = re.compile(
+    r'TERMINAL_JAIL_VERSION="\$\{TERMINAL_JAIL_VERSION:-([^}]+)\}"'
+)
+
+
+def _installer_default_version(script: Path = INSTALL_SCRIPT) -> str:
+    """The installer's own default release tag, without a leading `v`.
+
+    Single source of truth for every fixture here: the mock release server must
+    publish exactly the version the installer asks for, or the failure means
+    "the fixture is stale", not "release mode is broken". The pin's correctness
+    is judged separately, against the captured/live GitHub Release.
+    """
+    match = _DEFAULT_RELEASE_VERSION_RE.search(script.read_text(encoding="utf-8"))
+    assert match, f"{script} default release version is missing"
+    return match.group(1).removeprefix("v")
+
+
 def _make_server_dir(tmp_path: Path, binary_content: str = FAKE_BINARY) -> Path:
-    """Create the default published-release fixture (v1.3.3)."""
+    """Create the default published-release fixture (the installer's pin)."""
     return _make_release_server_dir(tmp_path, binary_content=binary_content)
 
 
 def _make_release_server_dir(
     tmp_path: Path,
-    versions: tuple[str, ...] = ("1.3.3",),
+    versions: tuple[str, ...] | None = None,
     binary_content: str = FAKE_BINARY,
 ) -> Path:
-    """Create wheel-shaped local release assets and a GitHub-style manifest."""
+    """Create wheel-shaped local release assets and a GitHub-style manifest.
+
+    `versions=None` publishes the installer's DEFAULT version, so a pin bump
+    never leaves the mocked release server one release behind.
+    """
+    if versions is None:
+        versions = (_installer_default_version(),)
     server = tmp_path / "release-server"
     server.mkdir(exist_ok=True)
     checksums: list[str] = []
@@ -392,16 +416,22 @@ def test_release_asset_names_match_captured_github_release(
     install_script: Path,
 ) -> None:
     """Keep install.sh's expected names aligned with GitHub's published assets."""
-    source = install_script.read_text(encoding="utf-8")
-    default_version = re.search(
-        r'TERMINAL_JAIL_VERSION="\$\{TERMINAL_JAIL_VERSION:-([^}]+)\}"', source
-    )
-    assert default_version, "install.sh default release version is missing"
-    version = default_version.group(1)
-    expected_wheel = f"terminal_jail-{version}-py3-none-any.whl"
-    expected_assets = {"SHA256SUMS", expected_wheel}
+    version = _installer_default_version(install_script)
+    expected_assets = {
+        "SHA256SUMS",
+        f"terminal_jail-{version}-py3-none-any.whl",
+        f"terminal_jail-{version}.tar.gz",
+    }
 
-    fixture_path = PROJECT_ROOT / "plugin" / "fixtures" / "github-release-v1.3.3.json"
+    fixture_path = (
+        PROJECT_ROOT / "plugin" / "fixtures" / f"github-release-v{version}.json"
+    )
+    assert fixture_path.is_file(), (
+        f"no captured GitHub release fixture for the installer's pin v{version}: "
+        f"re-capture it with `gh release view v{version} --repo "
+        f"terminal-jail/terminal-jail --json tagName,url,publishedAt,assets` "
+        "(docs/releasing.md step 8)"
+    )
     release = json.loads(fixture_path.read_text(encoding="utf-8"))
     published_assets = {asset["name"] for asset in release["assets"]}
     assert release["tagName"] == f"v{version}", (
@@ -414,6 +444,42 @@ def test_release_asset_names_match_captured_github_release(
     )
 
 
+def test_help_default_release_version_matches_the_pin(install_script: Path) -> None:
+    """`--help` must name the same default the assignment pins (RELEASE-TJ-026).
+
+    The pin is quoted twice in install.sh — the `TERMINAL_JAIL_VERSION` default
+    and the `--help` line an operator reads before installing. Bumping one and
+    not the other keeps the documented default one release behind, which is
+    exactly the defect this row fixes, so both surfaces are locked together.
+    """
+    version = _installer_default_version(install_script)
+    result = subprocess.run(
+        ["sh", str(install_script), "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"default: {version}" in result.stdout, (
+        f"--help does not name the pinned default {version}:\n{result.stdout}"
+    )
+
+
+def test_releasing_runbook_carries_the_installer_pin_step() -> None:
+    """The cut checklist must bump the installer pin (RELEASE-TJ-026).
+
+    An un-bumped pin is invisible to every gate: the previous tag's assets keep
+    resolving, so the documented install silently serves the superseded release.
+    The runbook is the only place that tells the operator to move it, so pin the
+    step's existence and the surfaces it names.
+    """
+    runbook = (PROJECT_ROOT / "docs" / "releasing.md").read_text(encoding="utf-8")
+    assert "Bump the installer's release pin" in runbook
+    assert "TERMINAL_JAIL_VERSION" in runbook
+    assert "docs/quickstart.md" in runbook
+
+
 def test_release_assets_and_default_match_live_github_release(
     install_script: Path,
 ) -> None:
@@ -422,12 +488,7 @@ def test_release_assets_and_default_match_live_github_release(
     if gh is None:
         pytest.skip("gh unavailable: executable not found")
 
-    source = install_script.read_text(encoding="utf-8")
-    default_version = re.search(
-        r'TERMINAL_JAIL_VERSION="\$\{TERMINAL_JAIL_VERSION:-([^}]+)\}"', source
-    )
-    assert default_version, "install.sh default release version is missing"
-    version = default_version.group(1).removeprefix("v")
+    version = _installer_default_version(install_script)
 
     def run_gh(*args: str) -> subprocess.CompletedProcess[str]:
         try:
@@ -527,10 +588,11 @@ def test_checksum_fail(install_script: Path, tmp_path: Path) -> None:
     server_dir = _make_server_dir(tmp_path)
     test_bin = _setup_full_testbin(tmp_path, server_dir)
 
-    # Corrupt the published checksum manifest
+    # Corrupt the published checksum manifest — for the version the installer
+    # actually asks for, so the failure is a MISMATCH and not a missing entry.
     (server_dir / "SHA256SUMS").write_text(
         "0000000000000000000000000000000000000000000000000000000000000000  "
-        "terminal_jail-1.3.3-py3-none-any.whl\n"
+        f"terminal_jail-{_installer_default_version()}-py3-none-any.whl\n"
     )
 
     result = subprocess.run(

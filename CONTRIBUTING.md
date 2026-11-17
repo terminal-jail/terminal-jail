@@ -140,9 +140,12 @@ Releases are tagged by maintainers:
 
 1. Update version in `pyproject.toml`
 2. Update `CHANGELOG.md`
-3. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-4. `git push origin main --tags`
-5. GitHub release is created from the tag
+3. Bump the installer's release pin (`install.sh` `TERMINAL_JAIL_VERSION`, its
+   `--help` default, and the release-mode docs) to the tag being cut — the full
+   step, its proof command and its failure mode are in `docs/releasing.md` step 8
+4. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+5. `git push origin main --tags`
+6. GitHub release is created from the tag
 
 ## License
 

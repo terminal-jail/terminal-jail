@@ -8,12 +8,12 @@ set -eu
 # mode (./install.sh from a checkout) remains the supported source install path;
 # release mode downloads the published wheel and its SHA256SUMS manifest.
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
-# This is the newest published release represented by the repository's release
-# surface (v1.3.3 at the time of this release). It is intentionally independent
-# of pyproject.toml: checkout installs read their version from that file, while
-# release installs need a tag with downloadable assets. A leading `v` is
-# accepted for explicit overrides.
-TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.3}"
+# The newest published asset release (v1.3.4). This is a WHEEL SELECTOR, not a
+# version label: it must equal the newest tag carrying downloadable assets, and
+# the release cut bumps it (docs/releasing.md, step 8). Intentionally
+# independent of pyproject.toml: checkout installs read that file, release
+# installs need a tag with assets. A leading `v` is accepted for overrides.
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"
 TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
 TERMINAL_JAIL_RELEASE_TAG="v${TERMINAL_JAIL_RELEASE_VERSION}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
@@ -305,7 +305,7 @@ Environment (all optional):
                                (default: derived from the install scope)
   TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
                                local checkout (rule packs need the checkout)
-  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.3,
+  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.4,
                                the newest published asset release; accepts an
                                optional leading 'v'; checkout installs use
                                the pyproject version)

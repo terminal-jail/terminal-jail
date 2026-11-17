@@ -14,8 +14,9 @@ satisfied on 2026-11-03 — v1.3.0 is tagged and published, so do not re-hold
 an authorized patch/minor cut against it. Release history: v1.0.0; v1.2.0
 (whose Release object carries **zero assets**); v1.3.0 (assets present, but
 its wheel predates the RELPKG-001 packaging fix — install v1.3.1 or later);
-v1.3.1 — the current version (packaging fix, published by hand while
-RELCI-001 blocks the workflow preflight).
+v1.3.1, v1.3.2 (patch fixes); v1.3.3 (wheel-install bridge interpreter +
+release-mode installs); v1.3.4 — the current version, published 2026-11-16 by
+hand while RELCI-001 blocks the workflow preflight.
 
 ## The exact ordered steps
 
@@ -114,6 +115,38 @@ RELCI-001 blocks the workflow preflight).
    Cite CI evidence by the run that actually ran on the **tag** commit. A
    prep commit whose matrix went red is not a receipt; say so explicitly if
    it has to be mentioned at all.
+
+8. **Bump the installer's release pin.** `install.sh` decides which tag's
+   assets a release-mode install downloads (`TERMINAL_JAIL_VERSION`), and that
+   pin is a **wheel selector, not a version label**: it must name the tag you
+   just published. Set its default to `X.Y.Z` in both places it appears — the
+   `TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-X.Y.Z}"` assignment and the
+   `--help` text (`default: X.Y.Z`) — and update the release-mode paragraph and
+   `# default: X.Y.Z` line in `docs/quickstart.md` plus the matching sentence
+   in `README.md`. Re-capture the release fixture
+   (`plugin/fixtures/github-release-vX.Y.Z.json`) from the published Release and
+   commit it together with the pin, then prove the three asset names resolve
+   for that tag:
+
+   ```bash
+   grep -n 'TERMINAL_JAIL_VERSION="\|default: X\.Y\.Z' install.sh
+   gh release view vX.Y.Z --repo OWNER/REPO --json assets --jq '.assets[].name'
+   ```
+
+   Expect exactly the sdist (`terminal_jail-X.Y.Z.tar.gz`), the wheel
+   (`terminal_jail-X.Y.Z-py3-none-any.whl`), and `SHA256SUMS`, and expect the
+   installer's default to equal that tag. `plugin/test_install.py` enforces the
+   second half: `test_release_asset_names_match_captured_github_release` fails
+   against the captured fixture and
+   `test_release_assets_and_default_match_live_github_release` fails against the
+   live Release when the pin lags.
+
+   **Failure mode if skipped:** nothing goes red. The asset URLs of the previous
+   tag still resolve, so the documented install (`TERMINAL_JAIL_USE_RELEASE=1
+   ./install.sh`) and the `--help` text keep naming the superseded release —
+   every operator following the docs gets the old build with no error. v1.3.4
+   shipped with exactly this gap (the installer still served v1.3.3 assets,
+   RELEASE-TJ-026), which is why this step exists.
 
 ## Manual verification of the artifacts (optional but recommended)
 
