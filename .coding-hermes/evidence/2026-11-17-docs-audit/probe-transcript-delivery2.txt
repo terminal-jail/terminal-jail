@@ -1,0 +1,131 @@
+===== A. identity of the audited tree =====
+
+$ git rev-parse HEAD
+f24a8d17445424e0428a9a499d2932055895d924
+[exit=0]
+
+$ git status --porcelain
+[exit=0]
+
+$ git rev-list --left-right --count origin/main...HEAD
+0	0
+[exit=0]
+
+$ git describe --tags --abbrev=0
+v1.3.4
+[exit=0]
+
+$ grep -n '^version' pyproject.toml plugin/plugin.yaml
+pyproject.toml:7:version = "1.3.4"
+plugin/plugin.yaml:2:version: "1.3.4"
+[exit=0]
+
+$ grep -n 'TERMINAL_JAIL_VERSION:-' install.sh
+16:TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"
+[exit=0]
+
+===== B. shipped rule census (producer) =====
+
+$ python3 scripts/rule-catalog.py --check
+[catalog] OK — 55 rules (36 block / 9 sandbox / 10 allow); docs/rule-catalog.md up to date
+[exit=0]
+
+$ sed -n '/### Critical Blocklist/,/### Auto-Sandbox/p' docs/rule-catalog.md | grep -c '^| `builtin-'
+36
+[exit=0]
+
+$ sed -n '13,18p' docs/rule-catalog.md
+| Critical Blocklist | `block` | 1000 | 36 |
+| Auto-Sandbox | `sandbox` | 700 | 9 |
+| Always-Allow | `allow` | 500 | 10 |
+| **Total** | | | **55** |
+
+**55 built-in rules — 36 block + 9 sandbox + 10 allow.** To recount at any time: `python3 scripts/rule-catalog.py --check` re-derives these numbers from the rules file and exits 1 if the committed catalog has drifted from it.
+[exit=0]
+
+===== C. stale rule census in specs =====
+
+$ sed -n '329,333p' specs/interruptor.md
+The tables in §4.1–§4.3 are the original v1.1.0 rule set; the TJ-GAP-053 / TJ-GAP-058 /
+DF-TERMINAL-JAIL-16 / DF-TERMINAL-JAIL-17 / DF-TERMINAL-JAIL-20 waves grew the engine to
+**35 block / 9 sandbox / 10 allow = 54 rules**
+(`plugin/terminal_jail/rules/00-builtins.yaml` is the shipped mirror and is gated byte-for-byte
+against the engine constants by `scripts/yaml-mirror-parity-probe.py`, which reports the per-layer
+[exit=0]
+
+$ grep -n '12 rules that always block' specs/integration.md
+184:- **Blocklist (critical, priority 1000):** 12 rules that always block — recursive root deletion (`rm -rf /`), fork bombs (`:(){ :|:& };:`), mass process kill (`kill -9 -1`), process-group kill targeting PID 1 or own process group (`killpg`/`kill` on 0/1), raw device writes (`dd if=/... of=/dev/sda`), filesystem creation (`mkfs.*`), partition manipulation (`fdisk`), world-writable absolute paths (`chmod 777`/`7777`/`a+rwx`, recursive optional, on any `/`-rooted target such as `/` or `/tmp/work` — relative and `~`-rooted targets are not matched), output redirection to system paths (`echo ... > /etc/...`), download-to-shell pipes (`curl | sh`, `wget | bash`), privilege escalation (`sudo`), and code-injection vectors in interpreter arguments (`os.system(`, `subprocess.run(`, `eval(`, `exec(` — scanned in quoted interpreter code too, TJ-GAP-042). A same-ID user rule replaces the builtin in its layer: `allow` disables the critical block outright; `warn` only downgrades it to a warning.
+[exit=0]
+
+$ grep -n '8 rules that wrap' specs/integration.md
+185:- **Auto-sandbox (priority 700):** 8 rules that wrap commands in an unshare PID namespace — test runners (`pytest`/`tox`/`nose`, `npm test`/`npx vitest`/`npx jest`, `go test`), build tools (`make`, `cargo build`/`cargo test`, `gcc`/`g++`/`clang++`), package installers (`pip install`), and script execution (`./foo.sh`, `./foo.py`, `./foo.rb`). The command is rewritten as `unshare --user --pid --fork bash -c '...'`. Plain network downloads (`curl -o`, `wget`), package-manager updates (`apt-get update`), and container queries (`docker ps`) are NOT auto-sandboxed; the only network-pipeline protection is the blocklist rule for download-to-shell pipes (`curl | sh`, `wget | bash`) above.
+[exit=0]
+
+$ grep -n '10 rules that always pass' specs/integration.md
+186:- **Allowlist (priority 500):** 10 rules that always pass — `echo`, `ls`, `pwd`, `cd`, `which`/`command -v`, `grep`, `find` (without `-exec`/`-delete`), `cat` on non-sensitive paths (excluding `/etc`, `/boot`, `/proc`, `/sys`), `git status`/`log`/`diff`, and `python ... --version`.
+[exit=0]
+
+===== D. shipped test census (producer) =====
+
+$ .venv/bin/python -m pytest plugin/test_interruptor.py --collect-only -q | tail -1
+529 tests collected in 0.08s
+[exit=0]
+
+$ .venv/bin/python -m pytest plugin/test_env_scrub.py --collect-only -q | tail -1
+53 tests collected in 0.03s
+[exit=0]
+
+$ .venv/bin/python -m pytest plugin tests --collect-only -q | tail -1
+2167 tests collected in 1.35s
+[exit=0]
+
+$ ls plugin/test_interruptor*.py
+plugin/test_interruptor.py
+plugin/test_interruptor_integration.py
+[exit=0]
+
+===== E. stale test census in specs =====
+
+$ grep -n 'all 56 tests pass' specs/integration.md
+426:- [ ] Run the interruptor unit test suite and confirm all 56 tests pass.
+[exit=0]
+
+$ sed -n '424,427p' specs/integration.md
+- [ ] Run a sandbox-targeted command (`make build` or `pytest`) through the CLI and confirm it is wrapped in unshare (verify with `--no-interruptor` comparison).
+- [ ] Confirm the JSON bridge (`interruptor_bridge.py`) returns structured `action`, `rule_id`, and `reason` fields for blocked commands.
+- [ ] Run the interruptor unit test suite and confirm all 56 tests pass.
+
+[exit=0]
+
+$ sed -n '89,92p' specs/threat-model.md
+## 6. Verification (TJ-GAP-060 evidence)
+
+`plugin/test_env_scrub.py` (new; 52 tests) pins the matrix:
+
+[exit=0]
+
+===== F. installer default vs deploy guide =====
+
+$ sed -n '50,54p' docs/deploy-to-karahermes.md
+
+```bash
+./install.sh          # installs ~/.local/bin/terminal-jail (currently 1.3.3)
+```
+
+[exit=0]
+
+$ sed -n '14,18p' install.sh
+# independent of pyproject.toml: checkout installs read that file, release
+# installs need a tag with assets. A leading `v` is accepted for overrides.
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"
+TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
+TERMINAL_JAIL_RELEASE_TAG="v${TERMINAL_JAIL_RELEASE_VERSION}"
+[exit=0]
+
+===== G. project self-gates at this tip =====
+
+$ python3 scripts/docs-check.py 2>&1 | tail -3
+docs-check[check4] [PASS] ./standalone/terminal-jail --user --seccomp echo hello -> rc=0 | stdout: hello
+docs-check[check4] [PASS] quarterly-review §3 CLI checklist
+docs-check: overall PASS
+[exit=0]
