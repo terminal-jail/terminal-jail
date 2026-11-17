@@ -1,7 +1,7 @@
 # Supply Chain Security — terminal-jail
 
 **Task:** T9.4  
-**Date:** 2026-07-20
+**Date:** 2026-07-20 (figures re-verified 2026-11-17)
 
 ---
 
@@ -9,7 +9,7 @@
 
 ### install.sh Security Review
 
-The installer (`install.sh`, 159 lines) has been audited. Security properties:
+The installer (`install.sh`, 1690 lines) has been audited. Security properties:
 
 | Property | Status | Detail |
 |----------|--------|--------|
@@ -35,7 +35,7 @@ Required steps (manual, not automatable by foreman):
 
 ### GitHub Release Integrity
 
-Current release (v1.0.0) is published on GitHub Releases. GitHub provides:
+Current release (v1.3.4) is published on GitHub Releases. GitHub provides:
 - TLS (HTTPS) for download transport
 - Authenticated upload (GitHub OAuth/token required to publish)
 - Tag immutability (git tags can't be changed without force-push)
@@ -54,8 +54,8 @@ without the flag the installer refuses rather than hitting a dead URL).
 
 Consequences for automation and consumers:
 
-- `pip install terminal-jail==<any-version>` — e.g. the QA upgrade cell's
-  `pip install terminal-jail==1.0.0` — will **always fail** with
+- `pip install terminal-jail==<any-version>` — any version, including the
+  current `1.3.4` — will **always fail** with
   `No matching distribution found` / `Could not find a version …
   (from versions: none)`. That failure is the expected, by-design outcome:
   there is no package to resolve, at any version, now or planned. Do not
@@ -63,7 +63,7 @@ Consequences for automation and consumers:
   failure as a broken release or a bug to fix.
 - The `version` field in `pyproject.toml` is a **source-release label**, not
   an index artifact: it names the checkout/release lineage (currently
-  `1.2.0`) and does not promise a downloadable distribution. Version bumps
+  `1.3.4`) and does not promise a downloadable distribution. Version bumps
   travel with source releases and GitHub tags only.
 
 (Recorded 2026-10-07 as TJ-DF-032, after an external QA upgrade cell attempted
@@ -73,10 +73,10 @@ Consequences for automation and consumers:
 
 ## Recommendations
 
-1. **GPG-sign v1.0.1 release** — generate key, sign binary, update install.sh to verify
+1. **GPG-sign the next release** — generate key, sign binary, update install.sh to verify
 2. **SLSA provenance** — generate SLSA Level 2 provenance for the standalone CLI binary (the plugin itself is source-distributed)
 3. **Release key rotation policy** — document key expiry and revocation process
-4. **Reproducible build** — the standalone CLI is a 56-line bash script; reproducible by definition
+4. **Reproducible build** — the standalone CLI is a 1760-line bash script; reproducible by definition
 
 ---
 
