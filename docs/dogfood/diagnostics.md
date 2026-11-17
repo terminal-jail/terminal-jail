@@ -1082,3 +1082,80 @@ as §23.6 and `TJ-DF-048`, and cold-vs-warm shows no page-cache cliff. Nothing a
 
 `bunker-mvp:8765/health` → **000** this fire, and the battery on file ran at `489bbd4` while the product moved at
 `88cf92f`/`a48809c`. Filed `TJ-DF-069` (SKIPPED-install-bunker) rather than pass the leg silently.
+
+## 25. Run 2026-11-17 — v1.3.4's claims driven as a stranger, and the egress tier measured
+
+Run: `terminal-jail-dogfood-2026-11-17-11-52-37`, HEAD `9aff5bd` (= `origin/main`). The previous three
+runs (2026-11-14) walked the deny-by-default recipe, the fail-closed axis and the modify path; this one
+takes the surface v1.3.4 changed and drives it the way an operator adopting the release would.
+
+### 25.1 Three rig bugs before an honest signal measurement
+
+Signal handling cost three iterations because two of them produced results that *looked* like product
+defects and were not:
+
+- `"$BIN" cmd &` inside a non-interactive script: bash sets `SIG_IGN` for SIGINT/SIGQUIT on asynchronous
+  jobs when job control is off, so `kill -INT` was a no-op and the "surviving payload" was my own
+  un-killed sleeper.
+- `setsid "$BIN" cmd &`: `setsid(1)` **forks**, so `$!` is a short-lived parent, `kill -- -$!` targets a
+  group that no longer exists, and `wait` returns the parent's status (0) instead of the wrapper's.
+- The design that measures the real thing: `set -m` in the harness (async job = its own process-group
+  leader, `$! == PGID`), `kill -INT -- -$pid` for the Ctrl-C arm, `kill -TERM $pid` for the supervisor
+  arm, and a **unique payload duration** (`sleep 143`) counted with `pgrep -f` so leftovers from an
+  earlier arm cannot be mistaken for this arm's orphans.
+
+Result once measured honestly: SIGINT → `rc=130`, SIGTERM → `rc=143`, **zero** surviving payload
+processes in both arms. Containment is `--die-with-parent`, so a killed wrapper does not leave the
+jail behind. This is a property scripts depend on, and it holds.
+
+Lesson for the next fire: a "survivors" count is only evidence if the kill is proven to have landed —
+print `kill -0` on the target before counting.
+
+### 25.2 Why `echo` — not `hostname` — proved the block control wrong the first time
+
+The first control arm used `type: pattern, pattern: '^echo MARKER-BADTYPE$'` and did **not** block.
+That looks like a broken rule engine; it is not. `allow-echo` is a builtin **allow** at priority 500
+(`plugin/terminal_jail/rules/00-builtins.yaml:620`) and the engine evaluates layers before user rules
+(`decider.py` §"Layer 4: user rules"), so a builtin allow wins over a new-id user block — which the
+docs state (`docs/quickstart.md:544`, "denies everything the built-in allow rules do not already
+match"). Re-running the control on `hostname` (no builtin allow) gave `rc=126` and
+`"layer":"user"`. **Choose an unlisted command when testing a block rule**, and read the layer in the
+verdict before calling the engine dead.
+
+### 25.3 Capability line vs applied line
+
+On a `/tmp`-rooted HOME the installer reports `fs tier CAN engage and net (egress) tier CAN engage`,
+while a wrapped script reports `filesystem tier not applied (no caller-writable ungranted path for the
+enforcement probe)` on the same host. Both sentences are true — one is a capability probe, the other a
+proof-of-enforcement refusal (`interruptor/landlock.py:507-509`, pinned by `test_landlock.py:1793`) —
+but the pair reads as a contradiction. Operator rule: when the runtime says `not applied`, the tier is
+**not** protecting anything for that launch, whatever the installer said; the egress tier, when it
+does apply, prints `kernel egress tier APPLIED`.
+
+### 25.4 The fresh-machine red was a test premise, not the product
+
+The battery's `tests` cell failed on agent `db56b071`; the ledger truncates `detail`, so the failing
+test had to come from `qa-logs-4189068/tests.log` on the agent (pull **before** destroy — a destroyed
+agent is the only copy). Name: `plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile`,
+`FileNotFoundError: .../testbin/unzip`, line 271. `_setup_full_testbin` → `_link_tools` symlinks only
+tools `shutil.which()` finds, and the test then unlinks `unzip` without `missing_ok`. The dev host has
+`/usr/bin/unzip`; a clean image does not. Red-proved locally by running the single test with a PATH
+that has no `unzip` (`1 passed` → `1 failed`), which is what makes this a product-side row
+(`TJ-DF-071`) rather than a harness artifact. `pytest -x` stops the suite at 3 %, so this one premise
+is enough to keep every fresh-machine battery red.
+
+### 25.5 Install leg
+
+`bunker-qa.sh resolve` → `/home/kara/terminal-jail`; `launch` → agent `db56b071` @ bunker-mvp (ttl 4h).
+`fresh-install` **OK**: `Successfully installed PyYAML-6.0.3 terminal-jail-1.3.4` — installability of
+1.3.4 on a machine that has never seen the project is proven. `toolchain-bootstrap` ×7 OK, `lint` N/A
+(no lint trigger declared). `tests` FAIL (attributed, §25.4). The battery was still running at report
+time; cells not yet reached are named as such in the log entry rather than implied green.
+
+### 25.6 Timing
+
+`hyperfine --warmup 3 -r 20` on a host at load 16.5–18.6 (16 cores): p50 441.9 ms (mean 454.7 ± 116.9)
+for the wrapper at default tier, p50 383.9 ms with the egress tier on, and 250–290 ms across five
+sequential first-runs. The σ is a third of the mean — load contamination, not a product signal; the
+sequential series reproduces the ~245–256 ms every earlier run measured. Nothing user-noticeable, no
+PERF row, `PERF-003` still owns the residual.

@@ -1,0 +1,4 @@
+{"ts":"2026-11-17T12:06:51.014058+00:00","event":"verdict","action":"modify","rule_id":"auto-script","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"1194024630d74542"}
+[terminal-jail] Modified: 'python3' '/tmp/tj-1117-pub/connect_prob... → sandboxed
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning
+terminal-jail: landlock-net: kernel egress tier APPLIED — TCP connect() restricted to ports [22, 53, 80, 443]; EPERM/EACCES from connect() below this line is the KERNEL denying (Landlock, TJ-GAP-083), not an interruptor rule verdict

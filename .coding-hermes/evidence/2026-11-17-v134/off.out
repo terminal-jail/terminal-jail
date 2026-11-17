@@ -1,0 +1,2 @@
+port-4444 (NOT allowlisted): TIMEOUT
+443 (allowlisted default): CONNECTED

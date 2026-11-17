@@ -761,3 +761,80 @@ Read the verdict event with care: `{"event":"verdict","action":"modify",...,"rea
 auto-sandbox"}` means *the rewrite was applied*, not *the command ran*. There is no outcome event for the modify path,
 so `rc` plus the presence of your own output is the only honest success signal. Assert on output, never on `rc=0`
 alone, and never on the verdict event.
+
+## Run 25 additions (2026-11-17, verified live at 9aff5bd on the installed 1.3.4)
+
+### What v1.3.4 actually fixed (and how to prove it yourself)
+
+1. **A dead rule is now loud.** A user rule whose `match.type` is outside the dispatch table
+   (`pattern|command|pipeline|subcommand|path|composite|syscall|network|heredoc` — `regex` is NOT one,
+   even though `regex` is a legal *field*) prints a load-time `WARNING` naming the rule id, the bad
+   type, the accepted types and the file, AND writes that reason into the `verdict` event:
+   `"reason":"User rule '<id>' has Unknown match type '<t>'; accepted types: …"`. The command still
+   runs (fail-safe). Reproduce in one command:
+
+   ```bash
+   printf 'rules:\n  - {id: user-x, priority: 900, action: block,\n     match: {type: regex, pattern: "^whoami$"}}\n' \
+     > ~/.config/terminal-jail/rules.d/zz-probe.yaml
+   terminal-jail whoami 2>&1 | head -3     # WARNING + verdict reason, rc=0
+   ```
+
+2. **Unknown `action`** behaves the same way (`has unknown action 'quaranteen' — allowing (fail-safe)`),
+   and an unknown type/action inside a **pack** is refused at install time by
+   `scripts/rule-pack-tool.py validate` (exit 2, named valid list) — packs cannot ship the dead-rule class.
+3. **The bundled CLI is byte-identical to the standalone CLI** (md5 `5ff90915…`, 91,493 B, same for
+   `seccomp-loader.py`), so a wheel/bundled install runs the same wrapper.
+
+### The egress tier: how to prove it is the KERNEL denying
+
+Never test the egress tier with a blocked-by-policy command (you cannot tell a rule verdict from a
+kernel denial). Use a script that reports `errno`, and run the arms back-to-back:
+
+```bash
+# probe: two connects, one outside the default allowlist, one inside
+python3 - <<'PY'   # in practice: keep it in a file, /tmp, world-readable
+import socket
+for port in (4444, 443):
+    s = socket.socket(); s.settimeout(6)
+    try: s.connect(("1.1.1.1" if port == 4444 else "example.com", port)); print(port, "CONNECTED")
+    except OSError as e: print(port, "errno", e.errno, e.strerror)
+PY
+```
+
+| arm | invocation | expected |
+|---|---|---|
+| off (default) | `terminal-jail python3 probe.py` | 4444 upstream-timeout/refused, 443 CONNECTED |
+| on | `TERMINAL_JAIL_LANDLOCK_NET=1 terminal-jail python3 probe.py` | 4444 **errno=13**, 443 CONNECTED, plus `kernel egress tier APPLIED — ports [22, 53, 80, 443]` |
+| deny-all | `…_NET=1 …_NET_ALLOW= terminal-jail …` | both **errno=13** |
+
+`errno=13` (EACCES) with the `APPLIED` notice on the same run = kernel denial. If you see the notice
+`not applied` instead, the tier is not protecting that launch — read its named cause (loader
+unreachable / 0700 parent / ABI < 4) before drawing any conclusion.
+
+### Two conditions that make the payload, not the tier, fail
+
+- **`python3` inside a `0700` parent** (`~/.hermes/.../venv/bin/python3`, ssh-key dirs, scratch HOMEs
+  under a private cache dir): the modify wrap launches and the payload dies
+  `bash: line 1: <path>: Permission denied`, rc=126. That is `TJ-REVIEW-074-R2`, still pending — for a
+  clean egress test put **both** the HOME and the probe script somewhere world-traversable
+  (`/tmp/...`, `chmod 755`) and run with `PATH=/usr/bin:/bin`.
+- **HOME under a 0700 parent** also makes the *loaders* unreachable, which prints the v1.3.4
+  `landlock-net-loader.py is not reachable … lacks o+x` warning instead of applying either tier.
+
+### Block-rule control arms: pick an unlisted command
+
+`echo`, `ls`, `cat`, `date` and friends carry builtin **allow** rules at priority 500, and builtin
+layers run before user rules, so a new-id user `block` on `^echo …$` will NOT fire — the verdict says
+`"rule_id":"allow-echo","layer":"yaml"`. Use a command with no builtin allow (`hostname`, `uptime`,
+`whoami` in the shipped set) when proving a block rule, and read `layer`/`rule_id` in the verdict to
+know which layer decided. A same-ID user file does override a builtin.
+
+### Fresh-machine (bunker) notes for this project
+
+- `fresh-install` cell installs `terminal-jail-1.3.4` cleanly; that is the installability proof.
+- `tests` cell can be red for a HOST reason: `plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile`
+  unlinks a `testbin/unzip` shim that `_link_tools` only creates when the host HAS `unzip`. On a clean
+  image: `FileNotFoundError` at line 271, and `pytest -x` stops the suite at 3 % (`TJ-DF-071`).
+  Read `qa-logs-*/tests.log` on the agent **before** destroy; the ledger's `detail` is truncated.
+- `bunker collect` can answer `COLLECT-ADOPT reason=recent tick-death-orphan` while the battery is
+  alive and well — that is adoption of your own launch, not a lost agent.

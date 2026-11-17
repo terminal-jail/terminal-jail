@@ -1,0 +1,2 @@
+port-4444 (NOT allowlisted): errno=13 Permission denied
+443 (allowlisted default): CONNECTED
