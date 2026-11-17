@@ -35,12 +35,18 @@ privileges are needed.
 
 from __future__ import annotations
 
+import json
+import os
+import shlex
 import shutil
 import stat
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 import pytest
+from terminal_jail.interruptor import landlock as ll
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
@@ -434,3 +440,199 @@ def test_real_bridge_modify_on_degraded_host(tmp_path: Path) -> None:
     # No unsatisfiable-prefix verdict, and the bridge really evaluated it.
     assert "auto-sandbox modify unavailable" not in result.stderr
     assert Path(env["TJ_BRIDGE_LOG"]).exists() is False  # stand-in log unused
+
+
+# ── 7. TJ-REVIEW-074: the tier's head interpreter, real loader + real denial ─
+
+LANDLOCK_PROBE = PROJECT_ROOT / "scripts" / "landlock-capability-probe.py"
+HOST_DEGRADED = "HOST-DEGRADED-LANDLOCK"
+MAKEFILE_OK = "ok:\n\t@echo PAYLOAD-RAN\n"
+
+
+def _host_permits_landlock() -> bool:
+    """True when this host can attach the filesystem tier (else skip marker)."""
+    try:
+        probe = subprocess.run(
+            [sys.executable, str(LANDLOCK_PROBE), "--json"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if probe.returncode != 0:
+        return False
+    try:
+        return json.loads(probe.stdout).get("verdict") == "FULL"
+    except json.JSONDecodeError:
+        return False
+
+
+def _outside_every_grant(path: Path) -> bool:
+    """True when no grant of the checkout layout covers ``path``.
+
+    The tier's ruleset is an ALLOWLIST: "the payload cannot read it" means "no
+    grant names it". Mode bits alone never reproduce this — a payload running
+    as the caller still reads a 0700 directory it owns.
+    """
+    layout = ll.build_layout(str(PROJECT_ROOT), payload_argv=None)
+    assert layout is not None, "the tier cannot compute a layout for the checkout"
+    grants = (*layout.write_roots, *layout.read_roots, *layout.read_dir_roots)
+    return not any(ll._is_inside(str(path), grant) for grant in grants)
+
+
+def _denied_fixture_root() -> Path | None:
+    """A caller-writable directory the tier never grants.
+
+    Not a temp dir: TMPDIR/TMP/TEMP and /tmp, /var/tmp are WRITE grants, so a
+    fixture there is readable inside the domain and the arm could not fail.
+    What is left are the two host shapes the tier's own enforcement probe uses
+    for the same reason — XDG_RUNTIME_DIR (a caller-owned tmpfs outside every
+    grant on a normal session) and the HOME root (only named children are
+    granted, never the root).
+    """
+    for candidate in (
+        os.environ.get("XDG_RUNTIME_DIR", "").strip(),
+        os.environ.get("HOME", "").strip(),
+    ):
+        if not candidate.startswith("/") or not os.path.isdir(candidate):
+            continue
+        try:
+            root = Path(tempfile.mkdtemp(prefix="tj074-r2-", dir=candidate))
+        except OSError:
+            continue
+        if _outside_every_grant(root):
+            return root
+        os.rmdir(root)
+    return None
+
+
+def _denied_interpreter(root: Path) -> Path:
+    """A REAL interpreter under a 0700 ancestor that the tier denies.
+
+    Not a stub: it executes for real before the ruleset exists — the interruptor
+    bridge runs through it — which is the ticket's shape (PATH's ``python3``
+    resolving into a tree the allowlist never grants). The 0700 ancestor is the
+    ticket's stated fixture and is kept; the denial itself is the allowlist, so
+    a mode-only fixture would not reproduce it.
+    """
+    hidden = root / "hidden"
+    hidden.mkdir(mode=0o700)
+    interpreter = hidden / "python3"
+    interpreter.write_text(
+        f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n', encoding="utf-8"
+    )
+    interpreter.chmod(0o755)
+    return interpreter
+
+
+def _tier_env(tmp_path: Path, interpreter: Path) -> dict[str, str]:
+    """Real-bridge env with the filesystem tier left at its DEFAULT (on).
+
+    ``_env`` pins ``TERMINAL_JAIL_LANDLOCK=0`` so the call-count arms above
+    measure the preflight alone; this arm needs the tier ATTACHED. HOME stays
+    the real one so the fixture's grant story matches the parent-side premise
+    check — a fake home under tmp_path would itself be a granted temp dir.
+    """
+    env = _env(
+        tmp_path,
+        os.pathsep.join([str(interpreter.parent), "/usr/bin", "/bin"]),
+        degraded=False,
+        bridge=BRIDGE_SCRIPT,
+    )
+    env.pop("TERMINAL_JAIL_LANDLOCK", None)
+    # The child gets no inherited TMPDIR from ``_env``, and the tier grants the
+    # temp dirs it can SEE: without this the fixture Makefile under tmp_path
+    # would be outside every grant and the payload could not read it.
+    env["TMPDIR"] = str(tmp_path)
+    real_home = os.environ.get("HOME", "").strip()
+    if real_home.startswith("/"):
+        env["HOME"] = real_home
+    return env
+
+
+@pytest.mark.standalone_cli
+def test_tier_on_unreachable_payload_interpreter_is_named(tmp_path: Path) -> None:
+    """TJ-REVIEW-074: the tier-ON modify arm must NAME the interpreter.
+
+    The engine splices its filesystem-tier tail into the rewrite's payload as a
+    literal ``python3`` (``bash -c 'python3 <landlock-loader.py> -- <cmd>'``),
+    and bash resolves that head only AFTER the ruleset is installed. With
+    PATH's ``python3`` under a tree the allowlist never grants, the exec died
+    EACCES: bash leaked ``Permission denied`` and rc=126 after a clean
+    ``Command modified by auto-sandbox`` verdict — no surface said the command
+    never ran, and none named the interpreter. The wrapper must refuse through
+    the named ``auto-sandbox modify unavailable`` verdict instead.
+    """
+    if not _host_permits_landlock():
+        pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+    root = _denied_fixture_root()
+    if root is None:
+        pytest.skip(
+            f"{HOST_DEGRADED}: no caller-writable directory outside every grant"
+        )
+    try:
+        interpreter = _denied_interpreter(root)
+        mkfile = tmp_path / "Makefile.ok"
+        mkfile.write_text(MAKEFILE_OK, encoding="utf-8")
+        assert not _outside_every_grant(mkfile), (
+            "test bug: the fixture Makefile sits outside every tier grant — "
+            "the payload could not read it even after the fix"
+        )
+        env = _tier_env(tmp_path, interpreter)
+
+        result = _run_cli("make", "-f", str(mkfile), "ok", env=env)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    assert result.returncode == 2, result.stderr
+    assert "PAYLOAD-RAN" not in result.stdout, result.stdout
+    verdicts = [
+        line
+        for line in result.stderr.splitlines()
+        if "auto-sandbox modify unavailable" in line
+    ]
+    assert len(verdicts) == 1, result.stderr  # exactly ONE named line
+    assert str(interpreter) in verdicts[0], verdicts[0]  # names the interpreter
+    assert "command not run" in verdicts[0], verdicts[0]
+    # Never the bare bash leak the ticket was filed on.
+    assert "Permission denied" not in result.stderr, result.stderr
+
+
+@pytest.mark.standalone_cli
+def test_tier_on_pinned_interpreter_runs_the_payload(tmp_path: Path) -> None:
+    """TERMINAL_JAIL_PYTHON must reach the tier's head interpreter too.
+
+    The wrapper's own trampolines resolve their interpreter through
+    ``$_TJ_BRIDGE_PY`` (TJ-DF-061 / RELEASE-TJ-021); the engine's spliced head
+    is the one that ignored the pin, so setting it could not rescue a command
+    whose PATH ``python3`` the tier denies. Splicing the pin over that head
+    must make the same command run the payload.
+    """
+    if not _host_permits_landlock():
+        pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+    root = _denied_fixture_root()
+    if root is None:
+        pytest.skip(
+            f"{HOST_DEGRADED}: no caller-writable directory outside every grant"
+        )
+    if _outside_every_grant(Path(sys.executable)):
+        pytest.skip(
+            f"{HOST_DEGRADED}: the test interpreter {sys.executable} is itself "
+            "outside every tier grant, so no readable pin exists on this host"
+        )
+    try:
+        interpreter = _denied_interpreter(root)
+        mkfile = tmp_path / "Makefile.ok"
+        mkfile.write_text(MAKEFILE_OK, encoding="utf-8")
+        env = _tier_env(tmp_path, interpreter)
+        env["TERMINAL_JAIL_PYTHON"] = sys.executable
+
+        result = _run_cli("make", "-f", str(mkfile), "ok", env=env)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    assert result.returncode == 0, result.stderr
+    assert "PAYLOAD-RAN" in result.stdout, result.stdout
+    assert "auto-sandbox modify unavailable" not in result.stderr, result.stderr
