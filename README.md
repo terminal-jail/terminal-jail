@@ -191,10 +191,10 @@ Published GitHub Releases provide a self-contained Python wheel and `SHA256SUMS`
 
 ```bash
 TERMINAL_JAIL_USE_RELEASE=1 ./install.sh
-TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.1 ./install.sh
+TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.1 ./install.sh   # older tag, pinned (historical example)
 ```
 
-The default release version is the newest published asset release represented by this repository (`1.3.3`). Its published assets are `SHA256SUMS`, `terminal_jail-1.3.3-py3-none-any.whl`, and `terminal_jail-1.3.3.tar.gz`. Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory when using a mirror or local fixture. The checkout install path above remains supported and is useful when installing rule packs or developing the project.
+The default release version is the newest published asset release, `1.3.4` — the installer's `TERMINAL_JAIL_VERSION` default tracks it, and older tags remain installable by pinning `TERMINAL_JAIL_VERSION` (as the second command above does). Its published assets are `SHA256SUMS`, `terminal_jail-1.3.4-py3-none-any.whl`, and `terminal_jail-1.3.4.tar.gz`. Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory when using a mirror or local fixture. The checkout install path above remains supported and is useful when installing rule packs or developing the project, but it is a separate branch: a plain `./install.sh` run from a checkout prints `repository checkout detected` and installs the local wrapper, so a checkout-detected install neither exercises nor verifies the release-download branch.
 
 **PyPI is not a distribution channel** for this project: there are no `terminal-jail` packages on PyPI or any other index, so `pip install terminal-jail==<version>` always fails by design. Use a published GitHub Release or install from a checkout; see [docs/supply-chain.md](docs/supply-chain.md#distribution-channel).
 
