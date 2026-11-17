@@ -1107,3 +1107,5 @@
 {"id":1111,"timestamp":"2026-11-17 16:19:51+00:00","event_type":"task_created","task_id":"DOC-34","actor":"foreman","detail":"{\"id\":\"DOC-34\",\"status\":\"pending\"}","tick_number":null}
 {"id":1112,"timestamp":"2026-11-17 16:19:51+00:00","event_type":"task_created","task_id":"DOC-35","actor":"foreman","detail":"{\"id\":\"DOC-35\",\"status\":\"pending\"}","tick_number":null}
 {"id":1113,"timestamp":"2026-11-17 16:19:51+00:00","event_type":"task_created","task_id":"DOC-36","actor":"foreman","detail":"{\"id\":\"DOC-36\",\"status\":\"pending\"}","tick_number":null}
+{"id":1114,"timestamp":"2026-11-17 16:33:14+00:00","event_type":"task_created","task_id":"DOC-16-R2","actor":"foreman","detail":"{\"id\":\"DOC-16-R2\",\"status\":\"pending\"}","tick_number":null}
+{"id":1115,"timestamp":"2026-11-17 16:33:15+00:00","event_type":"task_created","task_id":"TJ-GAP-012-R2","actor":"foreman","detail":"{\"id\":\"TJ-GAP-012-R2\",\"status\":\"pending\"}","tick_number":null}

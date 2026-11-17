@@ -1,0 +1,135 @@
+
+===== BOUNDARY =====
+ef016d4082b02f60e3f8d77b6f29847f4e1dfd91
+main
+  HEAD branch: main
+0	0
+status_lines=0
+
+===== SHIPPED HELP (T3: the binary was executed) =====
+help_rc=0  help_lines=77
+1:Usage: terminal-jail <command> [args...]
+7:       terminal-jail --private-proc <command> [args...]
+30:  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
+36:  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
+44:  TERMINAL_JAIL_UID_MAP=0|off|false
+52:  TERMINAL_JAIL_COMPOSED=auto|on|off
+67:  TERMINAL_JAIL_PRIVATE_PROC=required
+
+===== specs/cli.md 3 REQUIRED USAGE TEXT — the normative block =====
+117:### Required usage text
+```text
+Usage: terminal-jail <command> [args...]
+       terminal-jail --user <command> [args...]
+       terminal-jail --seccomp <command> [args...]
+       terminal-jail --user --seccomp <command> [args...]
+       terminal-jail --interruptor <command> [args...]
+       terminal-jail --no-interruptor <command> [args...]
+       terminal-jail --help
+       terminal-jail --version
+
+Run COMMAND in a new Linux PID namespace. Arguments are passed without
+shell re-parsing.
+
+Options:
+  --user         Add user namespace isolation: PID namespace lifecycle
+                 containment (namespace-exit kills children) + identity env
+                 scrub. The host PID view is exposed (no private /proc
+                 mount). Filesystem isolation is active ONLY when a uid
+                 mapping can be created (TERMINAL_JAIL_FS_ISOLATION=mapped);
+                 otherwise it degrades loudly to the mapping-less namespace
+                 (see README and scripts/fs-isolation-probe.py).
+  --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
+                 (mount, pivot_root, kexec_load, etc.) inside the jail.
+                 Filter is active only when this flag is passed; the
+                 TERMINAL_JAIL_SECCOMP env var is an internal handoff
+                 exported by the wrapper to the seccomp loader process and
+                 does not activate the filter by itself.
+  --interruptor  Enable the Bash command firewall (default). Evaluates
+                 commands against a rule engine before execution.
+  --no-interruptor  Disable the Bash command firewall.
+
+Environment:
+  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
+                 Select the jail backend (default: auto). auto uses
+                 bubblewrap when it is installed and its namespace probe
+                 passes, otherwise util-linux unshare. Only the bwrap
+                 backend provides a PRIVATE /proc; unshare is the
+                 documented fallback. A requested backend that cannot run
+                 fails closed (exit 2) — isolation is never silently
+--- spec block: occurrences of the shipped surface names ---
+private-proc_in_121_159=0
+env_vars_in_121_159=1
+uid_map_in_whole_spec=2
+composed_in_whole_spec=2
+private_proc_lines_in_whole_spec=4
+
+===== specs/plugin.md 4 ACTUAL IMPLEMENTATION vs the shipped package =====
+109:## 4. Plugin metadata and hook registration (actual implementation)
+119:from .terminal_jail.plugin import (
+179:        "terminal-jail v0.1.0 loaded. "
+186:__all__ = [
+197:3. `transform_command` and `transform_exec_command` are public and importable but NOT wired to any hook — no pre-execution command-transform hook exists in Hermes core.
+--- shipped __init__.py facts ---
+4:CURRENT LIMITATION (2026-07-20, HOOK-GAP-03): Hermes core does NOT expose a
+11:HOOK-GAP-03), this plugin provides:
+22:from .plugin import (
+82:        "terminal-jail v1.3.0 loaded. "
+84:        "pre-execution hooks (see task HOOK-GAP-03). "
+shipped___all___count=0
+
+===== EXECUTED IMPORT PROBE (T3) =====
+module file: /home/kara/terminal-jail/plugin/terminal_jail/__init__.py
+register: hasattr=True
+transform_command: hasattr=False
+transform_exec_command: hasattr=False
+__all__ declared: False
+import terminal_jail.plugin: OK (/home/kara/terminal-jail/plugin/terminal_jail/plugin.py)
+import terminal_jail.terminal_jail.plugin: ModuleNotFoundError: No module named 'terminal_jail.terminal_jail'
+register source version string: ['"terminal-jail v1.3.0 loaded. "']
+
+===== spec heading that owns each anchor =====
+1:# `terminal-jail` standalone CLI specification
+3:## 1. Purpose and security boundary
+23:### Security claims that are valid
+38:### Explicit non-goals and limitations
+46:## 2. Deliverable and language recommendation
+50:### Recommendation: Bash
+69:## 3. Exact command-line interface
+71:### Synopsis
+80:### Arguments
+87:### Options
+108:### Parsing rules
+117:### Required usage text
+163:## 4. Launcher implementation contract
+174:### Required launch forms
+210:### Extended launch forms (v1.1)
+222:### Jail backends (v1.2)
+262:### Preflight checks
+274:### Composed mode (TJ-GAP-089)
+298:## 5. Standard stream and terminal preservation
+300:### File-descriptor contract
+109:## 4. Plugin metadata and hook registration (actual implementation)
+
+===== BOARD: are these findings already owned? =====
+TJ-GAP-012	complete	P1	TJ-GAP-012 — P1 specs/plugin.md §4 example (L119-125) imports 3 functions that do not exist: _configure_logger, transfor
+DOC-16	complete	P4	P4 — specs/cli.md §3 (CLI contract) omits the shipped --private-proc flag while asserting the set is closed
+--- published board (origin/main) doc rows mentioning these files ---
+PM-GAP-003	complete	CLI spec-vs-reality: specs/cli.md explicitly says "No other options exist in v1... no hidden --, --s
+TJ-GAP-012	complete	TJ-GAP-012 — P1 specs/plugin.md §4 example (L119-125) imports 3 functions that do not exist: _config
+TJ-GAP-031	complete	P0 — Test suite unrunnable from a fresh checkout: `python3 -m pytest plugin` fails immediately in bo
+TJ-GAP-047	complete	P1 — No concrete plugin-enable example anywhere: quickstart 3d says 'add plugin/ to HERMES_PLUGINS —
+TJ-GAP-063	complete	[P2] specs/cli.md contradicts the shipped CLI: bridge-unavailable "fails open" claim (L172) and TERM
+DOC-4	complete	missing reference: 3 wrapper env vars undocumented (USE_INTERRUPTOR, TERMINAL_JAIL_SECCOMP_LOADER, T
+DOC-16	complete	P4 — specs/cli.md §3 (CLI contract) omits the shipped --private-proc flag while asserting the set is
+README-11	complete	P5 — README's Landlock overhead note toggles TERMINAL_JAIL_LANDLOCK_FS, a variable no code reads (ho
+TJ-DF-068	complete	[P3] --seccomp turns a missing command into a raw Python traceback with exit 1 (every other path: cl
+DOC-33	pending	P4 — specs/cli.md pins three wrapper line numbers and one seccomp.py line that no longer exist (USE_
+
+===== ID OCCUPANCY =====
+DOC-16-R2 occupancy: 0
+TJ-GAP-012-R2 occupancy: 0
+
+===== BOARD VALIDATE (baseline) =====
+[warn] events.jsonl line 988: duplicate event id 970 (also line 965) — benign legacy duplicates exist on live boards
+RESULT: OK (308 warning(s))
