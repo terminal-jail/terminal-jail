@@ -285,3 +285,34 @@ log.
 
 Corrected statement: this lane's **own** writes are the ones listed above; `f7fb7b2`, `e91348b` and
 the two harness files inside `b385093` belong to sibling lanes and are named, not claimed.
+
+## Addendum 3 (third dispatch of this tick) — the matrix jobs re-attributed by measurement
+
+The second fire's record left one leg explicitly unverified: *the Python 3.11/3.12/3.13 matrix jobs each
+failed at "Run tests" … consistent with the same unzip premise but NOT individually re-attributed*. That
+fire's act logs were never harvested and its battery agent was destroyed, so the leg cannot be closed
+from logs. It was closed by **mechanism** instead, at the authoritative tip `f00967d`:
+
+- the workflow's own step command (`ci.yml:38`, minus coverage), run from a `git archive` of
+  `origin/main`, on all three matrix interpreters (3.11.15 / 3.12.16 / 3.13.13, pytest 9.2.0);
+- the only variable is `unzip` visibility on PATH (a 2883-entry symlink dir with every tool but `unzip`
+  vs the normal PATH);
+- **A − B = exactly one test, on every interpreter**:
+  `plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile`;
+  `B − A` is empty. A first fire measured 5 failed / 2076 passed, its unzip control 4 failed / 2077
+  passed, on each of the three versions;
+- a **real `git clone`** at the same tip with unzip present is **0 failed / 2081 passed** — so the four
+  failures both archive arms share are the archive rig (`fatal: not a git repository`:
+  `test_tracked_tree_ships_no_vendored_bubblewrap` + three `tests/test_release_workflow.py` cases), not
+  the product.
+
+What this buys the board: TJ-DF-071's blast radius is now measured, not inferred — the same single
+failure takes down any `Run tests` job whose container lacks `unzip`, on every version the matrix names,
+and nothing else in the suite moves. What it does **not** buy: the act job logs themselves remain
+unharvested (agent destroyed, no `catthehacker` image locally to re-probe), so the per-job statement
+stays UNVERIFIED-as-log. Second boundary unchanged: page-cache-cold timing needs root; this lane is uid
+1000 and `/proc/sys/vm/drop_caches` is `-rw------- root root`, so no timing was re-run.
+
+Evidence: `.coding-hermes/evidence/2026-11-17-matrix-attrib/` (`INDEX.md`, `arm-summary.txt`, six arm
+logs gzipped, the clone control, the drivers). No row was filed, closed or re-statused by this fire;
+TJ-DF-071 stays `pending` P2 and TJ-REVIEW-072-R2 stays `pending` P3.

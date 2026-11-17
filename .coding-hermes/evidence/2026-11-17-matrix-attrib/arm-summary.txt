@@ -1,0 +1,100 @@
+arm table — exact CI step command (pytest plugin/ tests/ -v --tb=short -m "not integration"),
+run from the git-archive tree of origin/main f00967d; only `unzip` visibility differs between arms.
+
+ver   arm  unzip  summary
+3.11  A    no     ==== 5 failed, 2076 passed, 12 skipped, 72 deselected in 262.08s (0:04:22) =====
+3.11  B    yes    ==== 4 failed, 2077 passed, 12 skipped, 72 deselected in 218.76s (0:03:38) =====
+3.12  A    no     ==== 5 failed, 2076 passed, 12 skipped, 72 deselected in 186.46s (0:03:06) =====
+3.12  B    yes    ==== 4 failed, 2077 passed, 12 skipped, 72 deselected in 232.74s (0:03:52) =====
+3.13  A    no     ==== 5 failed, 2076 passed, 12 skipped, 72 deselected in 201.01s (0:03:21) =====
+3.13  B    yes    ==== 4 failed, 2077 passed, 12 skipped, 72 deselected in 186.57s (0:03:06) =====
+
+--- armA 3.11 FAILED lines (5) ---
+  FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+--- armB 3.11 FAILED lines (4) ---
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+--- armA 3.12 FAILED lines (5) ---
+  FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+--- armB 3.12 FAILED lines (4) ---
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+--- armA 3.13 FAILED lines (5) ---
+  FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+--- armB 3.13 FAILED lines (4) ---
+  FAILED plugin/test_packaging.py::test_tracked_tree_ships_no_vendored_bubblewrap
+  FAILED tests/test_release_workflow.py::test_check_script_green_path_on_prepared_scratch_clone
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_existing_tag
+  FAILED tests/test_release_workflow.py::test_check_script_fails_clearly_on_wrong_version_tag
+
+--- DELTA 3.11: A minus B = ['FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile'] | B minus A = []
+--- DELTA 3.12: A minus B = ['FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile'] | B minus A = []
+--- DELTA 3.13: A minus B = ['FAILED plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile'] | B minus A = []
+
+--- armC (REAL git clone at f00967d, unzip present) ---
+summary: 2081 passed, 12 skipped, 72 deselected in 185.39s (0:03:05)
+failed lines: 0
+
+--- unzip-test traceback excerpt (armA-3.11) ---
+test_release_wheel_install_without_unzip_uses_python_zipfile FAILED [ 22%]
+plugin/test_install.py::test_successful_install PASSED                   [ 22%]
+plugin/test_install.py::test_release_mode_explicit_version_uses_versioned_wheel PASSED [ 22%]
+plugin/test_install.py::test_release_mode_missing_asset_has_named_failure PASSED [ 22%]
+plugin/test_install.py::test_release_asset_contract_is_versioned_wheel_and_sha256sums PASSED [ 22%]
+plugin/test_install.py::test_release_asset_names_match_captured_github_release PASSED [ 22%]
+plugin/test_install.py::test_help_default_release_version_matches_the_pin PASSED [ 22%]
+plugin/test_install.py::test_releasing_runbook_carries_the_installer_pin_step PASSED [ 22%]
+plugin/test_install.py::test_release_assets_and_default_match_live_github_release PASSED [ 22%]
+plugin/test_install.py::test_bad_shebang_rejected PASSED                 [ 22%]
+plugin/test_install.py::test_checksum_fail PASSED                        [ 22%]
+plugin/test_install.py::test_creates_install_dir PASSED                  [ 22%]
+plugin/test_install.py::test_tmp_files_cleaned_after_install PASSED      [ 23%]
+plugin/test_install.py::test_release_mode_requires_opt_in PASSED         [ 23%]
+plugin/test_install.py::test_install_reports_both_probes_advisory PASSED [ 23%]
+plugin/test_install.py::test_advisory_missing_probe_is_one_honest_line PASSED [ 23%]
+plugin/test_install.py::test_require_tier_pidns_fails_closed_on_degraded PASSED [ 23%]
+plugin/test_install.py::test_require_tier_full_fails_closed_on_degraded_fs PASSED [ 23%]
+plugin/test_install.py::test_require_tier_full_succeeds_when_both_full PASSED [ 23%]
+plugin/test_install.py::test_require_tier_missing_probe_fails_closed PASSED [ 23%]
+plugin/test_install.py::test_require_tier_invalid_value_refuses_before_install PASSED [ 23%]
+plugin/test_install.py::test_require_tier_released_mode_without_probes_fails_closed PASSED [ 23%]
+plugin/test_install.py::test_usage_documents_require_tier PASSED         [ 23%]
+plugin/test_install.py::test_local_install_ships_lib_tree PASSED         [ 23%]
+plugin/test_install.py::test_local_install_ships_all_three_loaders PASSED [ 23%]
+plugin/test_install.py::test_installed_wrapper_surfaces_bridge_stderr SKIPPED [ 23%]
+plugin/test_install.py::TestMappedLaunchGuardSelfCheck::test_skip_arm_fires_when_probe_reports_denial PASSED [ 23%]
+plugin/test_install.py::TestMappedLaunchGuardSelfCheck::test_guard_helper_is_cached_and_wired PASSED [ 23%]
+plugin/test_install.py::test_local_install_ships_default_rules_to_user_rules_dir PASSED [ 23%]
+plugin/test_install.py::test_local_install_backs_up_customized_user_rules PASSED [ 23%]
+plugin/test_install.py::test_prefix_install_does_not_touch_home_rules PASSED [ 23%]
+plugin/test_install.py::test_prefix_install_missing_parent_no_cd_error_no_dotdot PASSED [ 23%]
+plugin/test_install.py::test_explicit_rules_dir_wins_over_install_scope PASSED [ 23%]
+plugin/test_install.py::test_default_install_dir_keeps_live_rules_target PASSED [ 24%]
+plugin/test_install.py::test_installed_binary_blocks_with_shipped_bridge PASSED [ 24%]
+plugin/test_install.py::test_bare_wrapper_fails_closed_without_bridge PASSED [ 24%]
+plugin/test_install.py::test_bare_wrapper_warn_mode_passes PASSED        [ 24%]
+plugin/test_install.py::test_bare_wrapper_unshare_failure_exits_2 PASSED [ 24%]
+plugin/test_install.py::test_installed_seccomp_loader_imports_plugin_and_runs_command PASSED [ 24%]
+plugin/test_install.py::test_repo_layout_seccomp_loader_imports_plugin_and_runs_command PASSED [ 24%]
+plugin/test_install.py::test_installer_bwrap_note_is_advisory_and_install_still_succeeds PASSED [ 24%]
+plugin/test_install.py::test_installer_is_silent_about_bwrap_when_it_is_present PASSED [ 24%]
+plugin/test_install.py::test_installer_writes_no_bubblewrap_artifact PASSED [ 24%]
+plugin/test_install.py::test_install_sh_never_downloads_or_vendors_bubblewrap PASSED [ 24%]
+plugin/test_install.py::test_install_rule_pack_lands_in_the_resolved_rules_dir PASSED [ 24%]
+plugin/test

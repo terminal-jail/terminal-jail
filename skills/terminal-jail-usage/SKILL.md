@@ -834,7 +834,11 @@ know which layer decided. A same-ID user file does override a builtin.
 - `fresh-install` cell installs `terminal-jail-1.3.4` cleanly; that is the installability proof.
 - `tests` cell can be red for a HOST reason: `plugin/test_install.py::test_release_wheel_install_without_unzip_uses_python_zipfile`
   unlinks a `testbin/unzip` shim that `_link_tools` only creates when the host HAS `unzip`. On a clean
-  image: `FileNotFoundError` at line 271, and `pytest -x` stops the suite at 3 % (`TJ-DF-071`).
+  image: `FileNotFoundError` at `plugin/test_install.py:295` (was `:271` at `9aff5bd`), and `pytest -x`
+  stops the suite at 3 % (`TJ-DF-071`). Measured across the whole CI matrix (3.11 / 3.12 / 3.13, the
+  workflow's own command): with `unzip` hidden on PATH the suite fails **exactly this one test** and
+  nothing else moves; a real clone with `unzip` present is `0 failed / 2081 passed`. So a red matrix
+  `Run tests` job on a lean container is usually this one premise — check `unzip` before chasing it.
   Read `qa-logs-*/tests.log` on the agent **before** destroy; the ledger's `detail` is truncated.
 - `bunker collect` can answer `COLLECT-ADOPT reason=recent tick-death-orphan` while the battery is
   alive and well — that is adoption of your own launch, not a lost agent.
