@@ -264,3 +264,24 @@ are stated here rather than left inside an earlier sentence:
   `plugin/test_install.py:295` (line numbers shifted by the sibling's edits; the mechanism and the
   `FileNotFoundError` are identical). A worker should fix it at HEAD, not at the line number quoted
   from `9aff5bd`.
+
+## Addendum 2 (same tick) — the append-only correction to the previous commit message
+
+The commit `b385093` *"dogfood: disclose the sibling commits this tick's push carried…"* ended with
+a sentence claiming that `.gitreins/tasks.yaml` and
+`.coding-hermes/waves/terminal-jail-foreman-2026-11-17-11-52-37.json` were "left untouched and
+unstaged". **That sentence is false for that commit**: `b385093` actually carried both files (88 and
+64 added lines). A sibling **foreman wave** was writing this checkout at the same time — the wave
+manifest names the same tick clock (`base_sha 9aff5bd`, `wave_budget 9`, `width 4`) and
+`.gitreins/tasks.yaml` gained its `RELEASE-TJ-026` task row — and its staged index was swept up by my
+commit, exactly the shared-checkout hazard this repo's earlier records warn about.
+
+What those two files contain, checked at `b385093`: the foreman wave manifest for
+`terminal-jail-foreman-2026-11-17-11-52-37` (planning metadata: base ref/sha, budget, width) and one
+GitReins task definition for `RELEASE-TJ-026`. Neither is product source, neither is this lane's
+work, and neither changes any claim in this report. `d81e573` — the actual dogfood commit — was
+clean: `git show --name-only d81e573` contains only this run's board rows, evidence, docs, skill and
+log.
+
+Corrected statement: this lane's **own** writes are the ones listed above; `f7fb7b2`, `e91348b` and
+the two harness files inside `b385093` belong to sibling lanes and are named, not claimed.
