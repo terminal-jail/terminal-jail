@@ -485,6 +485,10 @@ def check_quarterly_cli(doc: Path | None = None) -> tuple[bool, list[str]]:
         verified += 1
         messages.append(message)
     if verified == 0:
+        # Doctrine: a skip is never coverage. Reporting PASS after verifying
+        # zero commands is exactly the "nothing executes it" failure this
+        # check exists to close, so an all-skipped §3 is a FAIL, not a PASS.
+        all_ok = False
         messages.append(
             f"[SKIP] 0 of {len(commands)} quarterly §3 commands could be verified on "
             "this host — a skip is never coverage"
