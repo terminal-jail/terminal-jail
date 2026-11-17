@@ -49,8 +49,12 @@ ever passes through the retired shims — their staleness is a supply-of-record 
 The supported install is the user install, which needs no root:
 
 ```bash
-./install.sh          # installs ~/.local/bin/terminal-jail (currently 1.3.3)
+./install.sh          # installs ~/.local/bin/terminal-jail (currently 1.3.4)
 ```
+
+The table above is a dated measurement of the 2026-11-13 host install (1.3.3). `install.sh`
+defaults to `TERMINAL_JAIL_VERSION=1.3.4`, so a fresh run installs 1.3.4 — re-measure those rows
+after any re-install instead of assuming the version above still holds.
 
 If you ever deliberately re-install the shim, install it **from tag v1.3.3** and record the per-file
 sha256 — never from a working tree that may be mid-edit.
