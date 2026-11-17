@@ -35,11 +35,21 @@ python3 -m pip install -e ".[dev]" 2>/dev/null || true
 
 ## 3. Standalone CLI (3 min)
 
-- [ ] `standalone/terminal-jail --help` — prints usage
-- [ ] `standalone/terminal-jail --version` — prints correct version
-- [ ] `standalone/terminal-jail -- echo hello` — wraps command correctly
-- [ ] `standalone/terminal-jail --user --pid --fork -- echo hello` — user NS works
-- [ ] `standalone/terminal-jail --seccomp -- echo hello` — seccomp filter applies
+Every line below is executed verbatim by `scripts/docs-check.py` in CI: the
+first inline-code span of a line is its argv, it must exit 0, and the outcome
+named after the dash is asserted (usage text, version string, printed marker),
+so a line that stops working fails the build. The first non-flag argument IS
+the command — the wrapper has no `--` end-of-options terminator, and the only
+isolation flags are `--user` and `--seccomp` (they compose). A host that
+cannot create the namespace refuses loudly (exit 2, `command not run`);
+`docs-check.py` reports that line as SKIP with the reason, never as PASS.
+
+- [ ] `./standalone/terminal-jail --help` — rc 0; usage names the isolation flags `--user` and `--seccomp`
+- [ ] `./standalone/terminal-jail --version` — rc 0; prints `terminal-jail <version>`, equal to `pyproject.toml`
+- [ ] `./standalone/terminal-jail echo hello` — rc 0; prints `hello` — the command runs inside the jail with its arguments passed through without shell re-parsing
+- [ ] `./standalone/terminal-jail --user printenv TERMINAL_JAIL_FS_ISOLATION` — rc 0; prints `mapped` or `degraded`: the `--user` launch ran and states its own filesystem-isolation outcome (PID-namespace containment and identity env scrub are always part of it)
+- [ ] `./standalone/terminal-jail --seccomp printenv TERMINAL_JAIL_SECCOMP` — rc 0; prints `1`: the launch went through the seccomp-loader handoff (without the flag the marker is absent and `printenv` exits 1)
+- [ ] `./standalone/terminal-jail --user --seccomp echo hello` — rc 0; prints `hello`: the two isolation flags compose
 
 ## 4. Hermes Integration (5 min)
 
