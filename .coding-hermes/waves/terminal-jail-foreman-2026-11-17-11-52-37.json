@@ -6,59 +6,71 @@
   "base_sha": "9aff5bd",
   "wave_budget": 9,
   "width": 4,
-  "status": "dispatched",
+  "status": "complete",
   "worker_model": "openai/gpt-6.1-terra",
   "worker_provider": "xkiro",
   "workers": [
     {
       "task_id": "RELEASE-TJ-026",
-      "title": "install.sh still pins the v1.3.3 asset URLs, so the documented installer serves one release behind the published v1.3.4",
       "priority": "P2",
       "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-026",
       "branch": "wt/RELEASE-TJ-026",
-      "base_sha": "9aff5bd",
-      "files_owned": ["install.sh", "docs/releasing.md", "docs/quickstart.md", "plugin/test_install.py"],
       "brief": "/home/kara/.hermes/cache/scratch/briefs/RELEASE-TJ-026.md",
-      "merge": "pending",
-      "judge": "pending"
+      "sha": "f7fb7b2",
+      "merge": "merged (e91348b)",
+      "judge": "PASS",
+      "verdict_run": "3b5464a1",
+      "attempts": 1
     },
     {
       "task_id": "README-14",
-      "title": "README release identity still names the v1.3.3 asset release after v1.3.4 was published",
       "priority": "P4",
       "worktree": "/home/kara/worktrees/terminal-jail-README-14",
       "branch": "wt/README-14",
-      "base_sha": "9aff5bd",
-      "files_owned": ["README.md"],
       "brief": "/home/kara/.hermes/cache/scratch/briefs/README-14.md",
-      "merge": "pending",
-      "judge": "pending"
+      "sha": "286b4ad",
+      "merge": "merged (b3aa3ea) — README paragraph conflict resolved mechanically in favour of this superset text",
+      "judge": "PASS",
+      "verdict_run": "ffb134aa",
+      "attempts": 1
     },
     {
       "task_id": "TJ-REVIEW-074-R2",
-      "title": "auto-sandbox modify interpreter preflight still passes a python3 the filesystem tier cannot reach (bare rc=126, no named verdict)",
       "priority": "P2",
       "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-074-R2",
       "branch": "wt/TJ-REVIEW-074-R2",
-      "base_sha": "9aff5bd",
-      "files_owned": ["standalone/terminal-jail", "plugin/terminal_jail/_bundled/terminal-jail", "plugin/test_modify_preflight.py", "plugin/terminal_jail/**"],
       "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-REVIEW-074-R2.md",
-      "merge": "pending",
-      "judge": "pending"
+      "sha": "8789f05",
+      "merge": "merged (73413f2)",
+      "judge": "PASS",
+      "verdict_run": "4674104c",
+      "verdict_runs_failed": ["a81221f7: INCOMPLETE by iteration cap 300, criterion already graded PASS; re-run at cap 600 (c1d7130)"],
+      "attempts": 1,
+      "note": "worker ended on a gateway disconnect after committing; worktree clean, foreman verified the diff, the red-first arm (restored 9aff5bd wrapper fails both new tests) and the merged-tree gates itself"
     },
     {
       "task_id": "TJ-DF-067",
-      "title": "docs/quarterly-review.md section 3 CLI checklist cannot pass on a working build and nothing executes docs outside README.md",
       "priority": "P3",
       "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-067",
       "branch": "wt/TJ-DF-067",
-      "base_sha": "9aff5bd",
-      "files_owned": ["docs/quarterly-review.md", "scripts/docs-check.py"],
       "brief": "/home/kara/.hermes/cache/scratch/briefs/TJ-DF-067.md",
-      "merge": "pending",
-      "judge": "pending"
+      "sha": "605742c + foreman rework 56eb003",
+      "merge": "merged (fa47652)",
+      "judge": "PASS",
+      "verdict_run": "04555930",
+      "verdict_runs_failed": ["24d74c4a: check4 printed PASS after verifying zero commands on an all-skipped host (all_ok never set False)"],
+      "attempts": 2
     }
   ],
-  "independence_check": "No depends_on edges among the four rows (all []); file sets disjoint (install.sh+docs/releasing.md+docs/quickstart.md+plugin/test_install.py vs README.md vs standalone wrapper+plugin modify tests vs docs/quarterly-review.md+scripts/docs-check.py); each worker owns its own worktree/branch off origin/main@9aff5bd",
-  "notes": "slots left unfilled with cited reasons: PERF-003 requires foreman-authored paired benchmark arms (project skill perf-acceptance-proof); RELEASE-TJ-027 / QA-TERMINAL-JAIL-19-R2 / 27-R2 / 34 / 35 / 26 are harness or upstream-gitreins surfaces outside this repo; OPS-TJ-001 + TJ-DF-069 are host/bunker-bound; RELEASE-TJ-025 + RELEASE-TJ-029 + RELEASE-TJ-015 need owner decisions (PyPI trusted publisher, Dependabot settings, release-object edit = public surface); DOC-28 / DOC-27 / DOC-4-R2 collide on files owned by this wave"
+  "independence_check": "No depends_on edges among the four rows; worktrees per row off 9aff5bd; file sets disjoint except the README release-mode paragraph (RELEASE-TJ-026 vs README-14), resolved at merge",
+  "outcome": {
+    "merged": 4,
+    "judged_pass": 4,
+    "failed_verdicts": 2,
+    "merged_gate": "per-merge on the merged tree: docs-check overall PASS incl. new check4 (six quarterly commands rc 0), 206 passed / 1 skipped (modify_preflight, landlock, packaging_wheel, standalone_cli, board_id_guard), ruff check + format clean",
+    "board_commit": "a42b0fd",
+    "unpushed": 0,
+    "ci": "e14280a + f00967d success; a42b0fd in progress at close"
+  },
+  "notes": "slots left unfilled with cited reasons: PERF-003 requires foreman-authored paired benchmark arms (perf-acceptance-proof); RELEASE-TJ-027 / QA-TERMINAL-JAIL-19-R2 / 27-R2 / 34 / 35 / 26 are harness or upstream-gitreins surfaces outside this repo; OPS-TJ-001 + TJ-DF-069 are host/bunker-bound; RELEASE-TJ-025 + RELEASE-TJ-029 + RELEASE-TJ-015 need owner decisions; DOC-28 / DOC-27 / DOC-4-R2 / README-15 / DOC-30 collide on files owned by this wave"
 }
