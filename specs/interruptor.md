@@ -327,11 +327,14 @@ built-in allow rules do not already match).
 ### 4.5 Network-Egress and Data-Out Rules
 
 The tables in §4.1–§4.3 are the original v1.1.0 rule set; the TJ-GAP-053 / TJ-GAP-058 /
-DF-TERMINAL-JAIL-16 / DF-TERMINAL-JAIL-17 / DF-TERMINAL-JAIL-20 waves grew the engine to
-**35 block / 9 sandbox / 10 allow = 54 rules**
+DF-TERMINAL-JAIL-16 / DF-TERMINAL-JAIL-17 / DF-TERMINAL-JAIL-20 / DF-TERMINAL-JAIL-30 waves grew the engine to
+**36 block / 9 sandbox / 10 allow = 55 rules**
 (`plugin/terminal_jail/rules/00-builtins.yaml` is the shipped mirror and is gated byte-for-byte
 against the engine constants by `scripts/yaml-mirror-parity-probe.py`, which reports the per-layer
-totals and each rule's action). The egress family, by id:
+totals and each rule's action). These are disjoint default action classes: `block` refuses
+execution; `sandbox` rewrites (wraps) the command and returns a `modify` verdict, not a block;
+`allow` passes it through. Opt-in packs and user overrides are excluded from this census.
+Recount with `python3 scripts/rule-catalog.py --check`. The egress family, by id:
 
 | ID | Layer | Scope |
 |----|-------|-------|
