@@ -25,12 +25,13 @@
         "CONTRIBUTING.md"
       ],
       "sha": "45b1a0c (first) + eba3c32 (rework merged)",
-      "judge": "FAIL on first commit (integration-marker list named 5 of 6 marked modules; test_private_proc_demand.py missing) -> rework dispatched, re-judge in flight",
+      "judge": "PASS after rework (verdict 9d4528b6); first verdict cb3d1c3d FAIL on the pre-rework commit",
       "merge": "merged (45b1a0c, then rework eba3c32)",
       "attempts": 2,
       "verdict_run_failed": [
         "cb3d1c3d: INCOMPLETE — 'names 5 of the 6 plugin/test_*.py modules that carry @pytest.mark.integration'"
-      ]
+      ],
+      "verdict_run": "9d4528b6"
     },
     {
       "task_id": "DOC-29-R2",
@@ -121,20 +122,21 @@
   "finished_at": "2026-11-17T22:56:00Z",
   "outcome": {
     "merged": 7,
-    "judged_pass": 5,
-    "judged_fail_then_reworked": 1,
+    "judged_pass": 6,
+    "judged_fail_then_reworked": "1 (DOC-2-R2: FAIL -> rework e730d51 -> re-judge PASS)",
     "foreman_direct": 1,
     "merged_gate": "merged tree at eba3c32: pytest -q -> 2152 passed, 15 skipped, 0 failed (249s); ruff check plugin/ clean; ruff format --check . 185 files formatted; docs-check overall PASS at every branch tip and at main",
     "board_rows_closed": [
-      "DOC-2-R2 (pending re-judge)",
-      "DOC-29-R2",
-      "DOC-31",
-      "DOC-32",
-      "DOC-33",
-      "DOC-34",
-      "DOC-36"
+      "DOC-2-R2 eba3c32 PASS 9d4528b6",
+      "DOC-29-R2 d6c3789 PASS a1157495",
+      "DOC-31 328f884 PASS 95688d20",
+      "DOC-32 c1fa417 PASS 853a5188",
+      "DOC-33 79ac239 PASS 4c571916",
+      "DOC-34 efe1f17 PASS 7867239f",
+      "DOC-36 02598f9 PASS a0ca5f55"
     ],
     "ci": "hosted CI green on all eight runs from 21:44Z to 22:19Z (every merge + the DOC-36 commit)",
-    "unpushed": 0
+    "unpushed": 0,
+    "reaped": "6 worktrees removed, 6 merged branches deleted (all six verified ancestors of main first)"
   }
 }
