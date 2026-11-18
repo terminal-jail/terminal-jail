@@ -2761,3 +2761,86 @@ tasks:
   status: complete
   created_at: '2026-11-17T21:39:32.440132+00:00'
   completed_at: '2026-11-17T21:39:55.664325+00:00'
+- id: TJ-DF-071
+  title: 'fresh-machine suite red: unzip shim host dependency'
+  criteria:
+  - plugin/test_install.py test_release_wheel_install_without_unzip_uses_python_zipfile
+    passes with unzip absent from PATH and unchanged on normal host; no unconditional
+    unlink of possibly-absent shim; full pytest suite green
+  status: in_progress
+  created_at: '2026-11-18T21:59:56.202796+00:00'
+- id: PERF-003
+  title: one-shot allow p50 168.6ms exceeds 160ms bar
+  criteria:
+  - 20KB one-shot allow p50 <=160ms median across >=3 bench_bridge.py runs; 200ms
+    cost guard exit 0; full pytest suite green; capability-probe semantics unchanged
+  status: in_progress
+  created_at: '2026-11-18T21:59:56.965891+00:00'
+- id: TJ-REVIEW-072-R2
+  title: plugin banners + metrics-export emit hardcoded 1.3.0
+  criteria:
+  - no hardcoded 1.3.0 in plugin/__init__.py, plugin/terminal_jail/__init__.py, scripts/metrics-export.py;
+    version derived from package metadata in all three; stale test literal updated;
+    full suite green
+  status: in_progress
+  created_at: '2026-11-18T21:59:57.652338+00:00'
+- id: INT-CI-021
+  title: modify-preflight skip-guard misses relocated interpreter
+  criteria:
+  - test_tier_on_pinned_interpreter_runs_the_payload SKIPS (not fails) under an interpreter
+    resolving outside every grant; still runs and passes under a covered interpreter;
+    full suite green
+  status: in_progress
+  created_at: '2026-11-18T21:59:58.362619+00:00'
+- id: DOC-27-DOC-38
+  title: quickstart stale versions + dead specs link
+  criteria:
+  - docs/quickstart.md versions equal HEAD pyproject version with no stale 1.3.0 claims;
+    plugin-load grep version-agnostic; line-978 relative link resolves to existing
+    ../specs/integration.md
+  status: in_progress
+  created_at: '2026-11-18T21:59:59.046777+00:00'
+- id: README-DOC4-15-37
+  title: README env table + blocklist override + dependency floors
+  criteria:
+  - README env table documents TERMINAL_JAIL_LANDLOCK_LOADER, LANDLOCK_NET_LOADER,
+    BRIDGE_FALLBACK, PYTHON with code-true semantics; blocklist override text matches
+    shipped behavior; one canonical kernel and util-linux floor consistent across
+    README/COMPATIBILITY/SUPPORT/pentest-plan
+  status: in_progress
+  created_at: '2026-11-18T21:59:59.790579+00:00'
+- id: DOC-35
+  title: specs pin stale test counts
+  criteria:
+  - every per-file test count in specs/integration.md and specs/threat-model.md equals
+    the live pytest --collect-only count for the named file; named files run green
+  status: in_progress
+  created_at: '2026-11-18T22:00:00.737219+00:00'
+- id: DOC-16-R2
+  title: specs/cli.md section 3 drifts from shipped --help
+  criteria:
+  - section 3 synopsis+options mirror the real --help including --private-proc; all
+    4 shipped env vars documented; no 'exported by the wrapper' wording
+  status: in_progress
+  created_at: '2026-11-18T22:00:07.443315+00:00'
+- id: TJ-GAP-012-R2
+  title: specs/plugin.md section 4 describes nonexistent module
+  criteria:
+  - section 4 import path imports successfully in the repo venv; every named public
+    symbol importable; no v0.1.0/HOOK-GAP-01 claims unless real
+  status: in_progress
+  created_at: '2026-11-18T22:00:08.146043+00:00'
+- id: DOC-28
+  title: release runbook stale + missing v1.3.2 published.json
+  criteria:
+  - runbook covers v1.3.2 through v1.3.4; docs/releases/v1.3.2-published.json valid
+    JSON matching v1.3.4 schema with real gh-verified release facts
+  status: in_progress
+  created_at: '2026-11-18T22:00:08.874698+00:00'
+- id: DOC-30
+  title: installer help exposes undocumented modes/options
+  criteria:
+  - every --help mode/option documented in docs with descriptions matching the installer's
+    argument-parsing code; no invented flags
+  status: in_progress
+  created_at: '2026-11-18T22:00:09.628950+00:00'
