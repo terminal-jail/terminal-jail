@@ -108,7 +108,7 @@ The callable must never return `None`, bytes, a list/tuple, a subprocess result,
 
 ## 4. Plugin metadata and hook registration (actual implementation)
 
-The plugin uses Hermes' `register()` pattern. `terminal_jail/__init__.py` has this structure:
+The plugin uses Hermes' `register()` pattern. The real module — `plugin/terminal_jail/__init__.py` in the repo, importable as `terminal_jail` (the Hermes plugin path also imports it as `plugin.terminal_jail`; both spellings resolve to the same file) — has this structure (module docstring omitted; the module declares no `__all__`):
 
 ```python
 from __future__ import annotations
@@ -116,7 +116,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .terminal_jail.plugin import (
+from .plugin import (
     _enabled_from_environment,
     _unshare_executable_from_environment,
 )
@@ -164,10 +164,10 @@ def _on_transform_terminal_output(
 ) -> str | None:
     """Transform terminal output — primarily observability.
 
-    Since we can't inject the jail prefix pre-execution, this is a no-op
-    placeholder. Returns None to leave output unchanged.
+    Since we can't inject the jail prefix pre-execution, we annotate the
+    output to indicate whether this command was jailed.
     """
-    return None
+    return None  # Don't modify output
 
 
 def register(ctx) -> None:
@@ -176,31 +176,21 @@ def register(ctx) -> None:
     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
 
     logger.info(
-        "terminal-jail v0.1.0 loaded. "
+        "terminal-jail v1.3.0 loaded. "
         "NOTE: pre-execution command wrapping requires Hermes core "
-        "pre-execution hooks (see task HOOK-GAP-01). "
+        "pre-execution hooks (see task HOOK-GAP-03). "
         "Observability hooks registered."
     )
-
-
-__all__ = [
-    "register",
-    "transform_command",
-    "transform_exec_command",
-]
 ```
 
 Requirements for this metadata:
 
 1. The plugin MUST export a `register(ctx)` function — Hermes calls this at plugin load time.
-2. Available Hermes hooks (v0.1.0): `pre_tool_call` (block/allow only), `transform_terminal_output` (post-exec output transform).
-3. `transform_command` and `transform_exec_command` are public and importable but NOT wired to any hook — no pre-execution command-transform hook exists in Hermes core.
+2. Available Hermes hooks: `pre_tool_call` (block/allow only), `transform_terminal_output` (post-exec output transform). Plugin metadata version: 1.3.4 (`pyproject.toml` and `plugin/plugin.yaml`); the `register()` log line still reads `v1.3.0` in the shipped code.
+3. The wrapping functions `transform_command` and `transform_exec_command` were removed as dead code (TJ-GAP-010, v1.1.x) — they are no longer declared or importable. The module declares no `__all__`. The importable public surface is `register` (from `terminal_jail`) and, from `terminal_jail.plugin`, the `Metrics` dataclass plus the `get_metrics()` / `reset_metrics()` helpers (see section 12).
 4. Keep `__init__.py` free of executable setup work, environment probing, subprocess calls, and logging configuration beyond the `register()` invocation.
 
-**Future state (when HOOK-GAP-01 is resolved):** When Hermes adds a pre-execution command-transform hook (e.g., `pre_terminal_exec`), the `register()` function will additionally call:
-```python
-ctx.register_hook("pre_terminal_exec", transform_command)
-```
+**Future state (pre-execution command-transform hook):** Hermes core still does not expose a pre-execution command-transform hook — the module docstring tracks this gap as HOOK-GAP-03. Until it exists, the plugin remains observability-only: `register()` registers exactly the two hooks shown above, and pre-execution wrapping stays impossible without a Hermes core change.
 
 ## 5. Input-to-output contract
 
