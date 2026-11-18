@@ -985,7 +985,7 @@ See `specs/interruptor.md`.
 
 ## 5. Next steps
 
-- [specs/integration.md](specs/integration.md) — architecture & defense-in-depth layers
+- [specs/integration.md](../specs/integration.md) — architecture & defense-in-depth layers
 - [docs/threat-model.md](threat-model.md) — what Terminal Jail does and does not prevent
 - [docs/supply-chain.md](supply-chain.md) — release & supply-chain integrity
 - [docs/pentest-plan.md](pentest-plan.md) — adversarial verification plan
