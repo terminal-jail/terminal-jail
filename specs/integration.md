@@ -423,7 +423,7 @@ The interruptor operates as a pre-execution command firewall. Verify its rule en
 - [ ] Run a safe command through the CLI and confirm it executes normally: `terminal-jail --interruptor "echo ok"`.
 - [ ] Run a sandbox-targeted command (`make build` or `pytest`) through the CLI and confirm it is wrapped in unshare (verify with `--no-interruptor` comparison).
 - [ ] Confirm the JSON bridge (`interruptor_bridge.py`) returns structured `action`, `rule_id`, and `reason` fields for blocked commands.
-- [ ] Run the interruptor unit test suite and confirm all 56 tests pass.
+- [ ] Run the interruptor unit test suite (`python -m pytest plugin/test_interruptor.py`) and confirm every test in the file passes — 529 collected as of 2026-11-18; re-measure with `python -m pytest --collect-only -q plugin/test_interruptor.py` before relying on the exact count.
 
 ## End-to-end testing without a production Hermes instance
 
