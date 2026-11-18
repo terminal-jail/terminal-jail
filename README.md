@@ -65,6 +65,8 @@ cd terminal-jail
 ./install.sh
 ```
 
+**Full option reference.** `./install.sh --help` (or `-h`) prints every installer mode and option — `--rule-pack`, `--unrule-pack`, `--rule-pack-file`, `--uninstall-rule-pack-file`, `--replace-rule-packs`, `--list-rule-packs`, `--no-path`, `--hermes-plugin [dir]`, `--uninstall`, `--uninstall-systemd` — plus all optional `TERMINAL_JAIL_*` environment variables, then exits 0 without touching the filesystem (`install.sh:421-424`). Each mode has its own section below; the help text is the authoritative one-screen summary.
+
 The installer detects the repository checkout and installs the local `standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root. When the install directory is not already on your `PATH`, the installer appends a marked `# terminal-jail` PATH block (an `export PATH=…` line naming the actual install directory) to your shell rc file — the first of `~/.profile`, `~/.bash_profile`, `~/.bashrc`, `~/.zshrc` that exists — **and** prints the exact `export PATH=…` line to use immediately; `./install.sh --uninstall` removes that marked block ([Uninstall](#uninstall)).
 
 **Containment-ceiling summary (TJ-DF-047).** Before `done.`, every install prints one `containment ceiling (Landlock)` line naming whether each kernel Landlock tier CAN engage on the host that just installed the tool — so a fresh install self-reports its containment ceiling instead of leaving the operator to discover it at first run:
@@ -229,7 +231,7 @@ sudo ./install.sh --uninstall --uninstall-systemd
 # (and 95-terminal-jail-shell.conf, when present) and runs systemctl daemon-reload
 ```
 
-Without the flag, an existing drop-in is reported with a NOTE instead of being removed. The removal targets the SAME rules-directory resolution the install used (`TERMINAL_JAIL_RULES_DIR` / install scope), so set the same environment you installed with if you used a non-default one. `--uninstall` is idempotent: on an already-clean host it is a no-op that exits 0. Uninstalling never reinstalls anything; `--unrule-pack` remains the scoped single-pack removal.
+Without the flag, an existing drop-in is reported with a NOTE instead of being removed. The removal targets the SAME rules-directory resolution the install used (`TERMINAL_JAIL_RULES_DIR` / install scope), so set the same environment you installed with if you used a non-default one. `--uninstall` is idempotent: on an already-clean host it is a no-op that exits 0. Uninstalling never reinstalls anything; `--unrule-pack` remains the scoped single-pack removal, and `--uninstall-rule-pack-file <path>` the scoped removal for external pack files — it asserts (a per-file ERROR plus a summary and exit 1 when nothing is installed under the derived name) where `--unrule-pack` is an idempotent no-op (`install.sh:1128-1132`, `:1160-1162`).
 
 ---
 
