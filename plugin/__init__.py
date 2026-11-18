@@ -25,6 +25,7 @@ from .terminal_jail.plugin import (
     _bump,
     _enabled_from_environment,
     _unshare_executable_from_environment,
+    package_version,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def register(ctx) -> None:
     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
 
     logger.info(
-        "terminal-jail v1.3.0 loaded. "
+        f"terminal-jail v{package_version()} loaded. "
         "NOTE: pre-execution command wrapping requires Hermes core "
         "pre-execution hooks (see task HOOK-GAP-03). "
         "Observability hooks registered."

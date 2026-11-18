@@ -1,15 +1,43 @@
 from __future__ import annotations
 
+import importlib.metadata
 import logging
 import os
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 LOGGER: Final[logging.Logger] = logging.getLogger("terminal_jail")
 
 _TRUTHY: Final[set[str]] = {"1", "true", "yes", "on"}
 _FALSY: Final[set[str]] = {"", "0", "false", "no", "off"}
+
+
+def package_version() -> str:
+    """Return the terminal-jail version — derived, never hardcoded.
+
+    Source of truth is the ``version`` declared in pyproject.toml, which
+    setuptools publishes as distribution metadata: an installed copy (wheel
+    or ``pip install -e .``) reports its own version via ``importlib.metadata``.
+    When the distribution is not installed (bare source checkout), fall back
+    to parsing pyproject.toml at the repo root; if even that is unavailable
+    (e.g. an isolated single-file import), report ``"unknown"`` rather than
+    a stale literal.
+    """
+    try:
+        return importlib.metadata.version("terminal-jail")
+    except importlib.metadata.PackageNotFoundError:
+        pass
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    try:
+        import tomllib
+
+        with pyproject.open("rb") as fh:
+            data = tomllib.load(fh)
+        return str(data["project"]["version"])
+    except (ImportError, OSError, KeyError):
+        return "unknown"
 
 
 @dataclass

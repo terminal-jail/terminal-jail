@@ -23,6 +23,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from plugin.terminal_jail.plugin import (
     get_metrics,
+    package_version,
     reset_metrics,
 )
 
@@ -33,7 +34,7 @@ def _metrics_to_dict() -> dict:
     d = dataclasses.asdict(m)
     d["timestamp"] = datetime.now(UTC).isoformat()
     d["project"] = "terminal-jail"
-    d["version"] = "1.3.0"
+    d["version"] = package_version()
     # Derived fields for dashboarding
     total_commands = (
         m.commands_wrapped

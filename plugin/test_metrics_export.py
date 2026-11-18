@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from plugin.terminal_jail.plugin import package_version
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 METRICS_SCRIPT = PROJECT_ROOT / "scripts" / "metrics-export.py"
 
@@ -94,7 +96,9 @@ def test_json_output_field_types():
     # Metadata fields
     assert isinstance(data["timestamp"], str)
     assert data["project"] == "terminal-jail"
-    assert data["version"] == "1.3.0"
+    # Version is DERIVED (package metadata / pyproject.toml), never a
+    # hardcoded literal — assert against the same source of truth.
+    assert data["version"] == package_version()
 
 
 def test_json_derived_values_with_zeros():
