@@ -285,14 +285,29 @@ def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
 
 @pytest.mark.standalone_cli
 def test_release_wheel_install_without_unzip_uses_python_zipfile(
-    install_script: Path, tmp_path: Path
+    install_script: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A wheel payload must not require the optional external unzip command."""
     install_dir = tmp_path / "install-dir"
     install_dir.mkdir()
     server_dir = _make_server_dir(tmp_path)
+    # Host-independent premise: _link_tools only mirrors tools the HOST has,
+    # so on a machine without unzip installed there was no testbin/unzip
+    # symlink to unlink and the bare unlink() errored before the installer
+    # even ran — fresh-machine suite red with no product regression. Fabricate
+    # the shim locally and prepend its dir to PATH so _link_tools resolves it
+    # on every host; removing it from the isolated test PATH (the install
+    # subprocess only ever sees PATH=test_bin) is what deterministically
+    # exercises the python3 -m zipfile fallback.
+    shim_dir = tmp_path / "shim-bin"
+    shim_dir.mkdir()
+    shim = shim_dir / "unzip"
+    shim.write_text("#!/bin/sh\nexit 0\n")
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{shim_dir}{os.pathsep}{os.environ.get('PATH', '')}")
     test_bin = _setup_full_testbin(tmp_path, server_dir)
-    (test_bin / "unzip").unlink()
+    (test_bin / "unzip").unlink(missing_ok=True)
+    assert not (test_bin / "unzip").exists(), "unzip must be absent from test PATH"
 
     result = _run_install(
         install_script,
