@@ -475,11 +475,23 @@ def _outside_every_grant(path: Path) -> bool:
     The tier's ruleset is an ALLOWLIST: "the payload cannot read it" means "no
     grant names it". Mode bits alone never reproduce this — a payload running
     as the caller still reads a 0700 directory it owns.
+
+    Landlock judges the file the kernel actually OPENS, so a symlinked
+    interpreter (a runner venv's ``bin/python3`` is a symlink chain into its
+    base install) must be judged at its fully RESOLVED target — the whole
+    chain is collapsed into that one file before the grant comparison, because
+    the engine's denial happens there, not on the as-given name. And a grant
+    that covers only directory TRAVERSAL (``read_dir_roots``: HOME is
+    listable while its files are granted individually) never makes a FILE
+    readable or executable, so only the file-level roots (write + read) can
+    cover it — the tier itself proves that shape by exec'ing the interpreter
+    in-domain.
     """
     layout = ll.build_layout(str(PROJECT_ROOT), payload_argv=None)
     assert layout is not None, "the tier cannot compute a layout for the checkout"
-    grants = (*layout.write_roots, *layout.read_roots, *layout.read_dir_roots)
-    return not any(ll._is_inside(str(path), grant) for grant in grants)
+    resolved = os.path.realpath(str(path))
+    file_level = (*layout.write_roots, *layout.read_roots)
+    return not any(ll._is_inside(resolved, grant) for grant in file_level)
 
 
 def _denied_fixture_root() -> Path | None:
