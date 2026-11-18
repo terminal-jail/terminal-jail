@@ -1,0 +1,47 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-18-21-49-43",
+  "created_utc": "2026-11-18T21:58:38Z",
+  "project": "terminal-jail",
+  "base": "origin/main",
+  "base_sha": "d43b4b0",
+  "worker_model": "glm-5.3-flash",
+  "worker_provider": "zai",
+  "model_flip": {
+    "configured": "openai/gpt-6.1-terra @ xkiro",
+    "reason": "unavailable: probe1 500s zero output; probe2 silent >200s; canary worker zero tool calls in 10min (no venv/git activity); 0 terra responses while fleet dumps show deepseek lane 503 no-healthy-upstream (fireworks) + deepseek 402 — fallback deepseek ALSO down",
+    "evidence": ["~/.hermes/sessions/request_dump_* 2026-11-18 17:03-17:04 (503 fireworks deepseek, 402 deepseek)", "proc_adace987ad02 canary log empty 10min", "glm-5.3-flash@zai probe: 'OK' in 19.2s"],
+    "chosen": "glm-5.3-flash @ zai (fleet default lane, trusted fallback)"
+  },
+  "wave_budget": 11,
+  "plan_review": {"card": "t_a424ec03", "comment": "PLAN: posted", "review": "request-review judge rejected empty-response; executing per never-stall rule", "stamp": "plan-unreviewed"},
+  "tasks": [
+    {"row": "TJ-DF-071", "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-071", "branch": "wt/TJ-DF-071", "base_sha": "d43b4b0", "brief": "/tmp/brief-TJ-DF-071.txt", "proc": "proc_39016573014b"},
+    {"row": "PERF-003", "worktree": "/home/kara/worktrees/terminal-jail-PERF-003", "branch": "wt/PERF-003", "base_sha": "d43b4b0", "brief": "/tmp/brief-PERF-003.txt"},
+    {"row": "TJ-REVIEW-072-R2", "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-072-R2", "branch": "wt/TJ-REVIEW-072-R2", "base_sha": "d43b4b0", "brief": "/tmp/brief-TJ-REVIEW-072-R2.txt"},
+    {"row": "INT-CI-021", "worktree": "/home/kara/worktrees/terminal-jail-INT-CI-021", "branch": "wt/INT-CI-021", "base_sha": "d43b4b0", "brief": "/tmp/brief-INT-CI-021.txt"},
+    {"row": "DOC-27+DOC-38", "rows": ["DOC-27", "DOC-38"], "worktree": "/home/kara/worktrees/terminal-jail-DOC-27-DOC-38", "branch": "wt/DOC-27-DOC-38", "base_sha": "d43b4b0", "brief": "/tmp/brief-DOC-27-DOC-38.txt"},
+    {"row": "DOC-4-R2+README-15+DOC-37", "rows": ["DOC-4-R2", "README-15", "DOC-37"], "worktree": "/home/kara/worktrees/terminal-jail-README-DOC4-15-37", "branch": "wt/README-DOC4-15-37", "base_sha": "d43b4b0", "brief": "/tmp/brief-README-DOC4-15-37.txt"},
+    {"row": "DOC-35", "worktree": "/home/kara/worktrees/terminal-jail-DOC-35", "branch": "wt/DOC-35", "base_sha": "d43b4b0", "brief": "/tmp/brief-DOC-35.txt"},
+    {"row": "DOC-16-R2", "worktree": "/home/kara/worktrees/terminal-jail-DOC-16-R2", "branch": "wt/DOC-16-R2", "base_sha": "d43b4b0", "brief": "/tmp/brief-DOC-16-R2.txt"},
+    {"row": "TJ-GAP-012-R2", "worktree": "/home/kara/worktrees/terminal-jail-TJ-GAP-012-R2", "branch": "wt/TJ-GAP-012-R2", "base_sha": "d43b4b0", "brief": "/tmp/brief-TJ-GAP-012-R2.txt"},
+    {"row": "DOC-28", "worktree": "/home/kara/worktrees/terminal-jail-DOC-28", "branch": "wt/DOC-28", "base_sha": "d43b4b0", "brief": "/tmp/brief-DOC-28.txt"},
+    {"row": "DOC-30", "worktree": "/home/kara/worktrees/terminal-jail-DOC-30", "branch": "wt/DOC-30", "base_sha": "d43b4b0", "brief": "/tmp/brief-DOC-30.txt"}
+  ],
+  "routed": [
+    {"row": "OPS-TJ-001", "owner": "ops lane", "reason": "host PATH-binary hygiene (~/.profile, /usr/local) — not repo code"},
+    {"row": "TJ-DF-069", "owner": "dogfood/bunker", "reason": "bunkerd unreachable (HTTP 000) at bunker-mvp:8765 — host dependency"},
+    {"row": "QA-TERMINAL-JAIL-11", "owner": "release/owner", "reason": "root cause = package never published to PyPI (RELEASE-TJ-025)"},
+    {"row": "QA-TERMINAL-JAIL-34", "owner": "qa-foreman", "reason": "bunker-qa.sh fleet checkout defect (~/.hermes/scripts/bunker-qa.sh)"},
+    {"row": "QA-TERMINAL-JAIL-35", "owner": "qa-foreman", "reason": "ci-pass act leg is fleet harness, no repo-owned script"},
+    {"row": "QA-TERMINAL-JAIL-27-R2", "owner": "qa-foreman", "reason": "chaos-disconnect emitter regex lives in fleet bunker-qa.sh"},
+    {"row": "QA-TERMINAL-JAIL-14-R2", "owner": "bunker-ops", "reason": "bunker-mvp shared hostedtoolcache race — host issue"},
+    {"row": "QA-TERMINAL-JAIL-26", "owner": "scheduler/fleet-process", "reason": "wave-closeout checkout hygiene is fleet process, not repo code"},
+    {"row": "RELEASE-TJ-015", "owner": "releng/owner", "reason": "editing published GitHub release assets = public surface, owner-gated"},
+    {"row": "RELEASE-TJ-025", "owner": "owner", "reason": "PyPI trusted publishing = credentials + public surface, owner-gated"},
+    {"row": "RELEASE-TJ-027", "owner": "releng", "reason": "gitreins tier-1 guard config decision"},
+    {"row": "RELEASE-TJ-028", "owner": "releng/policy", "reason": "TR-251 closure-rule policy change"},
+    {"row": "RELEASE-TJ-029", "owner": "owner", "reason": "Dependabot enablement = repo admin settings, owner-gated"},
+    {"row": "INT-CI-020", "owner": "boardctl lane", "reason": "writer defect lives in boardctl repo; guard script here is correct"},
+    {"row": "DOC-39", "owner": "next tick", "reason": "slot cap: WAVE_BUDGET=11 exhausted by higher-priority rows (P5)"}
+  ]
+}
