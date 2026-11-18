@@ -88,7 +88,7 @@ Additional residuals:
 
 ## 6. Verification (TJ-GAP-060 evidence)
 
-`plugin/test_env_scrub.py` (new; 52 tests) pins the matrix:
+`plugin/test_env_scrub.py` (new; 53 tests as of 2026-11-18 — re-measure with `python -m pytest --collect-only -q plugin/test_env_scrub.py` if the suite has grown) pins the matrix:
 
 - **Before-fix evidence:** launching the wrapper with all 14 hook variables set to marker values leaked **all 14 into the jailed payload env on every runnable backend** (`--user` and bwrap on the dev host), and an imported evil function survived (visible via `declare -F` in the payload).
 - **After-fix:** every hook variable absent from the payload env, per-variable and in aggregate, on every backend that can run on the host; imported function swept; `TERMINAL_JAIL_*`/passthrough/multiline values preserved; scrub ordering pinned; default (enforce) mode launches succeed with a fully poisoned environment (the bridge's python3 runs in the scrubbed env); bare mode on a host that denies it still fails closed with exit 2 (TJ-GAP-034).
