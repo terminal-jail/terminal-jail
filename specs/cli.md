@@ -72,7 +72,7 @@ The installer is a separate POSIX `sh` script because it is invoked as `curl URL
 
 ```text
 terminal-jail [--help] [--version]
-terminal-jail [--user] [--seccomp] [--interruptor | --no-interruptor] <command> [args...]
+terminal-jail [--user] [--seccomp] [--interruptor | --no-interruptor] [--private-proc] <command> [args...]
 ```
 
 `<command>` is required unless `--help` or `--version` is the sole argument.
@@ -94,24 +94,29 @@ terminal-jail [--user] [--seccomp] [--interruptor | --no-interruptor] <command> 
 | `--seccomp` | Apply a seccomp BPF filter inside the jail (denies mount, pivot_root, kexec_load, and other dangerous syscalls) via `standalone/seccomp-loader.py`. The filter is activated by this flag only (default off): the wrapper launches the payload through `standalone/seccomp-loader.py`, which exports `TERMINAL_JAIL_SECCOMP=1` to the loader process as an internal handoff. Setting the env var without the flag does not run the loader and does not activate the filter; an explicit `TERMINAL_JAIL_SECCOMP=0` does not veto the flag. | Payload |
 | `--interruptor` | Enable the Bash command firewall (default). The command is evaluated by the interruptor engine (JSON bridge to `plugin/terminal_jail/interruptor_bridge.py`) before execution: block → formatted block box on stderr + exit `126`; modify → the sandboxed rewrite is executed; allow → pass through. | 126 on block; payload otherwise |
 | `--no-interruptor` | Disable the Bash command firewall for this invocation. `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` has the same effect. | Payload |
+| `--private-proc` | Demand a private /proc (TJ-GAP-088): if the selected backend cannot deliver one, the command does not run — isolation is never silently downgraded. Equivalent to `TERMINAL_JAIL_PRIVATE_PROC=required`. A run that launches states the delivered view on stderr as `proc_view=private\|host\|platform-owned\|none`; a refused run states nothing. | 2 on refusal; payload otherwise |
 
 Flags may appear in any order but must precede `<command>`. There are no
-hidden `--`, `--shell`, resource-limit, mount, or networking flags: v1.1
-extends the v1 contract only with the four options above plus the
-`TERMINAL_JAIL_SECCOMP` and `TERMINAL_JAIL_INTERRUPTOR_MODE` environment
-variables. `TERMINAL_JAIL_SECCOMP` does not activate seccomp by itself — the
-filter is enabled by the `--seccomp` flag, and the wrapper exports the env var
-to `standalone/seccomp-loader.py` (whose `seccomp_enabled_from_environment()`
-gate consumes it) only on that flag's launch path. A bare `--` is not a flag terminator — a command literally named
-`--` is executed as the payload command.
+hidden `--`, `--shell`, resource-limit, mount, or networking flags: the
+contract is exactly the five options above (`--private-proc` was added by
+TJ-GAP-088, after the v1.1 four) plus the `TERMINAL_JAIL_SECCOMP`,
+`TERMINAL_JAIL_INTERRUPTOR_MODE`, and `TERMINAL_JAIL_PRIVATE_PROC`
+environment variables. `TERMINAL_JAIL_SECCOMP` does not activate seccomp by
+itself — the filter is enabled by the `--seccomp` flag; on that launch path
+the wrapper sets `TERMINAL_JAIL_SECCOMP=1` for the seccomp loader process,
+whose `seccomp_enabled_from_environment()` gate consumes it
+(`standalone/terminal-jail` exports the variable immediately before exec'ing
+the loader inside the namespace trampoline). A bare `--` is not a flag
+terminator — a command literally named `--` is executed as the payload
+command.
 
 ### Parsing rules
 
 1. With no arguments, print an error and usage to stderr and return jail error `2`.
 2. If the sole argument is `--help` or `-h`, print help to stdout and exit `0`.
 3. If the sole argument is `--version` or `-V`, print version to stdout and exit `0`.
-4. Otherwise, consume any leading flags from the known set (`--user`, `--seccomp`, `--interruptor`, `--no-interruptor`) in any order via a `while`/`case` loop. The first non-flag argument is always `<command>`, even if it begins with `-`; all remaining arguments belong to that command. This makes commands such as `terminal-jail -program arg` representable if such a program path exists.
-5. `terminal-jail --help extra` and `terminal-jail --version extra` are treated as attempts to execute commands named `--help` and `--version`, respectively (the flag-consumption loop only recognizes the four extended flags; `--help`/`--version` are honored solely as a single-argument form). The wrapper must not silently discard `extra` arguments.
+4. Otherwise, consume any leading flags from the known set (`--user`, `--seccomp`, `--interruptor`, `--no-interruptor`, `--private-proc`) in any order via a `while`/`case` loop. The first non-flag argument is always `<command>`, even if it begins with `-`; all remaining arguments belong to that command. This makes commands such as `terminal-jail -program arg` representable if such a program path exists.
+5. `terminal-jail --help extra` and `terminal-jail --version extra` are treated as attempts to execute commands named `--help` and `--version`, respectively (the flag-consumption loop only recognizes the five extended flags; `--help`/`--version` are honored solely as a single-argument form). The wrapper must not silently discard `extra` arguments.
 6. Option parsing must not use `getopts` (a `while`/`case` loop is used instead), because the flag set is fixed and all multi-argument forms after the flags are payload argv, not wrapper options.
 
 ### Required usage text
@@ -125,6 +130,7 @@ Usage: terminal-jail <command> [args...]
        terminal-jail --user --seccomp <command> [args...]
        terminal-jail --interruptor <command> [args...]
        terminal-jail --no-interruptor <command> [args...]
+       terminal-jail --private-proc <command> [args...]
        terminal-jail --help
        terminal-jail --version
 
@@ -143,11 +149,14 @@ Options:
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Filter is active only when this flag is passed; the
                  TERMINAL_JAIL_SECCOMP env var is an internal handoff
-                 exported by the wrapper to the seccomp loader process and
-                 does not activate the filter by itself.
+                 to the seccomp loader and does not activate the filter.
   --interruptor  Enable the Bash command firewall (default). Evaluates
                  commands against a rule engine before execution.
   --no-interruptor  Disable the Bash command firewall.
+  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
+                 backend cannot deliver one, the command does not run
+                 (exit 2) — isolation is never silently downgraded. Same
+                 as TERMINAL_JAIL_PRIVATE_PROC=required.
 
 Environment:
   TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
@@ -158,6 +167,40 @@ Environment:
                  documented fallback. A requested backend that cannot run
                  fails closed (exit 2) — isolation is never silently
                  downgraded. See specs/cli.md section 4 "Jail backends".
+  TERMINAL_JAIL_UID_MAP=0|off|false
+                 Force the mapping-less --user launch (skip the uid-mapping
+                 preflight). The uid-MAPPED launch re-arms the parent-death
+                 signal with `setpriv --pdeathsig=SIGKILL` after its
+                 setuid/setgid (the kernel clears PR_SET_PDEATHSIG on
+                 credential changes — TJ-DF-043); a host whose setpriv
+                 cannot re-arm fails the flag-identical probe and falls
+                 back mapping-less LOUDLY, never silently.
+  TERMINAL_JAIL_COMPOSED=auto|on|off
+                 Composed deployment (TJ-GAP-089, default auto): when
+                 namespace creation fails AND an outer containment layer is
+                 detected (container / bunker platform — /.dockerenv,
+                 /run/.containerenv, PID-ns identity, overlay root, cgroup
+                 root), run the command with the interruptor firewall plus
+                 the OUTER layer's namespace containment instead of
+                 refusing. Per-layer enforcement is stated on stderr
+                 (firewall by this tool; PID ns/proc by the platform; no
+                 inner seccomp). on forces this behavior, off always fails
+                 closed. An explicitly requested backend
+                 (TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare) is never
+                 silently downgraded, in composed mode or out of it. See
+                 README "Composed deployment (inside a container/bunker)"
+                 and bunker GAP-179.
+  TERMINAL_JAIL_PRIVATE_PROC=required
+                 Demand a private /proc (TJ-GAP-088): backend selection
+                 refuses (exit 2, command not run) when the resolved
+                 backend cannot deliver one — bwrap absent or its probe
+                 failing, the unshare backend (all modes; --user exposes
+                 the host /proc, bare mode is fail-closed first), or the
+                 composed launch (proc owned by the outer layer). A run
+                 that launches always states the delivered view on stderr
+                 as proc_view=private|host|platform-owned|none. Default
+                 (unset) keeps the fail-open prose behavior. See
+                 specs/cli.md section 4 "Jail backends".
 ```
 
 ## 4. Launcher implementation contract
