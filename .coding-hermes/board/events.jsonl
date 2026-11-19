@@ -1138,3 +1138,5 @@
 {"id":1142,"timestamp":"2026-11-18 22:00:29+00:00","event_type":"task_updated","task_id":"TJ-GAP-012-R2","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":1143,"timestamp":"2026-11-18 22:00:30+00:00","event_type":"task_updated","task_id":"DOC-28","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":1144,"timestamp":"2026-11-18 22:00:30+00:00","event_type":"task_updated","task_id":"DOC-30","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":1145,"timestamp":"2026-11-18 22:35:33+00:00","event_type":"task_created","task_id":"INT-CI-022","actor":"foreman","detail":"{\"id\":\"INT-CI-022\",\"status\":\"pending\"}","tick_number":null}
+{"id":1146,"timestamp":"2026-11-19 00:38:31+00:00","event_type":"task_created","task_id":"INT-CI-023","actor":"foreman","detail":"{\"id\":\"INT-CI-023\",\"status\":\"pending\"}","tick_number":null}
