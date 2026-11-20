@@ -1,14 +1,45 @@
 from __future__ import annotations
 
-import importlib.metadata
-import logging
 import os
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
-LOGGER: Final[logging.Logger] = logging.getLogger("terminal_jail")
+
+class _LazyLogger:
+    """Logger proxy that resolves the ``logging`` module on first use.
+
+    Importing ``logging`` costs ~38 ms on CPython 3.14 (it drags
+    ``traceback`` → ``_colorize`` → ``inspect``/``zipfile``/``tokenize``/
+    ``shutil``). Every bridge invocation pays module-import cost before it
+    answers a verdict, and the allow path — the overwhelmingly common one —
+    logs nothing at all, so importing the whole logging stack to emit
+    nothing was the single largest fixed cost of a one-shot evaluation
+    (measured PERF-003). ``__getattr__`` delegation keeps every logger
+    attribute (``setLevel``, ``addHandler``, ``propagate``, ``name``,
+    ``isEnabledFor``) behaving exactly as the real logger does, and
+    ``getLogger(name)`` returns the same singleton once resolved, so
+    ``caplog`` and handlers are unaffected.
+    """
+
+    __slots__ = ("_name", "_logger")
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._logger: Any = None
+
+    def _resolve(self) -> Any:
+        if self._logger is None:
+            import logging
+
+            self._logger = logging.getLogger(self._name)
+        return self._logger
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._resolve(), name)
+
+
+LOGGER: Final[_LazyLogger] = _LazyLogger("terminal_jail")
 
 _TRUTHY: Final[set[str]] = {"1", "true", "yes", "on"}
 _FALSY: Final[set[str]] = {"", "0", "false", "no", "off"}
@@ -26,9 +57,18 @@ def package_version() -> str:
     a stale literal.
     """
     try:
-        return importlib.metadata.version("terminal-jail")
-    except importlib.metadata.PackageNotFoundError:
-        pass
+        # Imported HERE, not at module scope: ``importlib.metadata`` costs
+        # ~12 ms to import and is only needed to answer a version query, not
+        # to evaluate a command (PERF-003). The stdlib always provides it;
+        # the guard keeps the module importable without it.
+        from importlib import metadata as importlib_metadata
+    except ImportError:  # pragma: no cover - stdlib always ships it
+        importlib_metadata = None  # type: ignore[assignment]
+    if importlib_metadata is not None:
+        try:
+            return importlib_metadata.version("terminal-jail")
+        except importlib_metadata.PackageNotFoundError:
+            pass
     pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
     try:
         import tomllib
@@ -170,6 +210,11 @@ def _unshare_executable_from_environment() -> str | None:
             configured,
         )
         return None
+    # Imported HERE: ``shutil`` is only needed to resolve the unshare
+    # executable, and the interruptor engine's metric path never calls this
+    # (PERF-003 — module-import cost is paid by every bridge invocation).
+    import shutil
+
     return shutil.which(configured)
 
 

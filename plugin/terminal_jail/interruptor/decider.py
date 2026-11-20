@@ -27,8 +27,6 @@ from pathlib import Path
 from .allowlist import BUILTIN_ALLOWLIST
 from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
-from .landlock import sandbox_prefix as landlock_sandbox_prefix
-from .landlock_net import sandbox_prefix as landlock_net_sandbox_prefix
 from .matcher import Matcher
 from .parser import (
     Segment,
@@ -53,6 +51,17 @@ _CAPABILITY_PREFIXES: tuple[str, str, str] | None = None
 def _capability_prefixes() -> tuple[str, str, str]:
     global _CAPABILITY_PREFIXES
     if _CAPABILITY_PREFIXES is None:
+        # The Landlock tier modules are imported HERE rather than at module
+        # scope, for the same reason PERF-001 made the PROBES lazy: the allow
+        # path never reaches a capability prefix, so importing the decider
+        # must not pull the tier implementations either. A one-shot bridge
+        # invocation paid their import cost (ctypes / glob / importlib.util,
+        # measured PERF-003) on every allow verdict it produced. Probe order
+        # and caching are unchanged: user namespace, filesystem Landlock,
+        # then network Landlock, resolved once.
+        from .landlock import sandbox_prefix as landlock_sandbox_prefix
+        from .landlock_net import sandbox_prefix as landlock_net_sandbox_prefix
+
         _CAPABILITY_PREFIXES = (
             unshare_prefix(),
             landlock_sandbox_prefix(),
