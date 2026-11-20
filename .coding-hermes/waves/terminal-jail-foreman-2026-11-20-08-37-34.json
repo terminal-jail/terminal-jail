@@ -1,0 +1,47 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-20-08-37-34",
+  "created_utc": "2026-11-20T08:51:57Z",
+  "wave_budget": 5,
+  "workers_dispatched": 3,
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "workers": [
+    {
+      "row": "INT-CI-022",
+      "worktree": "/home/kara/worktrees/terminal-jail-INT-CI-022",
+      "branch": "wt/INT-CI-022",
+      "base_sha": "7223b1a",
+      "brief": "/tmp/tj-brief-INT-CI-022.md",
+      "gitreins_task": "INT-CI-022 (created+started this tick)"
+    },
+    {
+      "row": "DOC-37",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-37",
+      "branch": "wt/DOC-37",
+      "base_sha": "7223b1a",
+      "brief": "/tmp/tj-brief-DOC-37.md",
+      "gitreins_task": "DOC-37 (created+started this tick)"
+    },
+    {
+      "row": "TJ-REVIEW-072-R2",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-072-R2-residual",
+      "branch": "wt/TJ-REVIEW-072-R2-residual",
+      "base_sha": "7223b1a",
+      "brief": "/tmp/tj-brief-TJ-REVIEW-072-R2-residual.md",
+      "gitreins_task": "TJ-REVIEW-072-R2 (pre-existing, in_progress; re-graded at complete)"
+    }
+  ],
+  "merge_queue_stale_branches": [
+    {"rows": ["DOC-27", "DOC-38"], "branch": "wt/DOC-27-DOC-38", "worktree": "/home/kara/worktrees/terminal-jail-DOC-27-DOC-38", "commits": ["acda06f", "a82597d"]},
+    {"rows": ["DOC-28"], "branch": "wt/DOC-28", "worktree": "/home/kara/worktrees/terminal-jail-DOC-28", "commits": ["92a1bf9"]},
+    {"rows": ["DOC-30"], "branch": "wt/DOC-30", "worktree": "/home/kara/worktrees/terminal-jail-DOC-30", "commits": ["441d33c"]}
+  ],
+  "reconciliation_closes_planned": ["TJ-DF-071", "TJ-GAP-012-R2", "DOC-35", "DOC-16-R2", "INT-CI-021"],
+  "deferred": [
+    {"row": "PERF-003", "reason": "P2 but benchmark-isolation-bound: its bench ACs require a quiet host (paired control arms, same-minute uptime); running it during a wave contaminates the measurement. Dispatch on a quiet-host tick."},
+    {"row": "README-15", "reason": "P4; wave slots prioritized P3 residuals; dispatch next tick."},
+    {"row": "DOC-4-R2", "reason": "P4; next tick."},
+    {"row": "DOC-39", "reason": "P5 trivial; next tick."},
+    {"row": "INT-CI-023", "reason": "Board-plane; foreman-inline partial this tick after reconciliation closes change the audit numbers."}
+  ]
+}
