@@ -39,6 +39,13 @@ published body, which is not otherwise committed in-repo for that release.
    pins the manifest to `pyproject.toml`, so bumping only `pyproject.toml`
    turns the CI matrix red before the tag.
 
+   Also run `python3 scripts/check_version_parity.py` (stdlib only) before
+   tagging: it fails with `file:line` on any hand-written version literal left
+   behind in the plugin load banners, `scripts/metrics-export.py` or
+   `plugin/terminal_jail/plugin.py`, and otherwise proves that
+   `plugin/plugin.yaml`, `scripts/metrics-export.py --json` and
+   `standalone/terminal-jail --version` all agree with `pyproject.toml`.
+
 2. **CI green on that SHA.** Push to `main` and wait for the `CI` workflow
    to go green on the version-prep SHA (`gh run list --commit <sha>`).
    Never cut from a red or running tree.
