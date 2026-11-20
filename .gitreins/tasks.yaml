@@ -2814,15 +2814,17 @@ tasks:
   criteria:
   - every per-file test count in specs/integration.md and specs/threat-model.md equals
     the live pytest --collect-only count for the named file; named files run green
-  status: in_progress
+  status: complete
   created_at: '2026-11-18T22:00:00.737219+00:00'
+  completed_at: '2026-11-18T22:27:14.761601+00:00'
 - id: DOC-16-R2
   title: specs/cli.md section 3 drifts from shipped --help
   criteria:
   - section 3 synopsis+options mirror the real --help including --private-proc; all
     4 shipped env vars documented; no 'exported by the wrapper' wording
-  status: in_progress
+  status: complete
   created_at: '2026-11-18T22:00:07.443315+00:00'
+  completed_at: '2026-11-18T22:31:35.748592+00:00'
 - id: TJ-GAP-012-R2
   title: specs/plugin.md section 4 describes nonexistent module
   criteria:
@@ -2844,3 +2846,25 @@ tasks:
     argument-parsing code; no invented flags
   status: in_progress
   created_at: '2026-11-18T22:00:09.628950+00:00'
+- id: INT-CI-022
+  title: make test_metrics_counters timing assertion load-robust
+  criteria:
+  - 5 of 5 consecutive passes under synthetic loadavg >= 20 with loads recorded; counters
+    assertions unconditional; full suite green; ruff clean; test-only diff
+  status: in_progress
+  created_at: '2026-11-20T08:53:23.753885+00:00'
+- id: DOC-37
+  title: unify kernel and util-linux version floors across reader-facing pages
+  criteria:
+  - one kernel floor and one util-linux --kill-child floor across README.md SUPPORT.md
+    docs/COMPATIBILITY.md docs/pentest-plan.md with in-line derivations; wrapper comment
+    consistent; docs-check overall PASS; diff limited to those files
+  status: in_progress
+  created_at: '2026-11-20T08:53:25.741253+00:00'
+- id: DOC-38
+  title: fix quickstart closing-reference links to resolve from docs/
+  criteria:
+  - docs/quickstart.md closing reference list resolves from docs/ (../specs/ form);
+    no docs/specs/ directory created; docs-check overall PASS; diff limited to docs/quickstart.md
+  status: in_progress
+  created_at: '2026-11-20T08:56:01.286263+00:00'

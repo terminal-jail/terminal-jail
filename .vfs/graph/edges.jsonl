@@ -779,3 +779,13 @@
 {"from":"tests/test_kernel_matrix_teardown.py","to":"pkg:os","rel":"tested_by","provenance":"ast_exact","confidence":1.0}
 {"from":"scripts/docs-check.py","to":"pkg:re","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"scripts/docs-check.py","to":"pkg:tomllib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_modify_preflight.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_metrics_export.py","to":"pkg:plugin.terminal_jail.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:importlib.metadata","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:tomllib","rel":"imports","provenance":"ast_exact","confidence":1.0}
