@@ -78,6 +78,12 @@ TERMINAL_JAIL_USE_RELEASE=1 ./install.sh                    # default: 1.3.4
 TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.2 ./install.sh
 ```
 
+Note: the default above is a pin baked into `install.sh`
+(`TERMINAL_JAIL_VERSION:-1.3.4`), not a live "latest release" lookup — it can
+trail the newest published Release. Check `gh release list -L 4` (or the GitHub
+Releases page) for the current tip, and override with `TERMINAL_JAIL_VERSION`
+as shown when you need a specific one.
+
 Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory for a mirror or
 local fixture. The checkout path above remains supported; PyPI is not a
 channel.
@@ -99,7 +105,7 @@ engine action, the installed action, and both file paths.
 **Step 1 — classify the host** (the probe always exits 0):
 
 ```bash
-~/.local/bin/terminal-jail --version   # → terminal-jail <current version>
+~/.local/bin/terminal-jail --version   # → terminal-jail 1.3.4
 # Two independent host-capability layers gate what this tool can prove:
 #   PID-NS       — can this host create unprivileged PID namespaces?
 #                  FULL  -> bare mode gives real PID-namespace containment.
@@ -703,6 +709,10 @@ line to `agent.log`:
 grep "terminal-jail v" ~/.hermes/logs/agent.log
 ```
 
+That line is emitted once at plugin load, and the version in it comes from the
+plugin manifest (`plugin/plugin.yaml`) — the grep pattern above is deliberately
+version-agnostic, so it keeps matching across plugin version bumps.
+
 and confirm the hooks actually fire on terminal tool use:
 
 ```bash
@@ -975,7 +985,7 @@ See `specs/interruptor.md`.
 
 ## 5. Next steps
 
-- [specs/integration.md](specs/integration.md) — architecture & defense-in-depth layers
+- [specs/integration.md](../specs/integration.md) — architecture & defense-in-depth layers
 - [docs/threat-model.md](threat-model.md) — what Terminal Jail does and does not prevent
 - [docs/supply-chain.md](supply-chain.md) — release & supply-chain integrity
 - [docs/pentest-plan.md](pentest-plan.md) — adversarial verification plan
