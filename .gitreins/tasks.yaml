@@ -2770,20 +2770,19 @@ tasks:
   status: in_progress
   created_at: '2026-11-18T21:59:56.202796+00:00'
 - id: PERF-003
-  title: one-shot allow p50 168.6ms exceeds 160ms bar
+  title: Cut 20KB one-shot bridge cell to 160ms bar (transport cost)
   criteria:
-  - 20KB one-shot allow p50 <=160ms median across >=3 bench_bridge.py runs; 200ms
-    cost guard exit 0; full pytest suite green; capability-probe semantics unchanged
+  - bench 20KB one_shot p50 <= 160ms and small <= 95ms with paired control arm; attribution
+    phases reconcile within 25 percent; resident transport untouched; full suite green
   status: in_progress
-  created_at: '2026-11-18T21:59:56.965891+00:00'
+  created_at: '2026-11-20T12:23:27.149210+00:00'
 - id: TJ-REVIEW-072-R2
-  title: plugin banners + metrics-export emit hardcoded 1.3.0
+  title: Version-parity guard (AC4 residual after 0d5078f)
   criteria:
-  - no hardcoded 1.3.0 in plugin/__init__.py, plugin/terminal_jail/__init__.py, scripts/metrics-export.py;
-    version derived from package metadata in all three; stale test literal updated;
-    full suite green
+  - guard fails on hand-written version literal (demo both arms), pytest wrapper green,
+    full suite green, version surfaces stay derived
   status: in_progress
-  created_at: '2026-11-18T21:59:57.652338+00:00'
+  created_at: '2026-11-20T12:23:29.037101+00:00'
 - id: INT-CI-021
   title: modify-preflight skip-guard misses relocated interpreter
   criteria:
@@ -2841,13 +2840,12 @@ tasks:
   created_at: '2026-11-18T22:00:08.874698+00:00'
   completed_at: '2026-11-20T09:11:04.488050+00:00'
 - id: DOC-30
-  title: installer help exposes undocumented modes/options
+  title: Installer options table in README
   criteria:
-  - every --help mode/option documented in docs with descriptions matching the installer's
-    argument-parsing code; no invented flags
-  status: complete
-  created_at: '2026-11-18T22:00:09.628950+00:00'
-  completed_at: '2026-11-20T09:19:02.366711+00:00'
+  - one table covers every sh install.sh --help option with mode exclusivity, exit
+    behavior, writes/removes/reads classification; docs-check PASS; README-only diff
+  status: in_progress
+  created_at: '2026-11-20T12:23:27.592676+00:00'
 - id: INT-CI-022
   title: make test_metrics_counters timing assertion load-robust
   criteria:
@@ -2857,13 +2855,12 @@ tasks:
   created_at: '2026-11-20T08:53:23.753885+00:00'
   completed_at: '2026-11-20T09:49:13.826271+00:00'
 - id: DOC-37
-  title: unify kernel and util-linux version floors across reader-facing pages
+  title: Dependency floors consistent across pages
   criteria:
-  - one kernel floor and one util-linux --kill-child floor across README.md SUPPORT.md
-    docs/COMPATIBILITY.md docs/pentest-plan.md with in-line derivations; wrapper comment
-    consistent; docs-check overall PASS; diff limited to those files
+  - one kernel floor + one util-linux --kill-child floor across README/SUPPORT/COMPATIBILITY/pentest-plan,
+    derivation in-line, wrapper comment in lockstep, docs-check PASS
   status: in_progress
-  created_at: '2026-11-20T08:53:25.741253+00:00'
+  created_at: '2026-11-20T12:23:28.090919+00:00'
 - id: DOC-38
   title: fix quickstart closing-reference links to resolve from docs/
   criteria:
@@ -2872,3 +2869,10 @@ tasks:
   status: complete
   created_at: '2026-11-20T08:56:01.286263+00:00'
   completed_at: '2026-11-20T09:02:52.791990+00:00'
+- id: DOC-39
+  title: Add Python 3.13 classifier
+  criteria:
+  - classifiers equal CI matrix entries; tomllib parses; docs-check + ruff clean
+  status: complete
+  created_at: '2026-11-20T12:23:28.594197+00:00'
+  completed_at: '2026-11-20T12:37:20.288356+00:00'

@@ -10,11 +10,53 @@
   "worker_provider": "xkiro",
   "note": "TJ-REVIEW-072-R2 is a landed-but-unclosed reconciliation (fix 0d5078f already on main, AC1-3 verified by foreman); its worker closes the unmet AC4 (version-parity guard).",
   "workers": [
-    {"task_id": "PERF-003", "worktree": "/home/kara/worktrees/terminal-jail-PERF-003", "branch": "wt/PERF-003", "brief": "/tmp/tj-brief-PERF-003.md", "priority": "P2"},
-    {"task_id": "DOC-30", "worktree": "/home/kara/worktrees/terminal-jail-DOC-30", "branch": "wt/DOC-30", "brief": "/tmp/tj-brief-DOC-30.md", "priority": "P4"},
-    {"task_id": "DOC-37", "worktree": "/home/kara/worktrees/terminal-jail-DOC-37", "branch": "wt/DOC-37", "brief": "/tmp/tj-brief-DOC-37.md", "priority": "P4"},
-    {"task_id": "DOC-39", "worktree": "/home/kara/worktrees/terminal-jail-DOC-39", "branch": "wt/DOC-39", "brief": "/tmp/tj-brief-DOC-39.md", "priority": "P5"},
-    {"task_id": "TJ-REVIEW-072-R2", "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-072-R2", "branch": "wt/TJ-REVIEW-072-R2", "brief": "/tmp/tj-brief-TJ-REVIEW-072-R2.md", "priority": "P3", "mode": "reconciliation-AC4-residual"}
+    {
+      "task_id": "PERF-003",
+      "worktree": "/home/kara/worktrees/terminal-jail-PERF-003",
+      "branch": "wt/PERF-003",
+      "brief": "/tmp/tj-brief-PERF-003.md",
+      "priority": "P2",
+      "session_id": "proc_6f818d637dd3",
+      "status": "dispatched"
+    },
+    {
+      "task_id": "DOC-30",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-30",
+      "branch": "wt/DOC-30",
+      "brief": "/tmp/tj-brief-DOC-30.md",
+      "priority": "P4",
+      "session_id": "proc_80a455de1bbc",
+      "status": "dispatched"
+    },
+    {
+      "task_id": "DOC-37",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-37",
+      "branch": "wt/DOC-37",
+      "brief": "/tmp/tj-brief-DOC-37.md",
+      "priority": "P4",
+      "session_id": "proc_ea6842c9bbb8",
+      "status": "dispatched"
+    },
+    {
+      "task_id": "DOC-39",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-39",
+      "branch": "wt/DOC-39",
+      "brief": "/tmp/tj-brief-DOC-39.md",
+      "priority": "P5",
+      "session_id": "proc_f327cfc7d1d2",
+      "status": "dispatched"
+    },
+    {
+      "task_id": "TJ-REVIEW-072-R2",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-072-R2",
+      "branch": "wt/TJ-REVIEW-072-R2",
+      "brief": "/tmp/tj-brief-TJ-REVIEW-072-R2.md",
+      "priority": "P3",
+      "mode": "reconciliation-AC4-residual",
+      "session_id": "proc_e71ea5b0e05f",
+      "status": "dispatched"
+    }
   ],
-  "independence_check": "depends_on edges: none on any picked row. File-overlap audit: DOC-30 (README Install-section table) vs DOC-37 (README requirements section + SUPPORT/COMPATIBILITY/pentest-plan + wrapper comment line 856) = distant hunks, same file accepted; PERF-003 (wrapper transport ~line 337 + bridge) vs DOC-37 wrapper comment line 856 = distant hunks; DOC-39 pyproject.toml only; TJ-REVIEW-072-R2 new guard script + test only."
+  "independence_check": "depends_on edges: none on any picked row. File-overlap audit: DOC-30 (README Install-section table) vs DOC-37 (README requirements section + SUPPORT/COMPATIBILITY/pentest-plan + wrapper comment line 856) = distant hunks, same file accepted; PERF-003 (wrapper transport ~line 337 + bridge) vs DOC-37 wrapper comment line 856 = distant hunks; DOC-39 pyproject.toml only; TJ-REVIEW-072-R2 new guard script + test only.",
+  "dispatched_at_utc": "2026-11-20T17:25:30Z"
 }
