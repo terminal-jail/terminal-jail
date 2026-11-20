@@ -16,16 +16,20 @@ HOOK-GAP-03), this plugin provides:
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from .plugin import (
     _enabled_from_environment,
+    _LazyLogger,
     _unshare_executable_from_environment,
     package_version,
 )
 
-logger = logging.getLogger(__name__)
+# Lazy logger: this package is imported as a side effect of importing
+# ``terminal_jail.interruptor`` (the bridge's engine), so a module-level
+# ``import logging`` would charge every bridge invocation for a logging
+# stack that the allow path never uses (PERF-003).
+logger = _LazyLogger(__name__)
 
 
 def _on_pre_tool_call(

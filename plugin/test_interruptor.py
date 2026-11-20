@@ -189,17 +189,30 @@ class TestLazyCapabilityProbes:
     ) -> None:
         import terminal_jail.interruptor.decider as decider_module
 
+        # PERF-003 moved the Landlock tier imports inside
+        # _capability_prefixes(), so the probes are patched on their source
+        # modules — the call-time `from .landlock import` reads the current
+        # module attribute. The pinned behavior is unchanged: an allow
+        # verdict must not run any capability probe.
+        from terminal_jail.interruptor import landlock as landlock_module
+        from terminal_jail.interruptor import landlock_net as landlock_net_module
+
         calls: list[str] = []
-        for name in (
+        monkeypatch.setattr(
+            decider_module,
             "unshare_prefix",
-            "landlock_sandbox_prefix",
-            "landlock_net_sandbox_prefix",
-        ):
-            monkeypatch.setattr(
-                decider_module,
-                name,
-                lambda name=name: calls.append(name) or "unused",
-            )
+            lambda: calls.append("unshare") or "unused",
+        )
+        monkeypatch.setattr(
+            landlock_module,
+            "sandbox_prefix",
+            lambda: calls.append("landlock") or "unused",
+        )
+        monkeypatch.setattr(
+            landlock_net_module,
+            "sandbox_prefix",
+            lambda: calls.append("net") or "unused",
+        )
         monkeypatch.setattr(decider_module, "_CAPABILITY_PREFIXES", None)
         assert intercept("ls -la").action == Action.ALLOW
         assert calls == []
@@ -219,12 +232,13 @@ class TestLazyCapabilityProbes:
             return run
 
         monkeypatch.setattr(decider_module, "unshare_prefix", probe("unshare", "u"))
-        monkeypatch.setattr(
-            decider_module, "landlock_sandbox_prefix", probe("landlock", "l")
-        )
-        monkeypatch.setattr(
-            decider_module, "landlock_net_sandbox_prefix", probe("net", "n")
-        )
+        # PERF-003: Landlock tiers import lazily inside _capability_prefixes();
+        # patch the source modules the call-time import reads.
+        from terminal_jail.interruptor import landlock as landlock_module
+        from terminal_jail.interruptor import landlock_net as landlock_net_module
+
+        monkeypatch.setattr(landlock_module, "sandbox_prefix", probe("landlock", "l"))
+        monkeypatch.setattr(landlock_net_module, "sandbox_prefix", probe("net", "n"))
         monkeypatch.setattr(decider_module, "_CAPABILITY_PREFIXES", None)
 
         assert decider_module._wrap_payload("first") == "lnfirst"

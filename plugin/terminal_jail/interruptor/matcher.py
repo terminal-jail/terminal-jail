@@ -233,7 +233,17 @@ class Matcher:
         # remains sound: if the casefolded haystack lacks the casefolded
         # needle, no case variant of the needle can be present).
         required = _PATTERN_PREFILTERS.get(pattern_str)
-        candidates = (segment.raw, _normalize_quoted(segment.raw))
+        # Candidate set: the quote-stripped form is only worth searching when
+        # it actually DIFFERS from the raw text. When a segment carries no
+        # outer-quoted token the two forms are byte-identical, and searching
+        # both scanned the same bytes twice — pure duplicated work that grew
+        # with the payload (measured PERF-003: 68.8 ms → 33.1 ms of pattern
+        # search on a 20 KB unquoted payload). Deduping is behaviour-neutral:
+        # the surviving candidate is the same string, so every pattern reaches
+        # the same verdict it reached on the first scan.
+        raw = segment.raw
+        normalized = _normalize_quoted(raw)
+        candidates = (raw,) if normalized == raw else (raw, normalized)
         for candidate in candidates:
             if required is not None:
                 folded = candidate.casefold()
