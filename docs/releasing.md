@@ -14,9 +14,16 @@ satisfied on 2026-11-03 — v1.3.0 is tagged and published, so do not re-hold
 an authorized patch/minor cut against it. Release history: v1.0.0; v1.2.0
 (whose Release object carries **zero assets**); v1.3.0 (assets present, but
 its wheel predates the RELPKG-001 packaging fix — install v1.3.1 or later);
-v1.3.1, v1.3.2 (patch fixes); v1.3.3 (wheel-install bridge interpreter +
-release-mode installs); v1.3.4 — the current version, published 2026-11-16 by
-hand while RELCI-001 blocks the workflow preflight.
+v1.3.1 (2026-11-04, patch fixes); v1.3.2 (2026-11-09, patch fix: Landlock
+tier resolution inside installed wheels, TJ-DF-060); v1.3.3 (2026-11-10,
+wheel-install bridge interpreter + release-mode installs); v1.3.4
+(2026-11-16) — the current version, published by hand while RELCI-001 blocks
+the workflow preflight. Every cut from v1.3.1 onward was hand-published per
+step 5b for the same RELCI-001 reason. Step-7 snapshots live under
+`docs/releases/` for v1.3.1, v1.3.3 and v1.3.4; v1.3.2's
+`v1.3.2-published.json` sidecar was backfilled 2026-11-18 from the live
+Release object and carries the `body_sha256`/`body_bytes` pinning the
+published body, which is not otherwise committed in-repo for that release.
 
 ## The exact ordered steps
 
