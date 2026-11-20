@@ -2837,22 +2837,25 @@ tasks:
   criteria:
   - runbook covers v1.3.2 through v1.3.4; docs/releases/v1.3.2-published.json valid
     JSON matching v1.3.4 schema with real gh-verified release facts
-  status: in_progress
+  status: complete
   created_at: '2026-11-18T22:00:08.874698+00:00'
+  completed_at: '2026-11-20T09:11:04.488050+00:00'
 - id: DOC-30
   title: installer help exposes undocumented modes/options
   criteria:
   - every --help mode/option documented in docs with descriptions matching the installer's
     argument-parsing code; no invented flags
-  status: in_progress
+  status: complete
   created_at: '2026-11-18T22:00:09.628950+00:00'
+  completed_at: '2026-11-20T09:19:02.366711+00:00'
 - id: INT-CI-022
   title: make test_metrics_counters timing assertion load-robust
   criteria:
   - 5 of 5 consecutive passes under synthetic loadavg >= 20 with loads recorded; counters
     assertions unconditional; full suite green; ruff clean; test-only diff
-  status: in_progress
+  status: complete
   created_at: '2026-11-20T08:53:23.753885+00:00'
+  completed_at: '2026-11-20T09:49:13.826271+00:00'
 - id: DOC-37
   title: unify kernel and util-linux version floors across reader-facing pages
   criteria:
@@ -2866,5 +2869,6 @@ tasks:
   criteria:
   - docs/quickstart.md closing reference list resolves from docs/ (../specs/ form);
     no docs/specs/ directory created; docs-check overall PASS; diff limited to docs/quickstart.md
-  status: in_progress
+  status: complete
   created_at: '2026-11-20T08:56:01.286263+00:00'
+  completed_at: '2026-11-20T09:02:52.791990+00:00'
