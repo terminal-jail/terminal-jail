@@ -862,7 +862,7 @@ sudo ./install.sh --uninstall --uninstall-systemd
 `--uninstall` is idempotent — on an already-clean host it is a no-op that
 exits 0. To remove just one rule pack, keep using `--unrule-pack db`. For a
 pack installed from an external file (`--rule-pack-file`), remove it with
-`--uninstall-rule-pack-file <path>`: it deletes the copy under the name
+`--uninstall-rule-pack-file` given the same file path: it deletes the copy under the name
 derived from the file's basename and, unlike the idempotent `--unrule-pack`,
 asserts — a missing installed copy is a per-file ERROR plus a summary and
 exit 1, not a silent no-op (`install.sh:1128-1132`, `:1160-1162`; the
