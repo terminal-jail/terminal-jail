@@ -1,0 +1,7 @@
+agent=f884d320
+server=bunker-las-03
+evidence=/home/kara/.hermes/qa/terminal-jail-dogfood-20261120b-evidence.jsonl
+launched=2026-11-20T15:33:47Z
+keep=0
+project=terminal-jail
+phase=launched
