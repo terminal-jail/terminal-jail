@@ -25,6 +25,7 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
+import terminal_jail.plugin as counters_module
 from terminal_jail.interruptor import Action, intercept
 from terminal_jail.interruptor.config import Config
 from terminal_jail.plugin import (
@@ -58,6 +59,26 @@ COUNTER_NAMES: tuple[str, ...] = (
     "wrap_count",
     "perf_regression_alert_count",
 )
+
+# Load-robust wall-clock budget for real-time wrap assertions (INT-CI-022).
+#
+# ``intercept()`` times the in-process decider and hands that reading to the
+# spec §12 slow-wrap check, so a wrap slower than the product's 50 ms
+# ``_WRAP_SLOW_NS`` default bumps ``perf_regression_alert_count``. That turns
+# the exact-counter-set assertion below into a host-load gate in disguise: it
+# failed at loadavg 20-27 on pristine base d43b4b0, and 40/40 runs failed at
+# loadavg 39.7 against a synthetic 20-spinner load. The assertion pins the
+# WIRING ("exactly these three counters bump"), not host scheduling, so it
+# runs against this budget through the engine's named threshold seam.
+#
+# Measured on this host, 200 real intercept() calls per sample set: at
+# loadavg 22-30 p50 0.399 ms / p95 0.489 ms / max 32.7 ms; at loadavg 46.7
+# p50 0.538 ms / p95 0.935 ms / max 157.2 ms (1 call over 50 ms). 2 s is
+# ~13x the worst stall ever observed and ~3.7k times p95, while still failing
+# loudly if a wrap degenerates to seconds. The 50 ms product threshold keeps
+# its own dedicated coverage in TestPerfRegressionAlert (explicit durations
+# plus a scripted clock).
+WRAP_BUDGET_NS = 2_000_000_000  # 2 s
 
 # Hermes plugin env vars this suite manipulates (same set as test_plugin.py).
 ENVIRONMENT_VARIABLES = (
@@ -110,8 +131,19 @@ def test_fresh_counters_are_all_zero() -> None:
 
 
 class TestInterceptWrapCounters:
-    def test_real_wrap_increments_wrapped_and_time(self) -> None:
-        """A real auto-sandbox wrap bumps commands_wrapped + wrap counters."""
+    def test_real_wrap_increments_wrapped_and_time(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A real auto-sandbox wrap bumps commands_wrapped + wrap counters.
+
+        The counter set is pinned exactly, so the measured wrap duration is
+        load-bearing: on a loaded host a scheduling stall past the product's
+        50 ms slow-wrap threshold adds ``perf_regression_alert_count`` and
+        fails the set comparison. Raise the threshold through the engine's
+        named seam (WRAP_BUDGET_NS) so this test asserts the wiring on any
+        host; the counters themselves stay unconditionally asserted.
+        """
+        monkeypatch.setattr(counters_module, "_WRAP_SLOW_NS", WRAP_BUDGET_NS)
         result = intercept("pytest -q")
         assert result.action == Action.MODIFY
         assert result.modified is not None
@@ -120,6 +152,40 @@ class TestInterceptWrapCounters:
         assert m["commands_wrapped_user_ns"] == 0
         assert m["wrap_count"] == 1
         assert m["wrap_time_ns_total"] > 0
+        assert _nonzero_counters().keys() == {
+            "commands_wrapped",
+            "wrap_count",
+            "wrap_time_ns_total",
+        }
+
+    def test_wrap_slower_than_product_threshold_keeps_the_counter_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A slow wrap lands in the same three counters (INT-CI-022 pin).
+
+        Scripted clock: 400 ms — 8x past the product's 50 ms §12 threshold,
+        i.e. the exact shape a loaded host produces — but inside the
+        load-robust WRAP_BUDGET_NS, so the exact-set assertion above still
+        holds. Reverting WRAP_BUDGET_NS to the product default makes this
+        test fail the way a loaded host does.
+        """
+        import terminal_jail.interruptor as engine
+
+        class _SlowWrapClock:
+            """perf_counter_ns() returning scripted readings: t0=0, t1=400ms."""
+
+            def __init__(self) -> None:
+                self._readings = iter((0, 400_000_000))
+
+            def perf_counter_ns(self) -> int:
+                return next(self._readings)
+
+        monkeypatch.setattr(counters_module, "_WRAP_SLOW_NS", WRAP_BUDGET_NS)
+        monkeypatch.setattr(engine, "time", _SlowWrapClock())
+        result = intercept("pytest -q")
+        assert result.action == Action.MODIFY
+        m = _counter_values()
+        assert m["wrap_time_ns_total"] == 400_000_000
         assert _nonzero_counters().keys() == {
             "commands_wrapped",
             "wrap_count",
