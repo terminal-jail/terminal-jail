@@ -38,6 +38,7 @@ PID-namespace containment for everything Hermes runs → deploy shim
 git clone https://github.com/terminal-jail/terminal-jail.git
 cd terminal-jail
 ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
+./install.sh --help # every installer mode/option + env var on one screen (exits 0, writes nothing)
 
 # Optional: opt in to a curated rule pack (repeat --rule-pack for more)
 ./install.sh --rule-pack db         # optional; see the README *Rule packs* section
@@ -52,7 +53,9 @@ cd terminal-jail
 **Optional fail-closed install gate:** set `TERMINAL_JAIL_REQUIRE_TIER` to
 demand a containment tier instead of the default advisory probe report —
 `pidns` requires the PID-namespace probe to classify FULL, `fs` the
-filesystem-isolation probe, `full` both (`install.sh:298`, `:492`). Unset, the
+filesystem-isolation probe, `full` both (`install.sh:517-526` validates the
+value at parse time; the demand is enforced with exit 1 before `done.` —
+see the tier-demand block at `install.sh:1526-1531`). Unset, the
 probe report never blocks the install. When set and the demand is unmet (probe
 missing, could not run, or not FULL), the install fails with exit 1 **before**
 the final `done.` line, quoting the probe's own diagnosis.
@@ -857,7 +860,13 @@ sudo ./install.sh --uninstall --uninstall-systemd
 ```
 
 `--uninstall` is idempotent — on an already-clean host it is a no-op that
-exits 0. To remove just one rule pack, keep using `--unrule-pack db`.
+exits 0. To remove just one rule pack, keep using `--unrule-pack db`. For a
+pack installed from an external file (`--rule-pack-file`), remove it with
+`--uninstall-rule-pack-file <path>`: it deletes the copy under the name
+derived from the file's basename and, unlike the idempotent `--unrule-pack`,
+asserts — a missing installed copy is a per-file ERROR plus a summary and
+exit 1, not a silent no-op (`install.sh:1128-1132`, `:1160-1162`; the
+best-effort `--unrule-pack` counterpart is `install.sh:1044`).
 
 ## 4. FAQ / Troubleshooting
 
@@ -1044,3 +1053,8 @@ What the modifier does, in order:
 `--replace-rule-packs` is a modifier, never a mode: alone (without
 `--rule-pack-file`), in release mode, or combined with `--uninstall` /
 `--hermes-plugin` it is refused with exit `2` and nothing written.
+
+To drop the installed copy instead of replacing it, run
+`./install.sh --no-path --uninstall-rule-pack-file my-pack.yaml` — removal
+derives the same pack name from the same file (`install.sh:207-218`), so the
+file path, not the installed pack name, is the argument.
