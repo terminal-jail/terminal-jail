@@ -1,0 +1,3 @@
+{"ts":"2026-11-20T15:26:14.030217+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"257a411ceaf84fcd"}
+[terminal-jail] Modified: 'make' 'ok'... → sandboxed
+terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter 'python3' (/home/kara/tj-df-1120/home-b/.hermes/bin/python3), which the filesystem tier's Landlock domain cannot execute for 'make'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter the payload can read (e.g. /usr/bin/python3) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README "Graceful Degradation")

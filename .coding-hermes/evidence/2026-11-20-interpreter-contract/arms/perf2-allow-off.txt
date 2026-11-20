@@ -1,0 +1,6 @@
+Benchmark 1: /home/kara/tj-df-1120/home-b/.local/bin/terminal-jail /bin/true
+  Time (mean ± σ):     255.7 ms ± 133.6 ms    [User: 157.3 ms, System: 43.7 ms]
+  Range (min … max):   174.2 ms … 774.7 ms    20 runs
+ 
+  Warning: Statistical outliers were detected. Consider re-running this benchmark on a quiet system without any interferences from other programs. It might help to use the '--warmup' or '--prepare' options.
+ 

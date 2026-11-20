@@ -1,0 +1,5 @@
+{"ts":"2026-11-20T15:26:15.570860+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"85f8dc6a11359d36"}
+[terminal-jail] Modified: 'make' 'canary'... → sandboxed
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning
+cat: /run/user/1000/tj-canary: Permission denied
+make: *** [Makefile:4: canary] Error 1

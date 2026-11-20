@@ -1,0 +1,100 @@
+terminal-jail installer — POSIX sh
+
+Usage: install.sh [options]
+
+Options:
+  --rule-pack <name>    Install an opt-in rule pack from this repository
+                        checkout (repeatable, e.g. --rule-pack db). The pack is
+                        validated BEFORE anything is written: an unknown pack, a
+                        malformed or invalid pack, a rule id outside the
+                        pack-<name>-* namespace, or an id colliding with an
+                        engine builtin id or an already-installed rule file is
+                        SKIPPED (base install continues; exit 2 at the end).
+                        Installing a YAML pack requires python3 + PyYAML (a
+                        plain-JSON pack needs PyYAML only if the validator
+                        would fall back to json — see README).
+  --unrule-pack <name>  Remove an installed rule pack. Only
+                        terminal-jail-pack-<name>.yaml is touched — the default
+                        rules file and every other pack are never modified.
+  --rule-pack-file <path>
+                        Install an EXTERNALLY-authored rule pack file from any
+                        path (repeatable). The pack name — and so the
+                        destination terminal-jail-pack-<name>.yaml — is derived
+                        from the file's basename (extension stripped) and must
+                        be [a-z0-9-]+. The file is validated with
+                        scripts/rule-pack-tool.py validate BEFORE anything is
+                        written: an invalid pack is skipped loudly (one stderr
+                        reason, nothing written for it) and the run exits 2 at
+                        the end. An external file is never allowed to replace
+                        a pack already installed under the same derived name —
+                        it is skipped. Same python3/PyYAML requirements and
+                        checkout-only availability as --rule-pack.
+  --uninstall-rule-pack-file <path>
+                        Remove the installed copy of an external pack file —
+                        the terminal-jail-pack-<name>.yaml derived from the
+                        file's basename, exactly as --rule-pack-file wrote it.
+                        Unlike --unrule-pack this asserts: if no such pack is
+                        installed the run exits 1 with an explicit reason
+                        instead of reporting a no-op.
+  --replace-rule-packs  With --rule-pack-file: REPLACE the installed
+                        terminal-jail-pack-<name>.yaml instead of skipping.
+                        The existing pack is backed up to <dest>.bak-<UTC
+                        timestamp> (once per run, not per pack) BEFORE the
+                        replacement is written, and only AFTER the new file
+                        passes the validator — a refused replacement leaves
+                        the installed pack untouched. Without this flag the
+                        previous behavior holds: an installed name is skipped
+                        with a hint pointing here.
+  --list-rule-packs     List the rule packs this checkout ships (exit 0).
+  --no-path             Do not touch any shell rc file: skip the PATH setup
+                        block entirely (the installer still prints the export
+                        line to add manually). Auto-skips that need no flag:
+                        ephemeral /tmp install prefixes, CI environments
+                        (CI non-empty and != 0/false/no/off), and runs under
+                        sudo (SUDO_USER set). Each skip prints a one-line
+                        notice naming the reason.
+  --hermes-plugin [dir] Copy/refresh the Hermes plugin tree (plugin.yaml,
+                        __init__.py, terminal_jail/) into dir (default:
+                        $HOME/.hermes/plugins/terminal-jail, override also via
+                        --hermes-plugin-dir=<dir> or the
+                        TERMINAL_JAIL_HERMES_PLUGIN_DIR env var). UPDATE
+                        semantics: an existing target is emptied of the old
+                        plugin package contents before the current tree is
+                        copied in, so stale v0.2-era files never survive a
+                        refresh. Prints the deployed version and target path.
+                        Needs a repository checkout.
+  --uninstall           Remove everything the installer wrote: the wrapper
+                        (TERMINAL_JAIL_INSTALL_DIR), the lib tree, the rules
+                        files it installed (00-builtins.yaml, installed packs
+                        terminal-jail-pack-*.yaml and their .bak-* backups),
+                        and its '# terminal-jail' PATH block in the rc file.
+                        USER-AUTHORED files in rules.d are PRESERVED and
+                        listed. User data (rules you wrote, other files in the
+                        install dir) is never touched. Idempotent: rerunning
+                        on an already-clean host exits 0.
+  --uninstall-systemd   With --uninstall: also remove the gateway systemd
+                        drop-in (90-terminal-jail-hardening.conf,
+                        95-terminal-jail-shell.conf) and run
+                        'systemctl daemon-reload'. Needs root for /etc.
+  -h, --help            Print this help and exit 0.
+
+Environment (all optional):
+  TERMINAL_JAIL_INSTALL_DIR    install directory (default: $HOME/.local/bin)
+  TERMINAL_JAIL_RULES_DIR      target rules directory; when set it always wins
+                               (default: derived from the install scope)
+  TERMINAL_JAIL_USE_RELEASE=1  download release assets instead of using the
+                               local checkout (rule packs need the checkout)
+  TERMINAL_JAIL_VERSION        release version to download (default: 1.3.4,
+                               the newest published asset release; accepts an
+                               optional leading 'v'; checkout installs use
+                               the pyproject version)
+  TERMINAL_JAIL_BASE_URL       release base URL for TERMINAL_JAIL_USE_RELEASE=1
+  TERMINAL_JAIL_REQUIRE_TIER   demand a containment tier instead of the default
+                               advisory report: 'pidns' requires the PID-
+                               namespace probe to print FULL, 'fs' the
+                               filesystem-isolation probe, 'full' both. When
+                               set and the demanded tier is not met, the
+                               install FAILS (exit 1) before 'done.'; when
+                               unset the report is advisory and never blocks.
+  TERMINAL_JAIL_HERMES_PLUGIN_DIR  --hermes-plugin target directory
+                               (default: $HOME/.hermes/plugins/terminal-jail)

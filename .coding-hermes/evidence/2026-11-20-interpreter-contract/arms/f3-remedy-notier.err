@@ -1,0 +1,2 @@
+{"ts":"2026-11-20T15:26:14.924967+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"257a411ceaf84fcd"}
+[terminal-jail] Modified: 'make' 'ok'... → sandboxed

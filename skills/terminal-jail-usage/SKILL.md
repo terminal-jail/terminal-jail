@@ -814,10 +814,15 @@ unreachable / 0700 parent / ABI < 4) before drawing any conclusion.
 ### Two conditions that make the payload, not the tier, fail
 
 - **`python3` inside a `0700` parent** (`~/.hermes/.../venv/bin/python3`, ssh-key dirs, scratch HOMEs
-  under a private cache dir): the modify wrap launches and the payload dies
-  `bash: line 1: <path>: Permission denied`, rc=126. That is `TJ-REVIEW-074-R2`, still pending — for a
-  clean egress test put **both** the HOME and the probe script somewhere world-traversable
-  (`/tmp/...`, `chmod 755`) and run with `PATH=/usr/bin:/bin`.
+  under a private cache dir): the modify wrap REFUSES before launching since the
+  TJ-REVIEW-074-R2 fix (verified live 2026-11-20, run 26): rc=2, stdout empty, one line
+  `auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter 'python3'
+  (<resolved path>), which the filesystem tier's Landlock domain cannot execute … command not
+  run …)`. Remedies, both verified: `TERMINAL_JAIL_PYTHON=/usr/bin/python3` or
+  `TERMINAL_JAIL_LANDLOCK=0`. The interpreter must be a REAL FILE — a symlink is evaluated at
+  its final inode, so one pointing into `/usr` runs. And the hostile tree must NOT live under
+  `/tmp`: the tier grants the kernel tmpdirs as write roots, so a /tmp-based rig can never
+  reproduce the refusal (diagnostics 26.2).
 - **HOME under a 0700 parent** also makes the *loaders* unreachable, which prints the v1.3.4
   `landlock-net-loader.py is not reachable … lacks o+x` warning instead of applying either tier.
 
@@ -842,3 +847,24 @@ know which layer decided. A same-ID user file does override a builtin.
   Read `qa-logs-*/tests.log` on the agent **before** destroy; the ledger's `detail` is truncated.
 - `bunker collect` can answer `COLLECT-ADOPT reason=recent tick-death-orphan` while the battery is
   alive and well — that is adoption of your own launch, not a lost agent.
+
+## Run 26 additions (2026-11-20, verified live at e67e07e on the installed 1.3.4)
+
+- **Broken `TERMINAL_JAIL_PYTHON` pin, firewall on** → rc=126, payload NOT run, cause
+  named — but the BOX says `interruptor-bridge-unavailable` and its Fix text
+  (`run ./install.sh / set TERMINAL_JAIL_BRIDGE`) is the wrong remedy. Read the LAST
+  stderr line instead: `TERMINAL_JAIL_PYTHON=<pin> (<cause>) — … no silent fallback to
+  python3`. TJ-DF-073 owns the box.
+- **A tiered auto-sandbox launch prints a FALSE `Landlock filesystem tier not applied
+  … commands run unchanged` warning on this host class** — the tier IS enforced (the
+  un-namespaced trampoline applies it; Landlock inherits across the namespace) and the
+  payload's fs behavior DID change. Prove containment with a canary: a Makefile target
+  that cats a mode-600 file at `/run/user/1000/tj-canary` — denied under the tier,
+  readable with `TERMINAL_JAIL_LANDLOCK=0`. TJ-DF-072 owns the warning.
+- **The modify-path tier refusal (TJ-REVIEW-074-R2, now FIXED and verified)** fires
+  only when the head interpreter is a real file under a carved surface AND the rig
+  keeps that surface outside the tmp grants — see "Two conditions" above and
+  diagnostics 26.1/26.2.
+- **Kernel drift**: 7.0.0-43 denies setgroups in unprivileged userns → install summary
+  prints fs-isolation `DEGRADED` with the sysctl remedy; the auto-sandbox uses the
+  mapping-less prefix. Honest classification, not a regression (diagnostics 26.5).

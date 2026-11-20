@@ -1,0 +1,14 @@
+/tmp/tj-df-1120/home-a/.local/bin/terminal-jail: line 348: /tmp/tj-df-1120/pin/bad-python: Permission denied
+/tmp/tj-df-1120/home-a/.local/bin/terminal-jail: line 347: /tmp/tj-df-1120/pin/bad-python: Permission denied
++--------------------------------------------------------------+
+|  COMMAND BLOCKED — interruptor-bridge-unavailable            |
++--------------------------------------------------------------+
+|  The command firewall is not available: the bridge script     |
+|  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |
+|  overrides the search).                                       |
+|                                                               |
+|  Fix: run ./install.sh from a checkout, or set                |
+|  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |
+|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |
++--------------------------------------------------------------+
+terminal-jail: TERMINAL_JAIL_PYTHON=/tmp/tj-df-1120/pin/bad-python (not executable) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3

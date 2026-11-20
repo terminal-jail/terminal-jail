@@ -1,0 +1,3 @@
+{"ts":"2026-11-20T15:08:17.907885+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"257a411ceaf84fcd"}
+[terminal-jail] Modified: 'make' 'ok'... → sandboxed
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning

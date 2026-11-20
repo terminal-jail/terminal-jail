@@ -1,0 +1,25 @@
+terminal-jail installer: detected architecture x86_64
+terminal-jail installer: installing v1.3.4...
+terminal-jail installer: repository checkout detected — installing local wrapper (/home/kara/terminal-jail/standalone/terminal-jail, version 1.3.4)
+terminal-jail installer: installed plugin bridge tree to /tmp/tj-df-1120/home-a/.local/lib/terminal-jail/plugin/
+terminal-jail installer: installed seccomp loader to /tmp/tj-df-1120/home-a/.local/lib/terminal-jail/seccomp-loader.py
+terminal-jail installer: installed Landlock loader to /tmp/tj-df-1120/home-a/.local/lib/terminal-jail/landlock-loader.py
+terminal-jail installer: installed Landlock net loader to /tmp/tj-df-1120/home-a/.local/lib/terminal-jail/landlock-net-loader.py
+terminal-jail installer: installed default rules to /tmp/tj-df-1120/home-a/.config/terminal-jail/rules.d/00-builtins.yaml
+terminal-jail installer: installed to /tmp/tj-df-1120/home-a/.local/bin/terminal-jail
+terminal-jail installer: skipping PATH setup — --no-path flag
+terminal-jail installer: to use immediately, run: export PATH="/tmp/tj-df-1120/home-a/.local/bin:$PATH"
+terminal-jail installer: containment tier report (fs-isolation-probe):
+DEGRADED: mapped launch failed (rc=1, stderr='unshare: setgroups failed: Operation not permitted'); causes: uid-mapping denied: mapped launch failed while the legacy one succeeded (kernel denies setgid/setgroups inside unprivileged user namespaces — AppArmor profile 'unprivileged_userns'). remediation: as root, `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` or add an AppArmor exception for the launcher, or install newuidmap/newgidmap plus /etc/subuid|/etc/subgid ranges for the calling user
+terminal-jail installer: containment tier report (pidns-capability-probe):
+FULL (backend: bwrap)
+terminal-jail installer: containment tier report (landlock-capability-probe):
+Landlock capability probe: FULL
+  ABI version (max supported): 8
+  landlock in /sys/kernel/security/lsm: True
+  ruleset creation: ok
+  restrict_self: ok
+  enforcement (mode-600 read under empty domain): denied
+  - mode-600 read under the zero-grant domain denied EACCES
+terminal-jail installer: containment ceiling (Landlock): fs tier CAN engage and net (egress) tier CAN engage on this host (Landlock ABI 8 >= 4; opt in with TERMINAL_JAIL_LANDLOCK_NET=1)
+terminal-jail installer: done.

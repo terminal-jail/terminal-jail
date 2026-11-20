@@ -1159,3 +1159,100 @@ for the wrapper at default tier, p50 383.9 ms with the egress tier on, and 250�
 sequential first-runs. The σ is a third of the mean — load contamination, not a product signal; the
 sequential series reproduces the ~245–256 ms every earlier run measured. Nothing user-noticeable, no
 PERF row, `PERF-003` still owns the residual.
+
+## 26. Run 2026-11-20 — the interpreter-resolution contract verified live, and the two lies the surface still tells
+
+Context: HEAD `e67e07e`, v1.3.4, two fresh `./install.sh --no-path` installs, the
+installed CLI driven with a clean PATH. This section explains the three things the
+2026-11-20 dogfood established, in the order a debugger needs them.
+
+### 26.1 The modify-path refusal is now real, and here is the exact shape that triggers it
+
+`_tj_modify_tier_head_prepare` (standalone/terminal-jail:1345) extracts the rewrite
+payload's head token, splices an explicit `TERMINAL_JAIL_PYTHON` over it, and PROVES
+the interpreter starts inside the Landlock domain in the un-namespaced caller
+context (:1330-1342 explains why: the loader's enforcement proof needs a
+caller-owned ungranted probe path — `/run/user/<uid>` — that a nested
+`unshare --user` hides behind the overflow uid; the real attach is un-namespaced
+too, and Landlock inherits across the namespace). When the proof fails the launch
+exits 2 with the one-line verdict at :1370. The shape that makes it fire:
+
+- the interpreter must be a **real file** (a copied venv ELF, a `--copies` venv) — a
+  symlink is evaluated at its FINAL inode, so `python3 -> /usr/bin/python3` is
+  granted and runs (control arm f4);
+- it must resolve from PATH into a tree the tier's read allowlist denies — a
+  credential surface (`~/.hermes`, `~/.ssh`, …) under a home that is NOT itself
+  covered by a grant (see 26.2);
+- the command must be an auto-sandbox class (`make`, `pytest`, `cargo`, …) so the
+  engine splices the tier tail at all.
+
+Measured flagship: `terminal-jail make ok` with `<home>/.hermes/bin/python3`
+(copied ELF) first on PATH → rc=2, stdout empty, verdict names the interpreter, its
+resolved path, the blocked command, and both remedies. The 2026-11-14 symptom
+(rc=126 + raw `bash: … Permission denied` leak) is gone.
+
+### 26.2 The rig trap that produces false "the tier doesn't refuse" readings
+
+`build_layout` grants the kernel tmpdirs (`/tmp`, `/var/tmp`, `$TMPDIR`) as WRITE
+roots by default. Any hostile interpreter placed under `/tmp/...` — including inside
+a fake HOME there — sits inside a granted ancestor and the tier executes it. A
+layout dump of exactly that shape prints `hostile-covered-by: ['/tmp']`. Every
+"the hostile python3 ran fine under the tier" reading from a /tmp-based rig is an
+artifact of the rig, not a product property. The 2026-11-20 run burned three arm
+sets on this before moving the fake home to `/home/kara/tj-df-1120/home-b`.
+Corollary: `/run/user/<uid>` is the only probe-host candidate that survives on this
+harness (XDG_RUNTIME_DIR is set, `/run/user/1000` is caller-owned), which is also
+why the canary cat-denial works: `/run/user/1000` is ungranted and the mapped
+payload cannot write it.
+
+### 26.3 The in-launch "not applied" warning is now PROVEN false in the tiered shape
+
+The decisive instrument is a canary Makefile target that cats a mode-600 file at
+`/run/user/1000/tj-canary`:
+
+- default tier → `Permission denied`, make Error 1 (rc=2) — the kernel enforced the
+  allowlist INSIDE the launch;
+- `TERMINAL_JAIL_LANDLOCK=0` → the file reads fine (rc=0).
+
+Same launches print `WARNING: Landlock filesystem tier not applied (no
+caller-writable ungranted path for the enforcement probe); commands run unchanged
+without kernel filesystem enforcement`. Both halves of that sentence are wrong for
+this shape: the tier IS applied (by the un-namespaced trampoline, inherited into
+the namespace), and the payload's filesystem behavior DID change. The warning
+comes from the loader's own second attach attempt inside the namespace
+(standalone/landlock-loader.py:113-124), which fails its probe because the
+mapped/overflow payload uid cannot host the enforcement probe at
+`/run/user/<uid>`. The fs tier has no success notice (the net tier prints
+`kernel egress tier APPLIED`; there is no fs twin), so the only signal a tiered
+launch emits is the false one. Filed as TJ-DF-072. Until it lands: trust the
+canary, not the warning.
+
+### 26.4 The broken-pin refusal names the cause but shows the wrong box
+
+With a broken explicit pin and the firewall ON, the bridge (same pinned
+interpreter) fails first, so `_interruptor_evaluate` (:555) fails closed and the
+user sees the `interruptor-bridge-unavailable` box (:565) — whose Fix text says
+`run ./install.sh … or set TERMINAL_JAIL_BRIDGE` — plus two raw bash exec-noise
+lines (:347-348) and, after the box, the honest fault note (:383-390). The
+documented `interpreter-unavailable` box (:392-414) is only reachable when a
+bridge verdict SUCCEEDS, i.e. never for the fault it was built to name. Filed as
+TJ-DF-073. Read the fault note (it names pin + cause + no-silent-fallback); ignore
+the box's Fix text when `TERMINAL_JAIL_PYTHON` is set.
+
+### 26.5 Host-class drift recorded 2026-11-20
+
+Kernel 7.0.0-43 denies `setgroups` inside unprivileged user namespaces (AppArmor
+`unprivileged_userns`); the installer's fs-isolation probe now answers `DEGRADED:
+mapped launch failed (unshare: setgroups failed: Operation not permitted)` with
+the sysctl remedy, and 2026-11-17-era measurements of WORKING mapped launches on
+this host no longer reproduce. The auto-sandbox therefore runs the mapping-less
+prefix (payload effective uid 65534). Product behavior is honest at every layer —
+this entry exists so the next fire does not read the DEGRADED line as a product
+regression.
+
+### 26.6 Timing
+
+Loadavg 28-33 (16 cores): tier-on allow 374.7 ± 67.1 ms (min 289.6), tier-off
+255.7 ± 133.6 ms (min 174.2), modify path 681.6 ± 230.3 ms (min 442.6, includes
+namespace + tier + the new proof). CPU-time delta tier-on vs off ≈ 30 ms. Same
+floors as every earlier fire; no PERF row.

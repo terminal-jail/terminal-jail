@@ -1,0 +1,4 @@
+Benchmark 1: /home/kara/tj-df-1120/home-b/.local/bin/terminal-jail /bin/true
+  Time (mean ± σ):     374.7 ms ±  67.1 ms    [User: 178.0 ms, System: 52.9 ms]
+  Range (min … max):   289.6 ms … 495.7 ms    20 runs
+ 
