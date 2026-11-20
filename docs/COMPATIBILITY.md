@@ -13,6 +13,8 @@
 
 **Key:** ✅ = Works, ⚠️ = May require configuration, ❌ = Not supported
 
+**Supported kernel floor: 5.4 LTS** — the lowest row above. This table is the authority for host support, and the reader-facing pages (README "Requirements", `SUPPORT.md`, `docs/pentest-plan.md` §2.1) restate this same number instead of carrying their own. The floor is a support claim, not a runtime gate: the wrapper probes namespaces live, and `python3 scripts/pidns-capability-probe.py` classifies whichever host you are on. A row marked Conditional keeps its own note ("Known Host Limitations" below).
+
 ### Kernel Configuration Requirements
 
 For PID namespace isolation to work, the following kernel parameters may need to be enabled:
@@ -67,7 +69,7 @@ Consistent with the README backend table: bubblewrap is an optional runtime depe
 | 2.38+ | ✅ | ✅ | ✅ | ✅ |
 | 2.40+ | ✅ | ✅ | ✅ | ✅ |
 
-`--kill-child=SIGKILL` requires util-linux ≥ 2.38. Earlier versions will still create the PID namespace but cannot guarantee child process cleanup on jail exit.
+`--kill-child=SIGKILL` requires util-linux ≥ 2.38 — the same floor the README "Requirements" and `SUPPORT.md` restate. Earlier versions will still create the PID namespace but cannot guarantee child process cleanup on jail exit. Verify a host with `unshare --version`, or directly with `unshare --kill-child=SIGKILL true` (exit 0 = supported; on a version without the signal argument this fails).
 
 ## Distribution Compatibility
 

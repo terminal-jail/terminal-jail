@@ -852,11 +852,14 @@ if [ "$USE_USER_NS" -eq 1 ]; then
     # kernel 6.12) the payload was namespace PID 1 with NO parent-death
     # linkage: the launcher's SIGKILL left a real orphan. setpriv
     # --pdeathsig re-arms after the cred change and preserves the payload
-    # argv; it ships in util-linux itself. A host whose setpriv lacks
-    # --pdeathsig (util-linux < 2.36, below the documented floor) fails the
-    # flag-identical probe and the launch falls back mapping-less with the
-    # existing loud warning. The tail lives inside $_TJ_MAPPED_FLAGS so the
-    # probe exercises the exact launch.
+    # argv; it ships in util-linux itself. `setpriv --pdeathsig` itself
+    # arrived in util-linux 2.36, which the CLI's documented util-linux
+    # floor already covers (>= 2.38 for the signal-argument form of the
+    # child-termination flag, docs/COMPATIBILITY.md) — so no host that can
+    # reach this launch lacks the re-arm. A host whose setpriv nonetheless
+    # lacks --pdeathsig fails the flag-identical probe and the launch falls
+    # back mapping-less with the existing loud warning. The tail lives
+    # inside $_TJ_MAPPED_FLAGS so the probe exercises the exact launch.
     _TJ_PD="setpriv --pdeathsig=$_SIG"
     _TJ_MAPPED_FLAGS="--user --map-users=${_tj_nobody_uid}:${_tj_subuid}:1 --map-groups=${_tj_nobody_gid}:${_tj_subgid}:1 -S ${_tj_nobody_uid} -G ${_tj_nobody_gid} --pid --fork $_KC=$_SIG $_TJ_PD"
 

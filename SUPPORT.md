@@ -18,7 +18,8 @@ Terminal-jail is a Hermes Agent plugin for terminal command isolation. Support i
 
 ## Supported Platforms
 
-- Linux kernel 5.11+ (PID namespace support)
+- Linux kernel 5.4+ (the supported floor — lowest row of the kernel table in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md#kernel-compatibility); PID-namespace support, probed live with `python3 scripts/pidns-capability-probe.py`)
+- `util-linux` 2.38+ (the floor for `unshare --kill-child=SIGKILL` teardown; verify with `unshare --kill-child=SIGKILL true` — exit 0 means supported)
 - Python 3.11+
 - Hermes Agent (plugin system)
 - systemd (optional, defense-in-depth hardening)

@@ -17,7 +17,7 @@
 | **What it is** | Three independent layers around agent-run shell commands: a **bash command firewall** (allow / block / modify, every verdict carrying rule provenance), **namespace containment** (PID namespace via `unshare`, with an optional bubblewrap backend), and **observability** (Hermes plugin hooks, metrics, logging). |
 | **What it is not** | Not a VM, not a network containment layer, and not a boundary to rely on alone. Rules match the **top-level command string** — script bodies are never inspected (see [Scope](#scope-the-top-level-command-string-only)), and the network is never restricted (see [Data-Out Boundary](#data-out-boundary)). |
 | **Version** | The current release is recorded in [CHANGELOG.md](CHANGELOG.md). Print the package version with `.venv/bin/python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"`. CI and rule counts are derived by their respective checks ([Rule catalog](#rule-catalog)) |
-| **Platform** | Linux, `bash`, `util-linux` 2.32+ (`unshare`); `bubblewrap` optional |
+| **Platform** | Linux kernel 5.4+, `bash`, `util-linux` 2.38+ (the floor for `unshare --kill-child=SIGKILL` teardown — see [Requirements](#requirements), derived there and in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)); `bubblewrap` optional |
 
 **Contents**
 
@@ -883,8 +883,8 @@ Nothing is over-claimed: the firewall verdict is this tool's; the PID namespace,
 
 ## Requirements
 
-- Linux (kernel 3.8+ for user namespaces, 4.3+ for `--kill-child`)
-- `util-linux` 2.32+ (`unshare` with `--kill-child`); the uid-mapped launch additionally uses `setpriv --pdeathsig` (util-linux 2.36+ — same package; without it the mapped preflight fails and the launch falls back mapping-less loudly, TJ-DF-043)
+- Linux kernel 5.4+ — the supported floor, i.e. the lowest row of the kernel table in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md#kernel-compatibility) (that table is the authority for host support; this line restates it). The wrapper needs no kernel-version gate: it probes namespaces live, so classify any host with `python3 scripts/pidns-capability-probe.py` rather than trusting a version number
+- `util-linux` 2.38+ — the floor for `--kill-child=SIGKILL`, which every CLI launch passes to `unshare` for namespace teardown; the flag takes a signal argument only from util-linux 2.38 ([docs/COMPATIBILITY.md](docs/COMPATIBILITY.md#util-linux-unshare-compatibility)). Check a host with `unshare --version`, or directly with `unshare --kill-child=SIGKILL true` (exit 0 = supported). On bare `--pid --fork` (no `--kill-child`) older versions still create the PID namespace but cannot guarantee child cleanup on jail exit. The uid-mapped launch additionally re-arms the parent-death signal with `setpriv --pdeathsig=SIGKILL` (present since util-linux 2.36, so always available once the 2.38 floor is met; without it the mapped preflight fails and the launch falls back mapping-less loudly, TJ-DF-043)
 - `bash`
 - **Optional:** systemd drop-in (`systemd/` snippets) — gateway-hardening convenience (process visibility, privilege, cgroup limits), not a containment or PID-namespace boundary. The primary isolation layer is the standalone CLI's `unshare`/`bwrap` backend
 - **Optional:** `bubblewrap` (`bwrap`, verified 0.11.1) for the private-`/proc` backend — install the distro system package (`apt install bubblewrap` / `dnf install bubblewrap`). It is an external runtime dependency resolved from `PATH`, exactly like `util-linux`, and never a requirement: without it the CLI uses the `unshare` backend, and `install.sh` only prints an advisory note (a missing `bwrap` never fails an install). An explicit `TERMINAL_JAIL_JAIL_BACKEND=bwrap` still fails closed — exit 2, command not run. Packaging/legal boundary: see [Bubblewrap backend](#bubblewrap-backend-v12)
