@@ -1,0 +1,25 @@
+/home/kara/.hermes/installs/b0e47ae07995f891/environments/24f1df2ad984420181cb6be1707f6a03/venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:306: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session". Set it to "fixture-scope" to keep the current behavior.
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+F
+=================================== FAILURES ===================================
+_ TestCompositionBattery.test_unreachable_daemon_environment_skips_live_battery _
+
+self = <test_composed_mode.TestCompositionBattery object at 0x76ffeba8dd00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x76ffebae8fc0>
+
+    def test_unreachable_daemon_environment_skips_live_battery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The real CLI-present probe must skip on an unreachable daemon."""
+        monkeypatch.setenv("DOCKER_HOST", "unix:///tmp/nonexistent-docker.sock")
+        reason = self.battery._docker_available()
+>       assert reason is not None
+E       assert None is not None
+
+tests/test_composed_mode.py:474: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_composed_mode.py::TestCompositionBattery::test_unreachable_daemon_environment_skips_live_battery
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 23 deselected in 0.04s
