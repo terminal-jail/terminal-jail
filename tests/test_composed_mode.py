@@ -468,13 +468,130 @@ class TestCompositionBattery:
     def test_unreachable_daemon_environment_skips_live_battery(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The real CLI-present probe must skip on an unreachable daemon."""
+        """The real CLI-present probe must skip on an unreachable daemon.
+
+        Two host classes reach this test: the honest one (the CLI honours
+        DOCKER_HOST and exits non-zero for a socket that is not there) and the
+        JIT-agent one whose ~/.docker/config.json pins currentContext/
+        dockerHost so the CLI ignores DOCKER_HOST and exits 0 for an endpoint
+        it never contacted — see
+        test_impossible_docker_host_endpoint_is_distrusted_when_daemon_answers.
+        Both must produce a "docker daemon" reason.
+        """
         monkeypatch.setenv("DOCKER_HOST", "unix:///tmp/nonexistent-docker.sock")
         reason = self.battery._docker_available()
         assert reason is not None
         assert "docker daemon" in reason
         with pytest.raises(pytest.skip.Exception, match="docker daemon"):
             self._run_live_three_cell()
+
+    # TJ-DF-074: the docker probe must not trust an answer served for an
+    # endpoint the caller named but that cannot exist on this host.
+
+    @staticmethod
+    def _answering_anyway(
+        cmd: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess:
+        """The JIT-agent docker CLI: `info` exits 0 for ANY requested endpoint.
+
+        A config.json-pinned context makes the CLI resolve its daemon from
+        ~/.docker/config.json and ignore DOCKER_HOST, so the exit code no
+        longer says anything about the endpoint the caller asked for.
+        """
+        if "context" in cmd:
+            return subprocess.CompletedProcess(cmd, 1, "", "context not found")
+        return subprocess.CompletedProcess(cmd, 0, "27.5.1\n", "")
+
+    def test_impossible_docker_host_endpoint_is_distrusted_when_daemon_answers(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """TJ-DF-074: a daemon that answers for an absent unix endpoint is not
+        the daemon the caller asked for.
+
+        Pins the JIT-agent shape — `docker info` exits 0 even though
+        DOCKER_HOST names a socket that does not exist — and asserts the probe
+        distrusts that answer and skips the live battery with a named reason
+        instead of reporting the daemon available.
+        """
+        absent = tmp_path / "nonexistent-docker.sock"
+        assert not os.path.exists(absent), "premise: the requested socket is absent"
+        monkeypatch.setenv("DOCKER_HOST", f"unix://{absent}")
+        monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        monkeypatch.setattr(self.battery.subprocess, "run", self._answering_anyway)
+
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert f"requested endpoint unix://{absent}" in reason
+        assert "is not present" in reason
+        assert "answered a different daemon" in reason
+        with pytest.raises(pytest.skip.Exception, match="docker daemon"):
+            self._run_live_three_cell()
+
+    def test_existing_docker_host_socket_is_still_trusted(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """The mismatch check is scoped to endpoints that cannot exist.
+
+        An explicit DOCKER_HOST naming a socket that IS present must keep the
+        old behaviour: the probe trusts the CLI's rc=0 and reports available.
+        """
+        present = tmp_path / "live-docker.sock"
+        present.touch()
+        monkeypatch.setenv("DOCKER_HOST", f"unix://{present}")
+        monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        monkeypatch.setattr(self.battery.subprocess, "run", self._answering_anyway)
+
+        assert self.battery._docker_available() is None
+
+    def test_unset_docker_env_probe_makes_no_extra_calls(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With no DOCKER_HOST/DOCKER_CONTEXT the probe is unchanged.
+
+        No cross-check runs, so the single `docker info` call and the
+        available verdict stay byte-identical for the default-socket caller.
+        """
+        monkeypatch.delenv("DOCKER_HOST", raising=False)
+        monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        calls: list[list[str]] = []
+
+        def fake_run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "27.5.1\n", "")
+
+        monkeypatch.setattr(self.battery.subprocess, "run", fake_run)
+        assert self.battery._docker_available() is None
+        assert calls == [["/usr/bin/docker", "info", "--format", "{{.ServerVersion}}"]]
+
+    def test_absent_docker_context_is_distrusted_when_daemon_answers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A DOCKER_CONTEXT the CLI cannot resolve is distrusted too.
+
+        Same class as the DOCKER_HOST arm: the caller asked for a named
+        context that does not exist, so an rc=0 answer cannot be attributed
+        to it.
+        """
+        monkeypatch.delenv("DOCKER_HOST", raising=False)
+        monkeypatch.setenv("DOCKER_CONTEXT", "jit-agent-context")
+        monkeypatch.setattr(
+            self.battery.shutil, "which", lambda _name: "/usr/bin/docker"
+        )
+        monkeypatch.setattr(self.battery.subprocess, "run", self._answering_anyway)
+
+        reason = self.battery._docker_available()
+        assert reason is not None
+        assert "requested context 'jit-agent-context'" in reason
+        assert "answered a different daemon" in reason
 
     def test_docker_probe_timeout_reports_daemon_unavailable(
         self, monkeypatch: pytest.MonkeyPatch

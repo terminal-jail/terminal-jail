@@ -52,6 +52,15 @@ INNER_IMAGE = "python:3.11-slim"
 VERDICTS = ("PASS", "FAIL", "UNMEASURED", "UNAVAILABLE")
 _DOCKER_PROBE_TIMEOUT = 3
 
+_UNREACHABLE_REQUESTED_ENDPOINT = (
+    "docker daemon unreachable: requested endpoint {endpoint} is not present "
+    "(answered a different daemon)"
+)
+_UNREACHABLE_REQUESTED_CONTEXT = (
+    "docker daemon unreachable: requested context {context!r} is not present "
+    "(answered a different daemon)"
+)
+
 
 def _readlink(path: str) -> str | None:
     try:
@@ -296,6 +305,76 @@ def _inner_cell() -> dict:
     }
 
 
+def _context_endpoint(context: str) -> str | None:
+    """The docker endpoint a named CLI context resolves to, or None.
+
+    None means the context could not be inspected (absent context, CLI error,
+    timeout) — a request that cannot be verified, so an answer served for it
+    is not trusted either.
+    """
+    docker = shutil.which("docker")
+    if docker is None:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                docker,
+                "context",
+                "inspect",
+                context,
+                "--format",
+                "{{.Endpoints.docker.Host}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_DOCKER_PROBE_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    endpoint = result.stdout.strip()
+    return endpoint or None
+
+
+def _requested_endpoint_problem() -> str | None:
+    """Distrust an answer served for an endpoint the caller named but that
+    cannot exist on this host.
+
+    Context-based docker configs (a JIT agent image whose ~/.docker/config.json
+    pins currentContext/dockerHost) make the CLI ignore DOCKER_HOST entirely:
+    `docker info` then reaches SOME daemon and exits 0, so a probe that only
+    reads the exit code reports "available" for an endpoint the caller asked
+    for and that is not there. An absent unix socket path is proof no answer
+    can be trusted for that request; remote transports (tcp://, ssh://) are
+    left to the CLI, whose own reachability error is authoritative.
+
+    With neither DOCKER_HOST nor DOCKER_CONTEXT set there is nothing to
+    cross-check: this returns None and the probe behaves exactly as before.
+    """
+    host = os.environ.get("DOCKER_HOST", "").strip()
+    if host:
+        return _endpoint_problem(host)
+    context = os.environ.get("DOCKER_CONTEXT", "").strip()
+    if context and context != "default":
+        endpoint = _context_endpoint(context)
+        if endpoint is None:
+            return _UNREACHABLE_REQUESTED_CONTEXT.format(context=context)
+        return _endpoint_problem(endpoint)
+    return None
+
+
+def _endpoint_problem(endpoint: str) -> str | None:
+    """Reason the requested endpoint cannot have served the answer, or None."""
+    if not endpoint.startswith("unix://"):
+        return None
+    path = endpoint[len("unix://") :]
+    if not path or os.path.exists(path):
+        return None
+    return _UNREACHABLE_REQUESTED_ENDPOINT.format(endpoint=endpoint)
+
+
 def _docker_available() -> str | None:
     docker = shutil.which("docker")
     if docker is None:
@@ -312,6 +391,9 @@ def _docker_available() -> str | None:
         return f"docker daemon unavailable: {exc}"
     if result.returncode != 0:
         return f"docker daemon unreachable: rc={result.returncode}"
+    problem = _requested_endpoint_problem()
+    if problem is not None:
+        return problem
     return None
 
 
