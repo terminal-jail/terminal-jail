@@ -1,0 +1,2 @@
+terminal-jail: landlock: kernel filesystem tier APPLIED — inherited from the launch's outer attach, which proved enforcement before the namespace boundary; EACCES/EPERM from open() below this line is the KERNEL denying (Landlock, TJ-GAP-082), not an interruptor rule verdict
+cat: /run/user/1000/tj-canary: Permission denied

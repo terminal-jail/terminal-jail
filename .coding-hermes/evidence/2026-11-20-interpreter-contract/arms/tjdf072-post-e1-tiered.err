@@ -1,0 +1,5 @@
+{"ts":"2026-11-21T04:21:55.309720+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"85f8dc6a11359d36"}
+[terminal-jail] Modified: 'make' 'canary'... → sandboxed
+terminal-jail: landlock: kernel filesystem tier APPLIED — inherited from the launch's outer attach, which proved enforcement before the namespace boundary; EACCES/EPERM from open() below this line is the KERNEL denying (Landlock, TJ-GAP-082), not an interruptor rule verdict
+cat: /run/user/1000/tj-canary: Permission denied
+make: *** [Makefile:4: canary] Error 1
