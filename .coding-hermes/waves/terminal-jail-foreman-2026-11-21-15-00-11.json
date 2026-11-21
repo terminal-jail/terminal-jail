@@ -1,0 +1,41 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-21-15-00-11",
+  "project": "terminal-jail",
+  "created_utc": "2026-11-21T15:26Z",
+  "budget": 5,
+  "composed": false,
+  "wave_size": 0,
+  "eligible_independent": 0,
+  "mode": "no-dispatch",
+  "reason": "Zero eligible independent rows: 14 of 15 pending rows carry an explicit non-repository route (external writer, QA/fleet harness, bunker-ops, owner-gated public surface, releng policy, ops host, scheduler process); the one unflagged row (PERF-003) is landed-drift whose branch is already merged and whose acceptance numbers require a quiet host (loadavg<5) that this host does not provide (12.17 on 16 cores at composition time). No dependency-free pair exists, so no wave could be composed and no serial row was dispatchable.",
+  "eligibility_audit": [
+    {"id": "INT-CI-020", "status": "pending", "eligible": false, "class": "external-writer", "why": "writer defect lives in boardctl create (external repo)"},
+    {"id": "INT-CI-020-R2", "status": "pending", "eligible": false, "class": "external-writer-dep-gated", "why": "same boardctl create defect arm; depends_on INT-CI-020 which is itself routed off-repo"},
+    {"id": "QA-TERMINAL-JAIL-11", "status": "pending", "eligible": false, "class": "owner-release-gate", "why": "root cause is PyPI absence, owned by RELEASE-TJ-025 owner-gated decision"},
+    {"id": "QA-TERMINAL-JAIL-14-R2", "status": "pending", "eligible": false, "class": "bunker-ops-host", "why": "bunker-mvp /opt/hostedtoolcache race kills act pre-test; host-side fix"},
+    {"id": "QA-TERMINAL-JAIL-26", "status": "pending", "eligible": false, "class": "fleet-process", "why": "wave-closeout canonical hygiene + fleet id minter are scheduler/fleet process defects"},
+    {"id": "QA-TERMINAL-JAIL-27-R2", "status": "pending", "eligible": false, "class": "qa-harness", "why": "chaos-disconnect counts regex lives in fleet bunker-qa.sh, not this repo"},
+    {"id": "QA-TERMINAL-JAIL-34", "status": "pending", "eligible": false, "class": "qa-harness", "why": "pytest -x -q hardcode lives in ~/.hermes/scripts/bunker-qa.sh"},
+    {"id": "QA-TERMINAL-JAIL-35", "status": "pending", "eligible": false, "class": "qa-harness", "why": "act leg stdout capture lives in the fleet harness; no repo-owned script"},
+    {"id": "TJ-DF-069", "status": "pending", "eligible": false, "class": "bunker-ops-host", "why": "bunkerd unreachable (HTTP 000 at bunker-mvp:8765); needs a live bunker host"},
+    {"id": "OPS-TJ-001", "status": "pending", "eligible": false, "class": "ops-host", "why": "~/.profile PATH hygiene and /usr/local 1.0.0 shims are host-layout, ops lane"},
+    {"id": "RELEASE-TJ-015", "status": "pending", "eligible": false, "class": "owner-release-gate", "why": "editing a published GitHub release is a public surface; owner/releng approval required"},
+    {"id": "RELEASE-TJ-025", "status": "pending", "eligible": false, "class": "owner-release-gate", "why": "PyPI trusted publishing needs credentials and a public-surface decision"},
+    {"id": "RELEASE-TJ-027", "status": "pending", "eligible": false, "class": "releng-policy", "why": "gitreins tier-1 static_analysis skip is guard-config posture; releng owns the guard decision"},
+    {"id": "RELEASE-TJ-028", "status": "pending", "eligible": false, "class": "releng-policy", "why": "TR-251 closure path for hosted-CI evidence is a fleet policy change"},
+    {"id": "PERF-003", "status": "pending", "eligible": false, "class": "landed-drift-needs-quiet-host", "why": "branch fully merged (row note: do NOT re-dispatch); AC1/AC2 need a quiet-host evidence run and loadavg was 12.17 on 16 cores"}
+  ],
+  "independence_check": {
+    "method": "dependency tokens parsed from every pending row (depends_on list plus depends_on/blocks tokens in acceptance text); all claimed task ids and file paths compared pairwise",
+    "result": "no pair of eligible rows existed to test; independence is vacuous with zero eligible rows",
+    "dependency_edges_found": [["INT-CI-020-R2", "INT-CI-020"]]
+  },
+  "claimed_tokens": [],
+  "workers": [],
+  "non_dispatch_actions": [
+    "light E2E self-verify on exact HEAD (compileall, binary --version, wheel byte-identity, git fsck, rule catalog, yaml mirror parity, pidns probe, fs isolation probe, release-cut-check v1.3.4)",
+    "board id guard over the full canonical board",
+    "blocked-ownership receipt for the dirty canonical checkout"
+  ],
+  "merge_plan": "none: zero workers composed"
+}
