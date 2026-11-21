@@ -162,6 +162,44 @@ published body, which is not otherwise committed in-repo for that release.
    shipped with exactly this gap (the installer still served v1.3.3 assets,
    RELEASE-TJ-026), which is why this step exists.
 
+## Dependency-CVE coverage (pip-audit in CI)
+
+Dependency-vulnerability scanning has exactly one channel in this project: the
+`Audit (pip-audit)` job in the `CI` workflow (`.github/workflows/ci.yml`). It
+installs `pip-audit` and runs it, and a known advisory makes that job exit
+non-zero, which turns the run red. No other dependency-CVE tooling exists in
+the tree.
+
+Cadence is event-driven, per push: `CI` triggers on `push` to `main` and on
+`pull_request` targeting `main`. There is no `schedule:` trigger, so an
+advisory published against an unchanged dependency is first observed at the
+next push or pull request, never by a periodic scan.
+
+Scope, stated so the channel is not read as wider than it is: the job audits
+the runner's interpreter environment, which holds `pip-audit` and its own
+resolved dependencies. The project is not installed in that job, so its only
+declared runtime dependency (`dependencies = ["PyYAML>=6.0"]` in
+`pyproject.toml`) is not audited there. The channel covers dependency CVEs for
+the audit toolchain's tree; a project-dependency audit is not part of CI.
+
+GitHub's own alerting is not a channel: Dependabot alerts are disabled on this
+public repository. Re-check that status with:
+
+```bash
+gh api repos/terminal-jail/terminal-jail/dependabot/alerts?state=open
+# -> HTTP 403: Dependabot alerts are disabled for this repository.
+```
+
+Evidence that the job actually executes — CI run **44906831648**
+(2026-11-21T13:02:14Z, `main`, conclusion success) ran job `Audit (pip-audit)`,
+whose `Run pip-audit` step logged `No known vulnerabilities found`. Confirm the
+same job on any run id:
+
+```bash
+gh run view 44906831648 --repo terminal-jail/terminal-jail --json jobs \
+  --jq '.jobs[] | select(.name=="Audit (pip-audit)") | "\(.name) \(.conclusion)"'
+```
+
 ## Manual verification of the artifacts (optional but recommended)
 
 ```bash
