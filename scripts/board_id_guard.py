@@ -25,7 +25,13 @@ This CLI is the enforcement point:
                          (a non-blank description or detail) and a creator
                          (a non-blank created_by): JSONL-NORM-003 rejects a
                          pending P0/P1 row missing either, naming the row
-                         id, the source line, and each missing field. Only
+                         id, the source line, and each missing field. Both
+                         arms also accept the structured detail body that
+                         ``boardctl`` writes when it leaves the top-level
+                         scalars null -- the body from ``detail.evidence``
+                         or ``detail.metadata.description``, the creator
+                         from ``detail.metadata.created_by``. A row with
+                         neither channel still fails closed. Only
                          "pending" rows are gated (historical completed/
                          blocked rows are grandfathered), and any annotation
                          containing "superseded" (case-insensitive) is
@@ -299,6 +305,68 @@ def _is_blank(value: object) -> bool:
     return not isinstance(value, str) or not value.strip()
 
 
+def _has_content(value: object) -> bool:
+    """True when a structured body value carries real content.
+
+    A non-blank string is content. A container is content only when it holds at
+    least one non-blank entry, so ``{}``, ``[]`` and ``[{}]`` stay empty (the
+    gate fails closed) while the board's ``[{"run_id": ..., "ts": ...}]`` does
+    not.
+    """
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_content(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_content(item) for item in value)
+    return False
+
+
+def _detail_body(value: dict) -> dict | None:
+    """The structured ``detail`` object, when the row carries a mapping one."""
+    detail = value.get("detail")
+    return detail if isinstance(detail, dict) else None
+
+
+def _detail_metadata(value: dict) -> dict | None:
+    """``detail.metadata``, when both the detail and metadata are mappings."""
+    detail = _detail_body(value)
+    if detail is None:
+        return None
+    metadata = detail.get("metadata")
+    return metadata if isinstance(metadata, dict) else None
+
+
+def _has_evidence_body(value: dict) -> bool:
+    """True when the row carries an evidence body on either channel.
+
+    Top-level ``description``/``detail`` first; then the structured detail
+    body, where ``boardctl`` renders the prose as ``detail.metadata.description``
+    or the run record as ``detail.evidence`` while leaving the top-level
+    scalars null. A detail object carrying neither (e.g. a bare ``fingerprint``)
+    is NOT an evidence body.
+    """
+    if not _is_blank(value.get("description")):
+        return True
+    top_level_detail = value.get("detail")
+    if not _is_blank(top_level_detail):
+        return True
+    if not isinstance(top_level_detail, dict):
+        return False
+    if _has_content(top_level_detail.get("evidence")):
+        return True
+    metadata = _detail_metadata(value)
+    return metadata is not None and not _is_blank(metadata.get("description"))
+
+
+def _has_creator(value: dict) -> bool:
+    """True when the row names a creator, top-level or in ``detail.metadata``."""
+    if not _is_blank(value.get("created_by")):
+        return True
+    metadata = _detail_metadata(value)
+    return metadata is not None and not _is_blank(metadata.get("created_by"))
+
+
 def _has_superseded_annotation(value: dict) -> bool:
     """True when any entry of ``annotations`` mentions 'superseded'."""
     annotations = value.get("annotations")
@@ -317,12 +385,16 @@ def _scan_evidence(
 ) -> None:
     """Evidence gate for pending P0-P3 rows (JSONL-NORM-003).
 
-    A pending P0/P1 row must carry an evidence body (non-blank
-    ``description`` or ``detail``) AND a creator (non-blank
-    ``created_by``) -- the verdict records each missing field. Pending
-    P2/P3 rows missing the same fields are WARNING-ONLY (decided for
-    JSONL-NORM-003): they emit a warning, never a rejection. Rows with
-    any other status are grandfathered, as are rows carrying a
+    A pending P0/P1 row must carry an evidence body AND a creator -- the
+    verdict records each missing field. ``boardctl`` writes a row with the
+    top-level ``description``/``created_by`` null and keeps both inside the
+    structured ``detail`` object, so each arm accepts its detail-based
+    channel too: the body from ``detail.evidence`` or
+    ``detail.metadata.description``, and the creator from
+    ``detail.metadata.created_by``. A row with NEITHER channel still fails
+    closed. Pending P2/P3 rows missing the same fields are WARNING-ONLY
+    (decided for JSONL-NORM-003): they emit a warning, never a rejection.
+    Rows with any other status are grandfathered, as are rows carrying a
     "superseded" annotation (case-insensitive).
     """
     if status != "pending":
@@ -334,9 +406,9 @@ def _scan_evidence(
         return
 
     missing: list[str] = []
-    if _is_blank(value.get("description")) and _is_blank(value.get("detail")):
+    if not _has_evidence_body(value):
         missing.append("description/detail (no evidence body)")
-    if _is_blank(value.get("created_by")):
+    if not _has_creator(value):
         missing.append("created_by (no creator)")
     if not missing:
         return

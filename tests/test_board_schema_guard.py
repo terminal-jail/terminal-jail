@@ -317,7 +317,11 @@ def test_evidence_superseded_annotation_grandfathers_pending_p1(tmp_path):
 
 
 def test_evidence_non_string_body_values_count_as_missing(tmp_path):
-    """A dict detail (real-board shape) is not an evidence body."""
+    """A detail dict with no evidence content is not an evidence body.
+
+    Only the structured channels count (``detail.evidence``,
+    ``detail.metadata.description``); a bare fingerprint is not prose.
+    """
     row = (
         b'{"id": "TJ-EV-013", "status": "pending", "priority": "P1", '
         b'"detail": {"fingerprint": "abc"}}'
@@ -345,6 +349,178 @@ def test_evidence_strict_flag_rejects_pending_p2_gaps(tmp_path):
     assert "line 1: TJ-EV-014: evidence missing" in text
     assert "evidence violations (1):" in text
     assert "evidence warnings" not in text
+
+
+# -- evidence gate: structured detail body (INT-CI-020) ----------------
+
+
+def test_evidence_structured_detail_body_satisfies_pending_p1(tmp_path):
+    """A boardctl-shaped ``detail`` body satisfies both arms for pending P0/P1.
+
+    ``boardctl create`` writes the top-level ``created_by``/``description`` as
+    null and keeps the creator and the evidence inside the structured ``detail``
+    object -- ``{"metadata": {"created_by": ...}, "evidence": [{"run_id": ...}]}``.
+    Rejecting that row rejects the tool that writes the board, so the gate must
+    read through the detail body before calling either arm missing.
+    """
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-020",
+                status="pending",
+                priority="P1",
+                created_by=None,
+                description=None,
+                detail={
+                    "metadata": {"created_by": "cos-terminal-jail"},
+                    "fingerprint": "71721f0c9eaa0843",
+                    "evidence": [
+                        {"run_id": "int-ci-020", "ts": "2026-11-19T06:21:09Z"}
+                    ],
+                },
+            ),
+            # The prose half may also live in detail.metadata.description.
+            board_row(
+                id="TJ-EV-021",
+                status="pending",
+                priority="P0",
+                created_by=None,
+                description=None,
+                detail={
+                    "metadata": {
+                        "created_by": "terminal-jail-foreman",
+                        "description": "Reproduction steps and the observed exit code.",
+                    }
+                },
+            ),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 0
+    text = combined_output(result)
+    assert "OK: 2 rows, 2 unique ids" in text
+    assert "evidence violations" not in text
+    assert "evidence warnings" not in text
+
+
+def test_evidence_structured_detail_creator_does_not_cover_a_missing_body(tmp_path):
+    """A creator inside ``detail.metadata`` is not evidence: the body arm holds."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-022",
+                status="pending",
+                priority="P1",
+                created_by=None,
+                description=None,
+                detail={"metadata": {"created_by": "cos-terminal-jail"}},
+            )
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    assert (
+        "line 1: TJ-EV-022: evidence missing description/detail (no evidence body)"
+        in combined_output(result)
+    )
+
+
+def test_evidence_structured_body_without_any_creator_still_fails(tmp_path):
+    """A detail evidence body does not waive the creator arm."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-023",
+                status="pending",
+                priority="P0",
+                created_by=None,
+                description=None,
+                detail={
+                    "metadata": {},
+                    "evidence": [
+                        {"run_id": "int-ci-020", "ts": "2026-11-19T06:21:09Z"}
+                    ],
+                },
+            )
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    text = combined_output(result)
+    assert "line 1: TJ-EV-023: evidence missing created_by (no creator)" in text
+    assert "no evidence body" not in text
+
+
+def test_evidence_empty_structured_body_still_fails_closed(tmp_path):
+    """Empty containers are not evidence: ``[]``/``{}`` keep the gate closed."""
+    board = write_board_file(
+        tmp_path,
+        [
+            # Empty evidence list + empty metadata + fingerprint only.
+            board_row(
+                id="TJ-EV-024",
+                status="pending",
+                priority="P1",
+                created_by=None,
+                description=None,
+                detail={
+                    "metadata": {},
+                    "fingerprint": "ac8f83f92d0a6d50",
+                    "evidence": [],
+                },
+            ),
+            # A whitespace-only evidence string is blank too.
+            board_row(
+                id="TJ-EV-025",
+                status="pending",
+                priority="P0",
+                created_by=None,
+                description=None,
+                detail={"metadata": {}, "evidence": "   "},
+            ),
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 1
+    text = combined_output(result)
+    assert (
+        "line 1: TJ-EV-024: evidence missing description/detail (no evidence body), "
+        "created_by (no creator)" in text
+    )
+    assert (
+        "line 2: TJ-EV-025: evidence missing description/detail (no evidence body), "
+        "created_by (no creator)" in text
+    )
+    assert "evidence violations (2):" in text
+
+
+def test_evidence_pending_p2_structured_detail_gap_still_warns_only(tmp_path):
+    """The detail bodies do not promote P2/P3 gaps into rejections."""
+    board = write_board_file(
+        tmp_path,
+        [
+            board_row(
+                id="TJ-EV-026",
+                status="pending",
+                priority="P2",
+                created_by=None,
+                description=None,
+                detail={"metadata": {"source": "releng-tick"}, "evidence": []},
+            )
+        ],
+    )
+    result = run_guard(str(board))
+    assert result.returncode == 0
+    assert "OK: 1 rows, 1 unique ids" in result.stdout
+    assert "evidence violations" not in result.stdout
+    assert "evidence warnings (1):" in result.stderr
+    assert "line 1: TJ-EV-026: evidence missing" in result.stderr
+    assert "advisory, not fatal" in result.stderr
+    strict = run_guard("--strict", str(board))
+    assert strict.returncode == 1
 
 
 # -- migration: line-targeted rewrite ---------------------------------
