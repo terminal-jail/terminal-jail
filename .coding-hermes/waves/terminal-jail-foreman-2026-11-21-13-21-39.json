@@ -1,0 +1,50 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-21-13-21-39",
+  "project": "terminal-jail",
+  "kind": "wave",
+  "wave_budget": 7,
+  "workers_dispatched": 4,
+  "base_sha": "397fdcde7854d0ccf82b63d8c8a91e2ec5a9ff9f",
+  "base_ref": "origin/main",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "rows": [
+    {
+      "id": "DOC-4-R2",
+      "worktree": "/home/kara/worktrees/terminal-jail-DOC-4-R2",
+      "branch": "wt/DOC-4-R2",
+      "files_owned": ["README.md"],
+      "mode": "worker"
+    },
+    {
+      "id": "RELEASE-TJ-029",
+      "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-029",
+      "branch": "wt/RELEASE-TJ-029",
+      "files_owned": ["docs/releasing.md"],
+      "mode": "worker"
+    },
+    {
+      "id": "TJ-DF-073",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-073",
+      "branch": "wt/TJ-DF-073",
+      "files_owned": ["standalone/terminal-jail", "plugin/terminal_jail/_bundled/terminal-jail", "tests/"],
+      "mode": "worker"
+    },
+    {
+      "id": "TJ-DF-074",
+      "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-074",
+      "branch": "wt/TJ-DF-074",
+      "files_owned": ["scripts/composed-mode-battery.py", "tests/test_composed_mode.py"],
+      "mode": "worker"
+    },
+    {
+      "id": "INT-CI-020",
+      "worktree": "/home/kara/worktrees/terminal-jail-INT-CI-020",
+      "branch": "wt/INT-CI-020",
+      "files_owned": ["scripts/board_id_guard.py", "tests/test_board_schema_guard.py"],
+      "mode": "foreman-recovery-verify",
+      "note": "carried uncommitted implementation from 2026-11-19; tests 24 passed; foreman proves AC1/AC3/AC4 then commits"
+    }
+  ],
+  "independence": "no depends_on edges between the five rows; file ownership disjoint (README.md, docs/releasing.md, standalone wrapper+mirror, scripts/composed-mode-battery.py, scripts/board_id_guard.py)"
+}
