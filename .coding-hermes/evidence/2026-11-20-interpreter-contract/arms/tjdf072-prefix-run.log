@@ -1,0 +1,41 @@
+== repo=/home/kara/worktrees/terminal-jail-TJ-DF-072 root=/home/kara/tj-df-072 tag=prefix loader=/home/kara/worktrees/terminal-jail-TJ-DF-072/standalone/landlock-loader.py
+== HEAD ec6e85a board: name the owner gate on OPS-TJ-002 so it is not mis-dispatched
+== fresh install into /home/kara/tj-df-072/home (documented ./install.sh --no-path)
+install rc=0
+ARM e1-tiered      | expect DENIED + an enforced fs line, no false sentence     | rc=2 | stdout=''
+ARM e2-tier-off    | expect SECRET-CANARY rc0 (tier off)                        | rc=0 | stdout=SECRET-CANARY\ 
+ARM n1-no-ancestor | expect the not-applied warning + SECRET-CANARY (no enforcement) | rc=0 | stdout=SECRET-CANARY\ read_rc=0\ 
+ARM n1b-no-ancestor-xdg | expect DENIED + silence (no ancestor to inherit, probe proves) | rc=0 | stdout=read_rc=1\ 
+ARM n2-inherited   | expect DENIED + an enforced fs line, no false sentence     | rc=0 | stdout=read_rc=1\ 
+
+--- e1-tiered stderr ---
+{"ts":"2026-11-21T04:21:46.262943+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"85f8dc6a11359d36"}
+[terminal-jail] Modified: 'make' 'canary'... → sandboxed
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning
+cat: /run/user/1000/tj-canary: Permission denied
+make: *** [Makefile:4: canary] Error 1
+--- e1-tiered stdout ---
+
+--- e2-tier-off stderr ---
+{"ts":"2026-11-21T04:21:46.683471+00:00","event":"verdict","action":"modify","rule_id":"auto-make","layer":"yaml","reason":"Command modified by auto-sandbox","command_sha256":"85f8dc6a11359d36"}
+[terminal-jail] Modified: 'make' 'canary'... → sandboxed
+--- e2-tier-off stdout ---
+SECRET-CANARY
+
+--- n1-no-ancestor stderr ---
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning
+--- n1-no-ancestor stdout ---
+SECRET-CANARY
+read_rc=0
+
+--- n1b-no-ancestor-xdg stderr ---
+cat: /run/user/1000/tj-canary: Permission denied
+--- n1b-no-ancestor-xdg stdout ---
+read_rc=1
+
+--- n2-inherited stderr ---
+terminal-jail: WARNING: Landlock filesystem tier not applied (no caller-writable ungranted path for the enforcement probe); commands run unchanged without kernel filesystem enforcement — classify the host with scripts/landlock-capability-probe.py and verify the loader path and launch context; do not disable filesystem protection to suppress this warning
+cat: /run/user/1000/tj-canary: Permission denied
+--- n2-inherited stdout ---
+read_rc=1
+DONE-TJDF072

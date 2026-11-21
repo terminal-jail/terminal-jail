@@ -30,9 +30,56 @@ and with every `TERMINAL_JAIL_*` var explicitly unset except the arm's own.
 - `arms/install*.out/.err` — both fresh-install transcripts (3.60 s wall, ceiling
   report `fs tier CAN engage and net (egress) tier CAN engage (ABI 8 >= 4)`).
 
+## TJ-DF-072 — the fs-tier reporting contract, red and green
+
+`scripts/probe9_tjdf072_canary.sh` is the fork's own rig for the fix (rig D
+shape: throwaway `HOME=/home/kara/tj-df-072/home`, OUTSIDE the tmp grants,
+`PATH=/usr/local/bin:/usr/bin:/bin`, every `TERMINAL_JAIL_*` unset per arm). It
+re-installs from the tree it is pointed at (`REPO=…`) and runs four arms:
+
+- `e1-tiered` — the production tiered launch (`terminal-jail make canary`):
+  the canary read must be DENIED **and** the launch must state the fs tier is
+  enforced.
+- `e2-tier-off` — the identical launch with `TERMINAL_JAIL_LANDLOCK=0`, one
+  variable: the canary must be READABLE (AC2's negative-arm control).
+- `n1-no-ancestor` — the loader nested in `unshare --user --pid --fork` with
+  **no** ancestor domain and `XDG_RUNTIME_DIR` unset (the genuine degraded
+  shape): the not-applied warning MUST still print and the canary IS readable.
+- `n1b-no-ancestor-xdg` — the same namespace WITH a writable probe host
+  (`XDG_RUNTIME_DIR=/run/user/1000`): the attach PROVES, enforces silently, and
+  the canary is denied. This arm is the mechanism control — it shows the
+  namespace uid is NOT what breaks the production probe, so the board row's
+  "the mapped/overflow uid cannot write the probe file" hypothesis is wrong for
+  this host (the AppArmor policy denies uid mappings outright, so no mapping
+  happens at all and the payload keeps kuid 1000). What breaks the probe is the
+  INHERITED DOMAIN denying the probe host.
+- `n2-inherited` — the production nesting without the CLI: an outer loader that
+  PROVES the tier, the namespace, then a re-attaching loader that cannot
+  re-prove it: the canary must be DENIED and the line must report enforcement.
+
+Raw arms are `arms/tjdf072-{prefix,post}-<arm>.{out,err,rc}` — `prefix` = the
+tree at `ec6e85a` before the fix (the RED evidence: e1 and n2 print
+`WARNING: … commands run unchanged without kernel filesystem enforcement` next
+to a `Permission denied` canary), `post` = the patched tree (both print
+`kernel filesystem tier APPLIED — inherited from the launch's outer attach …`,
+the canary still denied, and `n1` unchanged: warning + readable). Run logs:
+`arms/tjdf072-{prefix,post}-run.log`.
+
+Mechanism note worth keeping: on this host class the inner attach's probe fails
+*chemically* because the inherited domain denies the probe host — `/run/user/1000`
+is unwritable under the domain, `HOME` and the tmpdirs are granted, so
+`apply_tier(..., dry_probe=True)` finds "no caller-writable ungranted path".
+That is simultaneously the proof of containment and the reason the old sentence
+lied. `n1` (no ancestor, no `XDG_RUNTIME_DIR`) reproduces the same cause string
+with NO enforcement behind it — which is why the fix keys on an explicit,
+post-proof marker (`TERMINAL_JAIL_LANDLOCK_INHERITED`) plus the kernel's
+`NoNewPrivs` flag instead of guessing from the cause text.
+
 ## Transformations
 
-None: every file here is a byte copy of the /tmp/tj-df-1120 run artifacts. The
+None: every file here is a byte copy of its run artifacts (the original
+/tmp/tj-df-1120 run for arms `<x>`, and the TJ-DF-072 rig's own
+`/home/kara/tj-df-072/{prefix,post}-arms` for the `tjdf072-*` files). The
 session environment dump that one rig script accidentally printed to the terminal
 (`env` without a command) was NEVER written to any of these files and is not
 reproduced here.

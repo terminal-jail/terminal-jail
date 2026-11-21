@@ -337,6 +337,21 @@ are confined to the working tree + temp dirs, enforced by the kernel and
 inherited by the payload after exec. `TERMINAL_JAIL_LANDLOCK=0` disables it.
 The tier composes with (never replaces) the unshare/bwrap namespace path.
 
+The tier also reports what it actually delivers (TJ-DF-072). A proven apply is
+silent, because containment is the default you asked for and nothing needs
+saying. A launch whose payload re-attaches the tier *inside* the namespace
+prints one `terminal-jail: landlock: kernel filesystem tier APPLIED — inherited
+from the launch's outer attach …` line — the fs twin of the egress tier's
+notice — because the wrapper's outer attach already proved the property in the
+caller context and Landlock restriction inherits across the namespace boundary,
+even though the inner attach can no longer re-prove it (the inherited domain
+denies every probe host). The loud `WARNING: Landlock filesystem tier not
+applied (…); commands run unchanged without kernel filesystem enforcement` line
+is reserved for launches with no ancestor domain: it is a true statement there,
+and a silent downgrade is never acceptable. The proof travels in
+`TERMINAL_JAIL_LANDLOCK_INHERITED` — internal, written by the loader only after
+a proven apply and trusted only together with the kernel's `NoNewPrivs` flag.
+
 Since TJ-GAP-083 there is also an **opt-in kernel-enforced TCP-connect (network
 egress) tier** (Landlock ABI v4 `LANDLOCK_ACCESS_NET_CONNECT_TCP`): with
 `TERMINAL_JAIL_LANDLOCK_NET=1`, every `connect(2)` to a TCP port outside the
