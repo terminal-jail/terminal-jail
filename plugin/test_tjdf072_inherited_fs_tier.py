@@ -22,16 +22,23 @@ Doctrine under test (the loader-side twin of TJ-DF-064 / ae8524e6):
 * a launch with NO ancestor domain keeps the loud not-applied warning, and
   TERMINAL_JAIL_LANDLOCK=0 stays silent (the disable is deliberate);
 * containment is untouched: the canary is still DENIED under the tier, and
-  with the tier off it is still readable (one variable).
+  with the tier off it is still readable (one variable). The deny arm's
+  canary HOST is derived from the tier's own grant set at runtime: a canary
+  parked under a granted root (e.g. ``/tmp``, which ``build_layout`` grants
+  as a write root) reads fine under full enforcement, so the deny could not
+  fire there and a green run would be placement luck.
 """
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
 
@@ -283,21 +290,222 @@ class TestMarkerOnlyAfterProof:
 
 # ── Kernel arms: the canary stays red, and the line tells the truth ───────
 
+CANARY_TEXT = "TJ-DF-072-CANARY\n"
+CANARY_NAME = "s600"
+SCRATCH_PREFIX = "tjdf072-canary-"
 
-def _nested_rig(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
-    """home + workdir (cwd grant) holding the loader and its tier module."""
+# Knobs the loader CHILD does not see (`_rig_env` strips them), so they must
+# not colour the grant set this module derives either.
+_CHILD_STRIPPED_ENV = ("TMPDIR", "TMP", "TEMP", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR")
+
+
+def _rig_anchors(tmp_path: Path) -> tuple[Path, Path]:
+    """home + workdir — the two directories the tier layout anchors on."""
     home = tmp_path / "home"
-    home.mkdir()
+    home.mkdir(exist_ok=True)
     work = tmp_path / "work"
-    (work / "interruptor").mkdir(parents=True)
+    (work / "interruptor").mkdir(parents=True, exist_ok=True)
+    return home, work
+
+
+def _tier_grant_roots(home: Path, work: Path) -> list[Path]:
+    """The grant roots the tier ACTUALLY enforces for this rig.
+
+    Derived by the tier's own layout code — not a hardcoded guess — with the
+    same environment the loader child receives (``_rig_env`` strips the temp
+    and XDG knobs, so ``TMPDIR`` must not leak into the answer). ``workdir``
+    plus the write/read/read-dir roots are the whole allowlist; every path
+    outside them is denied by omission.
+    """
+    saved = {
+        name: os.environ.pop(name) for name in _CHILD_STRIPPED_ENV if name in os.environ
+    }
+    try:
+        layout = ll.build_layout(workdir=str(work), home=str(home), payload_argv=[])
+    finally:
+        os.environ.update(saved)
+    assert layout is not None, "the rig anchors must yield a layout"
+    return [
+        Path(os.path.realpath(p))
+        for p in (
+            layout.workdir,
+            *layout.write_roots,
+            *layout.read_roots,
+            *layout.read_dir_roots,
+        )
+    ]
+
+
+def _inside(path: Path, root: Path) -> bool:
+    """True when ``path`` is ``root`` or lives beneath it (realpaths)."""
+    real, base = Path(os.path.realpath(path)), Path(os.path.realpath(root))
+    return real == base or base in real.parents
+
+
+def _covered(path: Path, roots: list[Path]) -> bool:
+    return any(_inside(path, root) for root in roots)
+
+
+def _writable_dir(path: Path) -> bool:
+    try:
+        return path.is_dir() and os.access(path, os.W_OK | os.X_OK)
+    except OSError:
+        return False
+
+
+def _pick_canary_host(
+    tmp_path: Path, home: Path, work: Path
+) -> tuple[Path | None, str, bool]:
+    """A caller-writable directory the tier does NOT grant.
+
+    The deny arm is only evidence where the canary is DENIED by the layout:
+    a canary under a granted root reads fine under full enforcement, so the
+    arm would pass (or fail) on placement luck. ``build_layout`` puts the
+    temp dirs (``/tmp``, ``/var/tmp``, TMPDIR/TMP/TEMP) in the WRITE grant
+    set unconditionally, so a basetemp living under any of them is granted —
+    which is exactly how ``tmp_path / "s600"`` turned into a CI red.
+    ``layout.ungranted_paths`` cannot be used to decide this: it lists the
+    basetemp's PARENT (``home_parent``) while the ``/tmp`` write root shadows
+    it, so the question is asked of the grant roots.
+
+    Returns ``(host, reason, created)`` — ``host`` is None with ``reason``
+    naming what was tried when this host has no such directory (the caller
+    then skips loudly: the property cannot be proven without one), and
+    ``created`` tells the caller to remove a directory this probe made.
+    """
+    assert home.is_dir() and work.is_dir(), "rig anchors must exist first"
+    roots = _tier_grant_roots(home, work)
+    tried: list[str] = []
+
+    def _take(candidate: Path) -> Path | None:
+        text = str(candidate)
+        if text not in tried:
+            tried.append(text)
+        if not _writable_dir(candidate) or _covered(candidate, roots):
+            return None
+        return candidate
+
+    # 1) The basetemp itself, whenever the layout happens not to grant it —
+    #    the default host (basetemp under a non-temp TMPDIR) stays on this
+    #    arm, so nothing is created and pytest's own disposal is the cleanup.
+    #    The two rig anchors are granted BY CONSTRUCTION (``work`` is the
+    #    workdir grant, ``home`` is a read-dir root), so they are never
+    #    candidates: everything under them is covered by omission.
+    chosen = _take(tmp_path)
+    if chosen is not None:
+        return chosen, "", False
+
+    # 2) Caller-owned runtime dirs (outside every grant on a normal session).
+    for raw in (os.environ.get("XDG_RUNTIME_DIR", ""), f"/run/user/{os.getuid()}"):
+        if raw.startswith("/"):
+            chosen = _take(Path(raw))
+            if chosen is not None:
+                return chosen, "", False
+
+    # 3) Caller-owned temp dirs — usable only where the child's grant set
+    #    does not include them (i.e. a TMPDIR the loader does not see).
+    for name in ("TMPDIR", "TMP", "TEMP"):
+        raw = os.environ.get(name, "").strip()
+        if raw.startswith("/"):
+            chosen = _take(Path(raw))
+            if chosen is not None:
+                return chosen, "", False
+
+    # 4) Directories this probe creates, removed by the caller when unused.
+    for parent in (PROJECT_ROOT.parent, Path(os.path.expanduser("~"))):
+        tried.append(str(parent))
+        try:
+            made = Path(tempfile.mkdtemp(prefix=SCRATCH_PREFIX, dir=str(parent)))
+        except OSError:
+            continue
+        chosen = _take(made)
+        if chosen is not None:
+            return chosen, "", True
+        shutil.rmtree(made, ignore_errors=True)
+
+    # 5) The shapes that made this a defect: the basetemp, its ancestors, and
+    #    the kernel temp roots. Probed (cheaply) so the reason names them.
+    for candidate in (tmp_path, *tmp_path.parents, Path("/var/tmp"), Path("/tmp")):
+        _take(candidate)
+
+    reason = (
+        f"no caller-writable directory outside the tier's {len(roots)} grant "
+        f"roots (tried: {', '.join(tried)})"
+    )
+    return None, reason, False
+
+
+@contextlib.contextmanager
+def _canary_host(tmp_path: Path) -> Iterator[tuple[Path | None, str, bool]]:
+    home, work = _rig_anchors(tmp_path)
+    host, reason, created = _pick_canary_host(tmp_path, home, work)
+    try:
+        yield host, reason, created
+    finally:
+        if host is not None:
+            try:
+                (host / CANARY_NAME).unlink()
+            except OSError:
+                pass
+            if created:
+                shutil.rmtree(host, ignore_errors=True)
+
+
+@pytest.fixture
+def ungranted_canary(tmp_path: Path) -> Iterator[Path]:
+    """Deny-arm fixture: a writable canary host the layout does NOT grant.
+
+    Skips LOUDLY (the probe7 f5 rule) when this host has none — the deny
+    property cannot be proven, and a silent pass would be placement luck.
+    """
+    with _canary_host(tmp_path) as (host, reason, _created):
+        if host is None:
+            pytest.skip(f"{GENUINE_MESSAGE} [{reason}]")
+        yield host
+
+
+@pytest.fixture
+def readable_canary(tmp_path: Path) -> Iterator[Path]:
+    """Read-arm fixture: prefer an ungranted host, fall back to ``tmp_path``.
+
+    The read arms assert the canary SUCCEEDS (no ancestor domain / tier off).
+    An ungranted host makes that a real contrast; where none exists the claim
+    is weaker but still exercised (the file must exist and be readable), so
+    the fallback is taken instead of skipping a true statement.
+    """
+    with _canary_host(tmp_path) as (host, _reason, _created):
+        yield host if host is not None else tmp_path
+
+
+def _nested_rig(
+    tmp_path: Path, canary_host: Path, *, require_ungranted: bool
+) -> tuple[Path, Path, Path, Path]:
+    """home + workdir (cwd grant) holding the loader and its tier module.
+
+    The canary lives at ``canary_host / s600`` — DERIVED by the caller from
+    the tier's grant set, never assumed to be ``tmp_path``. With
+    ``require_ungranted`` (the deny arm) the placement is asserted against
+    the layout so a green run cannot be placement luck; without it (the read
+    arms) only the readability premise is asserted.
+    """
+    home, work = _rig_anchors(tmp_path)
     loader = work / "landlock-loader.py"
     loader.write_text(LOADER_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
     (work / "interruptor" / "landlock.py").write_text(
         TIER_MODULE.read_text(encoding="utf-8"), encoding="utf-8"
     )
-    secret = tmp_path / "s600"  # OUTSIDE home/work: ungranted by the layout
-    secret.write_text("TJ-DF-072-CANARY\n", encoding="utf-8")
+    secret = canary_host / CANARY_NAME
+    if require_ungranted:
+        roots = _tier_grant_roots(home, work)
+        assert not _covered(secret, roots), (
+            f"canary {secret} sits under a tier grant root — the deny arm "
+            f"could not fire: {[str(r) for r in roots if _covered(secret, [r])]}"
+        )
+    secret.write_text(CANARY_TEXT, encoding="utf-8")
     os.chmod(secret, 0o600)
+    # Premise: OUTSIDE the tier this uid can read the canary, so any denial
+    # below can only be the kernel's (never DAC).
+    assert secret.read_text(encoding="utf-8") == CANARY_TEXT
     return home, work, loader, secret
 
 
@@ -314,13 +522,17 @@ def _rig_env(home: Path) -> dict[str, str]:
 CANARY = ["sh", "-c", "cat {secret}; echo read_rc=$?"]
 
 
-def test_inherited_reattach_reports_enforced_and_still_denies(tmp_path: Path) -> None:
+def test_inherited_reattach_reports_enforced_and_still_denies(
+    tmp_path: Path, ungranted_canary: Path
+) -> None:
     """The production nesting: outer attach proves → namespace → re-attach."""
     if not _probe_host_allows_landlock():
         pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
     if not _unshare_user_namespace_works():
         pytest.skip("HOST-DEGRADED-USERNS: the namespace shape is blocked here")
-    home, work, loader, secret = _nested_rig(tmp_path)
+    home, work, loader, secret = _nested_rig(
+        tmp_path, ungranted_canary, require_ungranted=True
+    )
     inner = [
         "sh",
         "-c",
@@ -356,11 +568,15 @@ def test_inherited_reattach_reports_enforced_and_still_denies(tmp_path: Path) ->
     assert "TJ-DF-072-CANARY" not in result.stdout
 
 
-def test_no_ancestor_still_warns_and_stays_unenforced(tmp_path: Path) -> None:
+def test_no_ancestor_still_warns_and_stays_unenforced(
+    tmp_path: Path, readable_canary: Path
+) -> None:
     """Negative control: no ancestor domain ⇒ warning + the read SUCCEEDS."""
     if not _unshare_user_namespace_works():
         pytest.skip("HOST-DEGRADED-USERNS: the namespace shape is blocked here")
-    home, work, loader, secret = _nested_rig(tmp_path)
+    home, work, loader, secret = _nested_rig(
+        tmp_path, readable_canary, require_ungranted=False
+    )
     result = subprocess.run(
         [
             "unshare",
@@ -390,11 +606,13 @@ def test_no_ancestor_still_warns_and_stays_unenforced(tmp_path: Path) -> None:
     assert "read_rc=0" in result.stdout
 
 
-def test_tier_off_launch_is_unenforced(tmp_path: Path) -> None:
+def test_tier_off_launch_is_unenforced(tmp_path: Path, readable_canary: Path) -> None:
     """AC2's other arm: TERMINAL_JAIL_LANDLOCK=0 ⇒ readable, silently."""
     if not _probe_host_allows_landlock():
         pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
-    home, work, loader, secret = _nested_rig(tmp_path)
+    home, work, loader, secret = _nested_rig(
+        tmp_path, readable_canary, require_ungranted=False
+    )
     env = _rig_env(home)
     env["TERMINAL_JAIL_LANDLOCK"] = "0"
     result = subprocess.run(
