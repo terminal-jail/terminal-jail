@@ -1,0 +1,53 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_broken_pin_refuses_with_the_interpreter_box[standalone-missing] _____
+
+wrapper = PosixPath('/home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail')
+tmp_path = PosixPath('/mnt/ssd/tmp/pytest-of-kara/pytest-3171/test_broken_pin_refuses_with_t0')
+case = 'missing'
+
+    @pytest.mark.parametrize("case", ["missing", "not-executable", "not-on-path", "exec-fails"])
+    def test_broken_pin_refuses_with_the_interpreter_box(
+        wrapper: Path, tmp_path: Path, case: str
+    ) -> None:
+        """Firewall-on, enforce mode: the INTERPRETER box, no install.sh, no noise.
+    
+        Pre-fix every one of these printed bash's own ``line 347/348`` exec noise and
+        then the *bridge-unavailable* box, sending the operator to ``./install.sh``
+        for a fault that lives in the pin.
+        """
+        pin, reason = _pin_fault_cases(tmp_path)[case]
+        marker = f"tj073-must-not-run-{case}"
+        result = _run(
+            wrapper,
+            ["--interruptor", "/bin/echo", marker],
+            _env(tmp_path, _broken_python_bin(tmp_path), TERMINAL_JAIL_PYTHON=pin),
+            tmp_path,
+        )
+        assert result.returncode == 126, result.stderr
+        assert result.stdout == "", result.stdout
+        assert marker not in result.stderr, result.stderr
+    
+>       assert "COMMAND BLOCKED — interpreter-unavailable" in result.stderr, result.stderr
+E       AssertionError: /home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail: line 348: /mnt/ssd/tmp/pytest-of-kara/pytest-3171/test_broken_pin_refuses_with_t0/nope/python3: No such file or directory
+E         /home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail: line 347: /mnt/ssd/tmp/pytest-of-kara/pytest-3171/test_broken_pin_refuses_with_t0/nope/python3: No such file or directory
+E         +--------------------------------------------------------------+
+E         |  COMMAND BLOCKED — interruptor-bridge-unavailable            |
+E         +--------------------------------------------------------------+
+E         |  The command firewall is not available: the bridge script     |
+E         |  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |
+E         |  overrides the search).                                       |
+E         |                                                               |
+E         |  Fix: run ./install.sh from a checkout, or set                |
+E         |  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |
+E         |  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |
+E         +--------------------------------------------------------------+
+E         terminal-jail: TERMINAL_JAIL_PYTHON=/mnt/ssd/tmp/pytest-of-kara/pytest-3171/test_broken_pin_refuses_with_t0/nope/python3 (no such file) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3
+E         
+E       assert 'COMMAND BLOCKED — interpreter-unavailable' in '/home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail: line 348: /mnt/ssd/tmp/pytest-of-kara/pytest-3... file) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3\n'
+E        +  where '/home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail: line 348: /mnt/ssd/tmp/pytest-of-kara/pytest-3... file) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3\n' = CompletedProcess(args=['/usr/bin/bash', '/home/kara/worktrees/terminal-jail-TJ-DF-073/standalone/terminal-jail', '--in...file) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3\n').stderr
+
+plugin/test_wrapper_landlock_interpreter.py:367: AssertionError
+=========================== short test summary info ============================
+FAILED plugin/test_wrapper_landlock_interpreter.py::test_broken_pin_refuses_with_the_interpreter_box[standalone-missing]
+1 failed, 27 deselected in 0.11s

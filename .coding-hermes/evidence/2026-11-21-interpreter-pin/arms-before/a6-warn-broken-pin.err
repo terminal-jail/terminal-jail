@@ -1,0 +1,7 @@
+standalone/terminal-jail: line 347: /mnt/ssd/tmp/tj-df-073/pin/noexec-python: Permission denied
+standalone/terminal-jail: line 348: /mnt/ssd/tmp/tj-df-073/pin/noexec-python: Permission denied
+terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)
+terminal-jail: TERMINAL_JAIL_PYTHON=/mnt/ssd/tmp/tj-df-073/pin/noexec-python (not executable) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3
+[terminal-jail] WARNING — interruptor bridge returned no usable verdict; running the command UNGUARDED (warn mode)
+terminal-jail: WARNING — TERMINAL_JAIL_PYTHON=/mnt/ssd/tmp/tj-df-073/pin/noexec-python (not executable); the in-jail loader cannot start under it, keeping the historical python3 resolution (warn mode)
+terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)

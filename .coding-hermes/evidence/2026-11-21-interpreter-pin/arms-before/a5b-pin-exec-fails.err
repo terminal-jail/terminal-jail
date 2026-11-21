@@ -1,0 +1,11 @@
++--------------------------------------------------------------+
+|  COMMAND BLOCKED — interruptor-bridge-unavailable            |
++--------------------------------------------------------------+
+|  The command firewall is not available: the bridge script     |
+|  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |
+|  overrides the search).                                       |
+|                                                               |
+|  Fix: run ./install.sh from a checkout, or set                |
+|  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |
+|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |
++--------------------------------------------------------------+

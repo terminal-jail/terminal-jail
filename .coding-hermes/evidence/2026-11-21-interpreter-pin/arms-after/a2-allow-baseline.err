@@ -1,0 +1,2 @@
+{"ts":"2026-11-21T14:09:25.001003+00:00","event":"verdict","action":"allow","rule_id":null,"layer":"engine","reason":"","command_sha256":"c74291a59afbd4a3"}
+terminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)

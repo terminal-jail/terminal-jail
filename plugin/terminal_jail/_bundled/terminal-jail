@@ -330,6 +330,18 @@ _find_bridge() {
 _interruptor_evaluate() {
     local cmd="$1"
     local bridge
+    # TJ-DF-073: never EXEC an unusable pin. The schedule below runs the
+    # interpreter twice (JSON-escape the command, then run the bridge), and a
+    # pin that cannot execute made the first of those fail with bash's own raw
+    # exec noise ("line 347: /path/nope/python3: No such file or directory")
+    # while the caller read the failure as "the bridge is unavailable" — the
+    # wrong cause and the wrong refusal. Reporting the fault as an unavailable
+    # evaluation lets the caller route it: enforce mode refuses with the
+    # interpreter box, warn mode states the degradation and runs (fail-open)
+    # exactly as before.
+    if [ -n "$(_tj_interpreter_fault)" ]; then
+        return 1
+    fi
     bridge=$(_find_bridge) || return 1
 
     # Pipe the command to the bridge and capture the JSON response.
@@ -360,6 +372,19 @@ _interruptor_evaluate() {
 # inside the launch is an unexplained 127, and substituting PATH's python3
 # would silently run the loaders under an interpreter the operator did not
 # choose. Unset/empty keeps the historical bare `python3`.
+#
+# TJ-DF-073: the same fault has to be refused BEFORE the bridge call too. The
+# bridge is one more program run under the pin, so a broken pin made
+# `_interruptor_evaluate` fail first: bash printed its own raw exec noise
+# ("line 347: /path/nope/python3: No such file or directory") and control fell
+# into the bridge-unavailable handler, which blamed the BRIDGE (run
+# ./install.sh, or set TERMINAL_JAIL_BRIDGE) for a fault that lives in the pin
+# — leaving this, the documented refusal for an unusable interpreter,
+# unreachable for the very fault it was built to name. Three pieces below:
+# `_tj_pin_preflight` (called before the first bridge exec),
+# the guard at the top of `_interruptor_evaluate` (never exec an unusable pin),
+# and a second-stage probe for a pin that resolves but whose execution fails,
+# asked only from the failure path (`_tj_interpreter_fault_deep`).
 _tj_interpreter_fault() {
     # Echo "<pin> (<reason>)" when TERMINAL_JAIL_PYTHON cannot be executed;
     # echo nothing when it is unset/empty (historical resolution) or usable.
@@ -380,6 +405,32 @@ _tj_interpreter_fault() {
     return 0
 }
 
+_tj_interpreter_exec_fault() {
+    # Second stage (TJ-DF-073): the pin resolves and is executable, yet running
+    # it fails — a file that is not an interpreter, or a wrapper whose own
+    # interpreter is gone. Detecting that costs one interpreter start, so it is
+    # asked only from a failure path (a bridge that could not run under the
+    # pin), never on a healthy invocation.
+    local pinned="${TERMINAL_JAIL_PYTHON:-}"
+    [ -n "$pinned" ] || return 0
+    if "$pinned" -c 'pass' >/dev/null 2>&1; then
+        return 0
+    fi
+    printf '%s (cannot execute)' "$pinned"
+}
+
+_tj_interpreter_fault_deep() {
+    # Both stages in order: the static classes first (no process spawn), then
+    # the execution probe.
+    local fault
+    fault=$(_tj_interpreter_fault)
+    if [ -n "$fault" ]; then
+        printf '%s' "$fault"
+        return 0
+    fi
+    _tj_interpreter_exec_fault
+}
+
 _tj_interpreter_fault_note() {
     # One line naming the pinned interpreter, printed only when that is the
     # cause. The bridge box above explains the bridge; this explains WHY.
@@ -387,6 +438,31 @@ _tj_interpreter_fault_note() {
     fault=$(_tj_interpreter_fault)
     [ -n "$fault" ] || return 0
     echo "terminal-jail: TERMINAL_JAIL_PYTHON=$fault — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3" >&2
+}
+
+_tj_interpreter_unavailable_box() {
+    # The documented refusal for an unusable interpreter — ONE box, two arrival
+    # paths: `_tj_pin_preflight` (before the first bridge exec) and
+    # `_tj_require_interpreter` (before the tier launch). $1 = the fault text,
+    # $2 = the stage it was refused at.
+    local fault="$1"
+    local stage="$2"
+    {
+        echo "+--------------------------------------------------------------+"
+        echo "|  COMMAND BLOCKED — interpreter-unavailable                    |"
+        echo "+--------------------------------------------------------------+"
+        echo "|  TERMINAL_JAIL_PYTHON names a program that cannot be executed |"
+        echo "|  here, so the command firewall and the in-jail loaders cannot |"
+        echo "|  start under it.                                              |"
+        echo "|                                                               |"
+        echo "|  Fix: point TERMINAL_JAIL_PYTHON at an executable python, or  |"
+        echo "|  unset it to keep the historical python3 resolution.          |"
+        echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+        echo "+--------------------------------------------------------------+"
+        echo "|  TERMINAL_JAIL_PYTHON=$fault"
+        echo "|  Refused before ${stage}; the command did not run."
+    } >&2
+    exit 126
 }
 
 _tj_require_interpreter() {
@@ -399,20 +475,25 @@ _tj_require_interpreter() {
         _TJ_BRIDGE_PY="python3"
         return 0
     fi
-    {
-        echo "+--------------------------------------------------------------+"
-        echo "|  COMMAND BLOCKED — interpreter-unavailable                    |"
-        echo "+--------------------------------------------------------------+"
-        echo "|  TERMINAL_JAIL_PYTHON names a program that cannot be executed |"
-        echo "|  here, so the seccomp/Landlock loader could not be started.   |"
-        echo "|                                                               |"
-        echo "|  Fix: point TERMINAL_JAIL_PYTHON at an executable python, or  |"
-        echo "|  unset it to keep the historical python3 resolution.          |"
-        echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
-        echo "+--------------------------------------------------------------+"
-        echo "|  TERMINAL_JAIL_PYTHON=$fault"
-    } >&2
-    exit 126
+    _tj_interpreter_unavailable_box "$fault" "the tier launch"
+}
+
+_tj_pin_preflight() {
+    # TJ-DF-073: called before the FIRST bridge exec. The bridge is one more
+    # program run under the pin, so an unusable pin would make that exec fail
+    # and land in the bridge-unavailable handler — the wrong box, with bash's
+    # own exec noise above it. Refuse here instead, naming the pin and the
+    # cause. Warn mode is deliberately untouched: it already degrades loudly
+    # and runs (the documented fail-open), and its ONE report stays the bridge
+    # warning plus the fault note the caller prints. Unset/empty pins (the
+    # historical `python3` resolution) are never a fault.
+    local fault
+    fault=$(_tj_interpreter_fault)
+    [ -n "$fault" ] || return 0
+    if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+        return 0
+    fi
+    _tj_interpreter_unavailable_box "$fault" "the command-firewall evaluation"
 }
 
 # --- argument parsing ---------------------------------------------------------
@@ -548,6 +629,11 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
         )"
         export TERMINAL_JAIL_LANDLOCK_NET_MARK
     fi
+    # TJ-DF-073: refuse an unusable pin BEFORE the bridge exec, so the failure
+    # is attributed to the pin (interpreter-unavailable) instead of to the
+    # bridge, and bash never prints its own "line NNN: ...: No such file or
+    # directory" exec noise above the refusal.
+    _tj_pin_preflight
     # TJ-DF-044: no 2>/dev/null here — _interruptor_evaluate passes the
     # bridge's stderr (tier banners, loud degradation warnings) through; a
     # command substitution only swallows stdout, so the caller must not
@@ -558,6 +644,16 @@ if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
             echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)" >&2
             _tj_interpreter_fault_note
         else
+            # TJ-DF-073: the evaluation can also fail because the pinned
+            # interpreter resolves and is executable but cannot RUN the bridge
+            # (a file that is not a working python). That is a pin fault, not a
+            # missing bridge — ask the second stage here, on this failure path
+            # only, and refuse with the interpreter box instead of sending the
+            # operator to ./install.sh for a problem install.sh cannot fix.
+            _tj_pin_fault_deep=$(_tj_interpreter_fault_deep)
+            if [ -n "$_tj_pin_fault_deep" ]; then
+                _tj_interpreter_unavailable_box "$_tj_pin_fault_deep" "the command-firewall evaluation"
+            fi
             # Enforce mode: FAIL CLOSED. A security tool that silently stops
             # protecting after the documented install is worse than none.
             {

@@ -1,0 +1,9 @@
+{"ts":"2026-11-21T13:50:45.094339+00:00","event":"verdict","action":"block","rule_id":"builtin-rm-rf-root","layer":"engine","reason":"Recursive root directory removal (rm -rf /) is blocked.","command_sha256":"963f32332f837fa7"}
++--------------------------------------------------------------+
+|  COMMAND BLOCKED — builtin-rm-rf-root                                
++--------------------------------------------------------------+
+|  Recursive root directory removal (rm -rf /) is blocked.
+|
+|  Command: 'rm' '-rf' '/'
+|  Rule: builtin-rm-rf-root
++--------------------------------------------------------------+

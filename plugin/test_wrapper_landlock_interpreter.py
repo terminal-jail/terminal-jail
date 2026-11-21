@@ -22,6 +22,17 @@ ships and ``standalone/terminal-jail``) from a staged install layout with a
 * a pin that cannot be executed fails loudly in enforce mode — never a silent
   fallback to ``python3`` — and warns (fail-open) in warn mode.
 
+TJ-DF-073 adds the other half of the same contract: the pin is ALSO exec'd
+before the tier launch, to JSON-escape the command and to run the bridge. A
+broken pin therefore failed at that first exec, bash printed its own raw noise
+(``line 347: /path/nope/python3: No such file or directory``) and control fell
+into the *bridge-unavailable* handler — which blamed ``./install.sh`` /
+``TERMINAL_JAIL_BRIDGE`` for a fault that lives in the pin, while this module's
+own refusal (``interpreter-unavailable``) was unreachable for the very fault it
+names. The arms below pin all three static fault classes plus an executable-file
+pin whose execution fails, on both shipped copies, and assert the refusal is the
+interpreter box with no exec noise and no ``install.sh`` guidance.
+
 No network, no wheel build: the staged layout is a file copy of
 ``plugin/terminal_jail`` (the loader's tier-module walk needs the package
 sibling), the way ``test_packaging_wheel`` stages its synthetic install.
@@ -31,6 +42,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -181,13 +193,45 @@ def test_no_in_jail_trampoline_splices_literal_python3(copy: str) -> None:
 
 
 def test_interpreter_fault_helper_covers_every_unusable_shape() -> None:
-    """The fail-loud preflight distinguishes missing / not-executable / off-PATH."""
+    """The fail-loud preflight distinguishes missing / not-executable / off-PATH.
+
+    TJ-DF-073 extends the classes with a pin that resolves and is executable but
+    whose execution fails — asked from the failure path only, so a healthy
+    invocation never pays for the probe.
+    """
     text = STANDALONE_CLI.read_text()
     assert "_tj_interpreter_fault()" in text
     assert "_tj_require_interpreter()" in text
+    assert "_tj_pin_preflight()" in text
+    assert "_tj_interpreter_fault_deep()" in text
     assert "(no such file)" in text
     assert "(not executable)" in text
     assert "(not on PATH)" in text
+    assert "(cannot execute)" in text
+
+
+@pytest.mark.parametrize("copy", ["bundled", "standalone"])
+def test_pin_preflight_runs_before_the_first_bridge_exec(copy: str) -> None:
+    """The preflight precedes the bridge exec, and evaluate never execs a bad pin.
+
+    Order is the contract: if the refusal ran after the bridge exec, bash would
+    already have printed its raw ``line NNN:`` noise (TJ-DF-073).
+    """
+    path = (
+        PACKAGE_DIR / "_bundled" / "terminal-jail"
+        if copy == "bundled"
+        else STANDALONE_CLI
+    )
+    text = path.read_text()
+
+    preflight_call = text.index("_tj_pin_preflight\n")  # a bare call line
+    bridge_call = text.index('bridge_result=$(_interruptor_evaluate "$CMD_STR")')
+    assert preflight_call < bridge_call
+
+    evaluate = text.index("_interruptor_evaluate() {")
+    guard = text.index('if [ -n "$(_tj_interpreter_fault)" ]; then', evaluate)
+    find_bridge = text.index("bridge=$(_find_bridge) || return 1", evaluate)
+    assert guard < find_bridge
 
 
 # --- acceptance A / D: the allow path runs under a broken python3 --------------
@@ -266,21 +310,99 @@ def test_pinned_interpreter_outside_path_is_the_one_that_runs(
 # --- acceptance C: an unusable pin fails loudly --------------------------------
 
 
-def test_nonexistent_pin_fails_loudly_on_the_bridge_path(
-    wrapper: Path, tmp_path: Path
+# --- acceptance A/B/C (TJ-DF-073): a broken pin refuses with ITS box -----------
+
+
+def _exec_noise(stderr: str) -> list[str]:
+    """Raw bash exec-noise lines ("<script>: line 347: /path: No such file")."""
+    return [line for line in stderr.splitlines() if re.search(r"\bline \d+:", line)]
+
+
+def _pin_fault_cases(base: Path) -> dict[str, tuple[str, str]]:
+    """The pin fault classes → (pinned value, the reason the box must name).
+
+    The first three are the static classes TJ-DF-073 was filed for; the fourth
+    resolves and is executable yet cannot run, which only the failure-path probe
+    can see.
+    """
+    noexec = base / "pin" / "noexec-python"
+    noexec.parent.mkdir(exist_ok=True)
+    noexec.write_text("#!/bin/sh\nexit 0\n")
+    noexec.chmod(0o644)
+
+    fails = base / "pin" / "not-a-python"
+    fails.write_text("#!/bin/sh\nexit 3\n")
+    fails.chmod(0o755)
+
+    return {
+        "missing": (str(base / "nope" / "python3"), "(no such file)"),
+        "not-executable": (str(noexec), "(not executable)"),
+        "not-on-path": ("tj073-no-such-python", "(not on PATH)"),
+        "exec-fails": (str(fails), "(cannot execute)"),
+    }
+
+
+@pytest.mark.parametrize(
+    "case", ["missing", "not-executable", "not-on-path", "exec-fails"]
+)
+def test_broken_pin_refuses_with_the_interpreter_box(
+    wrapper: Path, tmp_path: Path, case: str
 ) -> None:
-    """Enforce mode, bridge arm: blocked, nonzero, and the pin is NAMED."""
-    pin = str(tmp_path / "nonexistent" / "python9")
+    """Firewall-on, enforce mode: the INTERPRETER box, no install.sh, no noise.
+
+    Pre-fix every one of these printed bash's own ``line 347/348`` exec noise and
+    then the *bridge-unavailable* box, sending the operator to ``./install.sh``
+    for a fault that lives in the pin.
+    """
+    pin, reason = _pin_fault_cases(tmp_path)[case]
+    marker = f"tj073-must-not-run-{case}"
     result = _run(
         wrapper,
-        ["--interruptor", "/bin/echo", "tj021-must-not-run"],
+        ["--interruptor", "/bin/echo", marker],
         _env(tmp_path, _broken_python_bin(tmp_path), TERMINAL_JAIL_PYTHON=pin),
         tmp_path,
     )
     assert result.returncode == 126, result.stderr
-    assert "interruptor-bridge-unavailable" in result.stderr
-    assert f"TERMINAL_JAIL_PYTHON={pin} (no such file)" in result.stderr, result.stderr
-    assert "tj021-must-not-run" not in result.stdout
+    assert result.stdout == "", result.stdout
+    assert marker not in result.stderr, result.stderr
+
+    assert "COMMAND BLOCKED — interpreter-unavailable" in result.stderr, result.stderr
+    assert f"TERMINAL_JAIL_PYTHON={pin} {reason}" in result.stderr, result.stderr
+    # The wrong refusal: the pin is not a missing bridge.
+    assert "interruptor-bridge-unavailable" not in result.stderr, result.stderr
+    assert "install.sh" not in result.stderr, result.stderr
+    assert "TERMINAL_JAIL_BRIDGE" not in result.stderr, result.stderr
+    # The noise this row was filed for.
+    assert not _exec_noise(result.stderr), _exec_noise(result.stderr)
+
+
+def test_broken_pin_in_warn_mode_states_it_and_runs_without_noise(
+    wrapper: Path, tmp_path: Path
+) -> None:
+    """Warn mode keeps its documented fail-open — one loud note, and the command runs.
+
+    The pin fault is still NAMED (never a silent fallback) and bash's raw exec
+    noise stays suppressed, but the run does not fail closed.
+    """
+    pin, reason = _pin_fault_cases(tmp_path)["not-executable"]
+    marker = "tj073-warn-ran"
+    result = _run(
+        wrapper,
+        ["--interruptor", "/bin/echo", marker],
+        _env(
+            tmp_path,
+            os.pathsep.join(["/usr/bin", "/bin"]),
+            TERMINAL_JAIL_PYTHON=pin,
+            TERMINAL_JAIL_INTERRUPTOR_MODE="warn",
+        ),
+        tmp_path,
+    )
+    assert result.returncode == 0, result.stderr
+    assert marker in result.stdout, result.stdout
+    assert f"TERMINAL_JAIL_PYTHON={pin} {reason}" in result.stderr, result.stderr
+    assert "warn mode" in result.stderr, result.stderr
+    assert "interpreter-unavailable" not in result.stderr, result.stderr
+    assert not _exec_noise(result.stderr), _exec_noise(result.stderr)
 
 
 def test_nonexistent_pin_fails_loudly_before_the_tier_launch(

@@ -24,6 +24,24 @@ its version-prep commit (2026-10-08) and was not reopened at the cut._
 
 ### Fixed
 
+- **A broken `TERMINAL_JAIL_PYTHON` pin refuses with `interpreter-unavailable`,
+  not `interruptor-bridge-unavailable` (`TJ-DF-073`):** the wrapper runs the
+  pin before the tier launch to JSON-escape the command and to run the bridge,
+  so an unusable pin (missing path, not executable, bare name off PATH) failed
+  at that first exec — bash printed its own raw `line 347/348: ... No such file
+  or directory` noise — and control fell into the *bridge-unavailable* handler,
+  which told the operator to run `./install.sh` or set `TERMINAL_JAIL_BRIDGE`
+  for a fault that lives in the pin, while the documented
+  `interpreter-unavailable` box was unreachable for the very fault it names.
+  The pin is now checked before the first bridge exec (`_tj_pin_preflight`) and
+  `_interruptor_evaluate` never execs a pin it knows cannot run, so the three
+  static fault classes are refused with the interpreter box (exit 126, stdout
+  empty, payload never runs) and no bash exec noise; a pin that resolves and is
+  executable but whose execution fails is detected on that failure path
+  (`(cannot execute)`) and refused the same way. Warn mode keeps its documented
+  fail-open: it names the pin and runs. Both shipped copies stay byte-identical;
+  pinned by `plugin/test_wrapper_landlock_interpreter.py` (four fault classes ×
+  both copies, the source-order gate, and the warn arm).
 - **In-jail trampolines resolve the same interpreter as the bridge
   (`RELEASE-TJ-021`):** TJ-DF-061 fixed the bridge half only — the seccomp and
   Landlock trampolines the wrapper splices still carried a literal `python3`,

@@ -623,7 +623,15 @@ class TestUnactivatedVenvBridgeInterpreter:
         )
         assert result.returncode == 126, result.stderr
         assert "COMMAND BLOCKED" in result.stderr
-        assert "interruptor-bridge-unavailable" in result.stderr
+        # TJ-DF-073: an unusable pin is refused as interpreter-unavailable — the
+        # documented refusal for it — not as a missing bridge, which sent the
+        # operator to ./install.sh for a fault install.sh cannot fix. Bash's own
+        # raw exec noise ("<script>: line 347: ... No such file") never reaches
+        # the operator either.
+        assert "interpreter-unavailable" in result.stderr, result.stderr
+        assert "interruptor-bridge-unavailable" not in result.stderr, result.stderr
+        assert "install.sh" not in result.stderr, result.stderr
+        assert ": line " not in result.stderr, result.stderr
         # No silent fallback: the command never ran, and the operator's
         # nonexistent interpreter was honored (had the entry point or the
         # wrapper replaced it with a working python, rc would be 0).

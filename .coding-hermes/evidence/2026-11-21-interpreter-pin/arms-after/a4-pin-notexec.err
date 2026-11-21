@@ -1,0 +1,13 @@
++--------------------------------------------------------------+
+|  COMMAND BLOCKED — interpreter-unavailable                    |
++--------------------------------------------------------------+
+|  TERMINAL_JAIL_PYTHON names a program that cannot be executed |
+|  here, so the command firewall and the in-jail loaders cannot |
+|  start under it.                                              |
+|                                                               |
+|  Fix: point TERMINAL_JAIL_PYTHON at an executable python, or  |
+|  unset it to keep the historical python3 resolution.          |
+|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |
++--------------------------------------------------------------+
+|  TERMINAL_JAIL_PYTHON=/mnt/ssd/tmp/tj-df-073/pin/noexec-python (not executable)
+|  Refused before the command-firewall evaluation; the command did not run.

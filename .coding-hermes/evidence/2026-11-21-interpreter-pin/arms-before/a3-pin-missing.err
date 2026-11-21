@@ -1,0 +1,14 @@
+standalone/terminal-jail: line 347: /mnt/ssd/tmp/tj-df-073/nope/python3: No such file or directory
+standalone/terminal-jail: line 348: /mnt/ssd/tmp/tj-df-073/nope/python3: No such file or directory
++--------------------------------------------------------------+
+|  COMMAND BLOCKED — interruptor-bridge-unavailable            |
++--------------------------------------------------------------+
+|  The command firewall is not available: the bridge script     |
+|  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |
+|  overrides the search).                                       |
+|                                                               |
+|  Fix: run ./install.sh from a checkout, or set                |
+|  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |
+|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |
++--------------------------------------------------------------+
+terminal-jail: TERMINAL_JAIL_PYTHON=/mnt/ssd/tmp/tj-df-073/nope/python3 (no such file) — the bridge and the in-jail loaders run under the pinned interpreter; there is no silent fallback to python3
