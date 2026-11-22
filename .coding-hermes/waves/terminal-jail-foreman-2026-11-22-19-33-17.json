@@ -1,0 +1,34 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-22-19-33-17",
+  "composed_at": "2026-11-22T14:37:00-05:00",
+  "wave_budget": 1,
+  "mode": "serial-fallback",
+  "reason": "WAVE_BUDGET=1 and the two top pending rows (PERF-004, PERF-005) are not mutually independent: both modify the interruptor verdict path (decider.py vs matcher.py) and each other's A/B measurement surfaces. Serial path with one worker.",
+  "tasks": [
+    {
+      "task_id": "PERF-005",
+      "title": "Blocklist prefilters: 20KB verdict re.search work 66/1.35MB -> <=4/60KB (3x p50)",
+      "worktree": "/home/kara/worktrees/terminal-jail-PERF-005",
+      "branch": "wt/PERF-005",
+      "base_sha": "df04d478",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm",
+      "brief": "/tmp/perf005-brief-20261122-foreman.md",
+      "worker_log": "/tmp/perf005-worker-20261122.log",
+      "dispatched_pid": 2708766,
+      "prototype_reference": "/home/kara/.hermes/cache/scratch/perf-tj-2026-11-22-11-45-40/arms/cand2/"
+    }
+  ],
+  "skipped": [
+    {
+      "task_id": "INT-CI-020-R2",
+      "priority": "P1",
+      "why": "deferred=true, parked upstream: implementation filed as CHT-187 on coding-hermes-tools; row forbids terminal-jail worker dispatch."
+    },
+    {
+      "task_id": "PERF-004",
+      "priority": "P2",
+      "why": "Same subsystem as PERF-005; measured prototype exists (cand1/decider.py) but serializing after PERF-005 avoids measurement cross-contamination. Next tick's pick."
+    }
+  ]
+}
