@@ -2926,3 +2926,12 @@ tasks:
   status: complete
   created_at: '2026-11-22T00:46:15.943717+00:00'
   completed_at: '2026-11-22T01:47:00.176874+00:00'
+- id: QA-TERMINAL-JAIL-26
+  title: Board commit path refuses status-lowering rows
+  criteria:
+  - scripts/board_status_guard.py, wired on the board commit path, exits non-zero
+    and names the row and both statuses when the committed board lowers any row status
+    relative to origin/main, and exits zero for equal or raised statuses; a pytest
+    test pins both directions.
+  status: in_progress
+  created_at: '2026-11-22T10:35:06.992906+00:00'
