@@ -25,11 +25,30 @@ Status rank (higher = further along): complete=3, blocked=2, pending=1.
     --base REF           git ref holding the baseline board (default
                          origin/main), read via ``git show REF:<board
                          path>``.
-    --install-hook       append a clearly marked block to the pre-commit
+    --install-hook       install a clearly marked block into the pre-commit
                          hook (located via ``git rev-parse --git-path
                          hooks/pre-commit``) that runs this guard only when
                          the staged diff touches the board file, refusing
                          the commit (non-zero) when the guard exits 1.
+                         Placement rules, so the block actually runs:
+                         (a) in a boardctl-chained hook -- an epilogue
+                         marked ``# board-lint epilogue (managed by
+                         boardctl install)`` or a
+                         ``boardctl_lint_existing_status=$?`` capture
+                         line preceded by a lone ``)`` -- the block is
+                         inserted INSIDE the wrapped-body subshell,
+                         before the body's terminating ``exit`` when it
+                         ends with one (otherwise that exit would strand
+                         the block, unreachable), or immediately before
+                         the closing ``)`` when the body falls off its
+                         end; a bare ``exit 1`` there only leaves the
+                         subshell and its status propagates into the
+                         capture line, so the epilogue's final ``exit``
+                         refuses the commit.
+                         (b) otherwise, when the hook's last non-blank
+                         line is a terminating ``exit``, the block goes
+                         immediately before that line. (c) any other
+                         hook gets the block appended at the end.
                          Idempotent: a re-run detects its marker and makes
                          no change. Never run this in a linked worktree
                          whose hooks live in a shared common git dir; the
@@ -53,6 +72,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -72,7 +92,11 @@ STATUS_RANK = {"complete": 3, "blocked": 2, "pending": 1}
 HOOK_MARKER = "# >>> board status-lowering guard (QA-TERMINAL-JAIL-26) >>>"
 HOOK_MARKER_END = "# <<< board status-lowering guard (QA-TERMINAL-JAIL-26) <<<"
 
-# POSIX sh; safe to append after an existing hook body. The block runs the
+# POSIX sh; safe anywhere inside an existing hook body -- install_hook picks
+# the placement (see hook_insert_line_index): before a terminating exit or,
+# in a boardctl-chained hook, as the last live statement inside the
+# wrapped-body subshell (its bare `exit 1` only leaves the subshell, and the
+# status propagates into boardctl_lint_existing_status). The block runs the
 # guard only when the staged diff touches the board file and turns a guard
 # exit 1 into a refused commit. A missing guard script is skipped (fail-open)
 # so the block can never wedge commits it cannot evaluate. The marker lines
@@ -88,6 +112,11 @@ HOOK_BLOCK = (
 # Runs ONLY when the staged diff touches the board file; the guard itself
 # is fail-open on infrastructure problems (warning + exit 0), so a missing
 # ref or an unreadable board never wedges a commit.
+# Status-transparent on the pass path: the first line captures whatever the
+# surrounding hook last ran (e.g. the boardctl-wrapped body's own guard),
+# and the last line re-emits it (nonzero stays nonzero) so a trailing
+# `exit $?` still reports the body's own result instead of this block's.
+_board_status_guard_prev_status=$?
 _board_status_guard_reject=0
 if [ -n "$(git diff --cached --name-only -- .coding-hermes/board/tasks.jsonl)" ]; then
     _board_status_guard_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -108,6 +137,7 @@ if [ "$_board_status_guard_reject" -ne 0 ]; then
     echo "board-status-guard: commit rejected (a board row status was lowered)" >&2
     exit 1
 fi
+[ "$_board_status_guard_prev_status" -eq 0 ]
 """
     + HOOK_MARKER_END
     + "\n"
@@ -270,8 +300,72 @@ def run_guard(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# boardctl chain markers (BT-054-R): the wrapped original body ends at a
+# lone ")" whose next line captures its status, followed by a marked
+# epilogue and a final exit.
+BOARDCTL_EPILOGUE_MARKER = "# board-lint epilogue (managed by boardctl install)"
+BOARDCTL_STATUS_CAPTURE = "boardctl_lint_existing_status=$?"
+# A hook line that terminates execution: `exit`, `exit 0`, `exit "$var"`.
+TERMINATING_EXIT = re.compile(r"^exit(\b|$)")
+
+
+def hook_insert_line_index(lines: list[str]) -> int | None:
+    """Line index (0-based) before which the guard block must be inserted.
+
+    First match wins; None means "no structured placement -- append at the
+    end". Rules (module docstring, --install-hook): inside a boardctl chain
+    the block goes before the wrapped body's terminating exit (or immediately
+    before the closing ")" when the body ends without one); otherwise it goes
+    before a plain hook's terminating final exit; else append.
+    """
+    # (a) boardctl chain: a signal line directly preceded by a lone ")".
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        chained = stripped.startswith(BOARDCTL_EPILOGUE_MARKER) or (
+            stripped == BOARDCTL_STATUS_CAPTURE
+        )
+        if not (chained and i > 0 and lines[i - 1].strip() == ")"):
+            continue
+        close_idx = i - 1
+        # Last non-blank statement of the wrapped body: when it is an exit,
+        # the block must go BEFORE it or that exit strands the block.
+        for j in range(close_idx - 1, -1, -1):
+            if lines[j].strip():
+                if TERMINATING_EXIT.match(lines[j].strip()):
+                    return j
+                break
+        return close_idx
+    # (b) plain hook whose last non-blank line is a terminating exit.
+    for j in range(len(lines) - 1, -1, -1):
+        if lines[j].strip():
+            if TERMINATING_EXIT.match(lines[j].strip()):
+                return j
+            break
+    # (c) append at the end.
+    return None
+
+
+def insert_guard_block(existing: str) -> str:
+    """Return ``existing`` with HOOK_BLOCK placed per hook_insert_line_index."""
+    lines = existing.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    idx = hook_insert_line_index([line.rstrip("\r\n") for line in lines])
+    if idx is None:
+        # (c) append at the end, exactly as before the placement rules.
+        return "".join(lines) + "\n" + HOOK_BLOCK.lstrip("\n")
+    lines[idx:idx] = HOOK_BLOCK.lstrip("\n").splitlines(keepends=True)
+    return "".join(lines)
+
+
 def install_hook() -> int:
-    """Append the marked guard block to the pre-commit hook (idempotent)."""
+    """Install the marked guard block into the pre-commit hook (idempotent).
+
+    The block is placed where it actually runs -- inside a boardctl chain's
+    wrapped-body subshell (before the body's terminating exit, else before
+    the closing ")"), before a plain hook's terminating final exit, or
+    appended at the end otherwise (hook_insert_line_index).
+    """
     proc = run_git(["rev-parse", "--git-path", "hooks/pre-commit"], cwd=None)
     if proc.returncode != 0:
         print(
@@ -292,10 +386,7 @@ def install_hook() -> int:
         return EXIT_OK
 
     if existing:
-        content = existing
-        if not content.endswith("\n"):
-            content += "\n"
-        content += "\n" + HOOK_BLOCK.lstrip("\n")
+        content = insert_guard_block(existing)
     else:
         content = "#!/bin/sh\n\n" + HOOK_BLOCK.lstrip("\n")
     hook.parent.mkdir(parents=True, exist_ok=True)

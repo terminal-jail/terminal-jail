@@ -14,7 +14,11 @@ built in tmp_path:
   a commit;
 - --install-hook is idempotent (two runs leave exactly one guard block,
   the hook stays executable) and the installed hook refuses a lowering
-  commit while allowing a raising one, inside its tmp repo.
+  commit while allowing a raising one, inside its tmp repo;
+- the block is PLACED where it actually runs: before a hook's terminating
+  final `exit`, and inside a boardctl-chained hook's wrapped-body subshell
+  (before the body's own terminating exit / the closing `)`) -- appended
+  after either exit the block would be unreachable dead code.
 
 Tests never touch the real board or the real hook: the canonical checkout's
 hooks live in a shared common git dir, so the hook wiring is exercised only
@@ -306,3 +310,221 @@ def test_installed_hook_refuses_lowering_allows_raising(tmp_path: Path) -> None:
     )
     assert allowed.returncode == 0, allowed.stdout + allowed.stderr
     assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "2"
+
+
+# -- --install-hook placement ----------------------------------------
+#
+# The real canonical hook is boardctl-chained (BT-054-R): the original body
+# runs inside a subshell `( ... )` whose LAST statement is an explicit
+# `exit $?`, followed by a status capture line, a marked epilogue, and a
+# final exit. A guard block appended at the end of the file — or inserted
+# after any of those exits — is unreachable dead code, so a lowering commit
+# would sail through. These tests pin the placement for both shapes.
+
+
+def write_hook(repo: Path, body: str) -> Path:
+    """Install `body` as the repo's pre-commit hook (executable)."""
+    hook = hook_path(repo)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text(body, encoding="utf-8")
+    hook.chmod(0o755)
+    return hook
+
+
+def try_commit(repo: Path, message: str) -> subprocess.CompletedProcess[str]:
+    """git add -A + commit WITHOUT check, so hook refusals are observable."""
+    git(repo, "add", "-A")
+    return git(repo, *commit_author_args(), "commit", "-q", "-m", message, check=False)
+
+
+LEGACY_EXIT_HOOK = """#!/bin/sh
+# legacy body: a plain hook that terminates with an explicit exit.
+echo "legacy hook body ran"
+exit 0
+"""
+
+# Faithful miniature of the boardctl chain shape, including the wrapped
+# body's own terminating `exit $?` (the real canonical hook ends the
+# subshell exactly this way).
+BOARDCTL_CHAIN_HOOK = """#!/bin/sh
+# boardctl-chained hook: original body wrapped in a subshell, then epilogue.
+(
+    echo "wrapped original body ran"
+    exit $?
+)
+boardctl_lint_existing_status=$?
+# board-lint epilogue (managed by boardctl install): both statuses honored.
+if [ "$boardctl_lint_existing_status" -ne 0 ]; then
+    exit "$boardctl_lint_existing_status"
+fi
+exit 0
+"""
+
+
+def test_installed_hook_runs_before_terminating_exit(tmp_path: Path) -> None:
+    repo = init_repo(
+        tmp_path,
+        [
+            {"id": "QA-T-DONE", "status": "complete"},
+            {"id": "QA-T-OPEN", "status": "pending"},
+        ],
+    )
+    install_script_copy(repo)
+    hook = write_hook(repo, LEGACY_EXIT_HOOK)
+
+    assert run_install(repo).returncode == 0
+    content = hook.read_text(encoding="utf-8")
+    assert content.count(HOOK_MARKER) == 1
+    # The block must precede the terminating exit, not dangle after it.
+    assert content.index(HOOK_MARKER) < content.index("\nexit 0\n")
+
+    # Lowering commit: the hook runs the guard BEFORE its own exit, and the
+    # guard's exit 1 refuses the commit.
+    write_board(
+        repo,
+        [
+            {"id": "QA-T-DONE", "status": "pending"},
+            {"id": "QA-T-OPEN", "status": "pending"},
+        ],
+    )
+    refused = try_commit(repo, "reopen")
+    combined = refused.stdout + refused.stderr
+    assert refused.returncode != 0, combined
+    assert "QA-T-DONE" in combined
+    assert "status lowered complete -> pending" in combined
+    # The legacy body still ran, ahead of the guard block.
+    assert "legacy hook body ran" in combined
+    assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "1"
+
+    # Raising commit: the guard passes and the hook's own exit 0 wins.
+    write_board(
+        repo,
+        [
+            {"id": "QA-T-DONE", "status": "complete"},
+            {"id": "QA-T-OPEN", "status": "blocked"},
+        ],
+    )
+    allowed = try_commit(repo, "raise open row")
+    assert allowed.returncode == 0, allowed.stdout + allowed.stderr
+    assert "legacy hook body ran" in allowed.stdout + allowed.stderr
+    assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "2"
+
+
+def test_installed_hook_runs_inside_boardctl_chain_subshell(tmp_path: Path) -> None:
+    repo = init_repo(
+        tmp_path,
+        [
+            {"id": "QA-T-DONE", "status": "complete"},
+            {"id": "QA-T-OPEN", "status": "pending"},
+        ],
+    )
+    install_script_copy(repo)
+    hook = write_hook(repo, BOARDCTL_CHAIN_HOOK)
+
+    assert run_install(repo).returncode == 0
+    content = hook.read_text(encoding="utf-8")
+    assert content.count(HOOK_MARKER) == 1
+    # The block sits INSIDE the subshell: before the closing ')', before the
+    # status capture line and epilogue -- and before the wrapped body's own
+    # terminating `exit $?`, which would otherwise strand it (dead code).
+    marker_at = content.index(HOOK_MARKER)
+    paren_at = content.index("\n)")
+    capture_at = content.index("boardctl_lint_existing_status=$?")
+    assert marker_at < paren_at < capture_at
+    assert marker_at < content.index("\n    exit $?")
+
+    # Lowering: the guard runs inside the subshell; its exit 1 only leaves
+    # the subshell, propagates into boardctl_lint_existing_status, and the
+    # epilogue's final exit refuses the commit.
+    write_board(
+        repo,
+        [
+            {"id": "QA-T-DONE", "status": "pending"},
+            {"id": "QA-T-OPEN", "status": "pending"},
+        ],
+    )
+    refused = try_commit(repo, "reopen")
+    combined = refused.stdout + refused.stderr
+    assert refused.returncode != 0, combined
+    assert "QA-T-DONE" in combined
+    assert "status lowered complete -> pending" in combined
+    assert "wrapped original body ran" in combined
+    assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "1"
+
+    # Raising: guard passes, the wrapped body's own exit 0 stands.
+    write_board(
+        repo,
+        [
+            {"id": "QA-T-DONE", "status": "complete"},
+            {"id": "QA-T-OPEN", "status": "blocked"},
+        ],
+    )
+    allowed = try_commit(repo, "raise open row")
+    assert allowed.returncode == 0, allowed.stdout + allowed.stderr
+    assert "wrapped original body ran" in allowed.stdout + allowed.stderr
+    assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "2"
+
+
+def test_install_hook_idempotent_on_both_hook_shapes(tmp_path: Path) -> None:
+    for name, body in (
+        ("legacy-exit", LEGACY_EXIT_HOOK),
+        ("boardctl-chain", BOARDCTL_CHAIN_HOOK),
+    ):
+        root = tmp_path / name
+        root.mkdir()
+        repo = init_repo(root, [{"id": "QA-T-DONE", "status": "complete"}])
+        install_script_copy(repo)
+        hook = write_hook(repo, body)
+
+        assert run_install(repo).returncode == 0
+        first = hook.read_text(encoding="utf-8")
+        assert first.count(HOOK_MARKER) == 1
+
+        assert run_install(repo).returncode == 0
+        second = hook.read_text(encoding="utf-8")
+        assert second == first
+        assert second.count(HOOK_MARKER) == 1
+
+
+def test_chain_hook_keeps_wrapped_body_failure(tmp_path: Path) -> None:
+    """Insertion must not mask the wrapped body's own failure.
+
+    The real chained hook ends its subshell with `exit $?`. A block that
+    passes but leaves $? = 0 would turn a failing gitreins guard into an
+    allowed commit, so the block re-emits the captured status on its pass
+    path: nonzero stays nonzero, and the epilogue still refuses.
+    """
+    repo = init_repo(tmp_path, [{"id": "QA-T-DONE", "status": "complete"}])
+    install_script_copy(repo)
+    body = """#!/bin/sh
+(
+    echo "wrapped body failing on purpose"
+    false
+    exit $?
+)
+boardctl_lint_existing_status=$?
+# board-lint epilogue (managed by boardctl install).
+if [ "$boardctl_lint_existing_status" -ne 0 ]; then
+    exit "$boardctl_lint_existing_status"
+fi
+exit 0
+"""
+    hook = write_hook(repo, body)
+    assert run_install(repo).returncode == 0
+    assert hook.read_text(encoding="utf-8").count(HOOK_MARKER) == 1
+
+    # The BOARD side is clean (new row only, no lowering): the guard passes,
+    # so any refusal must come from the wrapped body's own `exit $?`.
+    write_board(
+        repo,
+        [
+            {"id": "QA-T-DONE", "status": "complete"},
+            {"id": "QA-T-NEW", "status": "pending"},
+        ],
+    )
+    refused = try_commit(repo, "new row, body fails")
+    combined = refused.stdout + refused.stderr
+    assert refused.returncode != 0, combined
+    assert "wrapped body failing on purpose" in combined
+    assert "0 lowering violation" in combined
+    assert git(repo, "rev-list", "--count", "HEAD").stdout.strip() == "1"
