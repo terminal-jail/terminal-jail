@@ -1,0 +1,19 @@
+{
+  "wave_id": "terminal-jail-foreman-2026-11-22-00-36-55",
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-22-00-36-55",
+  "wave_budget": 1,
+  "composed": "2026-11-22T00:47Z",
+  "workers": [
+    {
+      "task_id": "QA-TERMINAL-JAIL-20-R2",
+      "priority": "P1",
+      "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-20-R2",
+      "branch": "wt/QA-TERMINAL-JAIL-20-R2",
+      "base_sha": "e0681d5a",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "status": "dispatched"
+    }
+  ],
+  "notes": "Single-worker serial wave (budget 1; only one in-repo code row was dispatchable this tick — the other pending rows route to qa/releng/owner-gated owners). Dispatch row recorded in board commit efbedc62; GitReins task created + started in the canonical checkout."
+}
