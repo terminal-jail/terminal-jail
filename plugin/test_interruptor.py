@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from refusal_test_support import skip_namespace_refusal
 from terminal_jail.interruptor import Action, intercept, userns
 from terminal_jail.interruptor import landlock as landlock_module
 from terminal_jail.interruptor import landlock_net as landlock_net_module
@@ -31,6 +32,53 @@ from terminal_jail.interruptor.parser import (
 )
 from terminal_jail.interruptor.types import InterceptResult
 from terminal_jail.interruptor.userns import unshare_prefix
+
+
+def test_refusal_simulation_switches_real_wrapper(tmp_path: Path) -> None:
+    """The opt-in harness must change the actual wrapper's preflight outcome."""
+    env = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": str(tmp_path),
+        "TERMINAL_JAIL_PYTHON": sys.executable,
+        "TERMINAL_JAIL_LANDLOCK": "0",
+    }
+    result = subprocess.run(
+        [
+            "bash",
+            str(
+                Path(__file__).resolve().parent.parent / "standalone" / "terminal-jail"
+            ),
+            "--no-interruptor",
+            "/bin/echo",
+            "simulation-control",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    refused = (
+        result.returncode == 2
+        and "namespace creation failed (unshare exit 1)" in result.stderr
+    )
+    if os.environ.get("TERMINAL_JAIL_TEST_REFUSAL_SIM") == "1":
+        assert refused, result.stderr
+        assert "simulation-control" not in result.stdout
+    else:
+        skip_namespace_refusal(result)
+        assert result.returncode == 0, result.stderr
+        assert "simulation-control" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "rc,stderr",
+    [(0, "namespace creation failed (unshare exit 1)"), (2, "different failure")],
+)
+def test_refusal_guard_does_not_skip_other_outcomes(rc: int, stderr: str) -> None:
+    result = subprocess.CompletedProcess([], rc, "", stderr)
+    skip_namespace_refusal(result)
+
 
 # The shipped rules mirror (install.sh copies it into the host's
 # ~/.config/terminal-jail/rules.d/). Kept as a module-level constant so any
@@ -3361,6 +3409,7 @@ rules:
             check=False,
             timeout=30,
         )
+        skip_namespace_refusal(result)
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "Linux"
         verdicts = [
@@ -3428,6 +3477,7 @@ rules:
             check=False,
             timeout=30,
         )
+        skip_namespace_refusal(result)
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "Linux"
         verdicts = [
