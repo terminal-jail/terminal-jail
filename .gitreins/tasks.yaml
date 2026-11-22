@@ -2933,8 +2933,9 @@ tasks:
     and names the row and both statuses when the committed board lowers any row status
     relative to origin/main, and exits zero for equal or raised statuses; a pytest
     test pins both directions.
-  status: in_progress
+  status: complete
   created_at: '2026-11-22T10:35:06.992906+00:00'
+  completed_at: '2026-11-22T11:22:27.331806+00:00'
 - id: OPS-TJ-001
   title: Host login env + /usr/local retirement verified live
   criteria:
