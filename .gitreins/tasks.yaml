@@ -2923,5 +2923,6 @@ tasks:
     0 failed when the suite runs against a simulated namespace-refusal host (env-gated
     harness), with each of the 20 previously-red tests skipped under that mode and
     still asserting rc==0/payload execution when the simulation is off
-  status: in_progress
+  status: complete
   created_at: '2026-11-22T00:46:15.943717+00:00'
+  completed_at: '2026-11-22T01:47:00.176874+00:00'
