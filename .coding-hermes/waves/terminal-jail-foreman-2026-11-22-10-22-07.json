@@ -1,0 +1,30 @@
+{
+  "tick": "terminal-jail-foreman-2026-11-22-10-22-07",
+  "tick_number": 476,
+  "tick_type": "serial-single-worker-wave",
+  "wave": {
+    "status": "dispatching",
+    "budget": 7,
+    "wave_size": 1,
+    "eligible_independent": 1,
+    "reason": "Only one repository-owned implementation row is dispatchable at this tip: QA-TERMINAL-JAIL-26 arm 2 (board status-lowering guard). The 11-21 15:00 tick's classification of QA-26 as fleet_process/off-repo was over-broad: its admission test is runnable entirely inside this checkout (guard script + hook block + pytest). OPS-TJ-001 is verification-only (docs already carry the retirement + env PATH= corrections) and closes in the same tick without a worker. All other pending rows keep their named off-repo owners (external writer / QA-harness / bunker ops / owner release gate)."
+  },
+  "workers": [
+    {
+      "row": "QA-TERMINAL-JAIL-26",
+      "scope": "arm 2 only (arms 1 and 3 verified foreman-side this tick)",
+      "worktree": "/home/kara/worktrees/terminal-jail-QA-TERMINAL-JAIL-26",
+      "branch": "wt/QA-TERMINAL-JAIL-26",
+      "base": "origin/main",
+      "base_sha": "7bb6f9f7",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/tmp/tj-brief-qa26-tick20261122.txt"
+    }
+  ],
+  "foreman_direct": [
+    "OPS-TJ-001 verification closeout (arm 1 live login-shell probe; arms 2-3 doc inspection vs current /usr/local bytes)",
+    "INT-CI-020-R2 implementation task filed on the coding-hermes-tools board (CHT family)",
+    "board routing notes/deferrals for upstream-owned rows"
+  ]
+}
