@@ -49,6 +49,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from refusal_test_support import skip_namespace_refusal
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = PROJECT_ROOT / "plugin" / "terminal_jail"
@@ -127,7 +128,7 @@ def _env(base: Path, path: str, **extra: str) -> dict[str, str]:
 
 
 def _run(wrapper: Path, args: list[str], env: dict[str, str], base: Path):
-    return subprocess.run(
+    result = subprocess.run(
         [_bash(), str(wrapper), *args],
         cwd=str(base),
         env=env,
@@ -136,6 +137,8 @@ def _run(wrapper: Path, args: list[str], env: dict[str, str], base: Path):
         check=False,
         timeout=120,
     )
+    skip_namespace_refusal(result)
+    return result
 
 
 def _verdicts(stderr: str) -> list[dict]:

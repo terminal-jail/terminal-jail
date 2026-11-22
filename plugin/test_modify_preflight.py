@@ -46,6 +46,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from refusal_test_support import skip_namespace_refusal
 from terminal_jail.interruptor import landlock as ll
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -598,6 +599,7 @@ def test_tier_on_unreachable_payload_interpreter_is_named(tmp_path: Path) -> Non
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    skip_namespace_refusal(result)
     assert result.returncode == 2, result.stderr
     assert "PAYLOAD-RAN" not in result.stdout, result.stdout
     verdicts = [
@@ -645,6 +647,7 @@ def test_tier_on_pinned_interpreter_runs_the_payload(tmp_path: Path) -> None:
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    skip_namespace_refusal(result)
     assert result.returncode == 0, result.stderr
     assert "PAYLOAD-RAN" in result.stdout, result.stdout
     assert "auto-sandbox modify unavailable" not in result.stderr, result.stderr
