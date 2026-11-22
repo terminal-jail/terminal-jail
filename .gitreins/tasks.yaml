@@ -2890,29 +2890,38 @@ tasks:
   - Acceptance criteria in board row TJ-DF-073 are all proven in the working tree
     with command output
   status: complete
-  completed_at: '2026-11-21T14:52:00.160909'
   created_at: '2026-11-21T13:36:43.868924+00:00'
+  completed_at: '2026-11-21T14:52:00.160909'
 - id: TJ-DF-074
   title: docker probe distrusts impossible DOCKER_HOST endpoint
   criteria:
   - Acceptance criteria in board row TJ-DF-074 are all proven in the working tree
     with command output
   status: complete
-  completed_at: '2026-11-21T14:46:40.103822'
   created_at: '2026-11-21T13:36:44.946485+00:00'
+  completed_at: '2026-11-21T14:46:40.103822'
 - id: DOC-4-R2
   title: README documents four omitted env vars
   criteria:
   - Acceptance criteria in board row DOC-4-R2 are all proven in the working tree with
     command output
   status: complete
-  completed_at: '2026-11-21T14:32:50.413169'
   created_at: '2026-11-21T13:36:46.069098+00:00'
+  completed_at: '2026-11-21T14:32:50.413169'
 - id: RELEASE-TJ-029
   title: docs record pip-audit as sole CVE channel
   criteria:
   - Acceptance criteria in board row RELEASE-TJ-029 are all proven in the working
     tree with command output
   status: complete
-  completed_at: '2026-11-21T14:40:05.025866'
   created_at: '2026-11-21T13:36:47.276142+00:00'
+  completed_at: '2026-11-21T14:40:05.025866'
+- id: QA-TERMINAL-JAIL-20-R2
+  title: suite green on namespace-refusal hosts
+  criteria:
+  - A full pytest run (plugin/ tests/ -q -m 'not integration', NO -x) exits 0 with
+    0 failed when the suite runs against a simulated namespace-refusal host (env-gated
+    harness), with each of the 20 previously-red tests skipped under that mode and
+    still asserting rc==0/payload execution when the simulation is off
+  status: in_progress
+  created_at: '2026-11-22T00:46:15.943717+00:00'
