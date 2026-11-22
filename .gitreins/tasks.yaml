@@ -2947,3 +2947,15 @@ tasks:
     env PATH=... scoping instead of exporting PATH into ~/.profile'
   status: in_progress
   created_at: '2026-11-22T10:44:03.037434+00:00'
+- id: TJ-REVIEW-076
+  title: '[P1] LANDLOCK_NET=1 modify path kills wrapped python3 at interpreter startup
+    (EACCES on baked stdlib prefix) while the same launch off the tier runs to ECONNREFUSED'
+  criteria:
+  - 'On this host with TERMINAL_JAIL_LANDLOCK_NET=1 and TERMINAL_JAIL_PYTHON unset,
+    the auto-sandbox modify path (verdict action=modify, rule auto-script) runs ./standalone/terminal-jail
+    /usr/bin/python3 <connect-probe> to payload completion: the probe prints its connect()
+    errno (EACCES-class kernel denial) and the run contains NO ''Failed to import
+    encodings'' PermissionError; and the new regression test covering both the modify
+    and exec-path arms with a baked-prefix interpreter passes in the repo test suite'
+  status: in_progress
+  created_at: '2026-11-22T23:53:04.817522+00:00'
