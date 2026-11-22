@@ -86,7 +86,13 @@ def unsupported_match_type(match: dict[str, Any] | None) -> str | None:
 #   (even the bare ``socket\s*\(\s*\(`` form, i.e.
 #   ``from socket import socket``). The HTTP-upload rule: every alternative
 #   of its first lookahead contains one of "urlopen" / "requests" /
-#   "httpx" / "urllib" / ".request(". The fork-bomb pattern matches the
+#   "httpx" / "http" (the ``http\s*\.\s*client\s*\`` branch) / "urllib" /
+#   ".request" (the ``\.\s*request\s*\(`` branch — no closing paren in the
+#   needle, because ``request\s*\(`` permits whitespace before the paren;
+#   the previous ".request(" needle and the missing "http" needle were
+#   UNSOUND: spaced ``.request (`` calls and any ``http.client.`` shape
+#   were silently skipped while the regex matched — proven and fixed in
+#   PERF-005). The fork-bomb pattern matches the
 #   backreference form ``name | name &`` — the literal "|" is unavoidable
 #   in any match.
 # - A rule pattern with NO entry here is ALWAYS evaluated. New rules are
@@ -110,10 +116,217 @@ _PATTERN_PREFILTERS: dict[str, tuple[str, ...]] = {
         "urlopen",
         "requests",
         "httpx",
+        "http",
         "urllib",
-        ".request(",
+        ".request",
     ),
 }
+
+
+# PERF-005: required-substring prefilters for the remaining 32 full-payload
+# blocklist rules. Same soundness contract as the dict above (TJ-DF-024):
+# every alternation branch of each pattern requires at least one listed
+# literal, so their absence proves the pattern cannot match and the
+# re.search evaluation is skipped. Needle soundness for every entry here —
+# and for the dict above — is enforced by plugin/test_perf005_prefilters.py,
+# which (a) re-derives every branch's guaranteed literal runs straight from
+# the pattern's parse tree and asserts each path is covered, and (b) asserts
+# over a verdict corpus that a regex match always implies a needle is
+# present. Branch provenance per needle (the alternation branch or repeated
+# lead that guarantees it):
+# - kill-all: lead ``kill\s+``.
+# - killpg-pid1: ``(os\.killpg|killpg)`` / ``os\.kill`` / ``process\.kill`` /
+#   ``kill\(`` — the bare ``kill`` needle also covers the spaced
+#   ``kill\s*\(`` branch (``kill(`` would NOT: whitespace may separate).
+# - rm-rf-root / var-indirection / self-rewrite: lead ``rm`` /
+#   ``rm`` / the unavoidable ``terminal-jail/`` path literal.
+# - dd-root: ``of=/dev/`` (tail literal; strictly more selective than the
+#   lead ``dd``, equally required).
+# - mkfs / fdisk / chmod / echo-to-system / curl-pipe-shell / sudo /
+#   indirect-shell / vm-delete / device-write / ns-escape / persistence /
+#   script-killall / interpreter-escape: the disjunction member each needle
+#   names (``/etc/``, ``/boot/`` cover all redirect variants of their
+#   branches; ``subprocess.`` covers all five ``subprocess.*`` calls).
+# - code-injection: ``os.system`` / ``os.popen`` / ``shutil.rmtree`` /
+#   ``subprocess.`` / ``eval`` / ``exec`` / ``__import__`` — the bare
+#   ``eval``/``exec`` needles are required because ``\s*\(`` allows a
+#   spaced ``eval (`` call (an ``eval(`` needle would miss it).
+# - net-* rules: the leading tool literal every branch names (``nc`` also
+#   covers ``ncat``/``netcat`` shapes; ``socat``/``/dev/`` cover their
+#   branches); ``/dev/tcp`` / ``/dev/udp`` are contiguous in every match of
+#   ``/dev/(?:tcp|udp)/``.
+_PATTERN_PREFILTERS.update(
+    {
+        # builtin-kill-all
+        "(?<![A-Za-z0-9])kill\\s+(?:-s\\s+\\S+\\s+|-n\\s+\\S+\\s+|--\\s+|-(?!l)\\S+\\s+|\\d+\\s+)+(?<!-s\\s)(?<!-n\\s)(?<!\\S)-1(?:\\s|;|\\||&|\\)|`|$|[\\\"'])": (
+            "kill",
+        ),
+        # builtin-killpg-pid1
+        "(os\\.killpg|killpg)\\s*\\(\\s*[01]\\s*,|os\\.kill\\s*\\(\\s*[01]\\s*,|process\\.kill\\s*\\(\\s*-?[01]\\s*,|kill\\(-?[01],|kill\\s*\\(\\s*[01]\\s*,\\s*(9|SIGKILL)": (
+            "killpg",
+            "os.kill",
+            "process.kill",
+            "kill",
+        ),
+        # builtin-rm-rf-root
+        "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$|[\\\"')`])": (
+            "rm",
+        ),
+        # builtin-dd-root
+        "dd\\s+.*of=/dev/": ("of=/dev/",),
+        # builtin-mkfs
+        "mkfs(?:\\.|\\s+\\.)": ("mkfs",),
+        # builtin-fdisk
+        "fdisk|parted|gdisk": (
+            "fdisk",
+            "parted",
+            "gdisk",
+        ),
+        # builtin-chmod-777-root
+        "\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|777|a\\+rwx)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)?[^|;&]*\\s+/": (
+            "chmod",
+        ),
+        # builtin-echo-to-system
+        ">\\s*/etc/|>>\\s*/etc/|>\\s*/boot/|>>\\s*/boot/": (
+            "/etc/",
+            "/boot/",
+        ),
+        # builtin-curl-pipe-shell
+        "(curl|wget)\\b.*\\|\\s*(bash|sh|dash|zsh)": (
+            "curl",
+            "wget",
+        ),
+        # builtin-sudo
+        "\\b(?:sudo|doas|pkexec|su)\\s": (
+            "sudo",
+            "doas",
+            "pkexec",
+            "su",
+        ),
+        # builtin-code-injection
+        "\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\(": (
+            "os.system",
+            "os.popen",
+            "shutil.rmtree",
+            "subprocess.",
+            "eval",
+            "exec",
+            "__import__",
+        ),
+        # builtin-indirect-shell
+        "\\bbase64\\s+[^|;]*\\|\\s*(bash|sh|dash|zsh|ksh)\\b|\\b(printf|echo)\\b[^|;]*\\\\x[0-9a-f]{2}[^|;]*\\|\\s*(bash|sh|dash|zsh|ksh)\\b": (
+            "base64",
+            "printf",
+            "echo",
+        ),
+        # builtin-vm-delete
+        "\\bfind\\s[^|;&]*\\s-(?:delete|exec|execdir|ok)\\b": ("find",),
+        # builtin-device-write
+        "\\b(?:shred|wipefs|blkdiscard)\\b[^|;&]*\\s/dev/|>\\s*/dev/(?:sd[a-z]|nvme\\d|hd[a-z]|vd[a-z]|mmcblk\\d)": (
+            "shred",
+            "wipefs",
+            "blkdiscard",
+            "/dev/",
+        ),
+        # builtin-ns-escape
+        "\\bnsenter\\s[^|;&]*-t\\s|\\bchroot\\s|\\bsetpriv\\s[^|;&]*--(?:reuid|setuid|clear-groups)\\b|\\bunshare\\s[^|;&]*-r\\b": (
+            "nsenter",
+            "chroot",
+            "setpriv",
+            "unshare",
+        ),
+        # builtin-persistence
+        "\\bcrontab\\s+(?:-(?:\\s|$)|-l?\\s*<|-[a-z]*\\s*/etc/)|/etc/cron\\.(?:d|daily|hourly)/|/etc/rc\\.local\\b|/etc/systemd/system/[^|;&]*\\.(?:service|timer)\\b": (
+            "crontab",
+            "/etc/cron",
+            "/etc/rc.local",
+            "/etc/systemd/system",
+        ),
+        # builtin-script-killall
+        "\\b(?:killall|pkill)\\s+(?:-[a-zA-Z]*9[a-zA-Z]*\\s|--signal\\s*(?:SIGKILL|9)\\s|--kill\\s)": (
+            "killall",
+            "pkill",
+        ),
+        # builtin-interpreter-escape
+        "\\bperl\\b[^|;&]*\\bunlink\\b|\\bperl\\b[^|;&]*\\brmtree\\b|FileUtils\\.rm_rf\\(|\\brmSync\\s*\\(|child_process\\.(?:exec|execSync)\\s*\\([^)]*(?:kill|rm)\\b|os\\.fork\\s*\\(\\s*\\)\\s*(?:while|for)|while\\s+[^;\\n]*:\\s*os\\.fork\\s*\\(": (
+            "perl",
+            "unlink",
+            "rmtree",
+            "rm_rf",
+            "rmsync",
+            "child_process",
+            "os.fork",
+        ),
+        # builtin-self-rewrite
+        "\\brm\\s+[^|;&]*terminal-jail/(?:rules|00-builtins)|\\bmv\\s+[^|;&]*\\s[^|;&]*terminal-jail/rules|\\bcat\\s+[^|;&]*>\\s*/etc/terminal-jail/|>\\s*~/.config/terminal-jail/rules": (
+            "terminal-jail",
+        ),
+        # builtin-var-indirection
+        "\\b[A-Za-z_]\\w*=/\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)|\\b[A-Za-z_]\\w*=/\\*\\s*;\\s*rm\\s+(?=[^|;&]*-[a-zA-Z]*r)": (
+            "rm",
+        ),
+        # builtin-net-devtcp-redirect
+        "(?:&>|>&|>>|<>|<<|>|<)\\s*/dev/(?:tcp|udp)/\\S": (
+            "/dev/tcp",
+            "/dev/udp",
+        ),
+        # builtin-net-mkfifo-reverse-shell
+        "\\bmkfifo\\b(?=[\\s\\S]*(?<![\\w/.-])(?:/bin/|/usr/bin/)?(?:sh|bash|dash|ksh)\\b)(?=[\\s\\S]*\\|\\s*(?:nc|ncat|netcat|socat)\\b)": (
+            "mkfifo",
+        ),
+        # builtin-net-nc-shell-attach
+        "(?<![\\w.-])(?:nc|ncat|netcat)\\s[^|;&]*(?<![\\w-])(?:--exec|--sh-exec|-e)\\b|(?<![\\w.-])(?:nc|ncat|netcat)\\s[^|;&]*(?<![\\w-])-c\\s+(?:/bin/|/usr/bin/)?(?:sh|bash|dash|zsh|ksh)\\b|(?<![\\w.-])(?:nc|ncat|netcat)\\b[^|;&]*\\|\\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b|(?<![\\w/.-])(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b(?:\\s+(?:-\\S+|\\d?>&?\\d+))*\\s*\\|\\s*(?:nc|ncat|netcat)\\s+(?:-\\S+\\s+)*\\S+\\s+(?:\\d+|\\$\\S+)": (
+            "nc",
+            "ncat",
+            "netcat",
+        ),
+        # builtin-net-socat-exec
+        "(?<![\\w.-])socat\\s+(?=[^|;&]*(?<![\\w-])(?:exec|system):)(?=[^|;&]*(?<![\\w-])(?:tcp|udp|sctp|openssl)(?:4|6)?(?:-listen|-connect|-recvfrom|-sendto)?:)": (
+            "socat",
+        ),
+        # builtin-net-openssl-pipe-shell
+        "(?<![\\w.-])openssl\\s+s_client\\b[^|;&]*\\|\\s*(?:/bin/|/usr/bin/)?(?:bash|sh|dash|zsh|ksh)\\b": (
+            "openssl",
+        ),
+        # builtin-net-file-exfil-pipe
+        "(?<![\\w.-])(?:cat|dd|tar|gzip|base64|xxd|od|strings)\\s+[^\\s|;&](?:(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*\\|&?){0,3}(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s": (
+            "nc",
+            "ncat",
+            "netcat",
+            "socat",
+        ),
+        # builtin-net-file-exfil-redirect
+        "(?<![\\w.-])(?:nc|ncat|netcat|socat)\\s[^|;&]*(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))\\S": (
+            "nc",
+            "ncat",
+            "netcat",
+            "socat",
+        ),
+        # builtin-net-curl-upload
+        "(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?:(?<![\\w-])-[A-Za-z]*T\\b|--upload-file\\b)|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?--data(?:-binary|-raw|-urlencode|-ascii)?[= ]@\\S+|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?<![\\w-])-[A-Za-z]*d\\b\\s*@\\S+|(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?--data-urlencode\\s+[^\\s@|=]+@\\S+": (
+            "curl",
+        ),
+        # builtin-net-wget-post-file
+        "(?<![\\w.-])wget\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?<![\\w-])--(?:post-file|body-file)[= ]\\S+": (
+            "wget",
+        ),
+        # builtin-net-curl-form-upload
+        "(?<![\\w.-])curl\\b(?:[^|;&]|'[^']*'|\\\"[^\\\"]*\\\")*?(?:(?-i:-[A-Za-z]*F\\b)|--form)(?![-\\w])(?:=|\\s+)?[^|;&\\s]*=(?:@|<)\\S+": (
+            "curl",
+        ),
+        # builtin-net-remote-tree-copy
+        "(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*(?<![\\w/~])(?:/{1,2})(?![\\w/])[^|;&]*\\s[^\\s|;&]+:|(?<![\\w.-])(?:rsync|scp)\\b[^|;&]*\\s[^=\\s|;&]*(?:~(?![\\w./+-])|~/(?![\\w.])|/~?\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w./+-=])\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w])/?(?:id_rsa|id_ed25519|known_hosts|credentials)(?![\\w-]))[^|;&]*\\s(?:\\[[^\\]\\s|;&]+\\]|[^\\s/|;&]+):": (
+            "rsync",
+            "scp",
+        ),
+        # builtin-net-file-exfil-ssh
+        "(?<![\\w.-])(?:cat|dd|tar|gzip|base64|xxd|od|strings)\\s+[^\\s|;&](?:(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*\\|&?){0,3}(?:(?!&&)[^|;&]|(?<=\\d)>&?\\d)*(?<![\\w.-])(?:/usr/bin/|/usr/sbin/|/bin/)?(?:ssh|scp|sftp)\\s|(?<![\\w.-])(?:/usr/bin/|/usr/sbin/|/bin/)?(?:ssh|scp|sftp)\\s(?:(?:[^|;&\\x22']|'[^']*'|\\x22[^\\x22]*\\x22)*?)(?<!<)<(?!<|&)\\s*(?!/dev/(?:null|stdin)(?![\\w.-]))[^|;&]*(?:~(?![\\w./+-])|~/(?![\\w.])|/~?\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w./+-=])\\.(?:ssh|gnupg|aws|config|env)(?![\\w-])|(?<![\\w])/?(?:id_rsa|id_ed25519|known_hosts|credentials)(?![\\w-]))": (
+            "ssh",
+            "scp",
+            "sftp",
+        ),
+    }
+)
 
 
 def _normalize_quoted(text: str) -> str:
