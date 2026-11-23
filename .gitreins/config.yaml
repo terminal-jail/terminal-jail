@@ -28,6 +28,13 @@ guards:
   # plus `gitreins guard --full` still grade the whole tree on every push.
   allow_skips: true
 evaluator:
+  command_timeout: 300  # INT-CI-027 remedy armed (2026-11-22): the 30s hardcoded
+                        # run_command bound group-killed slow gate suites and the
+                        # tier-2 judge retried zero-byte logs forever. Fix landed
+                        # gitreins 777cad84; 300 covers the .venv pytest suite legs
+                        # (wt/PERF-005 precedent used 180; measured suite runs 511s+
+                        # under load are covered by test_timeout 900, not this per-
+                        # command bound).
   max_iterations: 600  # tick 2026-11-17-11-52: 300 exhausted on TJ-REVIEW-074-R2 (single multi-clause criterion,
                        # live landlock repro + red-first + gates) -> INCOMPLETE by cap with the criterion already
                        # graded PASS. 600 leaves room for one multi-clause row without hitting the wall.
