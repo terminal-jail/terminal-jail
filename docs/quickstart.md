@@ -20,7 +20,7 @@ specific property, and no single layer is a complete security boundary (see
 | Contain a single command in a PID namespace, manually | **Standalone CLI** (`standalone/terminal-jail`) | `terminal-jail echo "in jail"` — the command name and its arguments follow the wrapper, e.g. `terminal-jail rm -rf /` is blocked, exit 126 |
 | Block dangerous patterns before they run (firewall) | **Interruptor** (built into the CLI, on by default) | `terminal-jail rm -rf /` → blocked, exit 126 |
 | Add privilege dropping + syscall filtering | **CLI flags** | `terminal-jail --user --seccomp sh -c 'grep Seccomp /proc/self/status'` |
-| Observe + log Hermes terminal commands (byte budget reserved — not implemented) | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
+| Observe + log Hermes terminal commands — **byte-budget enforcement: NOT IMPLEMENTED (reserved byte budget)**. The plugin is observability-only; no code path enforces, rejects, or size-limits a command, so this surface is not an `enforced` / `degraded` / `unavailable` tier — there is no implementation to classify, not a degraded one | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
 | Harden the Hermes gateway service itself | **systemd drop-in** (`systemd/90-terminal-jail-hardening.conf`) | See §5 — lightweight (14 active directives), NOT a PID namespace boundary |
 | Replace the Hermes gateway shell with a jailed shell | **Deploy shim** (`standalone/terminal-jail-sh` + `docs/deploy-to-karahermes.md`) | Host-specific; hardcoded paths must be adjusted |
 
