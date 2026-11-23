@@ -1,0 +1,77 @@
+Usage: terminal-jail <command> [args...]
+       terminal-jail --user <command> [args...]
+       terminal-jail --seccomp <command> [args...]
+       terminal-jail --user --seccomp <command> [args...]
+       terminal-jail --interruptor <command> [args...]
+       terminal-jail --no-interruptor <command> [args...]
+       terminal-jail --private-proc <command> [args...]
+       terminal-jail --help
+       terminal-jail --version
+
+Run COMMAND in a new Linux PID namespace. Arguments are passed without
+shell re-parsing.
+
+Options:
+  --user         Add user namespace isolation: PID namespace lifecycle
+                 containment (namespace-exit kills children) + identity env
+                 scrub. The host PID view is exposed (no private /proc
+                 mount). Filesystem isolation is active ONLY when a uid
+                 mapping can be created (TERMINAL_JAIL_FS_ISOLATION=mapped);
+                 otherwise it degrades loudly to the mapping-less namespace
+                 (see README and scripts/fs-isolation-probe.py).
+  --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
+                 (mount, pivot_root, kexec_load, etc.) inside the jail.
+                 Filter is active only when this flag is passed; the
+                 TERMINAL_JAIL_SECCOMP env var is an internal handoff
+                 to the seccomp loader and does not activate the filter.
+  --interruptor  Enable the Bash command firewall (default). Evaluates
+                 commands against a rule engine before execution.
+  --no-interruptor  Disable the Bash command firewall.
+  --private-proc  Demand a private /proc (TJ-GAP-088): if the selected
+                 backend cannot deliver one, the command does not run
+                 (exit 2) — isolation is never silently downgraded. Same
+                 as TERMINAL_JAIL_PRIVATE_PROC=required.
+
+Environment:
+  TERMINAL_JAIL_JAIL_BACKEND=auto|bwrap|unshare
+                 Select the jail backend (default: auto). auto uses
+                 bubblewrap when it is installed and its namespace probe
+                 passes, otherwise util-linux unshare. Only the bwrap
+                 backend provides a PRIVATE /proc; unshare is the
+                 documented fallback. A requested backend that cannot run
+                 fails closed (exit 2) — isolation is never silently
+                 downgraded. See specs/cli.md section 4 "Jail backends".
+  TERMINAL_JAIL_UID_MAP=0|off|false
+                 Force the mapping-less --user launch (skip the uid-mapping
+                 preflight). The uid-MAPPED launch re-arms the parent-death
+                 signal with `setpriv --pdeathsig=SIGKILL` after its
+                 setuid/setgid (the kernel clears PR_SET_PDEATHSIG on
+                 credential changes — TJ-DF-043); a host whose setpriv
+                 cannot re-arm fails the flag-identical probe and falls
+                 back mapping-less LOUDLY, never silently.
+  TERMINAL_JAIL_COMPOSED=auto|on|off
+                 Composed deployment (TJ-GAP-089, default auto): when
+                 namespace creation fails AND an outer containment layer is
+                 detected (container / bunker platform — /.dockerenv,
+                 /run/.containerenv, PID-ns identity, overlay root, cgroup
+                 root), run the command with the interruptor firewall plus
+                 the OUTER layer's namespace containment instead of
+                 refusing. Per-layer enforcement is stated on stderr
+                 (firewall by this tool; PID ns/proc by the platform; no
+                 inner seccomp). on forces this behavior, off always fails
+                 closed. An explicitly requested backend
+                 (TERMINAL_JAIL_JAIL_BACKEND=bwrap|unshare) is never
+                 silently downgraded, in composed mode or out of it. See
+                 README "Composed deployment (inside a container/bunker)"
+                 and bunker GAP-179.
+  TERMINAL_JAIL_PRIVATE_PROC=required
+                 Demand a private /proc (TJ-GAP-088): backend selection
+                 refuses (exit 2, command not run) when the resolved
+                 backend cannot deliver one — bwrap absent or its probe
+                 failing, the unshare backend (all modes; --user exposes
+                 the host /proc, bare mode is fail-closed first), or the
+                 composed launch (proc owned by the outer layer). A run
+                 that launches always states the delivered view on stderr
+                 as proc_view=private|host|platform-owned|none. Default
+                 (unset) keeps the fail-open prose behavior. See
+                 specs/cli.md section 4 "Jail backends".

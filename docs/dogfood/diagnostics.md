@@ -1256,3 +1256,40 @@ Loadavg 28-33 (16 cores): tier-on allow 374.7 ± 67.1 ms (min 289.6), tier-off
 255.7 ± 133.6 ms (min 174.2), modify path 681.6 ± 230.3 ms (min 442.6, includes
 namespace + tier + the new proof). CPU-time delta tier-on vs off ≈ 30 ms. Same
 floors as every earlier fire; no PERF row.
+
+## 27. Dogfood 2026-11-23 — the pin/preflight gap, the fixed-name /tmp fixture, and the PERF-005 user-seat A/B (HEAD 838a0d5f)
+
+Angle: the fixes landed after the 2026-11-20 walk (TJ-DF-072/073, TJ-REVIEW-076/077,
+README-016, PERF-005) driven from a fresh user seat on an installed 1.3.4.
+Full report: docs/dogfood/2026-11-23-pin-preflight-and-fresh-suite.md; arm
+transcripts: .coding-hermes/evidence/2026-11-23-pin-preflight/ARMS.md.
+
+The four recent fixes all verify live (interpreter-unavailable box on a broken
+pin; net-tier modify tail under a coverable pin runs the payload; the refusal
+remedy names grant coverage; net-tier denial measures errno 13 EACCES vs the
+ECONNREFUSED control). Two new defects: TJ-DF-077 — with TERMINAL_JAIL_PYTHON
+set, the modify-path preflight validates the pin while the payload's own argv[0]
+still resolves via PATH inside the sandbox; an un-coverable payload interpreter
+(harness venv python3) then starts and dies with a raw "Failed to import
+encodings" fatal error, rc=1, no named verdict — reachable by following the
+product's own remedy text. TJ-DF-078 — the f95ec9a0 canary test writes a FIXED
+/tmp/secret600 and never unlinks it; on a host-shared /tmp (bunker-las-02) a
+stale mode-600 file from a prior agent uid reds every later suite run in fixture
+setup (tests, ci-pass native+act, chaos-resource), while the dev host passes.
+Mechanism evidence: bunker exec ls -la shows /tmp/secret600 owned by
+bunker-73676ddd dated Nov 22 16:42.
+
+Perf: paired A/B, one window (loadavg 48-49/16c): HEAD 352.1 ms ± 74.2 vs
+pre-PERF-005 control (195777fb^) 370.8 ms ± 52.8, ratio 1.05 ± 0.27 — the
+wrapped plain-allow path is unchanged and sits at the recorded tier-on level; a
+608 ms single window at load ~45 was discarded as load noise. bench_bridge.py at
+HEAD is VOID under load (its own TJ-GAP-084 guard: one-shot small p50 227.0 ≥
+ceiling 200, rc=1, loadavg 44.4); resident p50 9-29 ms. The quiet-window (<8)
+re-measurement stays unmeasured — load never dropped below ~35 all session.
+
+Install leg PASSED on the only ONLINE host (bunker-las-02, /tmp HOST-SHARED
+caveat named): fresh-install OK (PyYAML 6.0.4 + terminal-jail 1.3.4), upgrade
+v1.3.3→HEAD clean, 24 evidence rows committed under
+.coding-hermes/evidence/qa-20261123T190946Z/; agent destroyed, 0 residue.
+bunker-mvp refused the launch on its own disk admission (97% > 94%); the other
+four bunker hosts were OFFLINE.

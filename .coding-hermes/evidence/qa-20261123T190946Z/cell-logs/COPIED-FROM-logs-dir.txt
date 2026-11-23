@@ -1,0 +1,1 @@
+Copied 2026-11-23 by dogfood tick terminal-jail-dogfood-2026-11-23-18-36-23 from logs/qa-logs-2387334/ because the repo .gitignore rule "logs/" (line 22) ignores that directory name; bytes unchanged (cp), names unchanged.

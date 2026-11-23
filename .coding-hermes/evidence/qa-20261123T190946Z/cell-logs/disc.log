@@ -1,0 +1,35 @@
+NETWORK_CUT_APPLIED
+........................................................................ [  3%]
+...................................................................F
+=================================== FAILURES ===================================
+_______________ test_plain_download_still_executes_and_delivers ________________
+
+collector = <plugin.test_egress_no_delivery._Collector object at 0x7f611eda9480>
+
+    @requires_curl
+    def test_plain_download_still_executes_and_delivers(collector: _Collector) -> None:
+        """Control: a plain download is still allowed, and the harness sees it.
+    
+        Without this arm the "collector received nothing" assertions above would be
+        satisfied by a harness that never runs anything at all.
+        """
+        if not _cli_can_execute_a_command():
+            pytest.skip(
+                "this host cannot launch commands through the CLI (degraded namespace)"
+            )
+    
+        result = _run_cli("curl", "-sS", f"{collector.url}/health")
+    
+>       assert result.returncode == 0, (
+            f"a plain download was refused: rc={result.returncode}, "
+            f"stderr={result.stderr!r}"
+        )
+E       AssertionError: a plain download was refused: rc=7, stderr='{"ts":"2026-11-23T19:06:47.267383+00:00","event":"verdict","action":"allow","rule_id":null,"layer":"engine","reason":"","command_sha256":"f121d68f029fd9ad"}\nterminal-jail: proc_view=private (bwrap backend: fresh procfs via --proc /proc)\ncurl: (7) Failed to connect to 127.0.0.1 port 9 after 0 ms: Could not connect to server\n'
+E       assert 7 == 0
+E        +  where 7 = CompletedProcess(args=['/home/bunker-b78c94b1/qa-terminal-jail/standalone/terminal-jail', 'curl', '-sS', 'http://127.0...h procfs via --proc /proc)\ncurl: (7) Failed to connect to 127.0.0.1 port 9 after 0 ms: Could not connect to server\n').returncode
+
+plugin/test_egress_no_delivery.py:230: AssertionError
+=========================== short test summary info ============================
+FAILED plugin/test_egress_no_delivery.py::test_plain_download_still_executes_and_delivers
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 139 passed in 11.27s

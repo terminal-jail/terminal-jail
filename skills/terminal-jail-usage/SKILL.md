@@ -868,3 +868,13 @@ know which layer decided. A same-ID user file does override a builtin.
 - **Kernel drift**: 7.0.0-43 denies setgroups in unprivileged userns → install summary
   prints fs-isolation `DEGRADED` with the sysctl remedy; the auto-sandbox uses the
   mapping-less prefix. Honest classification, not a regression (diagnostics 26.5).
+- **A set TERMINAL_JAIL_PYTHON pin does NOT cover the payload's own interpreter on the
+  modify path (TJ-DF-077, OPEN)**: the preflight validates the pin, but the payload's
+  argv[0] still resolves via PATH inside the sandbox. If that interpreter is outside
+  the fs tier's grant set (harness/uv venv python3 under a 0700 tree), the payload
+  starts and dies with a raw `Fatal Python error: Failed to import encodings module`,
+  rc=1, NO named verdict — and the TJ-REVIEW-077 remedy text is what leads you there.
+  Workaround that WORKS today: run the payload under a clean PATH whose python3 is
+  coverable (`env PATH=/usr/bin:/bin terminal-jail python3 payload.py`), or drop the
+  tier (`TERMINAL_JAIL_LANDLOCK=0`). Diagnose by printing `sys.executable` from the
+  payload (evidence: .coding-hermes/evidence/2026-11-23-pin-preflight/ARMS.md).

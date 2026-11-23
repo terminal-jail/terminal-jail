@@ -1,0 +1,89 @@
+........................................................................ [  3%]
+........................................................................ [  6%]
+...................................................................s.... [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+..................................s..................................... [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+...........................s.........................s...........F
+=================================== FAILURES ===================================
+_____ TestEnforcement.test_denied_read_is_eacces_inside_an_applying_child ______
+
+self = <plugin.test_landlock.TestEnforcement object at 0x7f1814d77610>
+tmp_path = PosixPath('/tmp/pytest-of-bunker-b78c94b1/pytest-1/test_denied_read_is_eacces_ins0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f18133cb230>
+
+    def test_denied_read_is_eacces_inside_an_applying_child(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The TJ-DF-015 preflight lesson, asserted kernel-level.
+    
+        A FORKED child applies the tier and tries to read a caller-owned
+        mode-600 file at an UNGRANTED path; the verdict crosses a pipe.
+        The fixture host must be outside every grant — the session tmp
+        dirs are WRITE grants in the default layout, so the file lives
+        next to HOME (its parent dir is ungranted: only named children
+        of HOME are granted). On a non-permitting host the test SKIPs
+        (never silently passes).
+        """
+        if not _host_permits_landlock():
+            pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
+        home = tmp_path / "home"
+        home.mkdir()
+        workdir = tmp_path / "work"
+        workdir.mkdir()
+        # The fixture host must be UNGRANTED: temp dirs are write grants
+        # in the default layout, so this test uses the drop_denied_tmp
+        # layout (tmp UNgranted) and hosts the secret there.
+        monkeypatch.setenv("HOME", str(home))
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+        monkeypatch.delenv("TMPDIR", raising=False)
+        monkeypatch.delenv("TEMP", raising=False)
+        monkeypatch.delenv("TMP", raising=False)
+        layout = ll.build_layout(
+            workdir=str(workdir), home=str(home), drop_denied_tmp=False
+        )
+        assert layout is not None
+        host = Path(tempfile.gettempdir())
+        secret = host / "secret600"
+>       secret.write_text("terminal-jail landlock secret\n")
+
+plugin/test_landlock.py:326: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.13/pathlib/_local.py:557: in write_text
+    return PathBase.write_text(self, data, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.13/pathlib/_abc.py:651: in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/tmp/secret600'), mode = 'w', buffering = -1
+encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       PermissionError: [Errno 13] Permission denied: '/tmp/secret600'
+
+/usr/lib/python3.13/pathlib/_local.py:539: PermissionError
+=========================== short test summary info ============================
+FAILED plugin/test_landlock.py::TestEnforcement::test_denied_read_is_eacces_inside_an_applying_child
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 1213 passed, 4 skipped in 59.48s
