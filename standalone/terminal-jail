@@ -1466,7 +1466,7 @@ _tj_modify_tier_head_prepare() {
     fi
     _tj_modify_tier_head_startable "$head" && return 0
     resolved=$(command -v "$head" 2>/dev/null) || resolved="not resolvable on PATH"
-    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter '${head}' (${resolved}), which the filesystem tier's Landlock domain cannot execute for '${MODIFIED_COMMAND}'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter the payload can read (e.g. /usr/bin/python3) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README \"Graceful Degradation\")" >&2
+    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter '${head}' (${resolved}), which the filesystem tier's Landlock domain cannot execute for '${MODIFIED_COMMAND}'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter that lives under a prefix the filesystem tier's grant set covers (an absolute path alone is not the criterion: on Ubuntu 24.x-class hosts /usr/bin/python3 may dereference to a HOME-baked uv toolchain the grant set does not cover) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README \"Graceful Degradation\")" >&2
     exit 2
 }
 
