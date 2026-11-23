@@ -79,7 +79,7 @@ them. A cell with no primary source says so.
 
 | Capability | Incumbent | Incumbent position (source) | terminal-jail | Verdict |
 |---|---|---|---|---|
-| Network egress | bubblewrap | None granular: shared host network by default; `--unshare-net` cuts ALL networking (README/flags) | Landlock TCP tier (TJ-GAP-083, shipped 1.3.0): `connect(2)` to any port outside the allowlist fails EPERM at the kernel, payload + descendants. Measured 2026-10-12: `TERMINAL_JAIL_LANDLOCK_NET=1` loader → port 9151 → `EPERM`; without the tier → `ECONNREFUSED` | **ahead** (per-port allow inside a shared netns; bwrap is all-or-nothing) |
+| Network egress | bubblewrap | None granular: shared host network by default; `--unshare-net` cuts ALL networking (README/flags) | Landlock TCP tier (TJ-GAP-083, shipped 1.3.0): `connect(2)` to any port outside the allowlist fails EPERM/EACCES (kernel/ABI variance) at the kernel, payload + descendants. Measured 2026-10-12: `TERMINAL_JAIL_LANDLOCK_NET=1` loader → port 9151 → `EPERM/EACCES` (kernel/ABI variance); without the tier → `ECONNREFUSED` | **ahead** (per-port allow inside a shared netns; bwrap is all-or-nothing) |
 | Network egress | firejail | `--net=none`/new netns + `--netfilter` (iptables) + `--protocol=` family filter (man page) | Firejail's netfilter is richer (iptables: hosts/networks); TJ's tier is port-granular only (Landlock v4 has no host selector) and off by default | **parity** (different granularities; both kernel-enforced) |
 | Network egress | nsjail | NET namespace isolation + MACVLAN/pasta userland networking (README) | nsjail isolates or moves the whole netns; TJ filters per-port inside the caller's netns | **ahead** (in-place per-port deny vs all-or-nothing) |
 | Network egress | Docker + gVisor | Publish/port-declare model + Docker network policies; gVisor implements the network stack in its userspace kernel (Docker network docs, gVisor README) | Platform-plane policy vs TJ's in-jail kernel tier; TJ composes UNDER this layer (composed mode) | **parity** (different planes; neither subsumes the other) |
@@ -140,7 +140,7 @@ shas from `git log`):
 | Row | What it delivered (verified in CHANGELOG / git) | Parity effect |
 |---|---|---|
 | TJ-GAP-082 | Landlock kernel-enforced FS-isolation tier (`bd39236`; coverage `b2f5b40`) | Capability 3: bwrap/no-uid-map cells move from "planned" to a shipped kernel deny layer |
-| TJ-GAP-083 | Landlock TCP-connect (network egress) tier (`376dab2`) | Capability 4: network-layer containment no longer "unavailable in every shape"; measured EPERM today |
+| TJ-GAP-083 | Landlock TCP-connect (network egress) tier (`376dab2`) | Capability 4: network-layer containment no longer "unavailable in every shape"; measured EPERM/EACCES today (kernel/ABI variance) |
 | TJ-GAP-084 | Resident AF_UNIX verdict daemon + one-shot cost guard (`c2e7023`) | Capability 7: transport for verdict telemetry |
 | TJ-GAP-085 | Rule resolution provenance in the verdict (`93ecf3b`) | Capability 7: per-verdict provenance layer — observed live today (`"layer": "yaml"`) |
 | TJ-GAP-086 | Enforced 256 KiB argument-size ceiling + benchmark (`80deb8e`) | Capability 1: firewall robustness (O(len) refusal before parse) |
@@ -165,7 +165,7 @@ Filed here ONLY as proposals — the board is written by the foreman.
 | Gap | Closed because |
 |---|---|
 | "Landlock FS tier is planned" (TJ-GAP-082) | Shipped 1.3.0 (`bd39236`) and measured working on this host 2026-10-12 (`~/.ssh/id_rsa` read denied, `/tmp` write allowed under the default launch). The stale docs statement in `docs/capability-matrix.md` is corrected in this commit |
-| "Network-layer containment unavailable today in every shape" (TJ-GAP-083) | Shipped 1.3.0 (`376dab2`); measured today: `TERMINAL_JAIL_LANDLOCK_NET=1` loader → connect to non-allowlisted port 9151 → **EPERM** (kernel), vs `ECONNREFUSED` without the tier. Same docs correction in this commit. Residual: domain granularity ≠ closed — see proposed `TJ-GAP-090` |
+| "Network-layer containment unavailable today in every shape" (TJ-GAP-083) | Shipped 1.3.0 (`376dab2`); measured today: `TERMINAL_JAIL_LANDLOCK_NET=1` loader → connect to non-allowlisted port 9151 → **EPERM/EACCES** (kernel, ABI variance), vs `ECONNREFUSED` without the tier. Same docs correction in this commit. Residual: domain granularity ≠ closed — see proposed `TJ-GAP-090` |
 | FS isolation vs bubblewrap on AppArmor-restricted hosts (no unprivileged uid mapping) | Mitigated, not by a TJ code gap: the kernel-side Landlock tier now covers the credential-surface denial use case without any uid mapping. The host-wide AppArmor remedy gap is narrowed by the added per-profile `bwrap-userns-restrict` remedy (docs/capability-matrix.md §4, this commit). Full uid-mapped isolation on hosts that deny setuid/setgroups inside userns remains a HOST policy matter, not an open TJ gap |
 
 No silent carry-over: every previously-open parity item is either consumed
@@ -183,7 +183,8 @@ TJ-GAP-082/083 shipped on 2026-10-08. This commit updates
 1. FS-isolation row: the Landlock tier is stated as shipped (1.3.0) instead of
    "a planned Landlock addition (TJ-GAP-082)".
 2. Egress row: "unavailable today in every shape" replaced by the opt-in
-   Landlock TCP tier (TJ-GAP-083), with the 2026-10-12 measured EPERM cell.
+   Landlock TCP tier (TJ-GAP-083), with the 2026-10-12 measured EPERM/EACCES
+   cell (kernel/ABI variance).
 3. §4 remediation list: added the per-profile `bwrap-userns-restrict` AppArmor
    remedy (the scoped remedy OpenAI documents for Codex on Ubuntu 24.04/25.04)
    — an alternative to the host-wide sysctl that does not weaken other

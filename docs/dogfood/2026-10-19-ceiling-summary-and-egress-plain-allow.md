@@ -145,7 +145,7 @@ So the leg was driven by hand per the skill's generic ephemeral procedure, on th
 | clone (documented https origin) | **rc=0, 2.08 s**, HEAD `2177a3cf189a1a6753d92fc134038bcbe85f8dcd` |
 | `./install.sh` (documented, default prefix) | **rc=0, 1.09 s**; loaders + rules installed; PATH block appended to `~/.profile`; ceiling line printed for **ABI 4** |
 | documented smokes | `--version` → `terminal-jail 1.3.0` rc=0; firewall bridge → `builtin-rm-rf-root` block rc=0; `scripts/landlock-capability-probe.py` → FULL/ABI 4 rc=0 |
-| delta smoke (the fix under test) | tier ON plain-allow → connect **denied EPERM at the kernel** with the `APPLIED` banner; control and allowlisted arms reached TCP connect; three degrade arms printed their named cause |
+| delta smoke (the fix under test) | tier ON plain-allow → connect **denied EPERM/EACCES at the kernel** (kernel/ABI variance) with the `APPLIED` banner; control and allowlisted arms reached TCP connect; three degrade arms printed their named cause |
 | destroy | `bunker destroy df-tj-1019 --server bunker-mvp` rc=0, key removed |
 
 Fresh-box findings that are **not** defects (documented behaviour, recorded so the next run does not
@@ -211,6 +211,6 @@ TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/df-tj-1019/prefix/config/terminal-
 python3 -m http.server 9999 --bind 127.0.0.1 &    # a non-allowlisted live port
 TERMINAL_JAIL_LANDLOCK_NET=1 <prefix>/terminal-jail \
   /usr/bin/python3 -c 'import socket; socket.create_connection(("127.0.0.1",9999),timeout=3)'
-# expect: kernel EPERM + the APPLIED banner on the plain-allow path (TJ-DF-046 fixed)
+# expect: kernel EPERM/EACCES (kernel/ABI variance) + the APPLIED banner on the plain-allow path (TJ-DF-046 fixed)
 # then: chmod 000 <lib>/landlock-net-loader.py and repeat with a SCRIPT payload -> TJ-DF-050
 ```
