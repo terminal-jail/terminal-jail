@@ -20,7 +20,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SCRIPT = PROJECT_ROOT / "install.sh"
 
 EXPECTED_SHEBANG = "#!/usr/bin/env bash"
-FAKE_BINARY = EXPECTED_SHEBANG + "\necho 'terminal-jail v0.1.0'\n"
+# TJ-DF-076: the fixture mirrors the REAL bundled wrapper's version path so a
+# release-mode install can be exercised end to end: shebang (integrity check),
+# the stampable VERSION_DEFAULT="" line (the installer's release stamp refuses
+# a wheel whose bundled copy lost it), the wrapper's own VERSION resolution
+# (standalone/terminal-jail lines 92/119/277/509), and a --version dispatch.
+FAKE_BINARY = (
+    EXPECTED_SHEBANG
+    + '\nVERSION_DEFAULT=""\n'
+    + 'VERSION="${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}"\n'
+    + 'version() { echo "terminal-jail ${VERSION}"; }\n'
+    + 'case "${1:-}" in --version|-V) version; exit 0;; esac\n'
+    + "echo 'terminal-jail v0.1.0'\n"
+)
 
 
 # Budget for one subprocess this file drives: an install.sh round trip
@@ -386,6 +398,215 @@ def test_release_mode_explicit_version_uses_versioned_wheel(
     assert result.returncode == 0, out
     assert "terminal_jail-1.3.0-py3-none-any.whl" in out
     assert (install_dir / "terminal-jail").is_file(), out
+
+
+# ── TJ-DF-076: release-mode version stamping ───────────────────────────────
+#
+# Release mode downloads terminal_jail-<version>-py3-none-any.whl, verifies its
+# SHA256SUMS entry, and installs the wheel's bundled wrapper. That bundled copy
+# ships VERSION_DEFAULT="" (the packaging copy of standalone/terminal-jail) and
+# the installed layout has no pyproject.toml next to the script to fall back
+# on — so before TJ-DF-076 the installed CLI reported an empty --version
+# forever ("terminal-jail " with a trailing space), while every checkout
+# install stamped the pyproject version. The stamp must use the version whose
+# wheel was actually chosen and checksum-verified (TERMINAL_JAIL_RELEASE_
+# VERSION, the 'v'-stripped form), and the caller-supplied version value must
+# be shape-checked before it reaches any splice (quotes / sed metacharacters /
+# newlines are refused at parse time).
+
+
+def _installed_release_version(installed: Path) -> str:
+    """Run the installed wrapper's --version with NO TERMINAL_JAIL_* env.
+
+    The point of the assertion is the STAMP: a stray TERMINAL_JAIL_VERSION in
+    the ambient environment would mask an unstamped install (the wrapper
+    prefers the env var over VERSION_DEFAULT), so it is stripped here.
+    """
+    clean_env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("TERMINAL_JAIL_")
+    }
+    result = subprocess.run(
+        [str(installed), "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env=clean_env,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+@pytest.mark.standalone_cli
+def test_release_mode_install_stamps_the_chosen_release_version(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """The installed release wrapper reports the version that was installed.
+
+    End to end: a controlled wheel fixture (scratch HOME, mock curl) is
+    published for a version that is NOT the installer's pin, installed in
+    release mode by absolute path (the TJ-GAP-087 contract shape), and the
+    installed binary's --version must match the chosen version — not the pin,
+    not empty.
+    """
+    chosen = "9.9.9"
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    server_dir = _make_release_server_dir(tmp_path, versions=(chosen,))
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "PATH": str(test_bin),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+            "TERMINAL_JAIL_VERSION": chosen,
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    # Wheel integrity checking is preserved: the stamp happens only after the
+    # checksum gate passed.
+    assert "checksum OK (terminal_jail-9.9.9-py3-none-any.whl)" in out, out
+    assert "stamped release version 9.9.9" in out, out
+    installed = install_dir / "terminal-jail"
+    assert installed.is_file(), out
+    assert _installed_release_version(installed) == f"terminal-jail {chosen}", out
+
+
+@pytest.mark.standalone_cli
+def test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A leading 'v' selects the wheel but the stamp carries the bare version.
+
+    The wheel asset name (and so the stamped VERSION_DEFAULT, which feeds
+    --version) is the PEP 440 form without the 'v' — the same variable the
+    download used.
+    """
+    chosen = "5.4.1"
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    server_dir = _make_release_server_dir(tmp_path, versions=(chosen,))
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "PATH": str(test_bin),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+            "TERMINAL_JAIL_VERSION": f"v{chosen}",
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 0, out
+    assert "terminal_jail-5.4.1-py3-none-any.whl" in out, out
+    assert "stamped release version 5.4.1" in out, out
+    installed = install_dir / "terminal-jail"
+    assert installed.is_file(), out
+    assert _installed_release_version(installed) == f"terminal-jail {chosen}", out
+
+
+@pytest.mark.standalone_cli
+def test_release_mode_refuses_an_unsafe_version_before_anything_is_written(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A version carrying shell/sed metacharacters refuses at parse time.
+
+    The value is spliced into the installed wrapper, so a quote-carrying value
+    must never reach the stamp: the parse-time charset check refuses it before
+    anything is downloaded or written, and no injected artifact may exist.
+    """
+    unsafe = '9.9.9"; touch injected-marker; echo "'
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    server_dir = _make_release_server_dir(tmp_path, versions=("9.9.9",))
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "PATH": str(test_bin),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+            "TERMINAL_JAIL_VERSION": unsafe,
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 1, out
+    assert f"TERMINAL_JAIL_VERSION='{unsafe}' is invalid" in out, out
+    assert "done." not in out, out
+    assert not (install_dir / "terminal-jail").exists(), out
+    # Nothing was downloaded either: the refusal precedes the release gate.
+    assert not list(install_dir.glob(".terminal-jail.*")), out
+    assert not (tmp_path / "injected-marker").exists(), out
+
+
+@pytest.mark.standalone_cli
+def test_release_mode_refuses_a_wheel_without_a_stampable_wrapper(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """A wheel whose bundled wrapper lost the VERSION_DEFAULT="" line aborts.
+
+    Format drift must fail closed: installing an unstamped copy silently is
+    exactly the TJ-DF-076 defect. The refusal happens after the shebang/shape
+    checks (a bad shebang keeps its own message), so this fixture carries a
+    valid shebang but no stampable line.
+    """
+    install_dir = tmp_path / "install-dir"
+    install_dir.mkdir()
+    unstamped_binary = EXPECTED_SHEBANG + "\necho 'terminal-jail no-default'\n"
+    server_dir = _make_server_dir(tmp_path, binary_content=unstamped_binary)
+    test_bin = _setup_full_testbin(tmp_path, server_dir)
+
+    result = subprocess.run(
+        ["sh", str(install_script)],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=SUBPROCESS_TIMEOUT_S,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "PATH": str(test_bin),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+            "TERMINAL_JAIL_USE_RELEASE": "1",
+            "TERMINAL_JAIL_BASE_URL": f"file://{server_dir}",
+        },
+        cwd=str(tmp_path),
+    )
+    out = (result.stdout + result.stderr).decode("utf-8", "replace")
+    assert result.returncode == 1, out
+    assert "no stampable VERSION_DEFAULT" in out, out
+    assert not (install_dir / "terminal-jail").exists(), out
 
 
 @pytest.mark.standalone_cli
