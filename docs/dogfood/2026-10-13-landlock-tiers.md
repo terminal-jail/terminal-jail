@@ -17,7 +17,8 @@ through the auto-sandbox/modify wrap."
 - Stacked modify verdict is real: bridge verdict for `python3 <probe>` is
   `modify auto-script` → `unshare … bash -c 'landlock-loader -- landlock-net-loader --
   <cmd>'`; executed as the wrapper would run it, the payload's connect to a live
-  non-allowlisted listener (127.0.0.1:9151) returns **EPERM** with the
+  non-allowlisted listener (127.0.0.1:9151) returns **EPERM/EACCES** (kernel/ABI
+  variance) with the
   `kernel egress tier APPLIED` banner. Allowed port (443/pypi.org) connects fine.
 - Fail-closed preflight: invalid allowlist token refuses the tier (named cause),
   ABI<4 hosts refuse with a named cause (verified by code-walk + docs cells).
@@ -27,7 +28,8 @@ through the auto-sandbox/modify wrap."
 1. **TJ-DF-044 (P1): the tier is silently inert through the INSTALLED CLI.** Fresh
    clone + `./install.sh`, then `TERMINAL_JAIL_LANDLOCK_NET=1 ~/.local/bin/terminal-jail
    python3 <connect probe>` → **CONNECT-OK** (zero containment), while the
-   repo-checkout wrapper on the same box enforces (EPERM). Two causes:
+   repo-checkout wrapper on the same box enforces (EPERM/EACCES — kernel/ABI
+   variance). Two causes:
    install.sh copies seccomp + fs loaders but never `standalone/landlock-net-loader.py`
    (install.sh:1219-1227), so the bridge degrades with
    "landlock-net-loader.py not found next to the plugin"; AND the wrapper discards the

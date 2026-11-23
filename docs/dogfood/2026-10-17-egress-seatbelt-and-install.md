@@ -27,7 +27,7 @@ port; default allowlist is 22,53,80,443).
 | `python3 connect(9999)` through installed CLI (payload via file) | ON, default allowlist | `action=modify rule_id=auto-script` + loader degrade warning (0700 install home) | no (install-home shape) |
 | same payload, real HOME (0755) | ON | `modify`, run unchanged per tenant | yes — see below |
 | `python3 -c …` (README's literal example shape) | ON | `action=allow rule_id=null layer=engine` + **NO tier line** | **YES (CONNECTED)** — the promise does not hold on this shape |
-| loader seam: `python3 landlock-net-loader.py -- python3 <payload>` | ON, default allowlist | `kernel egress tier APPLIED — restricted to [22,53,80,443]` | **no** — connect dies errno-13 EPERM |
+| loader seam: `python3 landlock-net-loader.py -- python3 <payload>` | ON, default allowlist | `kernel egress tier APPLIED — restricted to [22,53,80,443]` | **no** — connect dies errno-13 EACCES/EPERM (kernel/ABI variance) |
 | loader seam, `TERMINAL_JAIL_NET_ALLOW=9999` | ON | `APPLIED — restricted to [9999]` | **YES** (port allowlisted — correct) |
 
 Read of the evidence: the tier ENGINE and LOADER are correct and live (the
