@@ -1,0 +1,14 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-23-02-19-24",
+  "composed_at": "2026-11-23T02:45:00Z",
+  "wave_budget": 3,
+  "workers": [
+    {"task_id": "TJ-REVIEW-077", "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-077", "branch": "wt/TJ-REVIEW-077", "base_sha": "36bff202", "model": "glm-5.3-flash", "provider": "zai-glm"},
+    {"task_id": "README-016", "worktree": "/home/kara/worktrees/terminal-jail-README-016", "branch": "wt/README-016", "base_sha": "36bff202", "model": "glm-5.3-flash", "provider": "zai-glm"}
+  ],
+  "held_back": [
+    {"task_id": "PERF-004", "reason": "host loadavg 73 (fleet cron gitleaks full-home scan) invalidates the row's quiet-window paired-benchmark acceptance (requires loadavg < 8); row stays pending for a quiet window"}
+  ],
+  "gitreins_tasks": ["TJ-REVIEW-077", "README-016"],
+  "status": "dispatched"
+}
