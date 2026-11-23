@@ -2948,14 +2948,35 @@ tasks:
   status: in_progress
   created_at: '2026-11-22T10:44:03.037434+00:00'
 - id: TJ-REVIEW-076
-  title: '[P1] LANDLOCK_NET=1 modify path kills wrapped python3 at interpreter startup
-    (EACCES on baked stdlib prefix) while the same launch off the tier runs to ECONNREFUSED'
+  title: LANDLOCK_NET=1 modify path must run the wrapped payload to its connect()
+    under the pinned interpreter (no encodings-import kill)
   criteria:
-  - 'On this host with TERMINAL_JAIL_LANDLOCK_NET=1 and TERMINAL_JAIL_PYTHON unset,
-    the auto-sandbox modify path (verdict action=modify, rule auto-script) runs ./standalone/terminal-jail
-    /usr/bin/python3 <connect-probe> to payload completion: the probe prints its connect()
-    errno (EACCES-class kernel denial) and the run contains NO ''Failed to import
-    encodings'' PermissionError; and the new regression test covering both the modify
-    and exec-path arms with a baked-prefix interpreter passes in the repo test suite'
-  status: in_progress
-  created_at: '2026-11-22T23:53:04.817522+00:00'
+  - 'PROOF: The fix lives in plugin/terminal_jail/interruptor/landlock_net.py (_launch_interpreter
+    / BRIDGE_PYTHON_ENV wiring the net tail) with regression test plugin/test_landlock_net_modify_prefix.py.
+    At the graded tip, with env -u CI -u SUDO_USER, PYTHONHOME=, TERMINAL_JAIL_PYTHON=/usr/bin/python3:
+    (arm A) TERMINAL_JAIL_LANDLOCK_NET=0 ./standalone/terminal-jail /usr/bin/python3
+    /tmp/tj-076-foreman-probe/connect_probe.py prints errno=111 ECONNREFUSED rc=0;
+    (arm B) TERMINAL_JAIL_LANDLOCK_NET=1 same command prints the egress-tier APPLIED
+    notice then errno=13 EACCES from the payload connect() rc=0; neither arm contains
+    ''Failed to import encodings''. pytest plugin/test_landlock_net_modify_prefix.py
+    (9 tests) and plugin/test_packaging_wheel.py (18 tests) pass. FAILIF: any arm
+    shows ''Failed to import encodings'' or a PermissionError on the baked stdlib
+    prefix; the NET=1 arm exits before the payload runs; the tail still emits a bare
+    python3; or either named test fails.'
+  status: complete
+  created_at: '2026-11-23T00:55:15.035333+00:00'
+  completed_at: '2026-11-23T01:02:16.569717+00:00'
+- id: INT-CI-027
+  title: Two consecutive tier-2 judge runs under the patched build write verdict.json
+    inside 20m
+  criteria:
+  - 'PROOF: The files .gitreins/history/2026-11-23/48db38b7/verdict.json and .gitreins/history/2026-11-23/f3091db8/verdict.json
+    exist and parse as JSON; each names a task_id for a terminal-jail task; both runs
+    produced their verdict inside 20 minutes of judge start (48db38b7 ~13m, f3091db8
+    ~5m); and .gitreins/config.yaml in this repo arms evaluator.command_timeout (the
+    INT-CI-027 remedy from gitreins 777cad84). FAILIF: either verdict file is missing
+    or unparseable, either run exceeded 20 minutes to write its verdict, or the config
+    knob is absent.'
+  status: complete
+  created_at: '2026-11-23T01:34:38.435492+00:00'
+  completed_at: '2026-11-23T01:49:39.762755+00:00'
