@@ -650,6 +650,44 @@ def _degrade(cause: str) -> str:
 
 _PROBE_ENV = "TERMINAL_JAIL_LANDLOCK_NET_PROBE"
 
+# TJ-REVIEW-076: the tail's interpreter token must be the SAME pin the
+# wrapper resolves everywhere else (``$_TJ_BRIDGE_PY`` =
+# ``TERMINAL_JAIL_PYTHON``, bare ``python3`` when unset — "one variable,
+# one resolution scheme"). A bare ``python3`` in the tail is resolved by
+# bash only AFTER the fs tier's domain is installed, and the modify path
+# pins just the FS head (the wrapper's ``_tj_modify_tier_head_prepare``
+# splices the pin over the ``landlock-loader.py`` token alone), so the net
+# head used to PATH-resolve to an interpreter the domain cannot fully
+# serve: one whose ELF is executable in the domain (the read_dir roots
+# carry EXECUTE beneath HOME) but whose baked stdlib prefix is outside the
+# read grants (the harness venv: ELF under ~/.hermes/installs, stdlib base
+# under ~/.hermes/tools — a credential surface, denied by omission). That
+# loader died at its own encodings import, before the payload ever ran
+# (evidence run rev-2026-11-22-tj7, modpath-net1.txt). The direct exec
+# path never had the defect: it launches the net loader under
+# ``"$_TJ_BRIDGE_PY"`` argv-wise (standalone/terminal-jail trampolines).
+# Mirror that mechanism here — same env var, same default — at the single
+# place the string tail is built.
+BRIDGE_PYTHON_ENV = "TERMINAL_JAIL_PYTHON"
+
+
+def _launch_interpreter() -> str:
+    """The interpreter token the net-loader launch tail runs under.
+
+    ``TERMINAL_JAIL_PYTHON`` (shell-quoted — the tail rides inside a
+    quoted shell payload, so any spelling stays one word) when the launch
+    pins an interpreter; bare ``python3`` when unset/empty, which keeps
+    the historical resolution for unpinned callers. The pinned
+    interpreter is exactly the one the wrapper's modify preflight
+    (``_tj_modify_tier_head_startable``) proves starts inside the fs
+    domain this launch installs, so the tail can never name an
+    interpreter the domain would kill.
+    """
+    pinned = os.environ.get(BRIDGE_PYTHON_ENV, "").strip()
+    if not pinned:
+        return "python3"
+    return shlex.quote(pinned)
+
 
 def loader_path() -> str | None:
     """The standalone landlock-net-loader.py, or None when not shipped.
@@ -784,7 +822,7 @@ def _compute_sandbox_prefix() -> str:
         return _degrade(
             f"landlock-net-loader.py is not readable by the launch's payload uid ({loader})"
         )
-    return f"python3 {shlex.quote(loader)} -- "
+    return f"{_launch_interpreter()} {shlex.quote(loader)} -- "
 
 
 _SANDBOX_PREFIX_CACHE: str | None = None
@@ -793,7 +831,9 @@ _SANDBOX_PREFIX_CACHE: str | None = None
 def sandbox_prefix() -> str:
     """The net tier's launch-tail prefix for auto-sandbox/modify rewrites.
 
-    ``"python3 <net-loader> -- "`` only when the tier is ENABLED
+    ``"<interp> <net-loader> -- "`` (``<interp>`` = the launch's pinned
+    interpreter, ``TERMINAL_JAIL_PYTHON``, or bare ``python3`` when
+    unset — TJ-REVIEW-076) only when the tier is ENABLED
     (``TERMINAL_JAIL_LANDLOCK_NET`` truthy), the host supports Landlock
     ABI >= 4 AND the tier applies (proven by the fork-isolated
     connect-probe preflight) AND the loader is reachable; the empty
