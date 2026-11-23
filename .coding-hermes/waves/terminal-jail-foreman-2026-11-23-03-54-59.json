@@ -1,0 +1,16 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-23-03-54-59",
+  "composed_at": "2026-11-23T04:05:00Z",
+  "wave_budget": 2,
+  "workers": [
+    {"task_id": "README-017", "worktree": "/home/kara/worktrees/terminal-jail-README-017", "branch": "wt/README-017", "base_sha": "3ee425b8", "model": "glm-5.3-flash", "provider": "zai-glm", "kind": "new-dispatch"}
+  ],
+  "recovery": [
+    {"task_id": "TJ-REVIEW-077", "worktree": "/home/kara/worktrees/terminal-jail-TJ-REVIEW-077", "branch": "wt/TJ-REVIEW-077", "worker_commit": "1950c938", "base_sha": "36bff202", "status": "harvest-verify-merge (worker committed 1950c938 in prior tick terminal-jail-foreman-2026-11-23-02-19-24 and died before verify/merge; no live worker process; foreman-direct verification this tick)"}
+  ],
+  "board_residue_committed_this_tick": "README-016 closure (row + event id 1198) left uncommitted by prior tick",
+  "held_back": [
+    {"task_id": "PERF-004", "reason": "loadavg 22.6/19.4/20.3 at 04:05Z — row requires quiet-window (loadavg < 8) paired-benchmark acceptance; stays pending for a quiet window"}
+  ],
+  "status": "dispatched"
+}

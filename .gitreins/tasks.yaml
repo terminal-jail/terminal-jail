@@ -2992,8 +2992,9 @@ tasks:
     grant-coverage wording and absence of a bare absolute interpreter suggestion passes.
     Changed files include standalone/terminal-jail, plugin/terminal_jail/_bundled/terminal-jail,
     and a test file.
-  status: in_progress
+  status: complete
   created_at: '2026-11-23T02:44:27.765216+00:00'
+  completed_at: '2026-11-23T04:31:05.966605+00:00'
 - id: README-016
   title: Egress-tier denial errno wording matches measured kernel verdict
   criteria:
@@ -3004,3 +3005,13 @@ tasks:
     egress string. Changed files are docs and/or README only.'
   status: in_progress
   created_at: '2026-11-23T02:44:33.316844+00:00'
+- id: README-017
+  title: Quickstart plugin row marked explicitly NOT IMPLEMENTED
+  criteria:
+  - docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget)
+    wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte
+    budget reserved' over README.md and docs/ shows zero bare-phrase occurrences;
+    no capability-matrix plugin cell claims degraded; docs-check overall PASS
+  status: complete
+  created_at: '2026-11-23T04:41:35.381886+00:00'
+  completed_at: '2026-11-23T04:56:19.134762+00:00'
