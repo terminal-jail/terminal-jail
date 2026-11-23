@@ -2980,3 +2980,27 @@ tasks:
   status: complete
   created_at: '2026-11-23T01:34:38.435492+00:00'
   completed_at: '2026-11-23T01:49:39.762755+00:00'
+- id: TJ-REVIEW-077
+  title: Auto-sandbox refusal remedy names grant coverage instead of a bare interpreter
+    path
+  criteria:
+  - standalone/terminal-jail and plugin/terminal_jail/_bundled/terminal-jail (byte-identical
+    mirror, packaging test passes) no longer recommend a bare /usr/bin/python3 interpreter
+    in the auto-sandbox refusal remedy; the remedy instead states the interpreter
+    must live under a prefix covered by the Landlock filesystem grant set and that
+    /usr/bin/python3 may dereference to a HOME-baked uv toolchain. A new test asserting
+    grant-coverage wording and absence of a bare absolute interpreter suggestion passes.
+    Changed files include standalone/terminal-jail, plugin/terminal_jail/_bundled/terminal-jail,
+    and a test file.
+  status: in_progress
+  created_at: '2026-11-23T02:44:27.765216+00:00'
+- id: README-016
+  title: Egress-tier denial errno wording matches measured kernel verdict
+  criteria:
+  - 'docs/ and README.md egress/Landlock-net denial claims no longer state a bare
+    EPERM verdict: each egress claim uses EPERM/EACCES (kernel/ABI variance) wording
+    consistent with the fs-tier style; the capability matrix egress cell and backend-parity
+    page agree; tests/test_quickstart_doc.py passes and no test asserts the old bare-EPERM
+    egress string. Changed files are docs and/or README only.'
+  status: in_progress
+  created_at: '2026-11-23T02:44:33.316844+00:00'
