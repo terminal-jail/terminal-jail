@@ -1,0 +1,481 @@
+{
+  "task_id": "TJ-DF-076",
+  "task_title": "Stamp release install version",
+  "task_criteria": [
+    "FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.",
+    "FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-TJ-DF-076",
+  "branch": "wt/TJ-DF-076",
+  "commit": "f873acf2844b193e7784570594667b14d8abd481",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "fe1f4d8ba9fac35127d576ee592755e365fa5eeb50ab3c102fad42572833e4e7",
+  "working_tree_dirty_path_count": 4,
+  "items": [
+    {
+      "criterion": "FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.",
+      "status": "PASS",
+      "detail": "install.sh:1449-1476 stamps VERSION_DEFAULT=\"<TERMINAL_JAIL_RELEASE_VERSION>\" into the checksum-verified wheel wrapper via awk (awk -v tj_ver, no program-text interpolation) after the shebang/shape checks, with a fail-closed gate at install.sh:1459-1463 refusing a wheel whose wrapper lost the stampable line. Live smoke with a wheel bundling the REAL standalone/terminal-jail (/tmp/tjdf076-rel.ypWhaG): log shows 'checksum OK (terminal_jail-1.3.4-py3-none-any.whl)' then 'stamped release version 1.3.4 into the installed wrapper'; installed binary line 92 reads VERSION_DEFAULT=\"1.3.4\" and `env -i ... terminal-jail --version` prints 'terminal-jail 1.3.4' (previously empty). Tests fresh-run: the four new regressions test_release_mode_install_stamps_the_chosen_release_version / accepts_a_v_prefixed... / refuses_an_unsafe_version... / refuses_a_wheel_without_a_stampable_wrapper all PASSED, exit 0, '4 passed in 1.31s'; full installer suite plugin/test_install.py exit 0 '109 passed, 1 skipped in 118.03s'; tier1 suite 2231 passed/15 skipped. [resolution 0.18; install.sh]"
+    },
+    {
+      "criterion": "FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests.",
+      "status": "PASS",
+      "detail": "TJ-GAP-087 installer tests fresh-run: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded all PASSED, exit 0, '4 passed in 0.36s'. The new stamp does not alter the absolute-path contract: install.sh:489-505 keeps USE_RELEASE=1 suppressing checkout resolution, and the stamp block keys off LOCAL_WRAPPER emptiness (the same release-mode predicate). Live check of the exact TJ-GAP-087 shape: from a foreign cwd, `/bin/sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 installed the checksum-verified release wrapper stamped 1.3.4 (VERSION_DEFAULT=\"1.3.4\" at line 92, --version clean-env output 'terminal-jail 1.3.4'); 'v1.3.4' selection also stamped the stripped '1.3.4'."
+    },
+    {
+      "criterion": "Release stamp consumes the same version variable the release download used (seam: chosen wheel version == stamped version)",
+      "status": "PASS",
+      "detail": "install.sh:1367 builds release_asset='terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl' and install.sh:1471 stamps awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" \u2014 one variable, no drift. The regression test installs a non-pin wheel (chosen 9.9.9 vs installer pin 1.3.4) and asserts installed --version equals 9.9.9 (plugin/test_install.py:494-501 assertion), PASSED.",
+      "derived": true
+    },
+    {
+      "criterion": "The caller-supplied version is shape-checked before any splice (no injection/broken-wrapper surface)",
+      "status": "PASS",
+      "detail": "install.sh:26-33 parse-time case \"$TERMINAL_JAIL_RELEASE_VERSION\" in \"\" | *[!0-9A-Za-z._+-]*) exit 1 \u2014 quotes, sed metacharacters and newlines are outside the charset, before anything is downloaded or written. Live shell probe with TERMINAL_JAIL_VERSION='9.9.9\"; touch /tmp/tjdf076-injected; #' exited 1 with the named refusal and no injected marker file and no install dir created. Regression test test_release_mode_refuses_an_unsafe_version_before_anything_is_written PASSED. (scan_security unavailable \u2014 ast-grep not installed \u2014 compensated by this live probe.)",
+      "derived": true
+    },
+    {
+      "criterion": "The stamp runs only after checksum verification (integrity gate preserved)",
+      "status": "PASS",
+      "detail": "install.sh:1381-1404 computes and verifies the SHA256SUMS entry (exit 1 on mismatch) BEFORE the stamp block at 1449; the smoke log shows the 'checksum OK' line preceding the 'stamped release version' line, and the regression test asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' appears in output (plugin/test_install.py:477-479), PASSED.",
+      "derived": true
+    },
+    {
+      "criterion": "Checkout-mode install keeps its existing stamping behaviour (back-compat)",
+      "status": "PASS",
+      "detail": "The checkout branch is untouched: install.sh:1226 still sed-stamps VERSION_DEFAULT from pyproject.toml (LOCAL_VERSION). Live smoke without USE_RELEASE (absolute path, /tmp/tjdf076-smoke.t3JMwC): log line 'repository checkout detected \u2014 installing local wrapper (\u2026/standalone/terminal-jail, version 1.3.4)', installed --version printed 'terminal-jail 1.3.4'. plugin/test_install.py suite (109 passed) and plugin/test_version_parity.py+tests/test_version.py+tests/test_release_workflow.py (25 passed) confirm no regression.",
+      "derived": true
+    },
+    {
+      "criterion": "The stamp temp file is cleaned up (no partial-artifact or temp residue)",
+      "status": "PASS",
+      "detail": "install.sh:1192 defines tmp_stamped=.terminal-jail.$$.stamped and the cleanup() trap at install.sh:1194-1197 rm's it alongside tmp_payload/tmp_wheel/tmp_checksum; the stamp writes to tmp_stamped then mv -f over tmp_payload (install.sh:1474-1475). Live release smoke: install-dir contains only 'terminal-jail' \u2014 no .terminal-jail.* residue; the pre-existing test_tmp_files_cleaned_after_install PASSED in the 109-test suite run.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks bound=timeout 600s (0=off)\nscanners: nice=nice -n 10\n2:08PM INF scanned ~4860644 bytes (4.86 MB) in 919ms\n2:08PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 518 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.13.13, pytest-9.2.0, pluggy-1.7.0\nrootdir: /home/kara/worktrees/terminal-jail-TJ-DF-076\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2246 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n........................                                                 [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 14%]\n........................................................................ [ 18%]\n.................................                                        [ 19%]\nplugin/test_gtfobins_sweep.py .......................................... [ 21%]\n.....................                                                    [ 22%]\nplugin/test_host_probes.py .......................                       [ 23%]\nplugin/test_install.py ...................................s............. [ 25%]\n.............................................................            [ 28%]\nplugin/test_interruptor.py ............................................. [ 30%]\n........................................................................ [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 46%]\n........................................................................ [ 49%]\n\n\u2026 [3040 chars omitted \u2014 38 line(s)] \u2026\nplugin/test_verdict_log.py ......................                        [ 90%]\nplugin/test_version_parity.py ...                                        [ 90%]\nplugin/test_wrapper_landlock_interpreter.py ............................ [ 91%]\n                                                                         [ 91%]\ntests/test_arg_size_ceiling.py ....                                      [ 91%]\ntests/test_board_schema_guard.py ........................                [ 92%]\ntests/test_board_status_guard.py ............                            [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss................                 [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n.......................                                                  [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...................                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2231 passed, 15 skipped in 510.98s (0:08:30) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            }
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.: install.sh:1449-1476 stamps VERSION_DEFAULT=\"<TERMINAL_JAIL_RELEASE_VERSION>\" into the checksum-verified wheel wrapper via awk (awk -v tj_ver, no program-text interpolation) after the shebang/shape checks, with a fail-closed gate at install.sh:1459-1463 refusing a wheel whose wrapper lost the stampable line. Live smoke with a wheel bundling the REAL standalone/terminal-jail (/tmp/tjdf076-rel.ypWhaG): log shows 'checksum OK (terminal_jail-1.3.4-py3-none-any.whl)' then 'stamped release version 1.3.4 into the installed wrapper'; installed binary line 92 reads VERSION_DEFAULT=\"1.3.4\" and `env -i ... terminal-jail --version` prints 'terminal-jail 1.3.4' (previously empty). Tests fresh-run: the four new regressions test_release_mode_install_stamps_the_chosen_release_version / accepts_a_v_prefixed... / refuses_an_unsafe_version... / refuses_a_wheel_without_a_stampable_wrapper all PASSED, exit 0, '4 passed in 1.31s'; full installer suite plugin/test_install.py exit 0 '109 passed, 1 skipped in 118.03s'; tier1 suite 2231 passed/15 skipped. [resolution 0.18; install.sh]\n  \u2713 FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests.: TJ-GAP-087 installer tests fresh-run: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded all PASSED, exit 0, '4 passed in 0.36s'. The new stamp does not alter the absolute-path contract: install.sh:489-505 keeps USE_RELEASE=1 suppressing checkout resolution, and the stamp block keys off LOCAL_WRAPPER emptiness (the same release-mode predicate). Live check of the exact TJ-GAP-087 shape: from a foreign cwd, `/bin/sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 installed the checksum-verified release wrapper stamped 1.3.4 (VERSION_DEFAULT=\"1.3.4\" at line 92, --version clean-env output 'terminal-jail 1.3.4'); 'v1.3.4' selection also stamped the stripped '1.3.4'.\n  \u2713 Release stamp consumes the same version variable the release download used (seam: chosen wheel version == stamped version): install.sh:1367 builds release_asset='terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl' and install.sh:1471 stamps awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" \u2014 one variable, no drift. The regression test installs a non-pin wheel (chosen 9.9.9 vs installer pin 1.3.4) and asserts installed --version equals 9.9.9 (plugin/test_install.py:494-501 assertion), PASSED.\n  \u2713 The caller-supplied version is shape-checked before any splice (no injection/broken-wrapper surface): install.sh:26-33 parse-time case \"$TERMINAL_JAIL_RELEASE_VERSION\" in \"\" | *[!0-9A-Za-z._+-]*) exit 1 \u2014 quotes, sed metacharacters and newlines are outside the charset, before anything is downloaded or written. Live shell probe with TERMINAL_JAIL_VERSION='9.9.9\"; touch /tmp/tjdf076-injected; #' exited 1 with the named refusal and no injected marker file and no install dir created. Regression test test_release_mode_refuses_an_unsafe_version_before_anything_is_written PASSED. (scan_security unavailable \u2014 ast-grep not installed \u2014 compensated by this live probe.)\n  \u2713 The stamp runs only after checksum verification (integrity gate preserved): install.sh:1381-1404 computes and verifies the SHA256SUMS entry (exit 1 on mismatch) BEFORE the stamp block at 1449; the smoke log shows the 'checksum OK' line preceding the 'stamped release version' line, and the regression test asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' appears in output (plugin/test_install.py:477-479), PASSED.\n  \u2713 Checkout-mode install keeps its existing stamping behaviour (back-compat): The checkout branch is untouched: install.sh:1226 still sed-stamps VERSION_DEFAULT from pyproject.toml (LOCAL_VERSION). Live smoke without USE_RELEASE (absolute path, /tmp/tjdf076-smoke.t3JMwC): log line 'repository checkout detected \u2014 installing local wrapper (\u2026/standalone/terminal-jail, version 1.3.4)', installed --version printed 'terminal-jail 1.3.4'. plugin/test_install.py suite (109 passed) and plugin/test_version_parity.py+tests/test_version.py+tests/test_release_workflow.py (25 passed) confirm no regression.\n  \u2713 The stamp temp file is cleaned up (no partial-artifact or temp residue): install.sh:1192 defines tmp_stamped=.terminal-jail.$$.stamped and the cleanup() trap at install.sh:1194-1197 rm's it alongside tmp_payload/tmp_wheel/tmp_checksum; the stamp writes to tmp_stamped then mv -f over tmp_payload (install.sh:1474-1475). Live release smoke: install-dir contains only 'terminal-jail' \u2014 no .terminal-jail.* residue; the pre-existing test_tmp_files_cleaned_after_install PASSED in the 109-test suite run.\nBoth given criteria PASS with fresh test runs (4 TJ-DF-076 regressions, all 4 TJ-GAP-087 installer tests, full 109-test installer suite) and live end-to-end release-mode installs of a wheel bundling the real wrapper, which stamp VERSION_DEFAULT=\"1.3.4\" and report 'terminal-jail 1.3.4' by absolute path from a foreign cwd; all five derived seam/back-compat/fail-closed criteria verified, with the injection surface proven closed by a live shell probe. [uncovered failure paths: failure mode 0 (A future release wheel's bundled wrapper drops or renames the VERSION_DEFAULT=\"\" line (format drift) and a silent unstamped install reintroduces the empty --version defect): detected_by is empty \u2014 uncovered failure path; failure mode 1 (A caller passes a version value containing quotes/sed metacharacters/newlines hoping to splice code into the installed wrapper): detected_by is empty \u2014 uncovered failure path]",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.: install.sh:1449-1476 stamps VERSION_DEFAULT=\"<TERMINAL_JAIL_RELEASE_VERSION>\" into the checksum-verified wheel wrapper via awk (awk -v tj_ver, no program-text interpolation) after the shebang/shape checks, with a fail-closed gate at install.sh:1459-1463 refusing a wheel whose wrapper lost the stampable line. Live smoke with a wheel bundling the REAL standalone/terminal-jail (/tmp/tjdf076-rel.ypWhaG): log shows 'checksum OK (terminal_jail-1.3.4-py3-none-any.whl)' then 'stamped release version 1.3.4 into the installed wrapper'; installed binary line 92 reads VERSION_DEFAULT=\"1.3.4\" and `env -i ... terminal-jail --version` prints 'terminal-jail 1.3.4' (previously empty). Tests fresh-run: the four new regressions test_release_mode_install_stamps_the_chosen_release_version / accepts_a_v_prefixed... / refuses_an_unsafe_version... / refuses_a_wheel_without_a_stampable_wrapper all PASSED, exit 0, '4 passed in 1.31s'; full installer suite plugin/test_install.py exit 0 '109 passed, 1 skipped in 118.03s'; tier1 suite 2231 passed/15 skipped. [resolution 0.18; install.sh]\n  \u2713 FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests.: TJ-GAP-087 installer tests fresh-run: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded all PASSED, exit 0, '4 passed in 0.36s'. The new stamp does not alter the absolute-path contract: install.sh:489-505 keeps USE_RELEASE=1 suppressing checkout resolution, and the stamp block keys off LOCAL_WRAPPER emptiness (the same release-mode predicate). Live check of the exact TJ-GAP-087 shape: from a foreign cwd, `/bin/sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 installed the checksum-verified release wrapper stamped 1.3.4 (VERSION_DEFAULT=\"1.3.4\" at line 92, --version clean-env output 'terminal-jail 1.3.4'); 'v1.3.4' selection also stamped the stripped '1.3.4'.\n\n\u2026 [2214 chars omitted \u2014 4 line(s)] \u2026\n  \u2713 The stamp temp file is cleaned up (no partial-artifact or temp residue): install.sh:1192 defines tmp_stamped=.terminal-jail.$$.stamped and the cleanup() trap at install.sh:1194-1197 rm's it alongside tmp_payload/tmp_wheel/tmp_checksum; the stamp writes to tmp_stamped then mv -f over tmp_payload (install.sh:1474-1475). Live release smoke: install-dir contains only 'terminal-jail' \u2014 no .terminal-jail.* residue; the pre-existing test_tmp_files_cleaned_after_install PASSED in the 109-test suite run.\nBoth given criteria PASS with fresh test runs (4 TJ-DF-076 regressions, all 4 TJ-GAP-087 installer tests, full 109-test installer suite) and live end-to-end release-mode installs of a wheel bundling the real wrapper, which stamp VERSION_DEFAULT=\"1.3.4\" and report 'terminal-jail 1.3.4' by absolute path from a foreign cwd; all five derived seam/back-compat/fail-closed criteria verified, with the injection surface proven closed by a live shell probe. [uncovered failure paths: failure mode 0 (A future release wheel's bundled wrapper drops or renames the VERSION_DEFAULT=\"\" line (format drift) and a silent unstamped install reintroduces the empty --version defect): detected_by is empty \u2014 uncovered failure path; failure mode 1 (A caller passes a version value containing quotes/sed metacharacters/newlines hoping to splice code into the installed wrapper): detected_by is empty \u2014 uncovered failure path]",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.",
+                "status": "PASS",
+                "detail": "install.sh:1449-1476 stamps VERSION_DEFAULT=\"<TERMINAL_JAIL_RELEASE_VERSION>\" into the checksum-verified wheel wrapper via awk (awk -v tj_ver, no program-text interpolation) after the shebang/shape checks, with a fail-closed gate at install.sh:1459-1463 refusing a wheel whose wrapper lost the stampable line. Live smoke with a wheel bundling the REAL standalone/terminal-jail (/tmp/tjdf076-rel.ypWhaG): log shows 'checksum OK (terminal_jail-1.3.4-py3-none-any.whl)' then 'stamped release version 1.3.4 into the installed wrapper'; installed binary line 92 reads VERSION_DEFAULT=\"1.3.4\" and `env -i ... terminal-jail --version` prints 'terminal-jail 1.3.4' (previously empty). Tests fresh-run: the four new regressions test_release_mode_install_stamps_the_chosen_release_version / accepts_a_v_prefixed... / refuses_an_unsafe_version... / refuses_a_wheel_without_a_stampable_wrapper all PASSED, exit 0, '4 passed in 1.31s'; full installer suite plugin/test_install.py exit 0 '109 passed, 1 skipped in 118.03s'; tier1 suite 2231 passed/15 skipped. [resolution 0.18; install.sh]",
+                "resolution_probability": 0.18,
+                "cited_path": "install.sh"
+              },
+              {
+                "criterion": "FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests.",
+                "status": "PASS",
+                "detail": "TJ-GAP-087 installer tests fresh-run: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded all PASSED, exit 0, '4 passed in 0.36s'. The new stamp does not alter the absolute-path contract: install.sh:489-505 keeps USE_RELEASE=1 suppressing checkout resolution, and the stamp block keys off LOCAL_WRAPPER emptiness (the same release-mode predicate). Live check of the exact TJ-GAP-087 shape: from a foreign cwd, `/bin/sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 installed the checksum-verified release wrapper stamped 1.3.4 (VERSION_DEFAULT=\"1.3.4\" at line 92, --version clean-env output 'terminal-jail 1.3.4'); 'v1.3.4' selection also stamped the stripped '1.3.4'.",
+                "resolution_probability": 0.18
+              },
+              {
+                "criterion": "Release stamp consumes the same version variable the release download used (seam: chosen wheel version == stamped version)",
+                "status": "PASS",
+                "detail": "install.sh:1367 builds release_asset='terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl' and install.sh:1471 stamps awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" \u2014 one variable, no drift. The regression test installs a non-pin wheel (chosen 9.9.9 vs installer pin 1.3.4) and asserts installed --version equals 9.9.9 (plugin/test_install.py:494-501 assertion), PASSED.",
+                "derived": true
+              },
+              {
+                "criterion": "The caller-supplied version is shape-checked before any splice (no injection/broken-wrapper surface)",
+                "status": "PASS",
+                "detail": "install.sh:26-33 parse-time case \"$TERMINAL_JAIL_RELEASE_VERSION\" in \"\" | *[!0-9A-Za-z._+-]*) exit 1 \u2014 quotes, sed metacharacters and newlines are outside the charset, before anything is downloaded or written. Live shell probe with TERMINAL_JAIL_VERSION='9.9.9\"; touch /tmp/tjdf076-injected; #' exited 1 with the named refusal and no injected marker file and no install dir created. Regression test test_release_mode_refuses_an_unsafe_version_before_anything_is_written PASSED. (scan_security unavailable \u2014 ast-grep not installed \u2014 compensated by this live probe.)",
+                "derived": true
+              },
+              {
+                "criterion": "The stamp runs only after checksum verification (integrity gate preserved)",
+                "status": "PASS",
+                "detail": "install.sh:1381-1404 computes and verifies the SHA256SUMS entry (exit 1 on mismatch) BEFORE the stamp block at 1449; the smoke log shows the 'checksum OK' line preceding the 'stamped release version' line, and the regression test asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' appears in output (plugin/test_install.py:477-479), PASSED.",
+                "derived": true
+              },
+              {
+                "criterion": "Checkout-mode install keeps its existing stamping behaviour (back-compat)",
+                "status": "PASS",
+                "detail": "The checkout branch is untouched: install.sh:1226 still sed-stamps VERSION_DEFAULT from pyproject.toml (LOCAL_VERSION). Live smoke without USE_RELEASE (absolute path, /tmp/tjdf076-smoke.t3JMwC): log line 'repository checkout detected \u2014 installing local wrapper (\u2026/standalone/terminal-jail, version 1.3.4)', installed --version printed 'terminal-jail 1.3.4'. plugin/test_install.py suite (109 passed) and plugin/test_version_parity.py+tests/test_version.py+tests/test_release_workflow.py (25 passed) confirm no regression.",
+                "derived": true
+              },
+              {
+                "criterion": "The stamp temp file is cleaned up (no partial-artifact or temp residue)",
+                "status": "PASS",
+                "detail": "install.sh:1192 defines tmp_stamped=.terminal-jail.$$.stamped and the cleanup() trap at install.sh:1194-1197 rm's it alongside tmp_payload/tmp_wheel/tmp_checksum; the stamp writes to tmp_stamped then mv -f over tmp_payload (install.sh:1474-1475). Live release smoke: install-dir contains only 'terminal-jail' \u2014 no .terminal-jail.* residue; the pre-existing test_tmp_files_cleaned_after_install PASSED in the 109-test suite run.",
+                "derived": true
+              }
+            ],
+            "summary": "Both given criteria PASS with fresh test runs (4 TJ-DF-076 regressions, all 4 TJ-GAP-087 installer tests, full 109-test installer suite) and live end-to-end release-mode installs of a wheel bundling the real wrapper, which stamp VERSION_DEFAULT=\"1.3.4\" and report 'terminal-jail 1.3.4' by absolute path from a foreign cwd; all five derived seam/back-compat/fail-closed criteria verified, with the injection surface proven closed by a live shell probe. [uncovered failure paths: failure mode 0 (A future release wheel's bundled wrapper drops or renames the VERSION_DEFAULT=\"\" line (format drift) and a silent unstamped install reintroduces the empty --version defect): detected_by is empty \u2014 uncovered failure path; failure mode 1 (A caller passes a version value containing quotes/sed metacharacters/newlines hoping to splice code into the installed wrapper): detected_by is empty \u2014 uncovered failure path]",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "working-tree",
+              "diff_bytes": 702,
+              "prompt_bytes": 7697
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "working-tree",
+        "diff_bytes": 702,
+        "prompt_bytes": 7697
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"TJ-DF-076\"}",
+          "exit_code": 0,
+          "output_sha": "6fed90165a66cd3f9219aa0ad418f22b7471f8701ee1b65b275b454b2eacac88"
+        },
+        {
+          "tool": "run_command",
+          "command": "ls -la /home/kara/worktrees/terminal-jail-TJ-DF-076 2>/dev/null | head -50; echo \"---\"; cat /home/kara/worktrees/terminal-jail-TJ-DF-076/.gitreins/config.yaml 2>/dev/null | head -60",
+          "exit_code": 0,
+          "output_sha": "a8707bec1470c150d83fd2c53c23367ad53f89e6c72ecc785f0e74d7e1e441cc"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && sed -n '1,40p' .gitreins/config.yaml; echo \"=== GIT STATUS ===\"; git status --short | head -30; echo \"=== GIT LOG ===\"; git log --oneline -8; echo \"=== DIFF STAT (unstaged+staged vs HEAD) ===\"; git diff HEAD --stat | head -40",
+          "exit_code": 0,
+          "output_sha": "ebdc37b2598f38f82a67fbdb65778b2cf61845b306815e1e5d1d16e6b4e36b34"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"regex\": \"VERSION_DEFAULT\"}",
+          "exit_code": 0,
+          "output_sha": "01888635cc7ba1bcdb1ed03f18185319a96f7de9b6e70d590acbf5a870fd3ad1"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && git show f873acf2 --stat && echo \"=== FULL DIFF ===\" && git show f873acf2 | head -400",
+          "exit_code": 0,
+          "output_sha": "0a88b4ae2e8d68a37156e4319c75898dedaa7d36730f3dc17714a8e5d2d5e17b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && git show f873acf2 -- install.sh | head -260",
+          "exit_code": 0,
+          "output_sha": "55c08e47292bed58337d75b32ce25901587b1dea36f1e1ff1f7069e3163f8841"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 120, \"offset\": 1200, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "e19f95fd6cf731a0747f45907e83c0e7523551524cd4307b293a20b85156ddbf"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 130, \"offset\": 1380, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "9bbdcde164caf75a72a09a0710cb91cb6da6b3280285713be4d82e3e7b811531"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -n \"TERMINAL_JAIL_RELEASE_VERSION\\|tmp_stamped\\|TJ-GAP-087\\|TERMINAL_JAIL_VERSION\" install.sh | head -60",
+          "exit_code": 0,
+          "output_sha": "ff88d79f5c974d130487d7f6a9881a1257faf1cfe7a34e39f47fe0af926b91a7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -rn \"TJ-GAP-087\" --include=\"*.py\" --include=\"*.sh\" --include=\"*.md\" . | grep -v \".gitreins\" | head -20",
+          "exit_code": 0,
+          "output_sha": "921c34b3ee1ad34836d1992685d4c389e225a84cf3e9eea5facca4d2b4ab413e"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 60, \"offset\": 15, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "f868884eef939f53707a52f78217ac98df5b380f3b4456851a1492a8ea22fa9f"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 230, \"offset\": 400, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "8743230b8b8bbb44a0ddf3055821f288d405a0ace38da4ab3ff22205e596a34e"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 45, \"offset\": 10, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "af5d7a333f68a8d4694b22539e31d049c867a3dfc9b236b5d75e2649e8f2116a"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 60, \"offset\": 480, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "5c7d676318b2de498c92ced75c0a489a2add5a543c0e13858bb6b53a60d9d5a6"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 16, \"offset\": 1186, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "fea95541c55bb196746e0d0a0797a9a24f7cdecaf299072e6c3ac8f24e132b6d"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -n \"_make_release_server_dir\\|_make_server_dir\\|_setup_full_testbin\\|def _make\" plugin/test_install.py | head -20",
+          "exit_code": 0,
+          "output_sha": "c839bfb90d424f31ca506f74cfea12c5da1187a9f393927edb3e664d2dcac35a"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Task TJ-DF-076. Commit f873acf2 (fix(install): stamp chosen release version). Changed: install.sh (parse-time charset check lines 26-33; release stamp block lines 1449-1476; tmp_stamped line 1192 + trap line 1195), plugin/test_install.py (FAKE_BINARY mirrors version path lines 22-36; 4 new regression tests ~lines 425-611). Read so far: install.sh 10-55, 480-540, 1186-1201, 1200-1320, 1380-1510; test_install.py 1-100, 400-630. Next: run tests (TJ-DF-076 4 tests + TJ-GAP-087 tests + full installer suite), verify absolute-path install shape.\", \"key\": \"checked\"}",
+          "exit_code": 0,
+          "output_sha": "f4767434062da139b0e10c8ccc5086d6d0c88b1b50f767f2cba45c843ce80909"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 90, \"offset\": 119, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "28d8ea1c3f92c13db3a20e658f0b4433fd907fd92fd9750ce072f66cbf2ae1a5"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && sed -n '900,1010p' plugin/test_install.py && echo \"=== def test list (TJ-GAP-087 area) ===\" && awk 'NR>=880 && NR<=1120 && /^def test_|^def _/' plugin/test_install.py",
+          "exit_code": 0,
+          "output_sha": "0701985bd118b97d778dbc7f58f145d3960863b3c424b3b880ab91fa7c223e6d"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -rn \"TJ-GAP-087\\|absolute\" tests/test_release_workflow.py 2>/dev/null | head; echo \"=== release_workflow tests ===\"; grep -n \"^def test\\|^class \" tests/test_release_workflow.py | head -30; echo \"=== grep absolute-path install tests across repo ===\"; grep -rln \"absolute.path\\|by absolute\" plugin/test_install.py tests/*.py | head",
+          "exit_code": 0,
+          "output_sha": "ea702c8020089a7d96fa98a2545d50440d59f8067ac2518ab03afeb4dd8ad8b2"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && .venv/bin/python -m pytest plugin/test_install.py -k \"stamps or stampable or unsafe_version or v_prefixed or release\" -q --no-header 2>&1 | tail -25",
+          "exit_code": 0,
+          "output_sha": "1f0394061722afa1f0c395b67da8a66b279e1df4f6b0cc9d54ba749fd1b15ef7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && .venv/bin/python -m pytest \"plugin/test_install.py::test_release_mode_install_stamps_the_chosen_release_version\" \"plugin/test_install.py::test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version\" \"plugin/test_install.py::test_release_mode_refuses_an_unsafe_version_before_anything_is_written\" \"plugin/test_install.py::test_release_mode_refuses_a_wheel_without_a_stampable_wrapper\" -v --no-header -p no:cacheprovider 2>&1 | tail -12",
+          "exit_code": 0,
+          "output_sha": "3c187559d3301954d3d38a8c0a6e8c56af39542b44d74582fb3b1f2d2f78f609"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && .venv/bin/python -m pytest \"plugin/test_install.py::test_release_mode_requires_opt_in\" \"plugin/test_install.py::test_install_reports_both_probes_advisory\" \"plugin/test_install.py::test_advisory_missing_probe_is_one_honest_line\" \"plugin/test_install.py::test_require_tier_pidns_fails_closed_on_degraded\" -v --no-header -p no:cacheprovider 2>&1 | tail -10",
+          "exit_code": 0,
+          "output_sha": "639814cadc13ed64952c7035e0dc1051631c67b6df0bd695cc958bb1189998ba"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && .venv/bin/python -m pytest plugin/test_install.py -q --no-header -p no:cacheprovider 2>&1 | tail -6",
+          "exit_code": 0,
+          "output_sha": "ce9948a4d2a295f46f0cd39f0cca245676509589cbd682cc41476894b3ef4536"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -n \"check_sha256()\" -A 14 install.sh | head -20",
+          "exit_code": 0,
+          "output_sha": "8a83b5ba17c6953c2fbbc32c14bd2c2cbc71583029229194c4e942e69ce43fec"
+        },
+        {
+          "tool": "run_command",
+          "command": "set -e\nWORK=$(mktemp -d /tmp/tjdf076-smoke.XXXXXX)\nmkdir -p \"$WORK/server\" \"$WORK/install-dir\" \"$WORK/fakebin\" \"$WORK/realpkg/terminal_jail\"\ncd /home/kara/worktrees/terminal-jail-TJ-DF-076\n# Build a wheel fixture whose bundled wrapper is the REAL standalone/terminal-jail\npython3 - <<'EOF'\nimport os, zipfile, hashlib, subprocess\nwork = os.environ[\"WORK\"]\nwheel = os.path.join(work, \"server\", \"terminal_jail-1.3.4-py3-none-any.whl\")\nwith zipfile.ZipFile(wheel, \"w\") as z:\n    z.write(os.path.join(os.environ[\"REPO\"], \"standalone\", \"terminal-jail\"), \"terminal_jail/_bundled/terminal-jail\")\n    z.writestr(\"terminal_jail/__init__.py\", \"__version__ = 'fixture'\\n\")\n    z.writestr(\"terminal_jail/interruptor_bridge.py\", \"#!/usr/bin/env python3\\n\")\nd = subprocess.run([\"sha256sum\", wheel], capture_output=True, text=True, check=True).stdout.split()[0]\nwith open(os.path.join(work, \"server\", \"SHA256SUMS\"), \"w\") as f:\n    f.write(f\"{d}  terminal_jail-1.3.4-py3-none-any.whl\\n\")\nprint(\"wheel+sums written\")\nEOF\n# mock curl\ncat > \"$WORK/fakebin/curl\" <<EOF\n#!/bin/bash\nurl=\"\\$2\"; outfile=\"\\$4\"\nsrcdir='$WORK/server'\ncp \"\\$srcdir/\\$(basename \"\\$url\")\" \"\\$outfile\"\nEOF\nchmod 755 \"$WORK/fakebin/curl\"\nfor t in sha256sum python3 awk grep chmod mv; do ln -sf \"$(command -v $t)\" \"$WORK/fakebin/$t\" 2>/dev/null || true; done\n# Release-mode install BY ABSOLUTE PATH from a FOREIGN cwd (TJ-GAP-087 shape), NO env override\ncd \"$WORK\"\nHOME=\"$WORK/home\" PATH=\"$WORK/fakebin\" TERMINAL_JAIL_INSTALL_DIR=\"$WORK/install-dir\" \\\n  sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh > \"$WORK/install.log\" 2>&1 || { echo \"INSTALL FAILED\"; cat \"$WORK/install.log\"; exit 1; }\ngrep -E \"checksum OK|stamped release version|installed to\" \"$WORK/install.log\"\necho \"--- installed VERSION_DEFAULT line ---\"\ngrep -n '^VERSION_DEFAULT=' \"$WORK/install-dir/terminal-jail\"\necho \"--- temp residue ---\"\nls -a \"$WORK/install-dir\" | grep terminal || true\necho \"--- run installed --version with clean env ---\"\nenv -i PATH=\"$WORK/fakebin\" HOME=\"$WORK/home\" \"$WORK/install-dir/terminal-jail\" --version\necho \"SMOKE_WORK=$WORK\"",
+          "exit_code": 1,
+          "output_sha": "ecd7c9adb296f75e66a386e9d7de48d671c49b348c16cdc9bfbdc831eb559a7e"
+        },
+        {
+          "tool": "run_command",
+          "command": "export REPO=/home/kara/worktrees/terminal-jail-TJ-DF-076\nWORK=$(mktemp -d /tmp/tjdf076-smoke.XXXXXX)\nexport WORK\nmkdir -p \"$WORK/server\" \"$WORK/install-dir\" \"$WORK/fakebin\" \"$WORK/home\"\ncd \"$REPO\"\npython3 - <<'EOF'\nimport os, zipfile, subprocess\nwork = os.environ[\"WORK\"]\nwheel = os.path.join(work, \"server\", \"terminal_jail-1.3.4-py3-none-any.whl\")\nwith zipfile.ZipFile(wheel, \"w\") as z:\n    z.write(os.path.join(os.environ[\"REPO\"], \"standalone\", \"terminal-jail\"), \"terminal_jail/_bundled/terminal-jail\")\n    z.writestr(\"terminal_jail/__init__.py\", \"__version__ = 'fixture'\\n\")\n    z.writestr(\"terminal_jail/interruptor_bridge.py\", \"#!/usr/bin/env python3\\n\")\nd = subprocess.run([\"sha256sum\", wheel], capture_output=True, text=True, check=True).stdout.split()[0]\nwith open(os.path.join(work, \"server\", \"SHA256SUMS\"), \"w\") as f:\n    f.write(f\"{d}  terminal_jail-1.3.4-py3-none-any.whl\\n\")\nprint(\"wheel+sums written\")\nEOF\ncat > \"$WORK/fakebin/curl\" <<EOF\n#!/bin/bash\nurl=\"\\$2\"; outfile=\"\\$4\"\nsrcdir='$WORK/server'\ncp \"\\$srcdir/\\$(basename \"\\$url\")\" \"\\$outfile\"\nEOF\nchmod 755 \"$WORK/fakebin/curl\"\nfor t in sha256sum python3 awk grep chmod mv unzip sha256sum; do ln -sf \"$(command -v $t)\" \"$WORK/fakebin/$t\" 2>/dev/null || true; done\ncd \"$WORK\"\nHOME=\"$WORK/home\" PATH=\"$WORK/fakebin\" TERMINAL_JAIL_INSTALL_DIR=\"$WORK/install-dir\" \\\n  sh \"$REPO/install.sh\" > \"$WORK/install.log\" 2>&1 || { echo \"INSTALL FAILED\"; tail -20 \"$WORK/install.log\"; exit 1; }\ngrep -E \"checksum OK|stamped release version|installed to\" \"$WORK/install.log\"\necho \"--- installed VERSION_DEFAULT line ---\"\ngrep -n '^VERSION_DEFAULT=' \"$WORK/install-dir/terminal-jail\"\necho \"--- temp residue in install-dir ---\"\nls -a \"$WORK/install-dir\"\necho \"--- installed --version with clean env ---\"\nenv -i PATH=\"$WORK/fakebin\" HOME=\"$WORK/home\" \"$WORK/install-dir/terminal-jail\" --version || echo \"(version cmd exit $?)\"\necho \"SMOKE_WORK=$WORK\"",
+          "exit_code": 1,
+          "output_sha": "c8b4e9e9fa668609ae2a45b5e2d63d536669a9b2256e803ceb701c8f547c27fd"
+        },
+        {
+          "tool": "run_command",
+          "command": "export REPO=/home/kara/worktrees/terminal-jail-TJ-DF-076\nWORK=$(mktemp -d /tmp/tjdf076-smoke.XXXXXX)\nexport WORK\nmkdir -p \"$WORK/server\" \"$WORK/install-dir\" \"$WORK/fakebin\" \"$WORK/home\"\ncd \"$REPO\"\npython3 - <<'EOF'\nimport os, zipfile, subprocess\nwork = os.environ[\"WORK\"]\nwheel = os.path.join(work, \"server\", \"terminal_jail-1.3.4-py3-none-any.whl\")\nwith zipfile.ZipFile(wheel, \"w\") as z:\n    z.write(os.path.join(os.environ[\"REPO\"], \"standalone\", \"terminal-jail\"), \"terminal_jail/_bundled/terminal-jail\")\n    z.writestr(\"terminal_jail/__init__.py\", \"__version__ = 'fixture'\\n\")\n    z.writestr(\"terminal_jail/interruptor_bridge.py\", \"#!/usr/bin/env python3\\n\")\nd = subprocess.run([\"sha256sum\", wheel], capture_output=True, text=True, check=True).stdout.split()[0]\nwith open(os.path.join(work, \"server\", \"SHA256SUMS\"), \"w\") as f:\n    f.write(f\"{d}  terminal_jail-1.3.4-py3-none-any.whl\\n\")\nprint(\"wheel+sums written\")\nEOF\ncat > \"$WORK/fakebin/curl\" <<EOF\n#!/bin/bash\nurl=\"\\$2\"; outfile=\"\\$4\"\nsrcdir='$WORK/server'\ncp \"\\$srcdir/\\$(basename \"\\$url\")\" \"\\$outfile\"\nEOF\nchmod 755 \"$WORK/fakebin/curl\"\nfor t in sh bash sha256sum python3 awk grep chmod mv unzip tee sed find sort head cat rm mkdir cp dirname pwd env ls printf uname id basename sleep; do p=$(command -v $t 2>/dev/null) && ln -sf \"$p\" \"$WORK/fakebin/$t\"; done\ncd \"$WORK\"\nHOME=\"$WORK/home\" PATH=\"$WORK/fakebin\" TERMINAL_JAIL_INSTALL_DIR=\"$WORK/install-dir\" \\\n  /bin/sh \"$REPO/install.sh\" > \"$WORK/install.log\" 2>&1 || { echo \"INSTALL FAILED\"; tail -25 \"$WORK/install.log\"; exit 1; }\ngrep -E \"checksum OK|stamped release version|installed to\" \"$WORK/install.log\"\necho \"--- installed VERSION_DEFAULT line ---\"\ngrep -n '^VERSION_DEFAULT=' \"$WORK/install-dir/terminal-jail\"\necho \"--- install-dir contents (temp residue check) ---\"\nls -a \"$WORK/install-dir\"\necho \"--- installed --version with clean env ---\"\nenv -i PATH=\"$WORK/fakebin\" HOME=\"$WORK/home\" \"$WORK/install-dir/terminal-jail\" --version || echo \"(version cmd exit $?)\"\necho \"SMOKE_WORK=$WORK\"",
+          "exit_code": 0,
+          "output_sha": "947afcbf2782c98361c8e892673934e8b0c870a41ee460f55b351e417313cfe7"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && grep -n '^version' pyproject.toml; echo \"=== prior smoke log head ===\"; head -12 /tmp/tjdf076-smoke.t3JMwC/install.log",
+          "exit_code": 0,
+          "output_sha": "ced65af915c6fbfa66fc7ace0072187ce255b4e3fcf5d3c81b29fca3a46418a3"
+        },
+        {
+          "tool": "run_command",
+          "command": "export REPO=/home/kara/worktrees/terminal-jail-TJ-DF-076\nWORK=$(mktemp -d /tmp/tjdf076-rel.XXXXXX)\nexport WORK\nmkdir -p \"$WORK/server\" \"$WORK/install-dir\" \"$WORK/fakebin\" \"$WORK/home\" \"$WORK/foreign-cwd\"\ncd \"$REPO\"\npython3 - <<'EOF'\nimport os, zipfile, subprocess\nwork = os.environ[\"WORK\"]\nwheel = os.path.join(work, \"server\", \"terminal_jail-1.3.4-py3-none-any.whl\")\nwith zipfile.ZipFile(wheel, \"w\") as z:\n    z.write(os.path.join(os.environ[\"REPO\"], \"standalone\", \"terminal-jail\"), \"terminal_jail/_bundled/terminal-jail\")\n    z.writestr(\"terminal_jail/__init__.py\", \"__version__ = 'fixture'\\n\")\n    z.writestr(\"terminal_jail/interruptor_bridge.py\", \"#!/usr/bin/env python3\\n\")\nd = subprocess.run([\"sha256sum\", wheel], capture_output=True, text=True, check=True).stdout.split()[0]\nwith open(os.path.join(work, \"server\", \"SHA256SUMS\"), \"w\") as f:\n    f.write(f\"{d}  terminal_jail-1.3.4-py3-none-any.whl\\n\")\nprint(\"wheel+sums written\")\nEOF\ncat > \"$WORK/fakebin/curl\" <<EOF\n#!/bin/bash\nurl=\"\\$2\"; outfile=\"\\$4\"\nsrcdir='$WORK/server'\ncp \"\\$srcdir/\\$(basename \"\\$url\")\" \"\\$outfile\"\nEOF\nchmod 755 \"$WORK/fakebin/curl\"\nfor t in sh bash sha256sum python3 awk grep chmod mv unzip tee sed find sort head cat rm mkdir cp dirname pwd env ls printf uname id basename sleep tail; do p=$(command -v $t 2>/dev/null) && ln -sf \"$p\" \"$WORK/fakebin/$t\"; done\ncd \"$WORK/foreign-cwd\"\nHOME=\"$WORK/home\" PATH=\"$WORK/fakebin\" TERMINAL_JAIL_INSTALL_DIR=\"$WORK/install-dir\" TERMINAL_JAIL_USE_RELEASE=1 \\\n  /bin/sh \"$REPO/install.sh\" > \"$WORK/install.log\" 2>&1 || { echo \"INSTALL FAILED\"; tail -25 \"$WORK/install.log\"; exit 1; }\necho \"--- decisive log lines ---\"\ngrep -E \"checksum OK|stamped release version|installed to\" \"$WORK/install.log\"\necho \"--- installed VERSION_DEFAULT line (REAL wrapper, line 92) ---\"\ngrep -n '^VERSION_DEFAULT=' \"$WORK/install-dir/terminal-jail\"\necho \"--- release plugin tree copied ---\"\nls \"$WORK/install-dir/../lib/terminal-jail/plugin/terminal_jail\" | head -5\necho \"--- temp residue ---\"\nls -a \"$WORK/install-dir\"\necho \"--- installed --version, clean env, no TERMINAL_JAIL_* ---\"\nenv -i PATH=\"$WORK/fakebin\" HOME=\"$WORK/home\" \"$WORK/install-dir/terminal-jail\" --version || echo \"(exit $?)\"\necho \"--- also with 'v' prefix selection ---\"\nHOME=\"$WORK/home\" PATH=\"$WORK/fakebin\" TERMINAL_JAIL_INSTALL_DIR=\"$WORK/install-dir-v\" TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=v1.3.4 \\\n  /bin/sh \"$REPO/install.sh\" > \"$WORK/install-v.log\" 2>&1 && grep -E \"terminal_jail-1.3.4-py3-none-any.whl|stamped release version\" \"$WORK/install-v.log\" && grep -n '^VERSION_DEFAULT=' \"$WORK/install-dir-v/terminal-jail\"\necho \"REL_WORK=$WORK\"",
+          "exit_code": 0,
+          "output_sha": "2460516baabc07d14ffef1affd1a1e5c3a11f59a094d5f003b27ff52513a53bf"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && git show f873acf2 --stat | tail -8; echo \"=== any test/doc asserting release installed binary == wheel wrapper byte-identical? ===\"; grep -rn \"byte.for.byte\\|read_bytes() ==\\|verbatim\" plugin/test_install.py | head -10; echo \"=== docs mention of release stamp ===\"; grep -rn \"stamp\" docs/releasing.md README.md 2>/dev/null | head -8",
+          "exit_code": 0,
+          "output_sha": "a3fcf58dbc8964c934dc1fc911eda182e71d60bebf8b5c88f34416ac8b11bec4"
+        },
+        {
+          "tool": "scan_security",
+          "command": "scan_security {\"path\": \"install.sh\"}",
+          "exit_code": 1,
+          "output_sha": "5e0d7bc741a81111ae0de095711667c687dd96144bddb05f9ada127954bef57f"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"TJ-DF-076 verified so far:\\n[1] Criterion 1 (release install leaves VERSION_DEFAULT empty): PASS. install.sh:1449-1476 stamps VERSION_DEFAULT=\\\"<TERMINAL_JAIL_RELEASE_VERSION>\\\" via awk after shebang/shape checks; fail-closed gate at 1459-1463 refuses wheel without stampable line. LIVE smoke (/tmp/tjdf076-rel.ypWhaG): release-mode install of wheel bundling the REAL standalone/terminal-jail -> \\\"checksum OK (terminal_jail-1.3.4-py3-none-any.whl)\\\" + \\\"stamped release version 1.3.4 into the installed wrapper\\\"; installed file line 92: VERSION_DEFAULT=\\\"1.3.4\\\"; `env -i ... terminal-jail --version` -> \\\"terminal-jail 1.3.4\\\". Tests: 4 TJ-DF-076 tests PASSED (exit 0, \\\"4 passed in 1.31s\\\"); full plugin/test_install.py: \\\"109 passed, 1 skipped in 118.03s\\\".\\n[2] Criterion 2 (absolute-path release install regresses): PASS. TJ-GAP-087 tests PASSED: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded (\\\"4 passed in 0.36s\\\"). LIVE smoke: `cd $WORK/foreign-cwd; /bin/sh $REPO/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 -> install succeeded, VERSION_DEFAULT=\\\"1.3.4\\\" at line 92, --version works; 'v1.3.4' selection stamps stripped \\\"1.3.4\\\". install.sh:489-505: USE_RELEASE=1 suppresses checkout resolution (release assets, never adjacent checkout).\\n[derived_0] Stamp uses the SAME variable as the download (seam): install.sh:1367 asset=terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl; install.sh:1471 awk -v tj_ver=\\\"$TERMINAL_JAIL_RELEASE_VERSION\\\". Test pins chosen 9.9.9 != pin 1.3.4 and asserts installed --version == 9.9.9. PASS.\\n[derived_1] Parse-time charset refusal before any write: install.sh:26-33 case \\\"\\\" | *[!0-9A-Za-z._+-]* -> exit 1. test_release_mode_refuses_an_unsafe_version_before_anything_is_written PASSED (asserts invalid message, no injected-marker, no artifacts, no downloads). PASS.\\n[derived_2] Stamp ordered AFTER checksum verification: install.sh checksum gate ~1381-1404 precedes stamp block 1449; test asserts \\\"checksum OK (...9.9.9...)\\\" in output and smoke log shows checksum OK line before stamped line. PASS.\\n[derived_3] Checkout-mode back-compat: sed stamp path install.sh:1226 untouched; LIVE smoke 1 (/tmp/tjdf076-smoke.t3JMwC) without USE_RELEASE: \\\"repository checkout detected \\u2014 installing local wrapper (... version 1.3.4)\\\", installed --version -> \\\"terminal-jail 1.3.4\\\". PASS.\\n[derived_4 candidate] tmp_stamped temp+rename + trap: install.sh:1192, cleanup() 1194-1197 rm's tmp_stamped; smoke install-dir shows only terminal-jail (no .terminal-jail.* residue). PASS.\\nPending: scan_security on install.sh.\", \"key\": \"checked\"}",
+          "exit_code": 0,
+          "output_sha": "ccb8c7125612f0a50776af8685b0ca111c6f90e1f7d0458d3c858a05cbe920f1"
+        },
+        {
+          "tool": "run_command",
+          "command": "export REPO=/home/kara/worktrees/terminal-jail-TJ-DF-076\n# Direct awk-stamp injection probe: charset-refused values must never reach awk\nV='9.9.9\"; touch /tmp/tjdf076-injected; #'\nHOME=/tmp/tjdf076-injhome PATH=/usr/bin:/bin TERMINAL_JAIL_INSTALL_DIR=/tmp/tjdf076-injdir TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_BASE_URL=file:///tmp/tjdf076-rel.ypWhaG/server TERMINAL_JAIL_VERSION=\"$V\" /bin/sh \"$REPO/install.sh\" > /tmp/tjdf076-inj.log 2>&1\necho \"exit=$?\"\ntail -2 /tmp/tjdf076-inj.log\nls /tmp/tjdf076-injected 2>&1 || echo \"no injected marker (refusal held)\"\nls /tmp/tjdf076-injdir 2>&1 || true",
+          "exit_code": 0,
+          "output_sha": "b405014cf6d39cd435e685850389d42431c7e4d1c356087736072eb7a33cc427"
+        },
+        {
+          "tool": "read_lsp_diagnostics",
+          "command": "read_lsp_diagnostics {}",
+          "exit_code": 0,
+          "output_sha": "ef420cbeebd549fc8c5438d6ea41a3e521fa58e29563c4cae80f491b9bfe2143"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/worktrees/terminal-jail-TJ-DF-076 && .venv/bin/python -m pytest plugin/test_version_parity.py tests/test_version.py tests/test_release_workflow.py -q --no-header -p no:cacheprovider 2>&1 | tail -4",
+          "exit_code": 0,
+          "output_sha": "5385e28d5767a7f230c66b08c542fcbf55e00e0df0f16ebd0eec86f7ea6023c0"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"TJ-DF-076 FINAL. Given 1 PASS: install.sh:1449-1476 stamp block + fail-closed gate 1459-1463; live release smoke with REAL standalone/terminal-jail in wheel (/tmp/tjdf076-rel.ypWhaG): \\\"checksum OK\\\", \\\"stamped release version 1.3.4\\\", installed line 92 VERSION_DEFAULT=\\\"1.3.4\\\", env -i --version -> \\\"terminal-jail 1.3.4\\\"; tests: 4 TJ-DF-076 regression tests \\\"4 passed in 1.31s\\\", full plugin/test_install.py \\\"109 passed, 1 skipped in 118.03s\\\", tier1 suite 2231 passed/15 skipped. Given 2 PASS: TJ-GAP-087 tests (requires_opt_in, both_probes_advisory, advisory_missing_probe, require_tier_pidns) \\\"4 passed in 0.36s\\\"; absolute-path-from-foreign-cwd release smoke succeeded with correct stamp; install.sh:489-505 USE_RELEASE=1 suppresses checkout resolution. Derived 0-4 all PASS (seam var 1367==1471; parse-time refusal install.sh:26-33 + live injection probe exit=1 no marker; checksum-before-stamp order; checkout back-compat smoke + install.sh:1226 sed path untouched; tmp_stamped trap install.sh:1192-1197 no residue). LSP diagnostics: 0. scan_security unavailable (ast-grep not installed) \\u2014 compensated by live shell-level injection probe. Version parity + release workflow tests 25 passed. VERDICT: COMPLETE.\", \"key\": \"checked\"}",
+          "exit_code": 0,
+          "output_sha": "d6db44bd12c00317c81b450ee9ba34f3e065b2d7fb6d35328c349740e4fde338"
+        }
+      ]
+    },
+    "fix_verification": {
+      "id": "fix_verification",
+      "passed": true,
+      "any_failed": false,
+      "summary": "fix_verification: 0 finding(s) verified",
+      "steps": [
+        {
+          "id": "fix_verification",
+          "type": "fix_verification",
+          "passed": true,
+          "output": "fix_verification: 0 finding(s) verified",
+          "error": "",
+          "data": {
+            "dispositions": [],
+            "counts": {}
+          }
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "working-tree",
+    "diff_bytes": 702,
+    "prompt_bytes": 7697
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "unparseable reviewer reply: no parseable JSON object in reply: ''",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 FAILIF: release installation leaves VERSION_DEFAULT empty. PROOF: inspect install.sh release wrapper stamping and run the installer regression test.: install.sh:1449-1476 stamps VERSION_DEFAULT=\"<TERMINAL_JAIL_RELEASE_VERSION>\" into the checksum-verified wheel wrapper via awk (awk -v tj_ver, no program-text interpolation) after the shebang/shape checks, with a fail-closed gate at install.sh:1459-1463 refusing a wheel whose wrapper lost the stampable line. Live smoke with a wheel bundling the REAL standalone/terminal-jail (/tmp/tjdf076-rel.ypWhaG): log shows 'checksum OK (terminal_jail-1.3.4-py3-none-any.whl)' then 'stamped release version 1.3.4 into the installed wrapper'; installed binary line 92 reads VERSION_DEFAULT=\"1.3.4\" and `env -i ... terminal-jail --version` prints 'terminal-jail 1.3.4' (previously empty). Tests fresh-run: the four new regressions test_release_mode_install_stamps_the_chosen_release_version / accepts_a_v_prefixed... / refuses_an_unsafe_version... / refuses_a_wheel_without_a_stampable_wrapper all PASSED, exit 0, '4 passed in 1.31s'; full installer suite plugin/test_install.py exit 0 '109 passed, 1 skipped in 118.03s'; tier1 suite 2231 passed/15 skipped. [resolution 0.18; install.sh]\n  \u2713 FAILIF: absolute-path release install regresses. PROOF: run the TJ-GAP-087 installer tests.: TJ-GAP-087 installer tests fresh-run: test_release_mode_requires_opt_in, test_install_reports_both_probes_advisory, test_advisory_missing_probe_is_one_honest_line, test_require_tier_pidns_fails_closed_on_degraded all PASSED, exit 0, '4 passed in 0.36s'. The new stamp does not alter the absolute-path contract: install.sh:489-505 keeps USE_RELEASE=1 suppressing checkout resolution, and the stamp block keys off LOCAL_WRAPPER emptiness (the same release-mode predicate). Live check of the exact TJ-GAP-087 shape: from a foreign cwd, `/bin/sh /home/kara/worktrees/terminal-jail-TJ-DF-076/install.sh` with TERMINAL_JAIL_USE_RELEASE=1 installed the checksum-verified release wrapper stamped 1.3.4 (VERSION_DEFAULT=\"1.3.4\" at line 92, --version clean-env output 'terminal-jail 1.3.4'); 'v1.3.4' selection also stamped the stripped '1.3.4'.\n  \u2713 Release stamp consumes the same version variable the release download used (seam: chosen wheel version == stamped version): install.sh:1367 builds release_asset='terminal_jail-${TERMINAL_JAIL_RELEASE_VERSION}-py3-none-any.whl' and install.sh:1471 stamps awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" \u2014 one variable, no drift. The regression test installs a non-pin wheel (chosen 9.9.9 vs installer pin 1.3.4) and asserts installed --version equals 9.9.9 (plugin/test_install.py:494-501 assertion), PASSED.\n  \u2713 The caller-supplied version is shape-checked before any splice (no injection/broken-wrapper surface): install.sh:26-33 parse-time case \"$TERMINAL_JAIL_RELEASE_VERSION\" in \"\" | *[!0-9A-Za-z._+-]*) exit 1 \u2014 quotes, sed metacharacters and newlines are outside the charset, before anything is downloaded or written. Live shell probe with TERMINAL_JAIL_VERSION='9.9.9\"; touch /tmp/tjdf076-injected; #' exited 1 with the named refusal and no injected marker file and no install dir created. Regression test test_release_mode_refuses_an_unsafe_version_before_anything_is_written PASSED. (scan_security unavailable \u2014 ast-grep not installed \u2014 compensated by this live probe.)\n  \u2713 The stamp runs only after checksum verification (integrity gate preserved): install.sh:1381-1404 computes and verifies the SHA256SUMS entry (exit 1 on mismatch) BEFORE the stamp block at 1449; the smoke log shows the 'checksum OK' line preceding the 'stamped release version' line, and the regression test asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' appears in output (plugin/test_install.py:477-479), PASSED.\n  \u2713 Checkout-mode install keeps its existing stamping behaviour (back-compat): The checkout branch is untouched: install.sh:1226 still sed-stamps VERSION_DEFAULT from pyproject.toml (LOCAL_VERSION). Live smoke without USE_RELEASE (absolute path, /tmp/tjdf076-smoke.t3JMwC): log line 'repository checkout detected \u2014 installing local wrapper (\u2026/standalone/terminal-jail, version 1.3.4)', installed --version printed 'terminal-jail 1.3.4'. plugin/test_install.py suite (109 passed) and plugin/test_version_parity.py+tests/test_version.py+tests/test_release_workflow.py (25 passed) confirm no regression.\n  \u2713 The stamp temp file is cleaned up (no partial-artifact or temp residue): install.sh:1192 defines tmp_stamped=.terminal-jail.$$.stamped and the cleanup() trap at install.sh:1194-1197 rm's it alongside tmp_payload/tmp_wheel/tmp_checksum; the stamp writes to tmp_stamped then mv -f over tmp_payload (install.sh:1474-1475). Live release smoke: install-dir contains only 'terminal-jail' \u2014 no .terminal-jail.* residue; the pre-existing test_tmp_files_cleaned_after_install PASSED in the 109-test suite run.\nBoth given criteria PASS with fresh test runs (4 TJ-DF-076 regressions, all 4 TJ-GAP-087 installer tests, full 109-test installer suite) and live end-to-end release-mode installs of a wheel bundling the real wrapper, which stamp VERSION_DEFAULT=\"1.3.4\" and report 'terminal-jail 1.3.4' by absolute path from a foreign cwd; all five derived seam/back-compat/fail-closed criteria verified, with the injection surface proven closed by a live shell probe. [uncovered failure paths: failure mode 0 (A future release wheel's bundled wrapper drops or renames the VERSION_DEFAULT=\"\" line (format drift) and a silent unstamped install reintroduces the empty --version defect): detected_by is empty \u2014 uncovered failure path; failure mode 1 (A caller passes a version value containing quotes/sed metacharacters/newlines hoping to splice code into the installed wrapper): detected_by is empty \u2014 uncovered failure path]\n\nStage fix_verification: PASS\n  fix_verification: 0 finding(s) verified\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-23T19:24:23.108739",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-23T19:24:23.272482+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 17513,
+        "truncated": false,
+        "source": "git show f873acf2844b"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 30045,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-076"
+  }
+}
