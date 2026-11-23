@@ -1,0 +1,20 @@
+{
+ "task_id": "TJ-DF-075",
+ "task_title": "[dogfood:P3] Release-download install branch never exercised live: TERMINAL_JAIL_USE_RELEASE=1 against a real published release",
+ "evaluated_at": "2026-11-23T14:45:38Z",
+ "mode": "FOREMAN-DIRECT MANUAL VERIFICATION (evidence-only dogfood row: no implementation diff exists to grade, so no tier-2 LLM judge applies; foreman independently re-verified the worker's evidence per the dogfood evidence doctrine, fm-perf005-foremandirect shape precedent)",
+ "branch": "wt/TJ-DF-075",
+ "commit": "7086bd6e76261a9d1144d4509316f6c5ebacef84",
+ "passed": true,
+ "summary": "Release-download install branch PROVEN live against published v1.3.4. AC1 release download+install exit 0 (absolute-path invocation required; relative invocation silently adopts the checkout per in-source TJ-GAP-087 - the review trap). AC2b/AC2c verdict legs PASSED (allow-echo + proc_view=private bwrap; builtin-rm-rf-root exit 126). AC2a --version FAILED honestly: release install never stamps VERSION_DEFAULT (wheel wrapper line 92 empty; release path cp verbatim vs local sed stamp install.sh:1206) - foreman independently reproduced and read the mechanism; defect carved to TJ-DF-076, not hidden. AC3 independent full-manifest sha256sum -c OK (wheel + tar.gz). Live host install unmodified (sha256 bcd111f8... identical pre/post).",
+ "items": [
+  {"criterion": "AC1 release install live", "result": "PASS", "evidence": "install-transcript-release.txt: downloaded terminal_jail-1.3.4-py3-none-any.whl, checksum OK, installed to scratch .local/bin, exit=0"},
+  {"criterion": "AC2a --version matches tag", "result": "FAIL -> TJ-DF-076", "evidence": "foreman grep: installed wrapper line 92 VERSION_DEFAULT=\"\"; independent probe: 'terminal-jail ' rc=0; mechanism: install.sh release path (~1409) cp without sed stamp vs local path (~1206) sed stamp"},
+  {"criterion": "AC2b allow launch", "result": "PASS", "evidence": "wrapper-probes.txt probe b: {\"action\":\"allow\",\"rule_id\":\"allow-echo\"} + proc_view=private (bwrap), printed 'in jail', exit 0"},
+  {"criterion": "AC2c block verdict", "result": "PASS", "evidence": "wrapper-probes.txt probe c: {\"action\":\"block\",\"rule_id\":\"builtin-rm-rf-root\"} exit 126"},
+  {"criterion": "AC3 asset integrity", "result": "PASS", "evidence": "asset-integrity.txt: independent re-download of both pinned assets; full-manifest sha256sum -c OK both files, exit 0"},
+  {"criterion": "AC4/AC5 ledger + defect handling", "result": "PASS", "evidence": "RESULT.txt RESULT: FAIL named (AC2a) -> defect row TJ-DF-076 filed by foreman same tick; row closes with transcript evidence per AC4"},
+  {"criterion": "live host install unmodified", "result": "PASS", "evidence": "live-install-unmodified.txt: sha256/mtime identical pre/post, command -v unchanged"}
+ ],
+ "stages": {"tier1_guard": "N/A - evidence-only dogfood, no staged diff", "tier2_judge": "N/A - foreman-direct manual verification per mode disclosure"}
+}

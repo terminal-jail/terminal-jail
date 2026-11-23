@@ -3015,3 +3015,18 @@ tasks:
   status: complete
   created_at: '2026-11-23T04:41:35.381886+00:00'
   completed_at: '2026-11-23T04:56:19.134762+00:00'
+- id: README-017-R2
+  title: 'Quickstart plugin row reworded hook-scoped: enforcement lives on the engine
+    path'
+  criteria:
+  - 'docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts
+    ''no code path enforces, rejects, or size-limits a command''; the reworded row
+    scopes ''observability-only'' to the Hermes hooks and attributes command size
+    / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES,
+    enforced at intercept()), consistent with README.md''s env-var table (''Read and
+    enforced by the plugin'') and quickstart section 3a2. Proof: scripts/docs-check.py
+    exits 0 and rg -n ''byte budget reserved'' README.md docs/ returns zero matches
+    on the changed tree.'
+  status: complete
+  created_at: '2026-11-23T14:36:06.563370+00:00'
+  completed_at: '2026-11-23T14:58:36.282953+00:00'

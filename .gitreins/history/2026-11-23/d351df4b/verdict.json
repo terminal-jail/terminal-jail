@@ -1,0 +1,299 @@
+{
+  "task_id": "README-017-R2",
+  "task_title": "Quickstart plugin row reworded hook-scoped: enforcement lives on the engine path",
+  "task_criteria": [
+    "docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "65c50b969c9e5196673a1256a84ff9d31c3ed01f",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "a3c5870cf20b35e32ac3baf26d35c3c35666b068cded8a907c190da7e843229a",
+  "working_tree_dirty_path_count": 4,
+  "items": [
+    {
+      "criterion": "docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree.",
+      "status": "PASS",
+      "detail": "Change landed in commit 65c50b96 ('fix(docs): quickstart plugin row scoped to hooks \u2014 byte budget enforced on the engine path'), docs/quickstart.md | 2 +- , 1 file changed. New row at docs/quickstart.md:23 scopes the hook surface ('Hook-level command wrapping and limiting: NOT IMPLEMENTED\u2026 The Hermes hooks observe\u2026 cannot wrap or size-limit a command') and attributes engine-path enforcement ('Command size IS enforced on the engine path: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\u2026 enforced at intercept()'). Old assertion 'no code path enforces' exists only at 65c50b96~1:rg across the tree (excl .gitreins/.git) exit=1, zero matches. Consistency: README.md:515 env-var row says 'Read and enforced by the plugin\u2026 enforced at intercept()'; quickstart \u00a73a2 (docs/quickstart.md:259-308) documents the engine producing the wrap via the JSON bridge. Proof gates run fresh: python3 scripts/docs-check.py -> exit_code 0, 'docs-check: overall PASS'; rg -n 'byte budget reserved' README.md docs/ -> exit=1 (zero matches). Tests: tests/test_quickstart_doc.py fresh run '8 passed in 0.02s'; full suite per prior stage 2227 passed, 15 skipped."
+    },
+    {
+      "criterion": "Derived: the reworded enforcement claim is substantively true \u2014 HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES is actually read and enforced at intercept() in the shipped code, so the row documents real behavior",
+      "status": "PASS",
+      "detail": "plugin/terminal_jail/plugin.py defines _MAX_COMMAND_BYTES_ENV_VAR='HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' with default 131072 and _check_byte_budget(); the refusal string lives inside intercept() at plugin/terminal_jail/interruptor/__init__.py:123 ('Auto-sandbox skipped: wrapped command exceeds the configured byte budget'). Live probe on this tree: env TERMINAL_JAIL_INTERRUPTOR_RULES_DIR/USER_RULES_DIR=/tmp/tj-empty-rules and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10, printf '{\"command\": \"make test\"}' | python3 plugin/terminal_jail/interruptor_bridge.py -> stderr 'wrapped command exceeds the configured byte budget (134 bytes); unwrapping' and verdict reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget', rc=0 \u2014 exactly matching the row's claim.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks bound=timeout 600s (0=off)\nscanners: nice=nice -n 10\n9:44AM INF scanned ~5724992 bytes (5.72 MB) in 748ms\n9:44AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 577 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2242 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n........................                                                 [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 14%]\n........................................................................ [ 18%]\n.................................                                        [ 19%]\nplugin/test_gtfobins_sweep.py .......................................... [ 21%]\n.....................                                                    [ 22%]\nplugin/test_host_probes.py .......................                       [ 23%]\nplugin/test_install.py ...............................s................. [ 25%]\n.........................................................                [ 28%]\nplugin/test_interruptor.py ............................................. [ 30%]\n........................................................................ [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 42%]\n........................................................................ [ 46%]\n........................................................................ [ 49%]\n\n\u2026 [3040 chars omitted \u2014 38 line(s)] \u2026\nplugin/test_verdict_log.py ......................                        [ 90%]\nplugin/test_version_parity.py ...                                        [ 90%]\nplugin/test_wrapper_landlock_interpreter.py ............................ [ 91%]\n                                                                         [ 91%]\ntests/test_arg_size_ceiling.py ....                                      [ 91%]\ntests/test_board_schema_guard.py ........................                [ 92%]\ntests/test_board_status_guard.py ............                            [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss................                 [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n.......................                                                  [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...................                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2227 passed, 15 skipped in 257.99s (0:04:17) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            }
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree.: Change landed in commit 65c50b96 ('fix(docs): quickstart plugin row scoped to hooks \u2014 byte budget enforced on the engine path'), docs/quickstart.md | 2 +- , 1 file changed. New row at docs/quickstart.md:23 scopes the hook surface ('Hook-level command wrapping and limiting: NOT IMPLEMENTED\u2026 The Hermes hooks observe\u2026 cannot wrap or size-limit a command') and attributes engine-path enforcement ('Command size IS enforced on the engine path: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\u2026 enforced at intercept()'). Old assertion 'no code path enforces' exists only at 65c50b96~1:rg across the tree (excl .gitreins/.git) exit=1, zero matches. Consistency: README.md:515 env-var row says 'Read and enforced by the plugin\u2026 enforced at intercept()'; quickstart \u00a73a2 (docs/quickstart.md:259-308) documents the engine producing the wrap via the JSON bridge. Proof gates run fresh: python3 scripts/docs-check.py -> exit_code 0, 'docs-check: overall PASS'; rg -n 'byte budget reserved' README.md docs/ -> exit=1 (zero matches). Tests: tests/test_quickstart_doc.py fresh run '8 passed in 0.02s'; full suite per prior stage 2227 passed, 15 skipped.\n  \u2713 Derived: the reworded enforcement claim is substantively true \u2014 HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES is actually read and enforced at intercept() in the shipped code, so the row documents real behavior: plugin/terminal_jail/plugin.py defines _MAX_COMMAND_BYTES_ENV_VAR='HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' with default 131072 and _check_byte_budget(); the refusal string lives inside intercept() at plugin/terminal_jail/interruptor/__init__.py:123 ('Auto-sandbox skipped: wrapped command exceeds the configured byte budget'). Live probe on this tree: env TERMINAL_JAIL_INTERRUPTOR_RULES_DIR/USER_RULES_DIR=/tmp/tj-empty-rules and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10, printf '{\"command\": \"make test\"}' | python3 plugin/terminal_jail/interruptor_bridge.py -> stderr 'wrapped command exceeds the configured byte budget (134 bytes); unwrapping' and verdict reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget', rc=0 \u2014 exactly matching the row's claim.\nThe quickstart Hermes-plugin row (docs/quickstart.md:23, commit 65c50b96) is reworded exactly as specified \u2014 hook-level NOT IMPLEMENTED, engine-path byte-budget enforcement attributed to HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES at intercept() \u2014 the claim is substantiated by live bridge output, and both proof gates (docs-check.py exit 0, rg 'byte budget reserved' zero matches) plus the doc tests (8 passed) pass.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree.: Change landed in commit 65c50b96 ('fix(docs): quickstart plugin row scoped to hooks \u2014 byte budget enforced on the engine path'), docs/quickstart.md | 2 +- , 1 file changed. New row at docs/quickstart.md:23 scopes the hook surface ('Hook-level command wrapping and limiting: NOT IMPLEMENTED\u2026 The Hermes hooks observe\u2026 cannot wrap or size-limit a command') and attributes engine-path enforcement ('Command size IS enforced on the engine path: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\u2026 enforced at intercept()'). Old assertion 'no code path enforces' exists only at 65c50b96~1:rg across the tree (excl .gitreins/.git) exit=1, zero matches. Consistency: README.md:515 env-var row says 'Read and enforced by the plugin\u2026 enforced at intercept()'; quickstart \u00a73a2 (docs/quickstart.md:259-308) documents the engine producing the wrap via the JSON bridge. Proof gates run fresh: python3 scripts/docs-check.py -> exit_code 0, 'docs-check: overall PASS'; rg -n 'byte budget reserved' README.md docs/ -> exit=1 (zero matches). Tests: tests/test_quickstart_doc.py fresh run '8 passed in 0.02s'; full suite per prior stage 2227 passed, 15 skipped.\n  \u2713 Derived: the reworded enforcement claim is substantively true \u2014 HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES is actually read and enforced at intercept() in the shipped code, so the row documents real behavior: plugin/terminal_jail/plugin.py defines _MAX_COMMAND_BYTES_ENV_VAR='HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' with default 131072 and _check_byte_budget(); the refusal string lives inside intercept() at plugin/terminal_jail/interruptor/__init__.py:123 ('Auto-sandbox skipped: wrapped command exceeds the configured byte budget'). Live probe on this tree: env TERMINAL_JAIL_INTERRUPTOR_RULES_DIR/USER_RULES_DIR=/tmp/tj-empty-rules and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10, printf '{\"command\": \"make test\"}' | python3 plugin/terminal_jail/interruptor_bridge.py -> stderr 'wrapped command exceeds the configured byte budget (134 bytes); unwrapping' and verdict reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget', rc=0 \u2014 exactly matching the row's claim.\nThe quickstart Hermes-plugin row (docs/quickstart.md:23, commit 65c50b96) is reworded exactly as specified \u2014 hook-level NOT IMPLEMENTED, engine-path byte-budget enforcement attributed to HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES at intercept() \u2014 the claim is substantiated by live bridge output, and both proof gates (docs-check.py exit 0, rg 'byte budget reserved' zero matches) plus the doc tests (8 passed) pass.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree.",
+                "status": "PASS",
+                "detail": "Change landed in commit 65c50b96 ('fix(docs): quickstart plugin row scoped to hooks \u2014 byte budget enforced on the engine path'), docs/quickstart.md | 2 +- , 1 file changed. New row at docs/quickstart.md:23 scopes the hook surface ('Hook-level command wrapping and limiting: NOT IMPLEMENTED\u2026 The Hermes hooks observe\u2026 cannot wrap or size-limit a command') and attributes engine-path enforcement ('Command size IS enforced on the engine path: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\u2026 enforced at intercept()'). Old assertion 'no code path enforces' exists only at 65c50b96~1:rg across the tree (excl .gitreins/.git) exit=1, zero matches. Consistency: README.md:515 env-var row says 'Read and enforced by the plugin\u2026 enforced at intercept()'; quickstart \u00a73a2 (docs/quickstart.md:259-308) documents the engine producing the wrap via the JSON bridge. Proof gates run fresh: python3 scripts/docs-check.py -> exit_code 0, 'docs-check: overall PASS'; rg -n 'byte budget reserved' README.md docs/ -> exit=1 (zero matches). Tests: tests/test_quickstart_doc.py fresh run '8 passed in 0.02s'; full suite per prior stage 2227 passed, 15 skipped."
+              },
+              {
+                "criterion": "Derived: the reworded enforcement claim is substantively true \u2014 HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES is actually read and enforced at intercept() in the shipped code, so the row documents real behavior",
+                "status": "PASS",
+                "detail": "plugin/terminal_jail/plugin.py defines _MAX_COMMAND_BYTES_ENV_VAR='HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' with default 131072 and _check_byte_budget(); the refusal string lives inside intercept() at plugin/terminal_jail/interruptor/__init__.py:123 ('Auto-sandbox skipped: wrapped command exceeds the configured byte budget'). Live probe on this tree: env TERMINAL_JAIL_INTERRUPTOR_RULES_DIR/USER_RULES_DIR=/tmp/tj-empty-rules and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10, printf '{\"command\": \"make test\"}' | python3 plugin/terminal_jail/interruptor_bridge.py -> stderr 'wrapped command exceeds the configured byte budget (134 bytes); unwrapping' and verdict reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget', rc=0 \u2014 exactly matching the row's claim.",
+                "derived": true
+              }
+            ],
+            "summary": "The quickstart Hermes-plugin row (docs/quickstart.md:23, commit 65c50b96) is reworded exactly as specified \u2014 hook-level NOT IMPLEMENTED, engine-path byte-budget enforcement attributed to HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES at intercept() \u2014 the claim is substantiated by live bridge output, and both proof gates (docs-check.py exit 0, rg 'byte budget reserved' zero matches) plus the doc tests (8 passed) pass.",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "working-tree",
+              "diff_bytes": 1129,
+              "prompt_bytes": 7174
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "working-tree",
+        "diff_bytes": 1129,
+        "prompt_bytes": 7174
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"README-017-R2\"}",
+          "exit_code": 0,
+          "output_sha": "325d3ad9f0487c853a9c9ba561d46af236fd108bb23e5caaaddfcb012c8cce50"
+        },
+        {
+          "tool": "run_command",
+          "command": "ls docs/ && ls scripts/ | head -30",
+          "exit_code": 0,
+          "output_sha": "b320c2f3f8b1db031c2a3528e57c7be750dc4a55411874d03e8cab5d7437e1fd"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'byte budget reserved' README.md docs/ ; echo \"exit=$?\" ; rg -n 'no code path enforces|observability-only|HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' docs/quickstart.md",
+          "exit_code": 0,
+          "output_sha": "38d3ab43289c942669af39c95ddd366ac9a3b0abb5b0fe0c19e83924c475a578"
+        },
+        {
+          "tool": "run_command",
+          "command": "python3 scripts/docs-check.py ; echo \"exit=$?\"",
+          "exit_code": 0,
+          "output_sha": "a74513b2a5b8b8de18c6764ecca15f9ef460dae7f5e3de8f6c44b2b805a092fc"
+        },
+        {
+          "tool": "run_command",
+          "command": "git log --oneline -5 -- docs/quickstart.md ; git status --short ; git diff HEAD --stat",
+          "exit_code": 0,
+          "output_sha": "d21b53c912c7701b8ce55569b431e18a46a0e8bfe393a143299851225b29559c"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 60, \"path\": \"docs/quickstart.md\"}",
+          "exit_code": 0,
+          "output_sha": "61be0fbd31d66bc5b267dfcba5f204af0b2c7cb768aa797acbee0b44e571c53c"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show 65c50b96 --stat && git show 65c50b96 -- docs/quickstart.md | head -40 && echo ---- && git show 65c50b96~1:docs/quickstart.md | sed -n '20,26p'",
+          "exit_code": 0,
+          "output_sha": "0deb639b38f59c574025655c93a7ac31fac860013afe7acf17205a8668685740"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'no code path enforces' . --glob '!.gitreins' --glob '!.git' ; echo \"phrase-exit=$?\" ; rg -n 'HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' README.md | head -10 ; echo ---- ; rg -n '3a2|byte budget' docs/quickstart.md | head -20",
+          "exit_code": 0,
+          "output_sha": "949a67ac4cb792eac6c8db07c9d59613cddfda089525803ade7811edb9709511"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '255,300p' docs/quickstart.md ; echo ======== ; rg -n 'byte budget|MAX_COMMAND_BYTES' docs/quickstart.md",
+          "exit_code": 0,
+          "output_sha": "a0a2072c3732b06a38c5d0ff0c673cc1b0a6dd31e597b431f711be56bf8f3bef"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '30,70p' plugin/terminal_jail/interruptor/__init__.py ; echo ======== ; sed -n '160,245p' plugin/terminal_jail/plugin.py",
+          "exit_code": 0,
+          "output_sha": "c6b5fa5d4688a14330bfc1335fb4ce9a0827ea2aa80242330dcd1b23f7bba8f9"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'observability-only' --glob '!.gitreins' --glob '!.git' . ; echo \"obs-exit=$?\" ; cat .gitreins/config.yaml 2>/dev/null | head -20",
+          "exit_code": 0,
+          "output_sha": "9277a3fab6d21067cba5b2c73ec7893c1f26dfe1454ab63aacf4c87f6879aa32"
+        },
+        {
+          "tool": "run_command",
+          "command": "python3 -m pytest tests/test_quickstart_doc.py -q 2>&1 | tail -5",
+          "exit_code": 0,
+          "output_sha": "d6204bca9b7f13d210d92de84532b47f6a38cb8e0e10cc8c08aeee80e31ffe43"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n '_check_byte_budget|byte_budget_rejections' plugin/ | head ; echo ======== ; rg -n 'Auto-sandbox skipped' plugin/ standalone/ README.md docs/ | head",
+          "exit_code": 0,
+          "output_sha": "f7f3d6c11cc40431f7af169f5ec6de7d7eecab41bad980b9cd6c13ecdb05d446"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '300,360p' docs/quickstart.md",
+          "exit_code": 0,
+          "output_sha": "47a14cf9d2f5a3e25f61f94d264d0c75ab18a6e616e05dd8107acf8f9994618f"
+        },
+        {
+          "tool": "run_command",
+          "command": "export TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/tmp/tj-empty-rules TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/tmp/tj-empty-rules ; mkdir -p /tmp/tj-empty-rules ; export HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10 ; printf '{\"command\": \"make test\"}\\n' | python3 plugin/terminal_jail/interruptor_bridge.py ; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "5aa314d3c87e63d7d3c158f1d3c2a6f594cb459cd64bbaba62721734f449535f"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"live probe: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10 + bridge -> stderr \\\"wrapped command exceeds the configured byte budget (134 bytes); unwrapping\\\", verdict reason \\\"Auto-sandbox skipped: wrapped command exceeds the configured byte budget\\\", rc=0. Code: plugin/terminal_jail/interruptor/__init__.py:123 refusal string inside intercept(); plugin/terminal_jail/plugin.py _check_byte_budget + _max_command_bytes_from_environment (env var HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, default 131072). README.md:515 \\\"Read and enforced by the plugin ... enforced at intercept()\\\". docs/quickstart.md:23 row attributes enforcement to engine path.\", \"key\": \"verified_derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "83c21ba335abbf18cabe8042afbf8a0f10cf566ffca118b96154804aaee81474"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: docs/quickstart.md:23 is the changed row (commit 65c50b96, 1 file changed). Old assertion 'no code path enforces, rejects, or size-limits a command' gone: rg across tree (excl .gitreins/.git) exit=1, zero matches; old text only at 65c50b96~1. Row scopes hook surface (\\\"The Hermes hooks observe ... cannot wrap or size-limit a command\\\") and attributes engine-path enforcement (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES at intercept()) consistent with README.md:515 and \\u00a73a2 (quickstart.md:259-308, engine produces the wrap). Proof gates: python3 scripts/docs-check.py exit 0, overall PASS; rg -n 'byte budget reserved' README.md docs/ exit=1 (zero matches). tests/test_quickstart_doc.py: 8 passed in 0.02s (fresh run); full suite 2227 passed, 15 skipped (prior stage).\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "63ba77e0b24a95fc6e2466e0600c172f4d0075f6791b751505f0af17ed00dbe1"
+        }
+      ]
+    },
+    "fix_verification": {
+      "id": "fix_verification",
+      "passed": true,
+      "any_failed": false,
+      "summary": "fix_verification: 0 finding(s) verified",
+      "steps": [
+        {
+          "id": "fix_verification",
+          "type": "fix_verification",
+          "passed": true,
+          "output": "fix_verification: 0 finding(s) verified",
+          "error": "",
+          "data": {
+            "dispositions": [],
+            "counts": {}
+          }
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "working-tree",
+    "diff_bytes": 1129,
+    "prompt_bytes": 7174
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "unparseable reviewer reply: no parseable JSON object in reply: ''",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md is the changed file: its Hermes-plugin row no longer asserts 'no code path enforces, rejects, or size-limits a command'; the reworded row scopes 'observability-only' to the Hermes hooks and attributes command size / byte-budget enforcement to the engine path (HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES, enforced at intercept()), consistent with README.md's env-var table ('Read and enforced by the plugin') and quickstart section 3a2. Proof: scripts/docs-check.py exits 0 and rg -n 'byte budget reserved' README.md docs/ returns zero matches on the changed tree.: Change landed in commit 65c50b96 ('fix(docs): quickstart plugin row scoped to hooks \u2014 byte budget enforced on the engine path'), docs/quickstart.md | 2 +- , 1 file changed. New row at docs/quickstart.md:23 scopes the hook surface ('Hook-level command wrapping and limiting: NOT IMPLEMENTED\u2026 The Hermes hooks observe\u2026 cannot wrap or size-limit a command') and attributes engine-path enforcement ('Command size IS enforced on the engine path: HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES\u2026 enforced at intercept()'). Old assertion 'no code path enforces' exists only at 65c50b96~1:rg across the tree (excl .gitreins/.git) exit=1, zero matches. Consistency: README.md:515 env-var row says 'Read and enforced by the plugin\u2026 enforced at intercept()'; quickstart \u00a73a2 (docs/quickstart.md:259-308) documents the engine producing the wrap via the JSON bridge. Proof gates run fresh: python3 scripts/docs-check.py -> exit_code 0, 'docs-check: overall PASS'; rg -n 'byte budget reserved' README.md docs/ -> exit=1 (zero matches). Tests: tests/test_quickstart_doc.py fresh run '8 passed in 0.02s'; full suite per prior stage 2227 passed, 15 skipped.\n  \u2713 Derived: the reworded enforcement claim is substantively true \u2014 HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES is actually read and enforced at intercept() in the shipped code, so the row documents real behavior: plugin/terminal_jail/plugin.py defines _MAX_COMMAND_BYTES_ENV_VAR='HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES' with default 131072 and _check_byte_budget(); the refusal string lives inside intercept() at plugin/terminal_jail/interruptor/__init__.py:123 ('Auto-sandbox skipped: wrapped command exceeds the configured byte budget'). Live probe on this tree: env TERMINAL_JAIL_INTERRUPTOR_RULES_DIR/USER_RULES_DIR=/tmp/tj-empty-rules and HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES=10, printf '{\"command\": \"make test\"}' | python3 plugin/terminal_jail/interruptor_bridge.py -> stderr 'wrapped command exceeds the configured byte budget (134 bytes); unwrapping' and verdict reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget', rc=0 \u2014 exactly matching the row's claim.\nThe quickstart Hermes-plugin row (docs/quickstart.md:23, commit 65c50b96) is reworded exactly as specified \u2014 hook-level NOT IMPLEMENTED, engine-path byte-budget enforcement attributed to HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES at intercept() \u2014 the claim is substantiated by live bridge output, and both proof gates (docs-check.py exit 0, rg 'byte budget reserved' zero matches) plus the doc tests (8 passed) pass.\n\nStage fix_verification: PASS\n  fix_verification: 0 finding(s) verified\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-23T14:52:09.197070",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-23T14:52:09.260746+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3757,
+        "truncated": false,
+        "source": "git show 65c50b969c9e"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 24031,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "README-017-R2"
+  }
+}

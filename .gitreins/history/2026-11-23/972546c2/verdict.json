@@ -1,0 +1,281 @@
+{
+  "task_id": "README-017",
+  "task_title": "Quickstart plugin row marked explicitly NOT IMPLEMENTED",
+  "task_criteria": [
+    "docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS"
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "65c50b969c9e5196673a1256a84ff9d31c3ed01f",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "49d99edb883e1d3313f7afb7547361b258cfaaae67387b312c24959fe1e7f316",
+  "working_tree_dirty_path_count": 4,
+  "items": [
+    {
+      "criterion": "docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS",
+      "status": "PASS",
+      "detail": "(a) docs/quickstart.md:23 \u2014 Hermes-plugin row carries the bold literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**` and explicitly states `the enforced / degraded / unavailable tier labels do not apply to the hook surface`; the same row correctly attributes command-size enforcement to the engine path (`HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` \u2026 enforced at `intercept()`), matching plugin/terminal_jail/interruptor/__init__.py:123 (refusal reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget') and README.md:515 ('Read and enforced by the plugin'). (b) ran `rg -n 'byte budget reserved' README.md docs/` \u2014 exit_code 1, zero matches (the bare phrase appears nowhere; quickstart uses the 'reserved byte budget' word order inside the bold NOT IMPLEMENTED marker). (c) `rg -n -i 'plugin' docs/capability-matrix.md` \u2192 zero matches: the capability matrix has no plugin row at all; its only `degraded` cells (line 55) concern filesystem isolation under bwrap/unshare/--user, and README.md:41/51 plugin rows claim 'Observability only'/'Does not wrap commands' \u2014 no plugin cell claims degraded. (d) ran `python3 scripts/docs-check.py` \u2014 exit_code 0, final line `docs-check: overall PASS`."
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks bound=timeout 600s (0=off)\nscanners: nice=nice -n 10\n10:11AM INF scanned ~5724992 bytes (5.72 MB) in 387ms\n10:11AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 577 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2242 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n........................                                                 [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 14%]\n........................................................................ [ 18%]\n.................................                                        [ 19%]\nplugin/test_gtfobins_sweep.py .......................................... [ 21%]\n.....................                                                    [ 22%]\nplugin/test_host_probes.py .......................                       [ 23%]\nplugin/test_install.py ...............................s................. [ 25%]\n.........................................................                [ 28%]\nplugin/test_interruptor.py ............................................. [ 30%]\n........................................................................ [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 42%]\n........................................................................ [ 46%]\n........................................................................ [ 49%]\n\n\u2026 [3040 chars omitted \u2014 38 line(s)] \u2026\nplugin/test_verdict_log.py ......................                        [ 90%]\nplugin/test_version_parity.py ...                                        [ 90%]\nplugin/test_wrapper_landlock_interpreter.py ............................ [ 91%]\n                                                                         [ 91%]\ntests/test_arg_size_ceiling.py ....                                      [ 91%]\ntests/test_board_schema_guard.py ........................                [ 92%]\ntests/test_board_status_guard.py ............                            [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss................                 [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n.......................                                                  [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...................                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2227 passed, 15 skipped in 228.13s (0:03:48) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            }
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS: (a) docs/quickstart.md:23 \u2014 Hermes-plugin row carries the bold literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**` and explicitly states `the enforced / degraded / unavailable tier labels do not apply to the hook surface`; the same row correctly attributes command-size enforcement to the engine path (`HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` \u2026 enforced at `intercept()`), matching plugin/terminal_jail/interruptor/__init__.py:123 (refusal reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget') and README.md:515 ('Read and enforced by the plugin'). (b) ran `rg -n 'byte budget reserved' README.md docs/` \u2014 exit_code 1, zero matches (the bare phrase appears nowhere; quickstart uses the 'reserved byte budget' word order inside the bold NOT IMPLEMENTED marker). (c) `rg -n -i 'plugin' docs/capability-matrix.md` \u2192 zero matches: the capability matrix has no plugin row at all; its only `degraded` cells (line 55) concern filesystem isolation under bwrap/unshare/--user, and README.md:41/51 plugin rows claim 'Observability only'/'Does not wrap commands' \u2014 no plugin cell claims degraded. (d) ran `python3 scripts/docs-check.py` \u2014 exit_code 0, final line `docs-check: overall PASS`.\nThe quickstart Hermes-plugin row carries the bold NOT IMPLEMENTED (reserved byte budget) marker with the tier-labels-inapplicable statement, the bare phrase 'byte budget reserved' has zero occurrences across README.md and docs/, no capability-matrix cell claims the plugin is degraded (the matrix has no plugin row), and docs-check exits 0 with 'overall PASS'.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS: (a) docs/quickstart.md:23 \u2014 Hermes-plugin row carries the bold literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**` and explicitly states `the enforced / degraded / unavailable tier labels do not apply to the hook surface`; the same row correctly attributes command-size enforcement to the engine path (`HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` \u2026 enforced at `intercept()`), matching plugin/terminal_jail/interruptor/__init__.py:123 (refusal reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget') and README.md:515 ('Read and enforced by the plugin'). (b) ran `rg -n 'byte budget reserved' README.md docs/` \u2014 exit_code 1, zero matches (the bare phrase appears nowhere; quickstart uses the 'reserved byte budget' word order inside the bold NOT IMPLEMENTED marker). (c) `rg -n -i 'plugin' docs/capability-matrix.md` \u2192 zero matches: the capability matrix has no plugin row at all; its only `degraded` cells (line 55) concern filesystem isolation under bwrap/unshare/--user, and README.md:41/51 plugin rows claim 'Observability only'/'Does not wrap commands' \u2014 no plugin cell claims degraded. (d) ran `python3 scripts/docs-check.py` \u2014 exit_code 0, final line `docs-check: overall PASS`.\nThe quickstart Hermes-plugin row carries the bold NOT IMPLEMENTED (reserved byte budget) marker with the tier-labels-inapplicable statement, the bare phrase 'byte budget reserved' has zero occurrences across README.md and docs/, no capability-matrix cell claims the plugin is degraded (the matrix has no plugin row), and docs-check exits 0 with 'overall PASS'.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS",
+                "status": "PASS",
+                "detail": "(a) docs/quickstart.md:23 \u2014 Hermes-plugin row carries the bold literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**` and explicitly states `the enforced / degraded / unavailable tier labels do not apply to the hook surface`; the same row correctly attributes command-size enforcement to the engine path (`HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` \u2026 enforced at `intercept()`), matching plugin/terminal_jail/interruptor/__init__.py:123 (refusal reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget') and README.md:515 ('Read and enforced by the plugin'). (b) ran `rg -n 'byte budget reserved' README.md docs/` \u2014 exit_code 1, zero matches (the bare phrase appears nowhere; quickstart uses the 'reserved byte budget' word order inside the bold NOT IMPLEMENTED marker). (c) `rg -n -i 'plugin' docs/capability-matrix.md` \u2192 zero matches: the capability matrix has no plugin row at all; its only `degraded` cells (line 55) concern filesystem isolation under bwrap/unshare/--user, and README.md:41/51 plugin rows claim 'Observability only'/'Does not wrap commands' \u2014 no plugin cell claims degraded. (d) ran `python3 scripts/docs-check.py` \u2014 exit_code 0, final line `docs-check: overall PASS`."
+              }
+            ],
+            "summary": "The quickstart Hermes-plugin row carries the bold NOT IMPLEMENTED (reserved byte budget) marker with the tier-labels-inapplicable statement, the bare phrase 'byte budget reserved' has zero occurrences across README.md and docs/, no capability-matrix cell claims the plugin is degraded (the matrix has no plugin row), and docs-check exits 0 with 'overall PASS'.",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "working-tree",
+              "diff_bytes": 1178,
+              "prompt_bytes": 6932
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "working-tree",
+        "diff_bytes": 1178,
+        "prompt_bytes": 6932
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"README-017\"}",
+          "exit_code": 0,
+          "output_sha": "c41c098c18c4d27ffffdda563f446361dc2bed53f74b9546f7993781e883e7a5"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"docs/quickstart.md\"}",
+          "exit_code": 0,
+          "output_sha": "8aa22aa2ad5b0bb0328ab581f2bc0d69d3525829e61b883f59ee8ee6e17e8a9b"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'byte budget reserved' README.md docs/ ; echo \"rg exit: $?\"",
+          "exit_code": 0,
+          "output_sha": "ad748c3137b0762f709326b84c23998b1af0a9b4b5b11a95a8aa2dd1441a2803"
+        },
+        {
+          "tool": "run_command",
+          "command": "python3 scripts/docs-check.py 2>&1 | tail -40; echo \"docs-check exit: $?\"",
+          "exit_code": 0,
+          "output_sha": "c9a95c3a900b2cc5866a0a0ad070981a842c8bcac3db90607cc11fd60246072f"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'degraded|NOT IMPLEMENTED|not implemented' docs/capability-matrix.md | head -30",
+          "exit_code": 0,
+          "output_sha": "b01ea4e4cfc98aa5bdda04916b464cf6086684b1ddefabd269613161c7af039f"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n -i 'plugin' docs/capability-matrix.md | head -30",
+          "exit_code": 0,
+          "output_sha": "f1e1d112425c65a06175f5aa8fe59a1cc93e6c1acd825f794b591b140525fa22"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n -i 'capability|matrix' README.md docs/*.md | grep -vi 'capability-probe' | head -30",
+          "exit_code": 0,
+          "output_sha": "99c017ce2d8d53d27a452e013bf43f956462af0a07d0d9c3f7bd428dbd72c0c5"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'Hermes plugin|plugin/' README.md | head -40",
+          "exit_code": 0,
+          "output_sha": "7d48bb93f7700d4c5f6ff99e550139c8d72172b6a1e43b91d6e6990859d98232"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 70, \"path\": \"docs/capability-matrix.md\"}",
+          "exit_code": 0,
+          "output_sha": "d39c77dbb45f1cc633753bd398d4a542e03afa557b21416957de3c409672997c"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES|MAX_COMMAND_BYTES' README.md docs/ plugin/ | head -20",
+          "exit_code": 0,
+          "output_sha": "e33add6943bc8da02120be546303d3316a94ea9fb582f9652dc463bfd99c1443"
+        },
+        {
+          "tool": "run_command",
+          "command": "grep -n 'NOT IMPLEMENTED\\|degraded\\|unavailable\\|enforced' tests/test_quickstart_doc.py | head -30",
+          "exit_code": 0,
+          "output_sha": "0ee22bd28e0b7b63a164ee4fe4f9181f5087f5dbff0a79d2b45721452fbcf651"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n -i 'plugin' docs/composed-deployment.md docs/backend-parity.md docs/threat-model.md docs/pentest-plan.md | rg -i 'degraded' | head; echo \"---\"; rg -n 'Observability only' README.md docs/; echo \"---\"; sed -n '39,43p' README.md",
+          "exit_code": 0,
+          "output_sha": "dd92b66b208a1f4b8106374326aff81bed8cf89ba1ad855e82240824b842e358"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '160,200p' docs/quickstart.md; echo '===='; rg -n 'Hermes plugin' docs/quickstart.md",
+          "exit_code": 0,
+          "output_sha": "360159b06fb01266f322a546c2374742c1715cad6e63aaab942465cce1dbd6c4"
+        },
+        {
+          "tool": "run_command",
+          "command": "rg -n 'Auto-sandbox skipped: wrapped command exceeds' plugin/ | head -5",
+          "exit_code": 0,
+          "output_sha": "822319998b77b6666314fdda5b3564279b20b307c91c3b9e3addbd790c0157bc"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '30,60p' plugin/terminal_jail/interruptor/__init__.py",
+          "exit_code": 0,
+          "output_sha": "15e17e3df519f4cfec9165d76c2a1b227ca55c0d85ba9f4700566fd9cea2f786"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: (a) Bold NOT IMPLEMENTED wording \\u2014 docs/quickstart.md:23 Hermes-plugin row contains literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**`; (b) bare phrase absent \\u2014 `rg -n 'byte budget reserved' README.md docs/` ran with exit 1 (zero matches) on the tree; (c) capability matrix \\u2014 docs/capability-matrix.md has no plugin row/cell at all (`rg -n -i 'plugin' docs/capability-matrix.md` \\u2192 zero matches); the only `degraded` cells are bwrap/unshare/--user/composed FS-isolation cells (line 55) about filesystem isolation, none about the plugin; README plugin rows (line 41 \\\"Observability only\\\", line 51 \\\"Observability hooks\\u2026Does not wrap commands\\\") claim no degraded state; (d) docs-check overall PASS \\u2014 `python3 scripts/docs-check.py` exit_code 0 with final line `docs-check: overall PASS`.\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "3b3f2dd72dae6a88877e9f0b175b93abbab4f16d6c37940d664ae2b93686c52f"
+        }
+      ]
+    },
+    "fix_verification": {
+      "id": "fix_verification",
+      "passed": true,
+      "any_failed": false,
+      "summary": "fix_verification: 0 finding(s) verified",
+      "steps": [
+        {
+          "id": "fix_verification",
+          "type": "fix_verification",
+          "passed": true,
+          "output": "fix_verification: 0 finding(s) verified",
+          "error": "",
+          "data": {
+            "dispositions": [],
+            "counts": {}
+          }
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "working-tree",
+    "diff_bytes": 1178,
+    "prompt_bytes": 6932
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "unparseable reviewer reply: no parseable JSON object in reply: ''",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 docs/quickstart.md plugin row carries bold NOT IMPLEMENTED (reserved byte budget) wording stating the surface is not an enforced/degraded/unavailable tier; rg 'byte budget reserved' over README.md and docs/ shows zero bare-phrase occurrences; no capability-matrix plugin cell claims degraded; docs-check overall PASS: (a) docs/quickstart.md:23 \u2014 Hermes-plugin row carries the bold literal `**Hook-level command wrapping and limiting: NOT IMPLEMENTED (reserved byte budget).**` and explicitly states `the enforced / degraded / unavailable tier labels do not apply to the hook surface`; the same row correctly attributes command-size enforcement to the engine path (`HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` \u2026 enforced at `intercept()`), matching plugin/terminal_jail/interruptor/__init__.py:123 (refusal reason 'Auto-sandbox skipped: wrapped command exceeds the configured byte budget') and README.md:515 ('Read and enforced by the plugin'). (b) ran `rg -n 'byte budget reserved' README.md docs/` \u2014 exit_code 1, zero matches (the bare phrase appears nowhere; quickstart uses the 'reserved byte budget' word order inside the bold NOT IMPLEMENTED marker). (c) `rg -n -i 'plugin' docs/capability-matrix.md` \u2192 zero matches: the capability matrix has no plugin row at all; its only `degraded` cells (line 55) concern filesystem isolation under bwrap/unshare/--user, and README.md:41/51 plugin rows claim 'Observability only'/'Does not wrap commands' \u2014 no plugin cell claims degraded. (d) ran `python3 scripts/docs-check.py` \u2014 exit_code 0, final line `docs-check: overall PASS`.\nThe quickstart Hermes-plugin row carries the bold NOT IMPLEMENTED (reserved byte budget) marker with the tier-labels-inapplicable statement, the bare phrase 'byte budget reserved' has zero occurrences across README.md and docs/, no capability-matrix cell claims the plugin is degraded (the matrix has no plugin row), and docs-check exits 0 with 'overall PASS'.\n\nStage fix_verification: PASS\n  fix_verification: 0 finding(s) verified\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-23T15:17:20.898255",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-23T15:17:20.933220+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 3757,
+        "truncated": false,
+        "source": "git show 65c50b969c9e"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 27293,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "README-017"
+  }
+}

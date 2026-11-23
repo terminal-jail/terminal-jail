@@ -1,0 +1,27 @@
+{
+ "run_id": "fm-df075-releaseinstall",
+ "ts": "2026-11-23T14:44:57Z",
+ "kind": "foreman-independent-verification",
+ "row": "TJ-DF-075",
+ "implementation_commit": "7086bd6e76261a9d1144d4509316f6c5ebacef84",
+ "tree": "03e13d4e08d22eb2aa5418b96b121aa081a03931",
+ "worker": {"model": "glm-5.3-flash", "provider": "zai-glm", "seat": "local-ed2c0eb8 (state.db sessions.cwd=/home/kara/worktrees/terminal-jail-TJ-DF-075)"},
+ "ac_results": {
+  "AC1_release_install_live": "PASS (attempt 2: absolute-path + TERMINAL_JAIL_USE_RELEASE=1 required; relative invocation silently adopts checkout, in-source TJ-GAP-087)",
+  "AC2a_version": "FAIL -> defect TJ-DF-076 (installed wrapper VERSION_DEFAULT=\"\" line 92; --version prints 'terminal-jail ' rc=0; foreman independently reproduced + mechanism read at install.sh release-path cp ~1409 vs local sed stamp ~1206)",
+  "AC2b_allow": "PASS (allow-echo, proc_view=private bwrap)",
+  "AC2c_block": "PASS (builtin-rm-rf-root, exit 126)",
+  "AC3_integrity": "PASS (full manifest: wheel + tar.gz sha256sum -c OK exit 0, pinned URLs hit)",
+  "AC4_5_ledger": "RESULT recorded; defect carved to TJ-DF-076; row closes with transcript evidence"
+ },
+ "live_install_unmodified": "sha256 bcd111f8603e665fb694e1554300a68c0fc43ca7f192fd741d0a676812ee0c3f identical pre/post",
+ "artifacts": [
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/RESULT.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/install-transcript.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/install-transcript-release.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/asset-integrity.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/wrapper-probes.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/version-defect-evidence.txt",
+  "/home/kara/project-reviews/reviews/terminal-jail/evidence-2026-11-23-tj-df-075/live-install-unmodified.txt"
+ ]
+}
