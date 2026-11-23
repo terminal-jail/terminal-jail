@@ -975,8 +975,11 @@ def _toolchain_roots(
         if os.path.isabs(given) or os.path.exists(given):
             # The AS-GIVEN location: the launcher's name for the
             # interpreter. realpath would follow the symlink to the base
-            # install (often outside HOME, e.g. /usr/bin/python3) and
-            # lose the venv layout this derivation exists to grant.
+            # install and lose the venv layout this derivation exists to
+            # grant. Coverage is judged per prefix: on Ubuntu
+            # 24.x-class hosts /usr/bin/python3 may dereference to a
+            # HOME-baked uv toolchain the grant set does not cover, so
+            # the resolved location needs its own grant too (below).
             as_given = os.path.dirname(os.path.abspath(given))
             if _under_home(os.path.realpath(as_given)):
                 found.append(as_given)
