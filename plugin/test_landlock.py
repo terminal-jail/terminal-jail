@@ -297,11 +297,12 @@ class TestEnforcement:
 
         A FORKED child applies the tier and tries to read a caller-owned
         mode-600 file at an UNGRANTED path; the verdict crosses a pipe.
-        The fixture host must be outside every grant — the session tmp
-        dirs are WRITE grants in the default layout, so the file lives
-        next to HOME (its parent dir is ungranted: only named children
-        of HOME are granted). On a non-permitting host the test SKIPs
-        (never silently passes).
+        The fixture host must be outside every grant — the layout built
+        below leaves tmp UNGRANTED, so the secret lives in gettempdir()
+        under a RUN-UNIQUE mkstemp name (TJ-DF-078: a fixed name collided
+        with another uid's stale 0600 file, FAILing setup; an unwritable
+        fixture host now SKIPs with fixture-unwritable instead). On a
+        non-permitting host the test SKIPs (never silently passes).
         """
         if not _host_permits_landlock():
             pytest.skip(f"{HOST_DEGRADED}: Landlock enforcement unavailable here")
@@ -322,50 +323,69 @@ class TestEnforcement:
         )
         assert layout is not None
         host = Path(tempfile.gettempdir())
-        secret = host / "secret600"
-        secret.write_text("terminal-jail landlock secret\n")
-        os.chmod(secret, 0o600)
-        # PREMISE: the fixture must be ungranted, or the proof is void.
-        granted = {
-            os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)
-        }
-        assert not any(
-            ll._is_inside(os.path.realpath(secret), grant) for grant in granted
-        ), "test bug: the secret fixture sits inside a granted root"
-
-        read_fd, write_fd = os.pipe()
-        pid = os.fork()
-        if pid == 0:  # child: apply + probe, report, exit
-            os.close(read_fd)
-            verdict = b"0"
-            try:
-                ll.apply(layout, dry_probe=False)
-                # DAC must ALLOW this read pre-tier (fixture owned by the
-                # same uid) — so a denial here can only come from Landlock.
-                try:
-                    with open(secret, "rb") as handle:
-                        handle.read(1)
-                except PermissionError:
-                    verdict = b"1"
-            except Exception:  # noqa: BLE001 — the verdict carries it
-                verdict = b"0"
-            try:
-                os.write(write_fd, verdict)
-            except OSError:
-                pass
-            finally:
-                os.close(write_fd)
-                os._exit(0)
-        os.close(write_fd)
+        # The secret name must be RUN-UNIQUE (TJ-DF-078): a fixed name in a
+        # host-shared gettempdir() collides with a stale mode-600 file owned
+        # by another uid, turning fixture setup into a FAIL instead of a
+        # SKIP. mkstemp yields a fresh 0600 file this uid owns; the finally
+        # below unlinks it. The PARENT DIR stays gettempdir() — the premise
+        # below requires an ungranted location, and tmp is ungranted under
+        # the layout built above.
         try:
-            verdict = os.read(read_fd, 1)
+            secret_fd, secret_name = tempfile.mkstemp(
+                dir=str(host), prefix="tj-secret600-"
+            )
+        except PermissionError as exc:
+            pytest.skip(f"fixture-unwritable: {host} refused secret creation: {exc}")
+        secret = Path(secret_name)
+        try:
+            # mkstemp already creates the file 0600; the explicit fchmod
+            # keeps the mode-600 premise self-evident.
+            os.fchmod(secret_fd, 0o600)
+            with os.fdopen(secret_fd, "w") as handle:
+                handle.write("terminal-jail landlock secret\n")
+            # PREMISE: the fixture must be ungranted, or the proof is void.
+            granted = {
+                os.path.realpath(p) for p in (*layout.write_roots, *layout.read_roots)
+            }
+            assert not any(
+                ll._is_inside(os.path.realpath(secret), grant) for grant in granted
+            ), "test bug: the secret fixture sits inside a granted root"
+
+            read_fd, write_fd = os.pipe()
+            pid = os.fork()
+            if pid == 0:  # child: apply + probe, report, exit
+                os.close(read_fd)
+                verdict = b"0"
+                try:
+                    ll.apply(layout, dry_probe=False)
+                    # DAC must ALLOW this read pre-tier (fixture owned by the
+                    # same uid) — so a denial here can only come from Landlock.
+                    try:
+                        with open(secret, "rb") as handle:
+                            handle.read(1)
+                    except PermissionError:
+                        verdict = b"1"
+                except Exception:  # noqa: BLE001 — the verdict carries it
+                    verdict = b"0"
+                try:
+                    os.write(write_fd, verdict)
+                except OSError:
+                    pass
+                finally:
+                    os.close(write_fd)
+                    os._exit(0)
+            os.close(write_fd)
+            try:
+                verdict = os.read(read_fd, 1)
+            finally:
+                os.close(read_fd)
+                os.waitpid(pid, 0)
+            assert verdict == b"1", (
+                "the child that applied the tier must be DENIED the mode-600 "
+                "read (EACCES) — the tier's enforcement property"
+            )
         finally:
-            os.close(read_fd)
-            os.waitpid(pid, 0)
-        assert verdict == b"1", (
-            "the child that applied the tier must be DENIED the mode-600 "
-            "read (EACCES) — the tier's enforcement property"
-        )
+            secret.unlink(missing_ok=True)
 
     def test_apply_without_dry_probe_restricts_this_process_when_permitted(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
