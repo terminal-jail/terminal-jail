@@ -3042,5 +3042,6 @@ tasks:
     passes or skips-with-cause on this tree with a stale mode-600 residue file planted
     at the old fixed path, grep shows no fixed-name gettempdir() write remains in
     the changed test, and ruff check on the changed file is clean. Changed file: plugin/test_landlock.py.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-24T21:14:27.709897+00:00'
+  completed_at: '2026-11-24T21:37:36.735059+00:00'
