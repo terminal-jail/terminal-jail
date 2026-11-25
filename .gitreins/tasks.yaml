@@ -3057,3 +3057,14 @@ tasks:
   status: complete
   created_at: '2026-11-25T04:25:23.314798+00:00'
   completed_at: '2026-11-25T04:30:05.005655+00:00'
+- id: PERF-004
+  title: Eliminate duplicate whole-command blocklist pass in decider evaluate() (PERF-004)
+  criteria:
+  - 'Single-segment verdicts must not scan the payload twice: patch confined to plugin/terminal_jail/interruptor/decider.py
+    gates the whole-command blocklist pass to single-SIMPLE-segment raw==original
+    commands; paired 20KB one-shot bench p50 <= 0.90x control, resident <= 0.75x,
+    6B payload within noise; >=250-case verdict-equivalence corpus byte-identical
+    incl. pipe-chain still blocked via builtin-net-* rule; pytest -m ''not integration''
+    no new failures vs control'
+  status: in_progress
+  created_at: '2026-11-25T12:35:05.248431+00:00'
