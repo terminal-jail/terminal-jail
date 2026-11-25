@@ -1437,7 +1437,9 @@ _tj_modify_tier_head_startable() {
             /*) ;;
             *) exit 127 ;;
         esac
-        exec "$_tj_head_path" -c "pass"
+        # Preserve argv[0]: CPython may re-search PATH for a bare name and
+        # fail to load its stdlib even when the resolved binary can execute.
+        exec "$1" -c "pass"
     ' terminal-jail "$head" >/dev/null 2>&1
 }
 
@@ -1464,10 +1466,22 @@ _tj_modify_tier_head_prepare() {
                 ;;
         esac
     fi
-    _tj_modify_tier_head_startable "$head" && return 0
-    resolved=$(command -v "$head" 2>/dev/null) || resolved="not resolvable on PATH"
-    echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter '${head}' (${resolved}), which the filesystem tier's Landlock domain cannot execute for '${MODIFIED_COMMAND}'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter that lives under a prefix the filesystem tier's grant set covers (an absolute path alone is not the criterion: on Ubuntu 24.x-class hosts /usr/bin/python3 may dereference to a HOME-baked uv toolchain the grant set does not cover) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README \"Graceful Degradation\")" >&2
-    exit 2
+    if ! _tj_modify_tier_head_startable "$head"; then
+        resolved=$(command -v "$head" 2>/dev/null) || resolved="not resolvable on PATH"
+        echo "terminal-jail: auto-sandbox modify unavailable (the rewrite's payload starts with the interpreter '${head}' (${resolved}), which the filesystem tier's Landlock domain cannot execute for '${MODIFIED_COMMAND}'; command not run — the tier's read allowlist denies that interpreter, so point TERMINAL_JAIL_PYTHON at an interpreter that lives under a prefix the filesystem tier's grant set covers (an absolute path alone is not the criterion: on Ubuntu 24.x-class hosts /usr/bin/python3 may dereference to a HOME-baked uv toolchain the grant set does not cover) or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; see README \"Graceful Degradation\")" >&2
+        exit 2
+    fi
+    # The pin only replaces the loader, not the command supplied by the user.
+    # Probe Python payloads separately, retaining their original PATH spelling.
+    case "${MODIFIED_COMMAND##*/}" in
+        python|python[0-9]|python[0-9].[0-9]*)
+            if ! _tj_modify_tier_head_startable "$MODIFIED_COMMAND"; then
+                resolved=$(command -v "$MODIFIED_COMMAND" 2>/dev/null) || resolved="not resolvable on PATH"
+                echo "terminal-jail: auto-sandbox modify unavailable (payload interpreter '${MODIFIED_COMMAND}' (${resolved}) cannot start under the filesystem tier; command not run — invoke a Python interpreter covered by the tier's grant set or set TERMINAL_JAIL_LANDLOCK=0 to run without kernel filesystem enforcement; changing TERMINAL_JAIL_PYTHON alone only pins the loader; see README \"Graceful Degradation\")" >&2
+                exit 2
+            fi
+            ;;
+    esac
 }
 
 _tj_launch_composed() {
