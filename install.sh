@@ -16,6 +16,22 @@ TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"
 TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
 TERMINAL_JAIL_RELEASE_TAG="v${TERMINAL_JAIL_RELEASE_VERSION}"
+# TJ-DF-076: the resolved version is spliced into release asset URLs and into
+# the installed wrapper's VERSION_DEFAULT stamp (release branch, below the
+# integrity checks). Both are code/data surfaces, so an arbitrary caller
+# value is shape-checked here at parse time, before anything is downloaded or
+# written: the charset below is the one PEP 440 / wheel filenames use in
+# practice (letters, digits, dot, underscore, plus, hyphen — a leading 'v' is
+# already stripped above). Every sed-special character ("&", "\", "/"), every
+# quote, and every newline lies outside it, so the stamp splice can never be
+# turned into code or a broken wrapper. Mirrors the TERMINAL_JAIL_REQUIRE_
+# TIER parse-time refusal: exit 1, nothing written.
+case "$TERMINAL_JAIL_RELEASE_VERSION" in
+    "" | *[!0-9A-Za-z._+-]*)
+        echo "terminal-jail installer: TERMINAL_JAIL_VERSION='$TERMINAL_JAIL_VERSION' is invalid — expected a release version (letters, digits, dot, underscore, plus, hyphen; a leading 'v' is accepted), e.g. 1.3.4" >&2
+        exit 1
+        ;;
+esac
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 # Rules target for the shipped default rules file (DF-TERMINAL-JAIL-8). Empty
 # (default) = derive from the install scope: the live user rules dir
@@ -1170,9 +1186,13 @@ tmp_payload="${tmpdir}/.terminal-jail.$$"
 tmp_wheel="${tmpdir}/.terminal-jail.$$.whl"
 tmp_checksum="${tmpdir}/.terminal-jail.$$.SHA256SUMS"
 tmp_extract="${tmpdir}/.terminal-jail.$$extract"
+# TJ-DF-076: release-mode version stamp writes through this temp file and
+# renames over tmp_payload (the same temp+rename pattern the manifest rewrite
+# uses), so a mid-stamp failure can never leave a half-stamped payload.
+tmp_stamped="${tmpdir}/.terminal-jail.$$.stamped"
 
 cleanup() {
-    rm -f "$tmp_payload" "$tmp_wheel" "$tmp_checksum"
+    rm -f "$tmp_payload" "$tmp_wheel" "$tmp_checksum" "$tmp_stamped"
     rm -rf "$tmp_extract"
 }
 trap cleanup EXIT INT TERM
@@ -1423,6 +1443,37 @@ fi
 if [ ! -s "$tmp_payload" ]; then
     echo "terminal-jail installer: downloaded file is empty" >&2
     exit 1
+fi
+
+# --- TJ-DF-076: stamp the chosen release version into the wrapper ------------
+# Release mode only: the local checkout install already stamped VERSION_
+# DEFAULT from pyproject.toml in its branch above. The wheel's bundled
+# wrapper ships VERSION_DEFAULT="" and the installed layout has no
+# pyproject.toml next to the script to fall back on, so an unstamped copy
+# reports an empty --version forever. The stamp reads the CHECKSUM-VERIFIED
+# payload (the download/checksum/extract ordering above is untouched) and
+# runs AFTER the shebang/shape checks, so a wheel that lost either its
+# shebang or its stampable line is refused loudly instead of installing the
+# empty-version defect back. The replacement text is the parse-time
+# charset-validated version, so the splice below cannot inject sed
+# metacharacters, quotes, or newlines into the installed wrapper.
+if [ -z "$LOCAL_WRAPPER" ]; then
+    if ! grep -q '^VERSION_DEFAULT=""$' "$tmp_payload"; then
+        echo "terminal-jail installer: release wrapper carries no stampable VERSION_DEFAULT=\"\" line (${release_asset}) — aborting" >&2
+        exit 1
+    fi
+    # awk, not sed: release mode already hard-requires awk (the SHA256SUMS
+    # parse above), while sed is not part of its documented tool floor. The
+    # version rides in as an awk -v VARIABLE, never as interpolated program
+    # text, so there is no quoting surface into the awk program at all; the
+    # parse-time charset check additionally keeps backslash escapes (which -v
+    # would interpret) out of the value.
+    awk -v tj_ver="$TERMINAL_JAIL_RELEASE_VERSION" '
+        /^VERSION_DEFAULT=""$/ { print "VERSION_DEFAULT=\"" tj_ver "\""; next }
+        { print }
+    ' "$tmp_payload" > "$tmp_stamped"
+    mv -f "$tmp_stamped" "$tmp_payload"
+    echo "terminal-jail installer: stamped release version ${TERMINAL_JAIL_RELEASE_VERSION} into the installed wrapper"
 fi
 
 chmod 0755 "$tmp_payload"
