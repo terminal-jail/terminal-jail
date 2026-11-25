@@ -1,0 +1,37 @@
+commit c4bbf0d1e5c127eeb48cc3da25fd346d5f2d6a80
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Tue Nov 24 23:25:32 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Tue Nov 24 23:25:32 2026 -0500
+
+    harness: gitreins lifecycle TJ-DF-076 create+start (tasks.yaml only, no source staged)
+    
+    Recovery tick terminal-jail-foreman-2026-11-25-04-14-16: record created on the
+    control root for the control-root re-judge of the already-merged fix f873acf2.
+    Staged diff is lifecycle-only; parent tree gates green (ruff/format/board guard/
+    test_install 109p1s/packaging 18p; full suite running at commit time).
+    
+    Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+---
+ .gitreins/tasks.yaml | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/.gitreins/tasks.yaml b/.gitreins/tasks.yaml
+index 81cf5d9b..e531e6dd 100644
+--- a/.gitreins/tasks.yaml
++++ b/.gitreins/tasks.yaml
+@@ -3045,3 +3045,14 @@ tasks:
+   status: complete
+   created_at: '2026-11-24T21:14:27.709897+00:00'
+   completed_at: '2026-11-24T21:37:36.735059+00:00'
++- id: TJ-DF-076
++  title: Stamp release install version
++  criteria:
++  - 'FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with
++    an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest
++    plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version,
++    and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch
++    block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract
++    stays green in the same test file. Changed files: install.sh, plugin/test_install.py.'
++  status: in_progress
++  created_at: '2026-11-25T04:25:23.314798+00:00'

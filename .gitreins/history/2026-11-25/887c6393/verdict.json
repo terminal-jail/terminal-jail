@@ -1,0 +1,342 @@
+{
+  "task_id": "TJ-DF-076",
+  "task_title": "Stamp release install version",
+  "task_criteria": [
+    "FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/terminal-jail",
+  "branch": "main",
+  "commit": "c4bbf0d1e5c127eeb48cc3da25fd346d5f2d6a80",
+  "pass_class": "degraded",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "30ea2d54e350c11f37f54e75d080b38e1f0a1188b6495e81dc710247308d8dcc",
+  "working_tree_dirty_path_count": 4,
+  "items": [
+    {
+      "criterion": "FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py.",
+      "status": "PASS",
+      "detail": "Tests: fresh `.venv/bin/python -m pytest plugin/test_install.py -k release_mode -v` \u2192 8 passed including test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version, test_release_mode_refuses_an_unsafe_version_before_anything_is_written, test_release_mode_refuses_a_wheel_without_a_stampable_wrapper; full fresh `pytest plugin/test_install.py` \u2192 109 passed, 1 skipped (matches tier1 tests lane: 2231 passed, 15 skipped). The stamping test is a true end-to-end: mock-curl release server + `sh install.sh` (plugin/test_install.py:443-487), then _installed_release_version (:409-427) runs the installed binary's --version with all TERMINAL_JAIL_* env stripped and asserts == \"terminal-jail 9.9.9\", and the output asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' before 'stamped release version 9.9.9'. Code: install.sh shebang gate :1443-1455, then the release-only stamp block :1455-1479 \u2014 grep -q '^VERSION_DEFAULT=\"\"$' fails closed with exit 1 (:1461-1464), awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" replaces the empty line (:1471-1474) via tmp_stamped (:1192, trap-cleaned :1195), before chmod/mv install. Release-onlyness verified: LOCAL_WRAPPER starts \"\" (:481), is set only for checkout installs (:511); the checkout path keeps its own stamp (:1226) so checkout installs never double-stamp. The stamped value is the wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived :16-17, charset-validated at parse time :24-32. Downstream wiring confirmed: bundled wrapper ships VERSION_DEFAULT=\"\" (plugin/terminal_jail/_bundled/terminal-jail:92), VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\" (:119), version() echoes it (:277-279), --version dispatch (:509). TJ-GAP-087 contract green in the same file: test_release_mode_requires_opt_in (:915-953, absolute-path invocation from a checkout-less dir) and all 7 test_require_tier_* (:1119-1287) pass in the fresh runs (`7 passed, 103 deselected`, `1 passed`). [resolution 0.59; plugin/test_install.py, install.sh]"
+    }
+  ],
+  "merge_recommendation": "needs_review",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks bound=timeout 600s (0=off)\nscanners: nice=nice -n 10\nsecrets: gitleaks scope=repo-root /home/kara/terminal-jail\nsecrets: gitleaks parallelism=GOMAXPROCS=4\n11:30PM INF scanned ~3324561 bytes (3.32 MB) in 431ms\n11:30PM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 611 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0\nrootdir: /home/kara/terminal-jail\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2246 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n........................                                                 [  6%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 14%]\n........................................................................ [ 18%]\n.................................                                        [ 19%]\nplugin/test_gtfobins_sweep.py .......................................... [ 21%]\n.....................                                                    [ 22%]\nplugin/test_host_probes.py .......................                       [ 23%]\nplugin/test_install.py ...................................s............. [ 25%]\n.............................................................            [ 28%]\nplugin/test_interruptor.py ............................................. [ 30%]\n........................................................................ [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 43%]\n........................................................................ [ 46%]\n........................................................................ [ 49%]\n\n\u2026 [3040 chars omitted \u2014 38 line(s)] \u2026\nplugin/test_verdict_log.py ......................                        [ 90%]\nplugin/test_version_parity.py ...                                        [ 90%]\nplugin/test_wrapper_landlock_interpreter.py ............................ [ 91%]\n                                                                         [ 91%]\ntests/test_arg_size_ceiling.py ....                                      [ 91%]\ntests/test_board_schema_guard.py ........................                [ 92%]\ntests/test_board_status_guard.py ............                            [ 93%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 94%]\ntests/test_composed_mode.py .........sss................                 [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n.......................                                                  [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 98%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ...................                       [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2231 passed, 15 skipped in 397.52s (0:06:37) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            }
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py.: Tests: fresh `.venv/bin/python -m pytest plugin/test_install.py -k release_mode -v` \u2192 8 passed including test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version, test_release_mode_refuses_an_unsafe_version_before_anything_is_written, test_release_mode_refuses_a_wheel_without_a_stampable_wrapper; full fresh `pytest plugin/test_install.py` \u2192 109 passed, 1 skipped (matches tier1 tests lane: 2231 passed, 15 skipped). The stamping test is a true end-to-end: mock-curl release server + `sh install.sh` (plugin/test_install.py:443-487), then _installed_release_version (:409-427) runs the installed binary's --version with all TERMINAL_JAIL_* env stripped and asserts == \"terminal-jail 9.9.9\", and the output asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' before 'stamped release version 9.9.9'. Code: install.sh shebang gate :1443-1455, then the release-only stamp block :1455-1479 \u2014 grep -q '^VERSION_DEFAULT=\"\"$' fails closed with exit 1 (:1461-1464), awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" replaces the empty line (:1471-1474) via tmp_stamped (:1192, trap-cleaned :1195), before chmod/mv install. Release-onlyness verified: LOCAL_WRAPPER starts \"\" (:481), is set only for checkout installs (:511); the checkout path keeps its own stamp (:1226) so checkout installs never double-stamp. The stamped value is the wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived :16-17, charset-validated at parse time :24-32. Downstream wiring confirmed: bundled wrapper ships VERSION_DEFAULT=\"\" (plugin/terminal_jail/_bundled/terminal-jail:92), VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\" (:119), version() echoes it (:277-279), --version dispatch (:509). TJ-GAP-087 contract green in the same file: test_release_mode_requires_opt_in (:915-953, absolute-path invocation from a checkout-less dir) and all 7 test_require_tier_* (:1119-1287) pass in the fresh runs (`7 passed, 103 deselected`, `1 passed`). [resolution 0.59; plugin/test_install.py, install.sh]\nThe release-mode wrapper is stamped with the checksum-verified wheel's version after the integrity gates, proven end-to-end by fresh passing tests (8 release-mode cases, full test_install.py 109 passed/1 skipped, TJ-GAP-087 contract included), with the checkout path untouched and no VERSION_DEFAULT consumer outside the tested pair.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py.: Tests: fresh `.venv/bin/python -m pytest plugin/test_install.py -k release_mode -v` \u2192 8 passed including test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version, test_release_mode_refuses_an_unsafe_version_before_anything_is_written, test_release_mode_refuses_a_wheel_without_a_stampable_wrapper; full fresh `pytest plugin/test_install.py` \u2192 109 passed, 1 skipped (matches tier1 tests lane: 2231 passed, 15 skipped). The stamping test is a true end-to-end: mock-curl release server + `sh install.sh` (plugin/test_install.py:443-487), then _installed_release_version (:409-427) runs the installed binary's --version with all TERMINAL_JAIL_* env stripped and asserts == \"terminal-jail 9.9.9\", and the output asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' before 'stamped release version 9.9.9'. Code: install.sh shebang gate :1443-1455, then the release-only stamp block :1455-1479 \u2014 grep -q '^VERSION_DEFAULT=\"\"$' fails closed with exit 1 (:1461-1464), awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" replaces the empty line (:1471-1474) via tmp_stamped (:1192, trap-cleaned :1195), before chmod/mv install. Release-onlyness verified: LOCAL_WRAPPER starts \"\" (:481), is set only for checkout installs (:511); the checkout path keeps its own stamp (:1226) so checkout installs never double-stamp. The stamped value is the wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived :16-17, charset-validated at parse time :24-32. Downstream wiring confirmed: bundled wrapper ships VERSION_DEFAULT=\"\" (plugin/terminal_jail/_bundled/terminal-jail:92), VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\" (:119), version() echoes it (:277-279), --version dispatch (:509). TJ-GAP-087 contract green in the same file: test_release_mode_requires_opt_in (:915-953, absolute-path invocation from a checkout-less dir) and all 7 test_require_tier_* (:1119-1287) pass in the fresh runs (`7 passed, 103 deselected`, `1 passed`). [resolution 0.59; plugin/test_install.py, install.sh]\nThe release-mode wrapper is stamped with the checksum-verified wheel's version after the integrity gates, proven end-to-end by fresh passing tests (8 release-mode cases, full test_install.py 109 passed/1 skipped, TJ-GAP-087 contract included), with the checkout path untouched and no VERSION_DEFAULT consumer outside the tested pair.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py.",
+                "status": "PASS",
+                "detail": "Tests: fresh `.venv/bin/python -m pytest plugin/test_install.py -k release_mode -v` \u2192 8 passed including test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version, test_release_mode_refuses_an_unsafe_version_before_anything_is_written, test_release_mode_refuses_a_wheel_without_a_stampable_wrapper; full fresh `pytest plugin/test_install.py` \u2192 109 passed, 1 skipped (matches tier1 tests lane: 2231 passed, 15 skipped). The stamping test is a true end-to-end: mock-curl release server + `sh install.sh` (plugin/test_install.py:443-487), then _installed_release_version (:409-427) runs the installed binary's --version with all TERMINAL_JAIL_* env stripped and asserts == \"terminal-jail 9.9.9\", and the output asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' before 'stamped release version 9.9.9'. Code: install.sh shebang gate :1443-1455, then the release-only stamp block :1455-1479 \u2014 grep -q '^VERSION_DEFAULT=\"\"$' fails closed with exit 1 (:1461-1464), awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" replaces the empty line (:1471-1474) via tmp_stamped (:1192, trap-cleaned :1195), before chmod/mv install. Release-onlyness verified: LOCAL_WRAPPER starts \"\" (:481), is set only for checkout installs (:511); the checkout path keeps its own stamp (:1226) so checkout installs never double-stamp. The stamped value is the wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived :16-17, charset-validated at parse time :24-32. Downstream wiring confirmed: bundled wrapper ships VERSION_DEFAULT=\"\" (plugin/terminal_jail/_bundled/terminal-jail:92), VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\" (:119), version() echoes it (:277-279), --version dispatch (:509). TJ-GAP-087 contract green in the same file: test_release_mode_requires_opt_in (:915-953, absolute-path invocation from a checkout-less dir) and all 7 test_require_tier_* (:1119-1287) pass in the fresh runs (`7 passed, 103 deselected`, `1 passed`). [resolution 0.59; plugin/test_install.py, install.sh]",
+                "resolution_probability": 0.59,
+                "cited_path": "plugin/test_install.py, install.sh"
+              }
+            ],
+            "summary": "The release-mode wrapper is stamped with the checksum-verified wheel's version after the integrity gates, proven end-to-end by fresh passing tests (8 release-mode cases, full test_install.py 109 passed/1 skipped, TJ-GAP-087 contract included), with the checkout path untouched and no VERSION_DEFAULT consumer outside the tested pair.",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "working-tree",
+              "diff_bytes": 583,
+              "prompt_bytes": 7990
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "working-tree",
+        "diff_bytes": 583,
+        "prompt_bytes": 7990
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"TJ-DF-076\"}",
+          "exit_code": 0,
+          "output_sha": "54c2887385a4ea37079c674273c5fad763d6b81d6d7ab39c950402cc12a533d5"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat /home/kara/terminal-jail/.gitreins/config.yaml 2>/dev/null | head -50",
+          "exit_code": 0,
+          "output_sha": "f3df92a1d5723645ae8cdf964b0be4187c803f2d8f57b4d597af38e7b6b5cd41"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && git log --oneline -8 && echo ---- && git show --stat HEAD && echo ---- && ls -la install.sh plugin/test_install.py",
+          "exit_code": 0,
+          "output_sha": "273f10573ac1d75fa8feafcc26759337781868c640a26c4ebe31f4250f3165d2"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"release-branch\\|VERSION_DEFAULT\" install.sh | head -40",
+          "exit_code": 0,
+          "output_sha": "52059aeed90d70b1e68bb3a257301497685c5b07049ad024220c90660054f925"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 60, \"offset\": 1, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "84ba280271dbbbfc69dc51c6b434ac60aa9b94864ea6e9c544f66020e5de2d98"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 140, \"offset\": 1380, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "e7ed7258133cea4be2d33f31b60d32b0aae4974fd1fb0aadbf55972de2301d35"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"test_release_mode_\" plugin/test_install.py",
+          "exit_code": 0,
+          "output_sha": "73ef3bfdd822d530e7a78dd541c3e28e347459b9763386898eb0421aeb06d535"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"VERSION_DEFAULT\" terminal_jail/_bundled/terminal-jail 2>/dev/null || find . -path ./.git -prune -o -name \"terminal-jail\" -print 2>/dev/null | head",
+          "exit_code": 0,
+          "output_sha": "cbb337c7620dba278e09633e499dd6dd38e015ddfe85d4ec0263fd1968440585"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 240, \"offset\": 379, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "d4ecca37487b5bbb1b423bc145160cf94d85a84ffc43237c49a857a5fc0c32bd"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -k \"release_mode\" -v --tb=short 2>&1 | tail -30",
+          "exit_code": 0,
+          "output_sha": "bd4baa3a4413ab5daafa20b40c4c78c3fdd21a826ce19d0cc596eec7ffb8c013"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -rn \"TJ-GAP-087\" plugin/test_install.py install.sh | head -20",
+          "exit_code": 0,
+          "output_sha": "fe457f8669322ae47b5dc37396756e016c8a13fa4a9e974ef43fffef3db34d75"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"LOCAL_WRAPPER\" install.sh && echo ---- && grep -n \"VERSION_DEFAULT\\|--version\\|version)\" plugin/terminal_jail/_bundled/terminal-jail | head -30",
+          "exit_code": 0,
+          "output_sha": "d3b960e4a95a7e767c50b8efdb03aa8a5aec4b4a78bdb2c9a0ff9528b340e83a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && .venv/bin/python -m pytest plugin/test_install.py -q -p no:cacheprovider --tb=short 2>&1 | tail -8",
+          "exit_code": 0,
+          "output_sha": "c3033356fdbba5a5f7151adf3bbccdb1eef9aea0d0a71f3f909b8212902884dd"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && git show --stat f873acf2 2>/dev/null | head -20; echo ----; git show f873acf2 -- install.sh | head -120",
+          "exit_code": 0,
+          "output_sha": "4cb9807fb7670fb3f391d2c671baf8ebeebc2b308510342d592fda4e4efd3f91"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 95, \"offset\": 910, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "899d47cbd8b8a1c8b63e1d3a517415cc4473a1f1b869a441c90da5f83317e2ad"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && git show --stat f873acf2 | tail -6 && echo ---- && sed -n '85,125p' plugin/terminal_jail/_bundled/terminal-jail && echo ---- && sed -n '198,215p' plugin/terminal_jail/_bundled/terminal-jail",
+          "exit_code": 0,
+          "output_sha": "a2bc6c4c97d7361c555b316522ee72251116919c3af49861c570683c9867f9a0"
+        },
+        {
+          "tool": "scan_security",
+          "command": "scan_security {\"path\": \"install.sh\"}",
+          "exit_code": 1,
+          "output_sha": "5e0d7bc741a81111ae0de095711667c687dd96144bddb05f9ada127954bef57f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"version()\" -A4 plugin/terminal_jail/_bundled/terminal-jail | head -12; echo ----; grep -n \"tmp_stamped\" install.sh; echo ----; grep -n \"command -v awk\\|awk\" install.sh | grep -v \"awk -v asset\\|awk -v tj_ver\\|' '\" | head",
+          "exit_code": 0,
+          "output_sha": "9d05c2f88ed5f7d17292219a4707d5a9e7f017c1582af1249684908f1398872a"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"^def test_\" plugin/test_install.py | sed -n '1,200p' | awk -F: '$1 > 956 && $1 < 1300' | head -20",
+          "exit_code": 0,
+          "output_sha": "736100d48cbd5eaada8b2573c7b0f4808f7048efea4fc34a1d61d6ce57e69afe"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && .venv/bin/python -m pytest \"plugin/test_install.py::test_release_mode_requires_opt_in\" -k \"require_tier or opt_in\" -q -p no:cacheprovider 2>&1 | tail -4; echo ====; .venv/bin/python -m pytest plugin/test_install.py -q -p no:cacheprovider -k \"require_tier\" 2>&1 | tail -3",
+          "exit_code": 0,
+          "output_sha": "ed9e5208f4635269538d14988b67bcc4347905b025cb55c0210985a2ec5e1e4c"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS \\u2014 evidence assembled:\\n1) Tests: fresh run `.venv/bin/python -m pytest plugin/test_install.py -k \\\"release_mode\\\" -v` \\u2192 8 passed (incl. test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed..., test_release_mode_refuses_an_unsafe_version..., test_release_mode_refuses_a_wheel_without_a_stampable_wrapper, test_release_mode_missing_asset_has_named_failure, test_release_mode_requires_opt_in). Full file fresh run: 109 passed, 1 skipped.\\n2) install.sh release-only stamp block AFTER checksum+shebang gate: shebang check install.sh:1443-1455, stamp block install.sh:1455-1479 \\u2014 grep gate `^VERSION_DEFAULT=\\\"\\\"$` at :1461-1464 (fails closed, exit 1), awk -v tj_ver=\\\"$TERMINAL_JAIL_RELEASE_VERSION\\\" splice at :1471-1474, mv via tmp_stamped (:1192, trap-cleaned :1195).\\n3) Value spliced is the checksum-verified wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived from TERMINAL_JAIL_VERSION at install.sh:16-17, charset-validated at :24-32.\\n4) TJ-GAP-087 contract green: test_release_mode_requires_opt_in (plugin/test_install.py:915-953, absolute-path invocation from checkout-less dir) + all test_require_tier_* (plugin/test_install.py:1119-1287) passed in the same fresh runs.\\n5) End-to-end assertion is the real installed binary: _installed_release_version (plugin/test_install.py:409-427) strips all TERMINAL_JAIL_* env and runs `<installed> --version`; test asserts == \\\"terminal-jail 9.9.9\\\".\\n\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "394791298d8ce2025174e74432b777a0b23fc4f57269f9a9d2b9d13a4bf0888f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -n \"pyproject\" plugin/test_install.py | head -8; echo ----; grep -n \"UNINSTALL\\|HERMES_PLUGIN\" install.sh | awk -F: '$1>400 && $1<1460' | head -20; echo ----; awk 'NR>=400 && NR<=1200 && /exit 0/ {print NR\": \"$0}' install.sh",
+          "exit_code": 0,
+          "output_sha": "55f2db3bf6feed3d48bb983cd06f68b77d7800c1fbc803a642365b8787c098d3"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -rln \"VERSION_DEFAULT\" --include=\"*.py\" --include=\"*.sh\" --include=\"*.md\" . 2>/dev/null | grep -v \".git/\\|.venv\\|build/\\|node_modules\" | head; echo ----; grep -rn \"VERSION_DEFAULT\" scripts/releasing* docs/releasing.md 2>/dev/null | head",
+          "exit_code": 0,
+          "output_sha": "ba559491bd18a610fa803cff972b43a8624723f04dff0fad51671f19eb641ab4"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara/terminal-jail && grep -rn \"VERSION_DEFAULT\" scripts/check_version_parity.py plugin/test_version_parity.py 2>/dev/null | head",
+          "exit_code": 0,
+          "output_sha": "3dd3c45ccc1596b7a39157813e4fc9c822da1512f838104552a3822ab972aef2"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"DERIVED DECISION: none needed. Searched for VERSION_DEFAULT consumers outside the TJ-DF-076 pair: grep -rln over *.py/*.sh/*.md (excluding .git/.venv/build) hits only docs/scratch notes; scripts/check_version_parity.py and plugin/test_version_parity.py contain zero VERSION_DEFAULT references. The only consumer of the stamped value is the wrapper's own version() (plugin/terminal_jail/_bundled/terminal-jail:277-279) via VERSION=\\\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\\\" (:119), already asserted end-to-end by the four test_release_mode_* stamp cases. No additional seam/cross-file constraint exists to derive.\\n\", \"key\": \"verified_derived_decision\"}",
+          "exit_code": 0,
+          "output_sha": "b082986e5efa8f37081d32e4f4455489ae010ed1b323ce69c7b9cfe83dcacd7d"
+        }
+      ]
+    },
+    "fix_verification": {
+      "id": "fix_verification",
+      "passed": true,
+      "any_failed": false,
+      "summary": "fix_verification: 0 finding(s) verified",
+      "steps": [
+        {
+          "id": "fix_verification",
+          "type": "fix_verification",
+          "passed": true,
+          "output": "fix_verification: 0 finding(s) verified",
+          "error": "",
+          "data": {
+            "dispositions": [],
+            "counts": {}
+          }
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "working-tree",
+    "diff_bytes": 583,
+    "prompt_bytes": 7990
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "unparseable reviewer reply: no parseable JSON object in reply: ''",
+    "raw_reply": "",
+    "retry": {
+      "count": 1,
+      "raw_reply": ""
+    },
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 FAILIF: a TERMINAL_JAIL_USE_RELEASE=1 install leaves the installed wrapper with an empty VERSION_DEFAULT / empty --version. PROOF: in this checkout, .venv pytest plugin/test_install.py passes all four test_release_mode_* cases including test_release_mode_install_stamps_the_chosen_release_version, and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract stays green in the same test file. Changed files: install.sh, plugin/test_install.py.: Tests: fresh `.venv/bin/python -m pytest plugin/test_install.py -k release_mode -v` \u2192 8 passed including test_release_mode_install_stamps_the_chosen_release_version, test_release_mode_accepts_a_v_prefixed_version_and_stamps_the_stripped_version, test_release_mode_refuses_an_unsafe_version_before_anything_is_written, test_release_mode_refuses_a_wheel_without_a_stampable_wrapper; full fresh `pytest plugin/test_install.py` \u2192 109 passed, 1 skipped (matches tier1 tests lane: 2231 passed, 15 skipped). The stamping test is a true end-to-end: mock-curl release server + `sh install.sh` (plugin/test_install.py:443-487), then _installed_release_version (:409-427) runs the installed binary's --version with all TERMINAL_JAIL_* env stripped and asserts == \"terminal-jail 9.9.9\", and the output asserts 'checksum OK (terminal_jail-9.9.9-py3-none-any.whl)' before 'stamped release version 9.9.9'. Code: install.sh shebang gate :1443-1455, then the release-only stamp block :1455-1479 \u2014 grep -q '^VERSION_DEFAULT=\"\"$' fails closed with exit 1 (:1461-1464), awk -v tj_ver=\"$TERMINAL_JAIL_RELEASE_VERSION\" replaces the empty line (:1471-1474) via tmp_stamped (:1192, trap-cleaned :1195), before chmod/mv install. Release-onlyness verified: LOCAL_WRAPPER starts \"\" (:481), is set only for checkout installs (:511); the checkout path keeps its own stamp (:1226) so checkout installs never double-stamp. The stamped value is the wheel's version: TERMINAL_JAIL_RELEASE_VERSION derived :16-17, charset-validated at parse time :24-32. Downstream wiring confirmed: bundled wrapper ships VERSION_DEFAULT=\"\" (plugin/terminal_jail/_bundled/terminal-jail:92), VERSION=\"${TERMINAL_JAIL_VERSION:-${VERSION_DEFAULT}}\" (:119), version() echoes it (:277-279), --version dispatch (:509). TJ-GAP-087 contract green in the same file: test_release_mode_requires_opt_in (:915-953, absolute-path invocation from a checkout-less dir) and all 7 test_require_tier_* (:1119-1287) pass in the fresh runs (`7 passed, 103 deselected`, `1 passed`). [resolution 0.59; plugin/test_install.py, install.sh]\nThe release-mode wrapper is stamped with the checksum-verified wheel's version after the integrity gates, proven end-to-end by fresh passing tests (8 release-mode cases, full test_install.py 109 passed/1 skipped, TJ-GAP-087 contract included), with the checkout path untouched and no VERSION_DEFAULT consumer outside the tested pair.\n\nStage fix_verification: PASS\n  fix_verification: 0 finding(s) verified\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-25T04:41:34.937937",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-25T04:41:34.990989+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1863,
+        "truncated": false,
+        "source": "git show c4bbf0d1e5c1"
+      },
+      {
+        "name": "worktree",
+        "label": "Working-tree diff (graded)",
+        "file": "worktree.patch",
+        "bytes": 36688,
+        "truncated": false,
+        "source": "git diff HEAD (working tree)"
+      }
+    ],
+    "task_id": "TJ-DF-076"
+  }
+}

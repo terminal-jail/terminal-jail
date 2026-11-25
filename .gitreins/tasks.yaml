@@ -3054,5 +3054,6 @@ tasks:
     and grep shows install.sh stamps VERSION_DEFAULT with the awk -v release-branch
     block after the checksum/shebang gate. The TJ-GAP-087 absolute-path release contract
     stays green in the same test file. Changed files: install.sh, plugin/test_install.py.'
-  status: in_progress
+  status: complete
   created_at: '2026-11-25T04:25:23.314798+00:00'
+  completed_at: '2026-11-25T04:30:05.005655+00:00'
