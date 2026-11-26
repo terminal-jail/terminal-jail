@@ -1,0 +1,532 @@
+{
+  "task_id": "RELEASE-TJ-030",
+  "task_title": "Tag installers pin the release they install",
+  "task_criteria": [
+    "PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/terminal-jail-RELEASE-TJ-030-control",
+  "branch": "wt/RELEASE-TJ-030-control",
+  "commit": "e2d60b61e1b296a7386aa1b302063afdf0fc8eeb",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "c81a5a7e55060aa44c192857565bd6957345183a906c7ac90330a78edb103341",
+  "working_tree_dirty_path_count": 1,
+  "items": [
+    {
+      "criterion": "PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned.",
+      "status": "PASS",
+      "detail": "scripts/release-cut-check.sh:148-170 compares the prospective tag with install.sh's extracted default, and .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 candidate; lines 672-724 commit a stale 9.9.8 installer default and require rc=1 with the found/expected mismatch named. tests/test_docs_tag_pins.py:45-49,119-182 scans all three documented instruction surfaces fail-closed; lines 185-214 and 217-261 execute unpinned mutations, including quickstart's prose-declared tag-checkout fence. Fresh focused run exited 0 with `28 passed in 10.95s`; complete test-path legs exited 0 with `2055 passed, 12 skipped` (plugin/) and `199 passed, 3 skipped` (tests/). An independent v9.9.9 docs probe returned rc=1 naming the unpinned instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Replaying prior verdict 9c7127c2's exact quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95, closing the demonstrated false green. The monolithic suite invocation reached 96% without failure before the 300-second tool timeout; both complete constituent legs then passed."
+    },
+    {
+      "criterion": "Coverage seam: every tracked Markdown tag-installer instruction (including README and docs outside the scanner's three hard-coded paths) is either explicitly TERMINAL_JAIL_VERSION-pinned or is actually scanned by the regression guard, so no documented tag installer can remain unpinned outside the guard's blind spot.",
+      "status": "PASS",
+      "detail": "tests/test_docs_tag_pins.py:45-49 covers docs/releasing.md, docs/quickstart.md, and docs/deploy-to-karahermes.md. Repository-wide searches for tag checkouts, `tag checkout` prose, and release-download tag URLs found tag-install instructions only at docs/quickstart.md:88-95 and docs/deploy-to-karahermes.md:60-66; their commands are explicitly pinned at quickstart.md:95 and deploy-to-karahermes.md:66. README.md:214-215 documents release mode rather than a tag checkout, and its older-tag example is pinned. Running the real scanner over all 71 root/docs Markdown files returned `scanned_paths=71 instructions=2 rc=0` with no violations, so no unpinned documented tag installer was found outside the configured paths.",
+      "derived": true
+    },
+    {
+      "criterion": "Failure-path integrity: the prospective-tag gate and tag-publish workflow both use the same fail-closed installer-default extraction, and a missing, malformed, or stale installer default cannot produce a successful release-cut/publish validation.",
+      "status": "PASS",
+      "detail": "scripts/installer-default-version.sh:19-40 refuses missing files and absent, wrong-form, empty, or unparseable pins. scripts/release-cut-check.sh:158-170 converts helper failure or mismatch into a counted failure and exits nonzero at lines 222-227; .github/workflows/release.yml:114-129 exits 1 before build/publish on the same conditions. tests/test_release_workflow.py:174-229 exercises malformed helper inputs and lines 672-724 prove a stale default fails. The focused run exited 0 with 28 passed. Live extraction printed `1.3.4`, matching pyproject.toml:7.",
+      "derived": true
+    },
+    {
+      "criterion": "Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.",
+      "status": "PASS",
+      "detail": "tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 fixture; lines 672-724 commit a stale 9.9.8 default and require rc=1 plus `expected 9.9.9` and `wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy, and lines 217-261 remove only the real quickstart pin; both require nonzero rc, a counted instruction, file:line, and TERMINAL_JAIL_VERSION in the violation. Focused pytest exited 0 with `28 passed in 10.95s`. The independent future-tag probe returned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)` when unpinned and `(0, [], 1)` when pinned.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10",
+      "steps": [
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "secrets: scanners=gitleaks+builtin cross-check\nsecrets: gitleaks bound=timeout 600s (0=off)\nscanners: nice=nice -n 10\nsecrets: gitleaks scope=repo-root /home/kara/worktrees/terminal-jail-RELEASE-TJ-030-control\nsecrets: gitleaks parallelism=GOMAXPROCS=4\n9:07AM INF scanned ~3295789 bytes (3.30 MB) in 413ms\n9:07AM INF no leaks found\nsecrets: gitleaks: clean\nsecrets: builtin cross-check: Scanned 535 files \u2014 clean (excluded harness state: .gitreins/**)\nsecrets: builtin cross-check status: clean\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "secrets_scanners": [
+              "gitleaks",
+              "builtin"
+            ]
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "scanners: nice=nice -n 10\n============================= test session starts ==============================\nplatform linux -- Python 3.13.13, pytest-9.2.0, pluggy-1.7.0\nrootdir: /home/kara/worktrees/terminal-jail-RELEASE-TJ-030-control\nconfigfile: pyproject.toml\ntestpaths: plugin, tests\nplugins: cov-7.1.0\ncollected 2269 items\n\nplugin/test_arg_size_policy.py .........................                 [  1%]\nplugin/test_backend_parity.py .........                                  [  1%]\nplugin/test_backend_selection.py ................                        [  2%]\nplugin/test_board_id_guard.py ........................                   [  3%]\nplugin/test_bridge_fail_closed.py ...................................... [  4%]\n........................                                                 [  5%]\nplugin/test_egress_no_delivery.py ............................           [  7%]\nplugin/test_env_scrub.py ............................................... [  9%]\ns..s..                                                                   [  9%]\nplugin/test_escape_waves.py ............................................ [ 11%]\n........................................................................ [ 14%]\n........................................................................ [ 17%]\n.................................                                        [ 19%]\nplugin/test_gtfobins_sweep.py .......................................... [ 21%]\n.....................                                                    [ 22%]\nplugin/test_host_probes.py .......................                       [ 23%]\nplugin/test_install.py ...................................s............. [ 25%]\n.............................................................            [ 27%]\nplugin/test_interruptor.py ............................................. [ 29%]\n........................................................................ [ 33%]\n........................................................................ [ 36%]\n........................................................................ [ 39%]\n........................................................................ [ 42%]\n........................................................................ [ 45%]\n........................................................................ [ 48%]\n\n\u2026 [3280 chars omitted \u2014 41 line(s)] \u2026\nplugin/test_version_parity.py ...                                        [ 89%]\nplugin/test_wrapper_landlock_interpreter.py ............................ [ 91%]\n                                                                         [ 91%]\ntests/test_arg_size_ceiling.py ....                                      [ 91%]\ntests/test_board_schema_guard.py ........................                [ 92%]\ntests/test_board_status_guard.py ............                            [ 92%]\ntests/test_capability_matrix_doc.py ............                         [ 93%]\ntests/test_composed_doc.py .......                                       [ 93%]\ntests/test_composed_mode.py .........sss................                 [ 94%]\ntests/test_docs_tag_pins.py ....                                         [ 95%]\ntests/test_kernel_matrix_teardown.py ................................... [ 96%]\n.......................                                                  [ 97%]\ntests/test_pentest_plan_doc.py ......                                    [ 97%]\ntests/test_quickstart_doc.py ........                                    [ 98%]\ntests/test_release_workflow.py ........................                  [ 99%]\ntests/test_scratch_home_hygiene.py .......                               [ 99%]\ntests/test_signal_reach_doc.py .....                                     [ 99%]\ntests/test_version.py ...                                                [100%]\n\n================= 2254 passed, 15 skipped in 323.65s (0:05:23) =================\n",
+          "error": "",
+          "data": {
+            "exit_code": 0,
+            "pytest_outcome": {
+              "kind": "passed",
+              "detail": "pytest passed",
+              "first_failing_test": null,
+              "failures": 0,
+              "interrupted": false
+            }
+          }
+        }
+      ],
+      "coverage": "secrets+lint+tests"
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned.: scripts/release-cut-check.sh:148-170 compares the prospective tag with install.sh's extracted default, and .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 candidate; lines 672-724 commit a stale 9.9.8 installer default and require rc=1 with the found/expected mismatch named. tests/test_docs_tag_pins.py:45-49,119-182 scans all three documented instruction surfaces fail-closed; lines 185-214 and 217-261 execute unpinned mutations, including quickstart's prose-declared tag-checkout fence. Fresh focused run exited 0 with `28 passed in 10.95s`; complete test-path legs exited 0 with `2055 passed, 12 skipped` (plugin/) and `199 passed, 3 skipped` (tests/). An independent v9.9.9 docs probe returned rc=1 naming the unpinned instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Replaying prior verdict 9c7127c2's exact quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95, closing the demonstrated false green. The monolithic suite invocation reached 96% without failure before the 300-second tool timeout; both complete constituent legs then passed.\n  \u2713 Coverage seam: every tracked Markdown tag-installer instruction (including README and docs outside the scanner's three hard-coded paths) is either explicitly TERMINAL_JAIL_VERSION-pinned or is actually scanned by the regression guard, so no documented tag installer can remain unpinned outside the guard's blind spot.: tests/test_docs_tag_pins.py:45-49 covers docs/releasing.md, docs/quickstart.md, and docs/deploy-to-karahermes.md. Repository-wide searches for tag checkouts, `tag checkout` prose, and release-download tag URLs found tag-install instructions only at docs/quickstart.md:88-95 and docs/deploy-to-karahermes.md:60-66; their commands are explicitly pinned at quickstart.md:95 and deploy-to-karahermes.md:66. README.md:214-215 documents release mode rather than a tag checkout, and its older-tag example is pinned. Running the real scanner over all 71 root/docs Markdown files returned `scanned_paths=71 instructions=2 rc=0` with no violations, so no unpinned documented tag installer was found outside the configured paths.\n  \u2713 Failure-path integrity: the prospective-tag gate and tag-publish workflow both use the same fail-closed installer-default extraction, and a missing, malformed, or stale installer default cannot produce a successful release-cut/publish validation.: scripts/installer-default-version.sh:19-40 refuses missing files and absent, wrong-form, empty, or unparseable pins. scripts/release-cut-check.sh:158-170 converts helper failure or mismatch into a counted failure and exits nonzero at lines 222-227; .github/workflows/release.yml:114-129 exits 1 before build/publish on the same conditions. tests/test_release_workflow.py:174-229 exercises malformed helper inputs and lines 672-724 prove a stale default fails. The focused run exited 0 with 28 passed. Live extraction printed `1.3.4`, matching pyproject.toml:7.\n  \u2713 Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.: tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 fixture; lines 672-724 commit a stale 9.9.8 default and require rc=1 plus `expected 9.9.9` and `wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy, and lines 217-261 remove only the real quickstart pin; both require nonzero rc, a counted instruction, file:line, and TERMINAL_JAIL_VERSION in the violation. Focused pytest exited 0 with `28 passed in 10.95s`. The independent future-tag probe returned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)` when unpinned and `(0, [], 1)` when pinned.\nThe prospective-tag installer pin is enforced at both release entrypoints, all identified documented tag-install commands are pinned, and executed future-tag, stale-pin, and unpinned-doc negative controls\u2014including the previously missed quickstart mutation\u2014now fail closed.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned.: scripts/release-cut-check.sh:148-170 compares the prospective tag with install.sh's extracted default, and .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 candidate; lines 672-724 commit a stale 9.9.8 installer default and require rc=1 with the found/expected mismatch named. tests/test_docs_tag_pins.py:45-49,119-182 scans all three documented instruction surfaces fail-closed; lines 185-214 and 217-261 execute unpinned mutations, including quickstart's prose-declared tag-checkout fence. Fresh focused run exited 0 with `28 passed in 10.95s`; complete test-path legs exited 0 with `2055 passed, 12 skipped` (plugin/) and `199 passed, 3 skipped` (tests/). An independent v9.9.9 docs probe returned rc=1 naming the unpinned instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Replaying prior verdict 9c7127c2's exact quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95, closing the demonstrated false green. The monolithic suite invocation reached 96% without failure before the 300-second tool timeout; both complete constituent legs then passed.\n\n\u2026 [1855 chars omitted \u2014 2 line(s)] \u2026\n  \u2713 Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.: tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 fixture; lines 672-724 commit a stale 9.9.8 default and require rc=1 plus `expected 9.9.9` and `wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy, and lines 217-261 remove only the real quickstart pin; both require nonzero rc, a counted instruction, file:line, and TERMINAL_JAIL_VERSION in the violation. Focused pytest exited 0 with `28 passed in 10.95s`. The independent future-tag probe returned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)` when unpinned and `(0, [], 1)` when pinned.\nThe prospective-tag installer pin is enforced at both release entrypoints, all identified documented tag-install commands are pinned, and executed future-tag, stale-pin, and unpinned-doc negative controls\u2014including the previously missed quickstart mutation\u2014now fail closed.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned.",
+                "status": "PASS",
+                "detail": "scripts/release-cut-check.sh:148-170 compares the prospective tag with install.sh's extracted default, and .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 candidate; lines 672-724 commit a stale 9.9.8 installer default and require rc=1 with the found/expected mismatch named. tests/test_docs_tag_pins.py:45-49,119-182 scans all three documented instruction surfaces fail-closed; lines 185-214 and 217-261 execute unpinned mutations, including quickstart's prose-declared tag-checkout fence. Fresh focused run exited 0 with `28 passed in 10.95s`; complete test-path legs exited 0 with `2055 passed, 12 skipped` (plugin/) and `199 passed, 3 skipped` (tests/). An independent v9.9.9 docs probe returned rc=1 naming the unpinned instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Replaying prior verdict 9c7127c2's exact quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95, closing the demonstrated false green. The monolithic suite invocation reached 96% without failure before the 300-second tool timeout; both complete constituent legs then passed.",
+                "resolution_probability": 0.16
+              },
+              {
+                "criterion": "Coverage seam: every tracked Markdown tag-installer instruction (including README and docs outside the scanner's three hard-coded paths) is either explicitly TERMINAL_JAIL_VERSION-pinned or is actually scanned by the regression guard, so no documented tag installer can remain unpinned outside the guard's blind spot.",
+                "status": "PASS",
+                "detail": "tests/test_docs_tag_pins.py:45-49 covers docs/releasing.md, docs/quickstart.md, and docs/deploy-to-karahermes.md. Repository-wide searches for tag checkouts, `tag checkout` prose, and release-download tag URLs found tag-install instructions only at docs/quickstart.md:88-95 and docs/deploy-to-karahermes.md:60-66; their commands are explicitly pinned at quickstart.md:95 and deploy-to-karahermes.md:66. README.md:214-215 documents release mode rather than a tag checkout, and its older-tag example is pinned. Running the real scanner over all 71 root/docs Markdown files returned `scanned_paths=71 instructions=2 rc=0` with no violations, so no unpinned documented tag installer was found outside the configured paths.",
+                "derived": true
+              },
+              {
+                "criterion": "Failure-path integrity: the prospective-tag gate and tag-publish workflow both use the same fail-closed installer-default extraction, and a missing, malformed, or stale installer default cannot produce a successful release-cut/publish validation.",
+                "status": "PASS",
+                "detail": "scripts/installer-default-version.sh:19-40 refuses missing files and absent, wrong-form, empty, or unparseable pins. scripts/release-cut-check.sh:158-170 converts helper failure or mismatch into a counted failure and exits nonzero at lines 222-227; .github/workflows/release.yml:114-129 exits 1 before build/publish on the same conditions. tests/test_release_workflow.py:174-229 exercises malformed helper inputs and lines 672-724 prove a stale default fails. The focused run exited 0 with 28 passed. Live extraction printed `1.3.4`, matching pyproject.toml:7.",
+                "derived": true
+              },
+              {
+                "criterion": "Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.",
+                "status": "PASS",
+                "detail": "tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 fixture; lines 672-724 commit a stale 9.9.8 default and require rc=1 plus `expected 9.9.9` and `wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy, and lines 217-261 remove only the real quickstart pin; both require nonzero rc, a counted instruction, file:line, and TERMINAL_JAIL_VERSION in the violation. Focused pytest exited 0 with `28 passed in 10.95s`. The independent future-tag probe returned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)` when unpinned and `(0, [], 1)` when pinned.",
+                "derived": true
+              }
+            ],
+            "summary": "The prospective-tag installer pin is enforced at both release entrypoints, all identified documented tag-install commands are pinned, and executed future-tag, stale-pin, and unpinned-doc negative controls\u2014including the previously missed quickstart mutation\u2014now fail closed.",
+            "provenance": {
+              "model": "neuralwatt/kimi-k3.1-pro",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "first-parent-merge",
+              "diff_bytes": 8931,
+              "prompt_bytes": 16129
+            }
+          }
+        }
+      ],
+      "model": "neuralwatt/kimi-k3.1-pro",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "first-parent-merge",
+        "diff_bytes": 8931,
+        "prompt_bytes": 16129
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"RELEASE-TJ-030\"}",
+          "exit_code": 0,
+          "output_sha": "dac10aa89257d098d7f166eb844a8c6d2c1812100029f6ed175e1ecc4cc0c0b7"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"tests/test_docs_tag_pins.py\"}",
+          "exit_code": 0,
+          "output_sha": "482d3c7fb66d3d5535a231a57a9b16f4415cd30221343aaa2530f1cf68b17b00"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \".gitreins/config.yaml\"}",
+          "exit_code": 0,
+          "output_sha": "3d662fad62c7080962e07f8a383bebbc6e9e0c039765203afcfeb2b14affc02c"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"regex\": \"TERMINAL_JAIL_VERSION|future.?tag|release.?cut|installer default|DEFAULT_VERSION\"}",
+          "exit_code": 0,
+          "output_sha": "4c246708ffa7a3eef8dbdd560b41a35893afaf4bd98c571d5f71ac2deb250291"
+        },
+        {
+          "tool": "read_diff",
+          "command": "read_diff {}",
+          "exit_code": 0,
+          "output_sha": "ebbfddd04c8c71afcf97ab48d443e1a2c7b337a6e7712f86e9b11788297f10c5"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"scripts/release-cut-check.sh\"}",
+          "exit_code": 0,
+          "output_sha": "866c821226009521bbd24c9228079f8718abfabdb61c1c3193cadb52964195aa"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 780, \"offset\": 1, \"path\": \"tests/test_release_workflow.py\"}",
+          "exit_code": 0,
+          "output_sha": "37ff1ab20fe8338b2a14332072ef3b3e00d1df5d433d265052a367963fc449d0"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"docs/quickstart.md\"}",
+          "exit_code": 0,
+          "output_sha": "af70de33c99c2f69de4b94b017b7a81e874835d9035e80e0221b11273d7559a7"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"docs/releasing.md\"}",
+          "exit_code": 0,
+          "output_sha": "2e9ef7dddae134dbe25b50b773f68dba96a4125bd5ba981edbf09a25eb59c742"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"docs/deploy-to-karahermes.md\"}",
+          "exit_code": 0,
+          "output_sha": "45a3bf7c9c7c8f6caaf298a13a6da9157dda70cc2fe9f9cc2df8d85ae372a212"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"scripts/installer-default-version.sh\"}",
+          "exit_code": 0,
+          "output_sha": "66fa5401ef5fb2ce0f1e93e8fcf64339c3335bbb0b985df3e7df5349e5e2f840"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \".github/workflows/release.yml\"}",
+          "exit_code": 0,
+          "output_sha": "04f9986207ac85e4c970b09b0cc0f7586e58cfda803772ebd03dd45f39dfcdbf"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 100, \"offset\": 250, \"path\": \"tests/test_docs_tag_pins.py\"}",
+          "exit_code": 0,
+          "output_sha": "f7c5c72ea6c180f60d5e12530c46d68a1cf9da1c50770317d36543cb0852dd13"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Coverage seam: every tracked Markdown tag-installer instruction (including README and docs outside the scanner's three hard-coded paths) is either explicitly TERMINAL_JAIL_VERSION-pinned or is actually scanned by the regression guard, so no documented tag installer can remain unpinned outside the guard's blind spot.\", \"key\": \"derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "56e9d9f973a1871c49439490b5b7357327d0c34a86abbd47433001250db20bc1"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Failure-path integrity: the prospective-tag gate and tag-publish workflow both use the same fail-closed installer-default extraction, and a missing, malformed, or stale installer default cannot produce a successful release-cut/publish validation.\", \"key\": \"derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "7812abd43e471242fb7242688a8a87f728a5d1fa900de06661cf224ea8221864"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.\", \"key\": \"derived_2\"}",
+          "exit_code": 0,
+          "output_sha": "47cdeed3d952d2333429bf87071865e4b65a1e005cb2c62e0b38f1608085bd5a"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.md\", \"regex\": \"install\\\\.sh\"}",
+          "exit_code": 0,
+          "output_sha": "0639151fe7c5f8c09bbbb386a875c71c8d1e82d9f3cad5ab50c5951ce9cbea19"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"pyproject.toml\"}",
+          "exit_code": 0,
+          "output_sha": "7a0350cf554f31db00e77b1034d6f0f084c596118f7210363308e51efbefbffa"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 60, \"offset\": 760, \"path\": \"tests/test_release_workflow.py\"}",
+          "exit_code": 0,
+          "output_sha": "2fc91640eadbafc53e05240e26392b4094dcbc876e0b55f6e7a2fa37254efbfb"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 65, \"offset\": 175, \"path\": \"README.md\"}",
+          "exit_code": 0,
+          "output_sha": "08fd471496844f17e65fb48c8d926be53cc92d18eb8af253caa809618c30c7d9"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \".github/workflows/*.yml\", \"regex\": \"test_docs_tag_pins|release-cut-check|pytest\"}",
+          "exit_code": 0,
+          "output_sha": "bb6cdc377f35371bfaf9396cf1f5dd9348d615cfa418e9a5e600e5925e4253d0"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python -m pytest -x --tb=short tests/test_docs_tag_pins.py tests/test_release_workflow.py",
+          "exit_code": 0,
+          "output_sha": "b714dc26eaa724e69dec3d6ea2c2bd34626a4d846fb4b14b65e9dc28de7350f6"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \".github/workflows/ci.yml\"}",
+          "exit_code": 0,
+          "output_sha": "0e572bcf548619b8832dd057524eb07aa33ead97543140ea5293db6a1357334e"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.md\", \"regex\": \"git\\\\s+(checkout|switch).*v[0-9]|tag\\\\s+checkout|releases/download/v[0-9]\"}",
+          "exit_code": 0,
+          "output_sha": "5ace7c9f40bfaa83d9c71b1fae85e44b47f5f490a691ec4278bbeed68e608ea1"
+        },
+        {
+          "tool": "read_lsp_diagnostics",
+          "command": "read_lsp_diagnostics {}",
+          "exit_code": 0,
+          "output_sha": "ef420cbeebd549fc8c5438d6ea41a3e521fa58e29563c4cae80f491b9bfe2143"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python -m pytest -x --tb=short",
+          "exit_code": -15,
+          "output_sha": "670babcc52d2376ab5ef98fca4201855a1724ecf3840d847c7eeae8316f43608"
+        },
+        {
+          "tool": "run_command",
+          "command": "git status --short && git log -5 --oneline --decorate && git show --stat --oneline --summary HEAD",
+          "exit_code": 0,
+          "output_sha": "fb4365e0d6576856e7e653c60a5da04a50348d2c5c84f39360e6c1eeca3abf35"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 55, \"offset\": 1, \"path\": \"install.sh\"}",
+          "exit_code": 0,
+          "output_sha": "b0f43094c115d58e3aca10104623dd0d1a5f48a7633394baf470df3434ccfb88"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 85, \"offset\": 660, \"path\": \"plugin/test_install.py\"}",
+          "exit_code": 0,
+          "output_sha": "2ec1071985db3a3393c266107b2daa5b4adf3cb31d168a68160c3506f7f791dc"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.py\", \"regex\": \"DOC_PATHS|scan_tag_installer_pins|docs-tag|tag-installer\"}",
+          "exit_code": 0,
+          "output_sha": "a633aa521c1265f4a1dc8cbadd2fba6fa0805a3ca1caefb98b5a33c144ca49d0"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python -m pytest -x --tb=short tests/",
+          "exit_code": 0,
+          "output_sha": "4deac15ef9cb3cb9bb028ab85e5d535c5be67740133668d239e934bf1334405d"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python - <<'PY'\nimport pathlib\nfrom tests.test_docs_tag_pins import scan_tag_installer_pins, DOC_PATHS\npaths = sorted(pathlib.Path('.').glob('*.md')) + sorted(pathlib.Path('docs').rglob('*.md'))\nrc, violations, n = scan_tag_installer_pins(paths)\nprint('scanned_paths=', len(paths), 'instructions=', n, 'rc=', rc)\nprint('\\n'.join(violations))\nprint('configured_paths=', [str(p.relative_to(pathlib.Path.cwd())) for p in DOC_PATHS])\nPY",
+          "exit_code": 0,
+          "output_sha": "2fadb7b94e6c7c183984277a54cac9be267963fd98ca3ce3b8747444abe27ee4"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show --stat --oneline e634f057 && git show --stat --oneline dc09c653^2 && git log --oneline --all --grep='RELEASE-TJ-030' -12",
+          "exit_code": 0,
+          "output_sha": "aaaf458ecd5fe595468ddf601e779db5a4595ef9b06f3e62e79e615ab6e07951"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.md\", \"regex\": \"TERMINAL_JAIL_VERSION=.*install\\\\.sh|install\\\\.sh.*TERMINAL_JAIL_VERSION=\"}",
+          "exit_code": 0,
+          "output_sha": "e1b71587b81165a110db17c952e33a3a7080604652d865cf38a9f671945aeab1"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python -m pytest -x --tb=short plugin/",
+          "exit_code": 0,
+          "output_sha": "ffbbdb2a1e1fb9825fab41483b8e104b8f8bced66c75bf6c9bdf7c04a9051700"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python - <<'PY'\nimport pathlib, tempfile\nfrom tests.test_docs_tag_pins import scan_tag_installer_pins\nwith tempfile.TemporaryDirectory() as d:\n    p = pathlib.Path(d) / 'future-tag-instruction.md'\n    p.write_text('Install from the release tag:\\n\\n```bash\\ngit checkout --detach v9.9.9\\nTERMINAL_JAIL_USE_RELEASE=1 ./install.sh\\n```\\n', encoding='utf-8')\n    print('unpinned_future_tag=', scan_tag_installer_pins([p]))\n    p.write_text('Install from the release tag:\\n\\n```bash\\ngit checkout --detach v9.9.9\\nTERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=9.9.9 ./install.sh\\n```\\n', encoding='utf-8')\n    print('pinned_future_tag=', scan_tag_installer_pins([p]))\nPY",
+          "exit_code": 0,
+          "output_sha": "5be06d4c60de8ec95aa181e5bfc195195f59fbf7c39cba32e981c9493a27b4f4"
+        },
+        {
+          "tool": "run_command",
+          "command": "sh scripts/installer-default-version.sh install.sh && .venv/bin/python - <<'PY'\nimport tomllib\nwith open('pyproject.toml','rb') as f:\n    print('pyproject=', tomllib.load(f)['project']['version'])\nPY",
+          "exit_code": 0,
+          "output_sha": "b86fda9a5828055fcdc4444463b072f1325e7c7499e9a212b147a3c01b47ed64"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show --format=fuller --no-ext-diff b04d91fa -- scripts/release-cut-check.sh scripts/installer-default-version.sh .github/workflows/release.yml tests/test_release_workflow.py | head -n 80",
+          "exit_code": 0,
+          "output_sha": "d0ff73fb9e609987f52b8a689e25a6f774f5e30aec7c5c86017672fb7c59bdeb"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: scripts/release-cut-check.sh:148-170 compares the prospective tag to the fail-closed helper output; .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 fixture and :672-724 executes a committed stale 9.9.8 negative control requiring rc=1 and named expected/found versions. tests/test_docs_tag_pins.py:45-49,119-163,168-182 scans all three documented tag-instruction surfaces fail-closed; :185-214 and :217-261 execute unpinned mutations, including the prose-only quickstart case. Actual runs: `.venv/bin/python -m pytest -x --tb=short tests/test_docs_tag_pins.py tests/test_release_workflow.py` exit 0, `28 passed in 10.95s`; `... tests/` exit 0, `199 passed, 3 skipped`; `... plugin/` exit 0, `2055 passed, 12 skipped`. Independent scanner probe returned rc=1 naming an unpinned v9.9.9 instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Full monolithic command hit the 300s tool timeout at 96% with no failure; both complete testpath legs subsequently passed.\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "e7bc6cf249668338d05ce9151dbaba1987c6d536a8e94d9fc93ad0a7465f7a88"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: tests/test_docs_tag_pins.py:45-49 covers docs/releasing.md, docs/quickstart.md, and docs/deploy-to-karahermes.md. Repository-wide search for `git checkout|switch ... vN`, `tag checkout`, and release-download tag URLs found tag-install instructions only in quickstart.md:88-95 and deploy-to-karahermes.md:60-66 (both pinned at quickstart.md:95 and deploy-to-karahermes.md:66); README.md:214-215 is release mode, not a tag checkout, and its older-tag example is pinned. Running the real scanner over all 71 root/docs Markdown files returned `instructions=2 rc=0` with no violations, so there is no evidenced unpinned documented tag installer outside the configured paths.\", \"key\": \"verified_derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "185935fdf48f44a6db3127ad38b6afe561903259e2a922de42f78746d81c8c65"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: scripts/installer-default-version.sh:19-40 refuses missing files, absent/wrong-form/empty/unparseable pins; scripts/release-cut-check.sh:158-170 turns helper failure or mismatch into a counted failure and exits 1 at :222-227; .github/workflows/release.yml:114-129 exits 1 before build/publish on helper failure or mismatch. tests/test_release_workflow.py:174-229 exercises all malformed helper inputs and :672-724 proves the stale default fails. Focused run exit 0: 28 passed. Live helper output `1.3.4` equals pyproject `1.3.4`.\", \"key\": \"verified_derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "b47f578dfe111c0f6069c6b27de1bd8d7ba24bc13cfbfaef19df345b4bcfb86f"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 future-tag fixture; :672-724 commits a stale 9.9.8 installer default and requires rc=1 plus `expected 9.9.9`/`wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy and :217-261 removes only the real quickstart pin; both require nonzero rc, instruction count, file:line, and TERMINAL_JAIL_VERSION in the violation. Actual focused pytest run: exit 0, 28 passed in 10.95s; independent v9.9.9 scanner probe: unpinned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)`, pinned `(0, [], 1)`.\", \"key\": \"verified_derived_2\"}",
+          "exit_code": 0,
+          "output_sha": "b7d03e199b8b3fad87078dd2c7e61097f3b2a93e3c6e9ea3fe9b26c8fb9a853b"
+        },
+        {
+          "tool": "scan_security",
+          "command": "scan_security {\"path\": \"tests\"}",
+          "exit_code": 1,
+          "output_sha": "5e0d7bc741a81111ae0de095711667c687dd96144bddb05f9ada127954bef57f"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.json\", \"regex\": \"RELEASE-TJ-030\"}",
+          "exit_code": 0,
+          "output_sha": "bb6cdc377f35371bfaf9396cf1f5dd9348d615cfa418e9a5e600e5925e4253d0"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.md\", \"regex\": \"RELEASE-TJ-030\"}",
+          "exit_code": 0,
+          "output_sha": "1dd0470d21327a0e5c246b13c5d5cf7d5f1233dfce9befd18a8d1f8a3b169bc4"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show --format= --name-only 9c7127c2 && git show --format= --name-only c859f436 && git show --format= --name-only b836590c && git show --format= --name-only 8a4f4044",
+          "exit_code": 0,
+          "output_sha": "b87ff0d7a393b2664b15c92aa017bb455c6f0b793a1233bbaaab066a8315d4fb"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show 9c7127c2 -- | head -n 180",
+          "exit_code": 0,
+          "output_sha": "c24743244e9822a6d49382873987b7df12244e5bc171588766173fd6215158d6"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show 9c7127c2:.gitreins/history/2026-11-26/adfa7457/verdict.json | .venv/bin/python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({\"verdict\":d.get(\"verdict\"),\"items\":d.get(\"items\"),\"failure_modes\":d.get(\"failure_modes\"),\"summary\":d.get(\"summary\")},indent=2))'",
+          "exit_code": 0,
+          "output_sha": "e42dfcbfe3da9c1ebe63a706e82edb554c2dd0505c256724a960f90242e0738c"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show c859f436:.gitreins/history/2026-11-26/1b835297/verdict.json | .venv/bin/python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({\"verdict\":d.get(\"verdict\"),\"items\":d.get(\"items\"),\"failure_modes\":d.get(\"failure_modes\"),\"summary\":d.get(\"summary\")},indent=2))'",
+          "exit_code": 0,
+          "output_sha": "16da750c9df88caa550629dcbecceec69605bdd9d7cd2a806f08a3b9704d7476"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show b836590c:.gitreins/history/2026-11-26/8fa12efb/verdict.json | .venv/bin/python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({\"verdict\":d.get(\"verdict\"),\"items\":d.get(\"items\"),\"failure_modes\":d.get(\"failure_modes\"),\"summary\":d.get(\"summary\")},indent=2))'",
+          "exit_code": 0,
+          "output_sha": "b4a933d4c6a27086b285bad1b43c87e9df1bccd09d37170f9a43bece271eeb9b"
+        },
+        {
+          "tool": "run_command",
+          "command": "git show 9c7127c2:.gitreins/history/2026-11-26/adfa7457/verdict.json | .venv/bin/python -c 'import json,sys; d=json.load(sys.stdin); [print(json.dumps(x,indent=2)) for x in d.get(\"items\",[])]; print(\"FAILURE MODES\"); print(json.dumps(d.get(\"failure_modes\"),indent=2))'",
+          "exit_code": 0,
+          "output_sha": "0fac729335c61b62d103d1ec1ce4fbcb071f0eeeec723c6e66f3bc63e8400d74"
+        },
+        {
+          "tool": "run_command",
+          "command": ".venv/bin/python - <<'PY'\nimport pathlib, tempfile\nfrom tests.test_docs_tag_pins import scan_tag_installer_pins, DOC_PATHS\nsource = DOC_PATHS[1]\noriginal = source.read_text(encoding='utf-8')\nwith tempfile.TemporaryDirectory() as d:\n    root = pathlib.Path(d)\n    copies = []\n    for src in DOC_PATHS:\n        dst = root / src.name\n        text = original if src == source else src.read_text(encoding='utf-8')\n        if src == source:\n            text = text.replace('TERMINAL_JAIL_VERSION=1.3.4 ', '')\n        dst.write_text(text, encoding='utf-8')\n        copies.append(dst)\n    print('prior_quickstart_mutation=', scan_tag_installer_pins(copies))\nPY",
+          "exit_code": 0,
+          "output_sha": "b1dbc82420823ee30eb08892089c6ac6418ef722cd508571c473238f3fa8d121"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: scripts/release-cut-check.sh:148-170 compares the prospective tag to the fail-closed helper output; .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 fixture and :672-724 executes a committed stale 9.9.8 negative control requiring rc=1 and named expected/found versions. tests/test_docs_tag_pins.py:45-49,119-163,168-182 scans all three documented tag-instruction surfaces fail-closed; :185-214 and :217-261 execute unpinned mutations, including the prose-only quickstart case. Actual runs: focused release/docs modules exit 0, `28 passed in 10.95s`; tests/ exit 0, `199 passed, 3 skipped`; plugin/ exit 0, `2055 passed, 12 skipped`. Independent scanner probe returned rc=1 naming an unpinned v9.9.9 instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Exact replay of prior verdict 9c7127c2's quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95 (2 instructions), closing the demonstrated false green. Full monolithic command hit the 300s tool timeout at 96% with no failure; both complete testpath legs subsequently passed.\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "b23f1265cef09e2569c0f7329387cd92a0b3b5fa708ce2386b1df8afb86a1cb6"
+        }
+      ]
+    },
+    "fix_verification": {
+      "id": "fix_verification",
+      "passed": true,
+      "any_failed": false,
+      "summary": "fix_verification: 0 finding(s) verified",
+      "steps": [
+        {
+          "id": "fix_verification",
+          "type": "fix_verification",
+          "passed": true,
+          "output": "fix_verification: 0 finding(s) verified",
+          "error": "",
+          "data": {
+            "dispositions": [],
+            "counts": {}
+          }
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "first-parent-merge",
+    "diff_bytes": 8931,
+    "prompt_bytes": 16129
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "no diff to review (clean tree, no commit anchor)",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 lint: scanners: nice=nice -n 10\n  \u2713 secrets: secrets: scanners=gitleaks+builtin cross-check\n  \u2713 tests: scanners: nice=nice -n 10\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: release-cut validation and regression tests enforce that a future vX.Y.Z tag's installer default equals the tag and all documented tag-installer instructions carry an explicit TERMINAL_JAIL_VERSION pin. FAILIF: a future-tag simulation or negative control can pass with a stale installer default, or a tag installer instruction remains unpinned.: scripts/release-cut-check.sh:148-170 compares the prospective tag with install.sh's extracted default, and .github/workflows/release.yml:112-129 repeats the check on the checked-out tag before build/publish. tests/test_release_workflow.py:645-670 executes a matching v9.9.9 candidate; lines 672-724 commit a stale 9.9.8 installer default and require rc=1 with the found/expected mismatch named. tests/test_docs_tag_pins.py:45-49,119-182 scans all three documented instruction surfaces fail-closed; lines 185-214 and 217-261 execute unpinned mutations, including quickstart's prose-declared tag-checkout fence. Fresh focused run exited 0 with `28 passed in 10.95s`; complete test-path legs exited 0 with `2055 passed, 12 skipped` (plugin/) and `199 passed, 3 skipped` (tests/). An independent v9.9.9 docs probe returned rc=1 naming the unpinned instruction and rc=0 after adding TERMINAL_JAIL_VERSION=9.9.9. Replaying prior verdict 9c7127c2's exact quickstart pin deletion across all three DOC_PATHS now returns rc=1 naming quickstart.md:95, closing the demonstrated false green. The monolithic suite invocation reached 96% without failure before the 300-second tool timeout; both complete constituent legs then passed.\n  \u2713 Coverage seam: every tracked Markdown tag-installer instruction (including README and docs outside the scanner's three hard-coded paths) is either explicitly TERMINAL_JAIL_VERSION-pinned or is actually scanned by the regression guard, so no documented tag installer can remain unpinned outside the guard's blind spot.: tests/test_docs_tag_pins.py:45-49 covers docs/releasing.md, docs/quickstart.md, and docs/deploy-to-karahermes.md. Repository-wide searches for tag checkouts, `tag checkout` prose, and release-download tag URLs found tag-install instructions only at docs/quickstart.md:88-95 and docs/deploy-to-karahermes.md:60-66; their commands are explicitly pinned at quickstart.md:95 and deploy-to-karahermes.md:66. README.md:214-215 documents release mode rather than a tag checkout, and its older-tag example is pinned. Running the real scanner over all 71 root/docs Markdown files returned `scanned_paths=71 instructions=2 rc=0` with no violations, so no unpinned documented tag installer was found outside the configured paths.\n  \u2713 Failure-path integrity: the prospective-tag gate and tag-publish workflow both use the same fail-closed installer-default extraction, and a missing, malformed, or stale installer default cannot produce a successful release-cut/publish validation.: scripts/installer-default-version.sh:19-40 refuses missing files and absent, wrong-form, empty, or unparseable pins. scripts/release-cut-check.sh:158-170 converts helper failure or mismatch into a counted failure and exits nonzero at lines 222-227; .github/workflows/release.yml:114-129 exits 1 before build/publish on the same conditions. tests/test_release_workflow.py:174-229 exercises malformed helper inputs and lines 672-724 prove a stale default fails. The focused run exited 0 with 28 passed. Live extraction printed `1.3.4`, matching pyproject.toml:7.\n  \u2713 Negative-control strength: the regression suite executes both a matching future-tag simulation and committed stale-installer/unpinned-doc mutations against the real scanners, asserting nonzero status and named mismatch/violation rather than merely checking source text.: tests/test_release_workflow.py:645-670 runs the real gate against a matching v9.9.9 fixture; lines 672-724 commit a stale 9.9.8 default and require rc=1 plus `expected 9.9.9` and `wrong assets`. tests/test_docs_tag_pins.py:185-214 injects an unpinned v9.9.8 tag installer into a copy, and lines 217-261 remove only the real quickstart pin; both require nonzero rc, a counted instruction, file:line, and TERMINAL_JAIL_VERSION in the violation. Focused pytest exited 0 with `28 passed in 10.95s`. The independent future-tag probe returned `(1, ['future-tag-instruction.md:5: ... lacks an explicit TERMINAL_JAIL_VERSION= pin ...'], 1)` when unpinned and `(0, [], 1)` when pinned.\nThe prospective-tag installer pin is enforced at both release entrypoints, all identified documented tag-install commands are pinned, and executed future-tag, stale-pin, and unpinned-doc negative controls\u2014including the previously missed quickstart mutation\u2014now fail closed.\n\nStage fix_verification: PASS\n  fix_verification: 0 finding(s) verified\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-26T14:24:56.024596",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-26T14:24:56.043835+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 967,
+        "truncated": false,
+        "source": "git show e2d60b61e1b2"
+      }
+    ],
+    "task_id": "RELEASE-TJ-030"
+  }
+}

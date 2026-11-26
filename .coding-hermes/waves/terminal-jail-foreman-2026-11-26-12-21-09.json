@@ -1,0 +1,17 @@
+{
+  "scheduler_tick_id": "terminal-jail-foreman-2026-11-26-12-21-09",
+  "project": "terminal-jail",
+  "workdir": "/home/kara/terminal-jail",
+  "wave_budget": 9,
+  "mode": "verification-only-closeout",
+  "workers": [],
+  "tasks": [
+    {
+      "id": "RELEASE-TJ-030",
+      "action": "control-root Tier-2 judge on wt/RELEASE-TJ-030-control @ 8177bd7f, then boardctl close + gitreins task complete; no new implementation worker",
+      "implementation_commit": "b04d91fa476e568cadd86ed7d7e82e121106b534",
+      "merged_commit": "edbe97e4"
+    }
+  ],
+  "note": "Implementation was landed and tier-1 gated by tick terminal-jail-foreman-2026-11-26-10-33-41; only the pending control-root Tier-2 verdict and closeout remain."
+}
