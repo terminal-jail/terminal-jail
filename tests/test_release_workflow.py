@@ -30,6 +30,7 @@ import subprocess
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
 CHECK_SCRIPT = PROJECT_ROOT / "scripts" / "release-cut-check.sh"
+HELPER_SCRIPT = PROJECT_ROOT / "scripts" / "installer-default-version.sh"
 
 
 def _yaml_load(path: pathlib.Path) -> dict:
@@ -120,6 +121,20 @@ def test_release_workflow_never_bumps_version_or_creates_tags() -> None:
     assert not re.search(r">\s*pyproject\.toml", scripts), scripts
 
 
+def test_release_workflow_verifies_installer_pin_matches_tag() -> None:
+    """RELEASE-TJ-030: the publish path refuses a tag whose installer pin lags.
+
+    The workflow checks out the tag's tree; scripts/installer-default-version.sh
+    reads that tree's install.sh pin, and a mismatch fails the run with a named
+    ::error:: before any artifact is built or published.
+    """
+    doc = _yaml_load(WORKFLOW)
+    scripts = "\n".join(s.get("run", "") for s in doc["jobs"]["release"]["steps"])
+    assert "installer-default-version.sh" in scripts
+    assert "install.sh default TERMINAL_JAIL_VERSION" in scripts
+    assert "PREVIOUS release's assets" in scripts
+
+
 # --------------------------------------------------------------------------
 # release-cut-check.sh
 # --------------------------------------------------------------------------
@@ -130,6 +145,93 @@ def test_check_script_exists_and_is_executable() -> None:
     import os
 
     assert os.access(CHECK_SCRIPT, os.X_OK), "script must carry the exec bit"
+
+
+def test_installer_default_version_helper_is_executable() -> None:
+    assert HELPER_SCRIPT.is_file()
+    import os
+
+    assert os.access(HELPER_SCRIPT, os.X_OK), "helper must carry the exec bit"
+
+
+def test_installer_default_version_helper_matches_pyproject_version() -> None:
+    """Repo parity today (RELEASE-TJ-030): install.sh default == pyproject.
+
+    v1.3.4 broke exactly this invariant (the tag shipped its installer
+    defaulting to 1.3.3), and nothing failed until an operator ran the tag's
+    installer. This fails on main the moment either surface drifts again.
+    """
+    import tomllib
+
+    with open(PROJECT_ROOT / "pyproject.toml", "rb") as fh:
+        version = tomllib.load(fh)["project"]["version"]
+    proc = subprocess.run(
+        ["sh", str(HELPER_SCRIPT), str(PROJECT_ROOT / "install.sh")],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == version
+
+
+def test_installer_default_version_helper_refuses_missing_or_malformed(
+    tmp_path,
+) -> None:
+    """The helper never guesses: every unparseable input is a named refusal."""
+    import os
+
+    cases: list[tuple[str, subprocess.CompletedProcess[str], str]] = []
+
+    missing = subprocess.run(
+        ["sh", str(HELPER_SCRIPT), str(tmp_path / "absent.sh")],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    cases.append(("missing file", missing, "no such file"))
+
+    no_pin = tmp_path / "no-pin.sh"
+    no_pin.write_text("#!/bin/sh\necho hi\n", encoding="utf-8")
+    no_pin_proc = subprocess.run(
+        ["sh", str(HELPER_SCRIPT), str(no_pin)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    cases.append(("no pin line", no_pin_proc, "pin line"))
+
+    wrong_form = tmp_path / "wrong-form.sh"
+    wrong_form.write_text('TERMINAL_JAIL_VERSION="1.3.4"\n', encoding="utf-8")
+    wrong_form_proc = subprocess.run(
+        ["sh", str(HELPER_SCRIPT), str(wrong_form)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    cases.append(("plain assignment form", wrong_form_proc, "default form"))
+
+    empty_default = tmp_path / "empty-default.sh"
+    empty_default.write_text(
+        'TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-}"\n', encoding="utf-8"
+    )
+    empty_default_proc = subprocess.run(
+        ["sh", str(HELPER_SCRIPT), str(empty_default)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    cases.append(("empty default", empty_default_proc, "could not parse a version"))
+
+    for name, proc, needle in cases:
+        assert proc.returncode != 0, f"{name} must be refused"
+        assert needle in proc.stderr, (name, proc.stderr)
+        assert os.access(HELPER_SCRIPT, os.X_OK)  # premise: same helper throughout
 
 
 def test_check_script_requires_a_tag_argument() -> None:
@@ -179,6 +281,10 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     # test is independent of what the clone's base commit captured; on a
     # base commit that predates the script this stages it as a new file
     shutil.copy2(CHECK_SCRIPT, clone / "scripts" / "release-cut-check.sh")
+    # Same for the installer-pin extraction seam the gate invokes (RELEASE-
+    # TJ-030): on a base commit predating the helper this is untracked, so
+    # it must be staged below or the clone's dirt gate would refuse it.
+    shutil.copy2(HELPER_SCRIPT, clone / "scripts" / "installer-default-version.sh")
     # TJ-GAP-094: the clone's own guard hooks (.gitreins, core.hooksPath)
     # emit untracked harness artifacts (.gitreins/logs, .vfs/graph/*), which
     # release-cut-check's `git status --porcelain` dirt gate then refuses.
@@ -189,7 +295,12 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     with open(exclude, "a", encoding="utf-8") as fh:
         fh.write("\n.gitreins/\n.vfs/\n")
     subprocess.run(
-        ["git", "add", "scripts/release-cut-check.sh"],
+        [
+            "git",
+            "add",
+            "scripts/release-cut-check.sh",
+            "scripts/installer-default-version.sh",
+        ],
         cwd=clone,
         check=True,
         capture_output=True,
@@ -217,6 +328,7 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
         f"## [{tag[1:]}] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
         + changelog.read_text()
     )
+    _bump_installer_pin(clone / "install.sh", tag[1:])
     subprocess.run(
         [
             "git",
@@ -277,6 +389,10 @@ def test_check_script_green_path_on_prepared_scratch_clone(tmp_path) -> None:
     assert f"OK: pyproject.toml version {tag[1:]} == tag {tag}" in proc.stdout
     assert f"OK: plugin/plugin.yaml version {tag[1:]} == tag {tag}" in proc.stdout
     assert f"OK: CHANGELOG.md has matching [{tag[1:]}] section" in proc.stdout
+    assert (
+        f"OK: install.sh default TERMINAL_JAIL_VERSION {tag[1:]} == tag {tag}"
+        in proc.stdout
+    )
     assert "OK: CI green on HEAD" in proc.stdout
     assert "READY:" in proc.stdout
 
@@ -293,9 +409,11 @@ def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -
     (fixture / "plugin").mkdir()
     for src, dst in (
         (CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh"),
+        (HELPER_SCRIPT, fixture / "scripts" / "installer-default-version.sh"),
         (PROJECT_ROOT / "pyproject.toml", fixture / "pyproject.toml"),
         (PROJECT_ROOT / "plugin" / "plugin.yaml", fixture / "plugin" / "plugin.yaml"),
         (PROJECT_ROOT / "CHANGELOG.md", fixture / "CHANGELOG.md"),
+        (PROJECT_ROOT / "install.sh", fixture / "install.sh"),
     ):
         assert src.is_file(), f"missing fixture input: {src}"
         shutil.copy2(src, dst)
@@ -329,14 +447,17 @@ def test_check_script_probes_remote_tag_as_absent_present_or_failure(tmp_path) -
         "## [9.9.9] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
         + changelog.read_text()
     )
+    _bump_installer_pin(fixture / "install.sh", "9.9.9")
     subprocess.run(
         [
             "git",
             "add",
             "scripts/release-cut-check.sh",
+            "scripts/installer-default-version.sh",
             "pyproject.toml",
             "plugin/plugin.yaml",
             "CHANGELOG.md",
+            "install.sh",
         ],
         cwd=fixture,
         check=True,
@@ -461,6 +582,26 @@ def test_check_script_fails_clearly_on_existing_tag() -> None:
         )
 
 
+def _bump_installer_pin(installer: pathlib.Path, version: str) -> None:
+    """Rewrite install.sh's default TERMINAL_JAIL_VERSION pin (RELEASE-TJ-030).
+
+    The version-prep commit bumps the installer pin together with pyproject /
+    plugin.yaml / CHANGELOG (docs/releasing.md step 1); every fixture that
+    simulates a prepared release tree must do the same, or the pre-cut gate's
+    installer check would correctly refuse it.
+    """
+    new_text, n = re.subn(
+        r"(?m)^TERMINAL_JAIL_VERSION=.*$",
+        f'TERMINAL_JAIL_VERSION="${{TERMINAL_JAIL_VERSION:-{version}}}"',
+        installer.read_text(encoding="utf-8"),
+        count=1,
+    )
+    assert n == 1, (
+        "expected exactly one top-level TERMINAL_JAIL_VERSION pin line in install.sh"
+    )
+    installer.write_text(new_text, encoding="utf-8")
+
+
 def _prepare_version_fixture(
     source: pathlib.Path, destination: pathlib.Path, version: str
 ) -> None:
@@ -488,6 +629,7 @@ def _prepare_version_fixture(
         f"## [{version}] — 2099-01-01\n\n### Fixed\n\n- scratch release\n\n"
         + changelog.read_text()
     )
+    _bump_installer_pin(destination / "install.sh", version)
     subprocess.run(["git", "init", "-q"], cwd=destination, check=True, timeout=30)
     subprocess.run(["git", "add", "."], cwd=destination, check=True, timeout=30)
     subprocess.run(
@@ -513,6 +655,7 @@ def test_check_script_accepts_matching_version_fixture(tmp_path) -> None:
     fixture = tmp_path / "matching"
     _prepare_version_fixture(PROJECT_ROOT, fixture, "9.9.9")
     shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+    shutil.copy2(HELPER_SCRIPT, fixture / "scripts" / "installer-default-version.sh")
     proc = _run_script(
         fixture,
         "v9.9.9",
@@ -521,6 +664,64 @@ def test_check_script_accepts_matching_version_fixture(tmp_path) -> None:
         },
     )
     assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    assert (
+        "OK: install.sh default TERMINAL_JAIL_VERSION 9.9.9 == tag v9.9.9"
+        in proc.stdout
+    )
+
+
+def test_check_script_rejects_stale_installer_default(tmp_path) -> None:
+    """NEGATIVE control (RELEASE-TJ-030): a candidate tree whose install.sh
+    default lags the prospective tag must fail the pre-cut gate, naming the
+    mismatch. Mirrors the v1.3.4 defect: every other version surface is
+    prepared for 9.9.9 but the installer still defaults to 9.9.8.
+
+    The stale pin is COMMITTED in the scratch fixture — a dirty tree would
+    trip the cleanliness gate first and mute the assertion.
+    """
+    fixture = tmp_path / "installer-stale"
+    _prepare_version_fixture(PROJECT_ROOT, fixture, "9.9.9")
+    installer = fixture / "install.sh"
+    stale_text, n = re.subn(
+        r"(?m)^TERMINAL_JAIL_VERSION=.*$",
+        'TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-9.9.8}"',
+        installer.read_text(encoding="utf-8"),
+        count=1,
+    )
+    assert n == 1
+    installer.write_text(stale_text, encoding="utf-8")
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "user.email=tj-release-test@example.invalid",
+            "-c",
+            "user.name=tj-release-test",
+            "commit",
+            "-qam",
+            "stale installer pin (scratch fixture)",
+        ],
+        cwd=fixture,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    shutil.copy2(CHECK_SCRIPT, fixture / "scripts" / "release-cut-check.sh")
+    shutil.copy2(HELPER_SCRIPT, fixture / "scripts" / "installer-default-version.sh")
+    proc = _run_script(
+        fixture,
+        "v9.9.9",
+        env_extra={
+            "TJ_RELEASE_CI_JSON": '[{"status": "completed", "conclusion": "success"}]'
+        },
+    )
+    assert proc.returncode == 1, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    assert "install.sh default TERMINAL_JAIL_VERSION is 9.9.8" in proc.stderr
+    assert "expected 9.9.9" in proc.stderr
+    assert "wrong assets" in proc.stderr
 
 
 def test_check_script_rejects_plugin_version_mismatch(tmp_path) -> None:

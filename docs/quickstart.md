@@ -85,7 +85,15 @@ Note: the default above is a pin baked into `install.sh`
 (`TERMINAL_JAIL_VERSION:-1.3.4`), not a live "latest release" lookup — it can
 trail the newest published Release. Check `gh release list -L 4` (or the GitHub
 Releases page) for the current tip, and override with `TERMINAL_JAIL_VERSION`
-as shown when you need a specific one.
+as shown when you need a specific one. A **tag checkout's** installer is the
+case that bites: its baked-in pin is whatever that tag's version-prep carried,
+and a tag can ship one release behind its own number (v1.3.4's installer still
+defaulted to 1.3.3 — RELEASE-TJ-030). When installing from a tag checkout,
+always pin explicitly in the same command:
+
+```bash
+TERMINAL_JAIL_USE_RELEASE=1 TERMINAL_JAIL_VERSION=1.3.4 ./install.sh
+```
 
 Set `TERMINAL_JAIL_BASE_URL` to a compatible release directory for a mirror or
 local fixture. The checkout path above remains supported; PyPI is not a
