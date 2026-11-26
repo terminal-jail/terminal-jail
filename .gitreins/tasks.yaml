@@ -3068,3 +3068,13 @@ tasks:
     no new failures vs control'
   status: in_progress
   created_at: '2026-11-25T12:35:05.248431+00:00'
+- id: TJ-DF-077
+  title: Prevent pinned loader from hiding uncovered payload Python
+  criteria:
+  - 'FAILIF: standalone/terminal-jail permits a pinned coverable loader while the
+    payload Python is uncovered and crashes without a named refusal. PROOF: regression
+    tests exercise pin-set uncovered payload, coverable and pin-less controls and
+    the wrapper names the unavailable interpreter. FAILIF: plugin/terminal_jail/_bundled/terminal-jail
+    differs from standalone/terminal-jail. PROOF: packaging byte identity test passes.'
+  status: in_progress
+  created_at: '2026-11-26T02:53:09.623900+00:00'
