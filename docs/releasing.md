@@ -29,13 +29,22 @@ published body, which is not otherwise committed in-repo for that release.
 
 1. **Version-prep commit.** Land a single commit that changes exactly the
    `version = "X.Y.Z"` line in `pyproject.toml`, the matching `version:` in
-   `plugin/plugin.yaml`, and its matching CHANGELOG section. Run
-   `scripts/release-cut-check.sh vX.Y.Z` to validate that all three version
+   `plugin/plugin.yaml`, its matching CHANGELOG section, **and** bump the
+   installer's release pin in `install.sh`
+   (`TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-X.Y.Z}"` and the matching
+   `default: X.Y.Z` line in its `--help` text). The pin must ride the
+   version-prep commit — not a later one — because the tag's tree is what a
+   tag checkout's release-mode installer runs: a pin left behind makes that
+   installer download the PREVIOUS release's assets (v1.3.4 shipped pinned to
+   1.3.3, RELEASE-TJ-030). Run
+   `scripts/release-cut-check.sh vX.Y.Z` to validate that all four version
    surfaces agree; the checker validates content consistency, not commit
    atomicity. The one-commit rule remains the operator/CI contract. The
    workflow never bumps versions; if you push a tag whose version does not
    match `pyproject.toml`, the workflow fails loudly at its `Verify pyproject
-   version matches the tag` step. `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
+   version matches the tag` step, and a tag whose `install.sh` pin does not
+   match fails at `Verify the installer release pin matches the tag`.
+   `tests/test_version.py::test_plugin_manifest_version_matches_pyproject`
    pins the manifest to `pyproject.toml`, so bumping only `pyproject.toml`
    turns the CI matrix red before the tag.
 
@@ -58,8 +67,9 @@ published body, which is not otherwise committed in-repo for that release.
 
    It verifies, naming any failure: the tag is well-formed (`vX.Y.Z`) and
    does not already exist, the working tree is clean, `pyproject.toml`'s
-   version equals the tag, and CI is green on HEAD. Exit 0 = safe to cut;
-   exit 1 = fix the named failures; exit 2 = usage/argument error.
+   version equals the tag, `install.sh`'s default `TERMINAL_JAIL_VERSION`
+   equals the tag (RELEASE-TJ-030), and CI is green on HEAD. Exit 0 = safe
+   to cut; exit 1 = fix the named failures; exit 2 = usage/argument error.
 
 4. **Tag.** Create an **annotated** tag and push it. The push is what
    triggers the workflow — this is the point of no return:
@@ -130,14 +140,20 @@ published body, which is not otherwise committed in-repo for that release.
    prep commit whose matrix went red is not a receipt; say so explicitly if
    it has to be mentioned at all.
 
-8. **Bump the installer's release pin.** `install.sh` decides which tag's
+8. **Bump the installer's release pin — done in step 1; verify it here.**
+   `install.sh` decides which tag's
    assets a release-mode install downloads (`TERMINAL_JAIL_VERSION`), and that
    pin is a **wheel selector, not a version label**: it must name the tag you
-   just published. Set its default to `X.Y.Z` in both places it appears — the
+   just published. The bump itself now rides the version-prep commit (step 1)
+   so the TAG's own tree carries it — a tag whose pin lags serves the previous
+   release's assets to every tag-checkout installer (RELEASE-TJ-030; the
+   pre-cut gate and the `Verify the installer release pin matches the tag`
+   workflow step both refuse such a tag). After publishing, verify the pin on
+   the tagged tree and update the surfaces that NAME the release: the
    `TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-X.Y.Z}"` assignment and the
-   `--help` text (`default: X.Y.Z`) — and update the release-mode paragraph and
-   `# default: X.Y.Z` line in `docs/quickstart.md` plus the matching sentence
-   in `README.md`. Re-capture the release fixture
+   `--help` text (`default: X.Y.Z`) in `install.sh`, the release-mode paragraph
+   and `# default: X.Y.Z` line in `docs/quickstart.md`, and the matching
+   sentence in `README.md`. Re-capture the release fixture
    (`plugin/fixtures/github-release-vX.Y.Z.json`) from the published Release and
    commit it together with the pin, then prove the three asset names resolve
    for that tag:
@@ -155,12 +171,18 @@ published body, which is not otherwise committed in-repo for that release.
    `test_release_assets_and_default_match_live_github_release` fails against the
    live Release when the pin lags.
 
-   **Failure mode if skipped:** nothing goes red. The asset URLs of the previous
-   tag still resolve, so the documented install (`TERMINAL_JAIL_USE_RELEASE=1
-   ./install.sh`) and the `--help` text keep naming the superseded release —
-   every operator following the docs gets the old build with no error. v1.3.4
-   shipped with exactly this gap (the installer still served v1.3.3 assets,
-   RELEASE-TJ-026), which is why this step exists.
+   **Failure mode if skipped:** before RELEASE-TJ-030 nothing went red — the
+   asset URLs of the previous tag still resolved, so the documented install
+   (`TERMINAL_JAIL_USE_RELEASE=1 ./install.sh`) and the `--help` text kept
+   naming the superseded release, and every operator following the docs got
+   the old build with no error. v1.3.4 shipped with exactly that gap (the
+   installer still served v1.3.3 assets, RELEASE-TJ-026). Since RELEASE-TJ-030
+   a lagging pin is refused twice: `scripts/release-cut-check.sh` fails the
+   pre-cut check, and the Release workflow fails at
+   `Verify the installer release pin matches the tag` before building anything.
+   The surface those gates cannot see is doc drift (a `--help`/docs default
+   naming the superseded release while the pin itself is correct); that is
+   caught by `plugin/test_install.py::test_help_default_release_version_matches_the_pin`.
 
 ## Dependency-CVE coverage (pip-audit in CI)
 

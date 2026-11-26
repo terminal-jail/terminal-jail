@@ -57,7 +57,14 @@ defaults to `TERMINAL_JAIL_VERSION=1.3.4`, so a fresh run installs 1.3.4 — re-
 after any re-install instead of assuming the version above still holds.
 
 If you ever deliberately re-install the shim, install it **from tag v1.3.3** and record the per-file
-sha256 — never from a working tree that may be mid-edit.
+sha256 — never from a working tree that may be mid-edit. A tag checkout's installer defaults to the
+pin baked into THAT tree, which lags the tag itself (v1.3.3's `install.sh` still defaults to 1.3.1 —
+RELEASE-TJ-030), so pin the version explicitly in the same command:
+
+```bash
+git checkout --detach v1.3.3
+TERMINAL_JAIL_VERSION=1.3.3 TERMINAL_JAIL_USE_RELEASE=1 bash install.sh
+```
 
 ---
 
@@ -98,7 +105,9 @@ with `-c`.
 ### Step 3 — Verify the shim works
 
 > The `/usr/local/bin/terminal-jail-sh` paths below assume the **retired** legacy install. If you did
-> not reinstall the shim from tag v1.3.3 (see the retirement note), run the repo copy instead:
+> not reinstall the shim from tag v1.3.3 (see the retirement note — pin it explicitly:
+> `TERMINAL_JAIL_VERSION=1.3.3 TERMINAL_JAIL_USE_RELEASE=1 bash install.sh`, since that tag's
+> installer default lags), run the repo copy instead:
 > `standalone/terminal-jail-sh -c "..."` from the checkout — that is the same file, at the current tag.
 
 ```bash
@@ -178,7 +187,9 @@ sudo cp /home/kara/terminal-jail/systemd/90-terminal-jail-hardening.conf \
 
 > **Blocked by the retirement (2026-11-13).** `SHELL=/usr/local/bin/terminal-jail-sh` points at the
 > retired path, which is stale (1.0.0) and will not be reinstalled by default. Do not run this step
-> until the shim has been reinstalled **from tag v1.3.3** at a stable path and Steps 1–3 pass against
+> until the shim has been reinstalled **from tag v1.3.3** at a stable path (pin it explicitly:
+> `TERMINAL_JAIL_VERSION=1.3.3 TERMINAL_JAIL_USE_RELEASE=1 bash install.sh` — that tag's installer
+> default lags) and Steps 1–3 pass against
 > it. Measured state: `/etc/systemd/system/hermes-gateway.service.d/` has no
 > `95-terminal-jail-shell.conf`, `systemctl show hermes-gateway -p Environment` is empty, and
 > `hermes-gateway.service` reports `ActiveState=inactive`, `MainPID=0` — this host runs the gateway

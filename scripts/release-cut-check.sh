@@ -7,7 +7,8 @@
 #   1. the tag argument is well-formed (vX.Y.Z) and does not already exist,
 #   2. the working tree is clean (nothing staged, nothing modified),
 #   3. all version-prep surfaces equal the tag (pyproject.toml,
-#      plugin/plugin.yaml, and the matching CHANGELOG.md section),
+#      plugin/plugin.yaml, install.sh's release pin, and the matching
+#      CHANGELOG.md section),
 #   4. CI is green on HEAD (gh run list for the HEAD sha).
 #
 # Every failure is named and the script exits non-zero. It NEVER creates the
@@ -141,6 +142,31 @@ else
     fail "CHANGELOG.md has no matching [${WANT}] section — add it in the version-prep commit"
   else
     echo "OK: CHANGELOG.md has matching [${WANT}] section"
+  fi
+fi
+
+# --- 3d. installer release pin == tag (RELEASE-TJ-030) ---------------------
+# A tag checkout's release-mode installer is THAT TAG's install.sh, and its
+# default TERMINAL_JAIL_VERSION selects which release's assets it downloads.
+# If the default lags the tag, every operator who runs the tag's installer
+# gets the PREVIOUS release's assets with no error (v1.3.4 shipped pinned to
+# 1.3.3). The pin is bumped in the version-prep commit (docs/releasing.md
+# step 1), so the tree about to be tagged must already carry the tag's
+# version here — enforced for the PROSPECTIVE tag, not a hard-coded one.
+INSTALLER="${ROOT}/install.sh"
+HELPER="${ROOT}/scripts/installer-default-version.sh"
+if [ ! -f "${INSTALLER}" ]; then
+  fail "install.sh not found at repo root"
+elif [ ! -f "${HELPER}" ]; then
+  fail "scripts/installer-default-version.sh not found — the installer-pin check cannot run (refusing to guess)"
+else
+  INSTALLER_DEFAULT="$(sh "${HELPER}" "${INSTALLER}")" && [ -n "${INSTALLER_DEFAULT}" ] || INSTALLER_DEFAULT=""
+  if [ -z "${INSTALLER_DEFAULT}" ]; then
+    fail "could not read install.sh's default TERMINAL_JAIL_VERSION (scripts/installer-default-version.sh refused — see its reason above)"
+  elif [ "${INSTALLER_DEFAULT}" != "${WANT}" ]; then
+    fail "install.sh default TERMINAL_JAIL_VERSION is ${INSTALLER_DEFAULT} but tag is ${TAG} (expected ${WANT}) — a tag checkout's release-mode installer would download the wrong assets; bump the pin in the version-prep commit (docs/releasing.md step 1)"
+  else
+    echo "OK: install.sh default TERMINAL_JAIL_VERSION ${INSTALLER_DEFAULT} == tag ${TAG}"
   fi
 fi
 

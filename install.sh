@@ -10,9 +10,13 @@ set -eu
 TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
 # The newest published asset release (v1.3.4). This is a WHEEL SELECTOR, not a
 # version label: it must equal the newest tag carrying downloadable assets, and
-# the release cut bumps it (docs/releasing.md, step 8). Intentionally
-# independent of pyproject.toml: checkout installs read that file, release
-# installs need a tag with assets. A leading `v` is accepted for overrides.
+# the version-prep commit bumps it (docs/releasing.md, step 1) so the TAG's own
+# tree carries the tag's version — the release-cut gate and the Release
+# workflow both refuse a tag whose pin lags (RELEASE-TJ-030: v1.3.4 shipped
+# pinned to 1.3.3). Kept equal to pyproject.toml's version at every
+# version-prep commit and tag, though at RUNTIME the two stay independent:
+# checkout installs read pyproject.toml, release installs need a tag with
+# assets. A leading `v` is accepted for overrides.
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.3.4}"
 TERMINAL_JAIL_RELEASE_VERSION="${TERMINAL_JAIL_VERSION#v}"
 TERMINAL_JAIL_RELEASE_TAG="v${TERMINAL_JAIL_RELEASE_VERSION}"
